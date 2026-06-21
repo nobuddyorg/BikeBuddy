@@ -8,6 +8,9 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours, visualize
 ![ESLint](https://img.shields.io/badge/ESLint-8-4B32C3?logo=eslint)
 ![Prettier](https://img.shields.io/badge/Prettier-3-F7B93E?logo=prettier)
 ![Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest)
+![OpenGrep](https://img.shields.io/badge/SAST-OpenGrep-4A90D9)
+![zizmor](https://img.shields.io/badge/GH%20Actions-zizmor-blueviolet)
+![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)
 
 ## Stack
 

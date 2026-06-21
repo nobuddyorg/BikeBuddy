@@ -1,0 +1,71 @@
+repos:
+  # Standard file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-json
+      - id: check-toml
+      - id: check-xml
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+      - id: no-commit-to-branch
+        args: ["--branch", "main"]
+
+  # Spell checking
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.47.0
+    hooks:
+      - id: typos
+
+  # zizmor: detects security vulnerabilities in GitHub Actions workflows
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.25.2
+    hooks:
+      - id: zizmor
+        args: ["--fix"]
+
+  # ESLint (functions/)
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: bash -c 'cd functions && npm run lint'
+        language: system
+        pass_filenames: false
+        files: ^functions/src/
+        stages: [pre-commit]
+
+  # Prettier check (functions/) — auto-fix with: npm run format
+  - repo: local
+    hooks:
+      - id: prettier
+        name: Prettier
+        entry: bash -c "cd functions && npx prettier --check 'src/**/*.js'"
+        language: system
+        pass_filenames: false
+        files: ^functions/src/
+        stages: [pre-commit]
+
+  # OpenGrep SAST — runs separately in CI; local install auto-bootstrapped
+  - repo: local
+    hooks:
+      - id: opengrep-check
+        name: OpenGrep
+        entry: >-
+          bash -lc '
+          if ! command -v opengrep &>/dev/null &&
+             [ ! -f "$HOME/.opengrep/cli/latest/opengrep" ]; then
+            curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh \
+              -o /tmp/opengrep-install.sh && bash /tmp/opengrep-install.sh; fi &&
+          ${HOME}/.opengrep/cli/latest/opengrep \
+            --config p/security-audit --error --autofix'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
