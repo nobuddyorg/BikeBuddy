@@ -198,10 +198,8 @@ function renderHeatmap(points, padding) {
   if (points.length === 0) return;
 
   state.heatLayer = L.heatLayer(points, HEAT_OPTIONS).addTo(map);
-  map.fitBounds(
-    L.latLngBounds(points.map(([lat, lng]) => [lat, lng])),
-    { padding: [padding, padding] },
-  );
+  // latLngBounds reads [lat, lng] from each [lat, lng, intensity] point and ignores the rest.
+  map.fitBounds(L.latLngBounds(points), { padding: [padding, padding] });
 }
 
 function renderAllHeatmap() {
