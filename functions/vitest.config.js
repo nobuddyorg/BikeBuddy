@@ -5,5 +5,13 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'forks',
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: 'coverage',
+      // cobertura → CodeCoverageSummary (PR comment); lcov → Codecov; text → CI log
+      reporter: ['text', 'cobertura', 'lcov'],
+      include: ['src/**/*.js'],
+      exclude: ['src/**/*.test.js'],
+    },
   },
 });
