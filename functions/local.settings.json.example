@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "COSMOS_CONNECTION_STRING": "<your-cosmos-db-connection-string>",
+    "BLOB_CONNECTION_STRING": "UseDevelopmentStorage=true",
+    "B2C_TENANT": "<your-tenant>.onmicrosoft.com",
+    "B2C_CLIENT_ID": "<your-b2c-app-client-id>",
+    "B2C_POLICY": "B2C_1_signupsignin"
+  }
+}
