@@ -10,8 +10,8 @@
     "dev": "concurrently \"azurite --silent --location .azurite\" \"func start\"",
     "start": "func start",
     "test": "jest --runInBand",
-    "lint": "eslint src/",
-    "format": "prettier --write src/"
+    "lint": "eslint src/ --no-error-on-unmatched-pattern",
+    "format": "prettier --write 'src/**/*.js'"
   },
   "dependencies": {
     "@azure/cosmos": "^4.1.1",
