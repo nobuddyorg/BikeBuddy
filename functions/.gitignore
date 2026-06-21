@@ -2,3 +2,5 @@ node_modules/
 local.settings.json
 .azurite/
 dist/
+coverage/
+reports/

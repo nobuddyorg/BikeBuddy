@@ -11,6 +11,8 @@
     "start": "func start",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile.junit=reports/test-results.xml",
     "lint": "eslint src/ --no-error-on-unmatched-pattern",
     "format": "prettier --write 'src/**/*.js'"
   },
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^3.2.6",
     "azurite": "^3.32.0",
     "concurrently": "^9.1.2",
     "eslint": "^10.5.0",
