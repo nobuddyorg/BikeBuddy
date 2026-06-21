@@ -194,10 +194,6 @@ html, body {
   height: 100%;
 }
 
-/* Make Leaflet dark */
-.leaflet-container {
-  background: #111827;
-}
 
 .map-empty-overlay {
   position: absolute;
