@@ -7,7 +7,7 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours, visualize
 ![Azure Static Web Apps](https://img.shields.io/badge/Azure%20Static%20Web%20Apps-free%20tier-blue?logo=microsoft-azure)
 ![ESLint](https://img.shields.io/badge/ESLint-8-4B32C3?logo=eslint)
 ![Prettier](https://img.shields.io/badge/Prettier-3-F7B93E?logo=prettier)
-![Jest](https://img.shields.io/badge/tested%20with-Jest-C21325?logo=jest)
+![Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest)
 
 ## Stack
 
