@@ -12,6 +12,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # CODECOV_TOKEN is stored as an environment secret on the "ci" environment
+    environment: ci
+
     permissions:
       contents: read
       pull-requests: write # post coverage comment
