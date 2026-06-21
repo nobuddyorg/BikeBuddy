@@ -133,6 +133,25 @@ function generateDemoPoints(centerLat, centerLng, count) {
 
 // ── Sidebar rendering ─────────────────────────────────────────────────────────
 
+// Build a tour list item with textContent so tour names (user-supplied) can never
+// inject markup — no manual HTML escaping needed.
+function createTourItem(tour) {
+  const li = document.createElement('li');
+  li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
+
+  const name = document.createElement('div');
+  name.className = 'tour-item-name';
+  name.textContent = tour.name;
+
+  const meta = document.createElement('div');
+  meta.className = 'tour-item-meta';
+  meta.textContent = `${formatDate(tour.date)} · ${tour.distance} km`;
+
+  li.append(name, meta);
+  li.addEventListener('click', () => selectTour(tour.id));
+  return li;
+}
+
 function renderSidebar() {
   elTourList.innerHTML = '';
 
@@ -157,16 +176,7 @@ function renderSidebar() {
   elTourList.classList.remove('hidden');
   elTourCount.textContent = state.tours.length;
 
-  state.tours.forEach(tour => {
-    const li = document.createElement('li');
-    li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
-    li.innerHTML = `
-      <div class="tour-item-name">${escapeHtml(tour.name)}</div>
-      <div class="tour-item-meta">${formatDate(tour.date)} &middot; ${tour.distance} km</div>
-    `;
-    li.addEventListener('click', () => selectTour(tour.id));
-    elTourList.appendChild(li);
-  });
+  state.tours.forEach(tour => elTourList.appendChild(createTourItem(tour)));
 
   // Show All button at bottom of list
   const showAll = document.createElement('button');
@@ -251,8 +261,9 @@ elBtnCloseDetail.addEventListener('click', () => {
   state.selectedTourId = null;
   renderSidebar();
 });
-elBtnUpload.addEventListener('click', () => alert('GPX upload coming soon!'));
-elBtnUploadSidebar.addEventListener('click', () => alert('GPX upload coming soon!'));
+const notifyUploadComingSoon = () => alert('GPX upload coming soon!');
+elBtnUpload.addEventListener('click', notifyUploadComingSoon);
+elBtnUploadSidebar.addEventListener('click', notifyUploadComingSoon);
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -261,8 +272,4 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric',
   });
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

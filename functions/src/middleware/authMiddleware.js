@@ -6,6 +6,8 @@ const jwksRsa = require('jwks-rsa');
 
 const verifyJwt = promisify(jwt.verify);
 
+const BEARER_PREFIX = 'Bearer ';
+
 // B2C_TENANT is the full onmicrosoft.com domain, e.g. "mytenant.onmicrosoft.com";
 // the login host uses only the leading tenant name.
 function b2cBaseUrl() {
@@ -43,19 +45,26 @@ async function verifyToken(token, jwksClientFactory = defaultJwksClient) {
   });
 }
 
-// Returns true and attaches context.userId/userEmail, or sets context.res 401 and returns false.
-// jwksClientFactory is injectable for testing; defaults to real B2C client.
+// B2C may deliver the address as an `emails` array (sign-up/sign-in policies) or a
+// single `email` claim; normalise to one value or null.
+function resolveEmail(payload) {
+  return payload.emails?.[0] || payload.email || null;
+}
+
+// Returns true and attaches context.userId/userEmail, or sets context.res 401 and
+// returns false. jwksClientFactory is injectable for testing; defaults to real B2C client.
 async function authMiddleware(context, req, jwksClientFactory = defaultJwksClient) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader || !authHeader.startsWith(BEARER_PREFIX)) {
     context.res = { status: 401, body: { error: 'Authorization header missing or malformed' } };
     return false;
   }
 
   try {
-    const payload = await verifyToken(authHeader.slice(7), jwksClientFactory);
+    const token = authHeader.slice(BEARER_PREFIX.length);
+    const payload = await verifyToken(token, jwksClientFactory);
     context.userId = payload.sub;
-    context.userEmail = (payload.emails && payload.emails[0]) || payload.email || null;
+    context.userEmail = resolveEmail(payload);
     return true;
   } catch {
     context.res = { status: 401, body: { error: 'Invalid or expired token' } };
@@ -63,4 +72,4 @@ async function authMiddleware(context, req, jwksClientFactory = defaultJwksClien
   }
 }
 
-module.exports = { authMiddleware, verifyToken };
+module.exports = { authMiddleware, verifyToken, b2cBaseUrl, defaultJwksClient };
