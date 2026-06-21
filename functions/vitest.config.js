@@ -7,7 +7,6 @@ export default defineConfig({
     pool: 'forks',
     coverage: {
       provider: 'v8',
-      reportsDirectory: 'coverage',
       // cobertura → CodeCoverageSummary (PR comment); lcov → Codecov; text → CI log
       reporter: ['text', 'cobertura', 'lcov'],
       include: ['src/**/*.js'],

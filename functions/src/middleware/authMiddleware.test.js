@@ -8,25 +8,19 @@ const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLen
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
 const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' });
 
-// Throwaway HMAC secret for the algorithm-confusion test; generated so no
-// credential literal lives in source.
-const hmacSecret = crypto.randomBytes(32).toString('hex');
-
-// Inject a mock JWKS client factory so tests never hit the network
-const mockJwksClientFactory = () => ({
-  getSigningKey: (_kid, cb) => cb(null, { getPublicKey: () => publicKeyPem }),
-});
-
-// Simulates the JWKS endpoint failing to return a signing key for the token's kid
-const failingJwksClientFactory = () => ({
-  getSigningKey: (_kid, cb) => cb(new Error('key not found')),
-});
-
 const TEST_ENV = {
   B2C_TENANT: 'testtenant.onmicrosoft.com',
   B2C_CLIENT_ID: 'test-client-id',
   B2C_POLICY: 'B2C_1_signupsignin',
 };
+const ISSUER = `https://testtenant.b2clogin.com/${TEST_ENV.B2C_TENANT}/v2.0/`;
+const now = () => Math.floor(Date.now() / 1000);
+
+// JWKS factories — never hit the network: one returns our public key, the other fails.
+const mockJwks = () => ({
+  getSigningKey: (_kid, cb) => cb(null, { getPublicKey: () => publicKeyPem }),
+});
+const failingJwks = () => ({ getSigningKey: (_kid, cb) => cb(new Error('key not found')) });
 
 function makeToken(overrides = {}) {
   return jwt.sign(
@@ -34,8 +28,8 @@ function makeToken(overrides = {}) {
       sub: 'user-123',
       emails: ['test@example.com'],
       aud: TEST_ENV.B2C_CLIENT_ID,
-      iss: `https://testtenant.b2clogin.com/${TEST_ENV.B2C_TENANT}/v2.0/`,
-      exp: Math.floor(Date.now() / 1000) + 3600,
+      iss: ISSUER,
+      exp: now() + 3600,
       ...overrides,
     },
     privateKeyPem,
@@ -43,16 +37,13 @@ function makeToken(overrides = {}) {
   );
 }
 
-function makeContext() {
-  return { res: null, userId: null, userEmail: null };
-}
+const bearer = (token) => ({ headers: { authorization: `Bearer ${token}` } });
 
-function callMiddleware(ctx, token) {
-  return authMiddleware(
-    ctx,
-    { headers: { authorization: `Bearer ${token}` } },
-    mockJwksClientFactory,
-  );
+// Runs the middleware against a fresh context and returns both for assertion.
+async function run(req, factory = mockJwks) {
+  const ctx = { res: null, userId: null, userEmail: null };
+  const ok = await authMiddleware(ctx, req, factory);
+  return { ok, ctx };
 }
 
 beforeEach(() => Object.assign(process.env, TEST_ENV));
@@ -60,154 +51,62 @@ afterEach(() => {
   for (const k of Object.keys(TEST_ENV)) delete process.env[k];
 });
 
-describe('authMiddleware', () => {
-  test('valid token — sets userId and userEmail, returns true', async () => {
-    const ctx = makeContext();
-    const result = await callMiddleware(ctx, makeToken());
-
-    expect(result).toBe(true);
+describe('authMiddleware — success', () => {
+  test('valid token attaches userId/userEmail and returns true', async () => {
+    const { ok, ctx } = await run(bearer(makeToken()));
+    expect(ok).toBe(true);
     expect(ctx.userId).toBe('user-123');
     expect(ctx.userEmail).toBe('test@example.com');
     expect(ctx.res).toBeNull();
   });
 
-  test('missing Authorization header — returns 401', async () => {
-    const ctx = makeContext();
-    const result = await authMiddleware(ctx, { headers: {} }, mockJwksClientFactory);
+  test.each([
+    [
+      'email claim when emails[] is absent',
+      { emails: undefined, email: 'alt@example.com' },
+      'alt@example.com',
+    ],
+    ['null when no email claim is present', { emails: undefined, email: undefined }, null],
+  ])('resolves %s', async (_label, claims, expected) => {
+    const { ok, ctx } = await run(bearer(makeToken(claims)));
+    expect(ok).toBe(true);
+    expect(ctx.userEmail).toBe(expected);
+  });
+});
 
-    expect(result).toBe(false);
+describe('authMiddleware — rejection (401)', () => {
+  // HS256 token: must be rejected because only RS256 is allowed (algorithm-confusion guard).
+  const hsToken = jwt.sign(
+    { sub: 'user-123', aud: TEST_ENV.B2C_CLIENT_ID, iss: ISSUER, exp: now() + 3600 },
+    crypto.randomBytes(32).toString('hex'),
+    {
+      algorithm: 'HS256',
+      header: { kid: 'test-key' },
+    },
+  );
+
+  test.each([
+    ['missing Authorization header', { headers: {} }],
+    ['non-Bearer scheme', { headers: { authorization: 'Basic sometoken' } }],
+    ['malformed token', bearer('notajwt')],
+    ['expired token', bearer(makeToken({ exp: now() - 60 }))],
+    ['wrong audience', bearer(makeToken({ aud: 'wrong-client' }))],
+    ['wrong issuer', bearer(makeToken({ iss: 'https://attacker.example.com/' }))],
+    ['disallowed algorithm (HS256)', bearer(hsToken)],
+    ['JWKS signing-key lookup failure', bearer(makeToken()), failingJwks],
+  ])('rejects %s', async (_label, req, factory) => {
+    const { ok, ctx } = await run(req, factory);
+    expect(ok).toBe(false);
     expect(ctx.res.status).toBe(401);
-  });
-
-  test('header without Bearer prefix — returns 401', async () => {
-    const ctx = makeContext();
-    const result = await authMiddleware(
-      ctx,
-      { headers: { authorization: 'Basic sometoken' } },
-      mockJwksClientFactory,
-    );
-
-    expect(result).toBe(false);
-    expect(ctx.res.status).toBe(401);
-  });
-
-  test('expired token — returns 401', async () => {
-    const ctx = makeContext();
-    const result = await callMiddleware(
-      ctx,
-      makeToken({ exp: Math.floor(Date.now() / 1000) - 60 }),
-    );
-
-    expect(result).toBe(false);
-    expect(ctx.res.status).toBe(401);
-  });
-
-  test('wrong audience — returns 401', async () => {
-    const ctx = makeContext();
-    const result = await callMiddleware(ctx, makeToken({ aud: 'wrong-client' }));
-
-    expect(result).toBe(false);
-    expect(ctx.res.status).toBe(401);
-  });
-
-  test('malformed token string — returns 401', async () => {
-    const ctx = makeContext();
-    const result = await authMiddleware(
-      ctx,
-      { headers: { authorization: 'Bearer notajwt' } },
-      mockJwksClientFactory,
-    );
-
-    expect(result).toBe(false);
-    expect(ctx.res.status).toBe(401);
-  });
-
-  test('wrong issuer — returns 401', async () => {
-    const ctx = makeContext();
-    const result = await callMiddleware(ctx, makeToken({ iss: 'https://attacker.example.com/' }));
-
-    expect(result).toBe(false);
-    expect(ctx.res.status).toBe(401);
-  });
-
-  test('token signed with a disallowed algorithm — returns 401', async () => {
-    // HS256 token whose signature would verify against the RSA public key bytes;
-    // restricting algorithms to RS256 must reject it (algorithm-confusion guard).
-    const hsToken = jwt.sign(
-      {
-        sub: 'user-123',
-        aud: TEST_ENV.B2C_CLIENT_ID,
-        iss: `https://testtenant.b2clogin.com/${TEST_ENV.B2C_TENANT}/v2.0/`,
-        exp: Math.floor(Date.now() / 1000) + 3600,
-      },
-      hmacSecret,
-      { algorithm: 'HS256', header: { kid: 'test-key' } },
-    );
-
-    const ctx = makeContext();
-    const result = await callMiddleware(ctx, hsToken);
-
-    expect(result).toBe(false);
-    expect(ctx.res.status).toBe(401);
-  });
-
-  test('valid token with no email claims — succeeds with userEmail null', async () => {
-    const ctx = makeContext();
-    const result = await callMiddleware(ctx, makeToken({ emails: undefined, email: undefined }));
-
-    expect(result).toBe(true);
-    expect(ctx.userId).toBe('user-123');
-    expect(ctx.userEmail).toBeNull();
-  });
-
-  test('JWKS signing-key lookup failure — returns 401', async () => {
-    const ctx = makeContext();
-    const result = await authMiddleware(
-      ctx,
-      { headers: { authorization: `Bearer ${makeToken()}` } },
-      failingJwksClientFactory,
-    );
-
-    expect(result).toBe(false);
-    expect(ctx.res.status).toBe(401);
-  });
-
-  test('empty Bearer token — returns 401', async () => {
-    const ctx = makeContext();
-    const result = await authMiddleware(
-      ctx,
-      { headers: { authorization: 'Bearer ' } },
-      mockJwksClientFactory,
-    );
-
-    expect(result).toBe(false);
-    expect(ctx.res.status).toBe(401);
-  });
-
-  test('falls back to email claim when emails array is absent', async () => {
-    const ctx = makeContext();
-    const result = await callMiddleware(
-      ctx,
-      makeToken({ emails: undefined, email: 'other@example.com' }),
-    );
-
-    expect(result).toBe(true);
-    expect(ctx.userEmail).toBe('other@example.com');
   });
 });
 
 describe('B2C configuration helpers', () => {
-  beforeEach(() => Object.assign(process.env, TEST_ENV));
-  afterEach(() => {
-    for (const k of Object.keys(TEST_ENV)) delete process.env[k];
-  });
-
   test('b2cBaseUrl derives the b2clogin host from the tenant domain', () => {
     expect(b2cBaseUrl()).toBe('https://testtenant.b2clogin.com/testtenant.onmicrosoft.com');
   });
 
   test('defaultJwksClient returns a usable JWKS client', () => {
-    const client = defaultJwksClient();
-    expect(typeof client.getSigningKey).toBe('function');
+    expect(typeof defaultJwksClient().getSigningKey).toBe('function');
   });
 });

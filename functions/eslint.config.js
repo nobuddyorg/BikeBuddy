@@ -9,15 +9,11 @@ module.exports = [
   pluginN.configs['flat/recommended'],
   {
     languageOptions: {
-      ecmaVersion: 2022,
       sourceType: 'commonjs',
       globals: globals.node,
     },
-    rules: {
-      'n/no-missing-require': 'error',
-      'n/no-unpublished-require': 'off',
-      'no-console': 'off',
-    },
+    // devDependencies (vitest, eslint) are required in config/test files
+    rules: { 'n/no-unpublished-require': 'off' },
   },
   {
     files: ['**/*.test.js'],
