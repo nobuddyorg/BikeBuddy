@@ -11,45 +11,44 @@ const state = {
 
 // ── Map setup ─────────────────────────────────────────────────────────────────
 
-const map = L.map('map', {
-  center: [48.5, 10.5],
-  zoom: 6,
-  zoomControl: true,
-});
+const map = L.map('map', { center: [48.5, 10.5], zoom: 6 });
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+  attribution:
+    '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   subdomains: 'abcd',
   maxZoom: 19,
 }).addTo(map);
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
+// ── DOM helpers + refs ──────────────────────────────────────────────────────────
 
-const elTourList     = document.getElementById('tour-list');
-const elTourCount    = document.getElementById('tour-count');
-const elNoTours      = document.getElementById('no-tours');
-const elAuthPrompt   = document.getElementById('auth-prompt');
-const elMapEmpty     = document.getElementById('map-empty');
-const elDetailPanel  = document.getElementById('detail-panel');
-const elDetailName   = document.getElementById('detail-name');
-const elDetailDate   = document.getElementById('detail-date');
-const elDetailDist   = document.getElementById('detail-distance');
-const elDetailDesc   = document.getElementById('detail-description');
-const elBtnLogin     = document.getElementById('btn-login');
-const elBtnLoginSidebar = document.getElementById('btn-login-sidebar');
-const elBtnLogout    = document.getElementById('btn-logout');
-const elBtnUpload    = document.getElementById('btn-upload');
-const elBtnUploadSidebar = document.getElementById('btn-upload-sidebar');
-const elBtnCloseDetail = document.getElementById('btn-close-detail');
-const elUserMenu     = document.getElementById('user-menu');
-const elUserName     = document.getElementById('user-name');
+const $ = (id) => document.getElementById(id);
+const show = (el, visible) => el.classList.toggle('hidden', !visible);
+
+const elTourList = $('tour-list');
+const elTourCount = $('tour-count');
+const elNoTours = $('no-tours');
+const elAuthPrompt = $('auth-prompt');
+const elMapEmpty = $('map-empty');
+const elDetailPanel = $('detail-panel');
+const elDetailName = $('detail-name');
+const elDetailDate = $('detail-date');
+const elDetailDist = $('detail-distance');
+const elDetailDesc = $('detail-description');
+const elBtnLogin = $('btn-login');
+const elBtnLoginSidebar = $('btn-login-sidebar');
+const elBtnLogout = $('btn-logout');
+const elBtnUpload = $('btn-upload');
+const elBtnUploadSidebar = $('btn-upload-sidebar');
+const elBtnCloseDetail = $('btn-close-detail');
+const elUserMenu = $('user-menu');
+const elUserName = $('user-name');
 
 // ── Auth (placeholder — will be replaced by MSAL + Azure AD B2C) ─────────────
 
 function signIn() {
   // TODO: replace with MSAL signInPopup() once B2C is configured
-  const mockUser = { name: 'Matthias', email: 'matthias@example.com', id: 'user-demo' };
-  onAuthSuccess(mockUser);
+  onAuthSuccess({ name: 'Matthias', email: 'matthias@example.com', id: 'user-demo' });
 }
 
 function signOut() {
@@ -68,16 +67,11 @@ function onAuthSuccess(user) {
 }
 
 function renderNavAuth() {
-  if (state.user) {
-    elBtnLogin.classList.add('hidden');
-    elUserMenu.classList.remove('hidden');
-    elUserName.textContent = state.user.name;
-    elBtnUpload.disabled = false;
-  } else {
-    elBtnLogin.classList.remove('hidden');
-    elUserMenu.classList.add('hidden');
-    elBtnUpload.disabled = true;
-  }
+  const signedIn = !!state.user;
+  show(elBtnLogin, !signedIn);
+  show(elUserMenu, signedIn);
+  elBtnUpload.disabled = !signedIn;
+  if (signedIn) elUserName.textContent = state.user.name;
 }
 
 // ── Tours (placeholder data — will call GET /api/tours) ──────────────────────
@@ -133,62 +127,50 @@ function generateDemoPoints(centerLat, centerLng, count) {
 
 // ── Sidebar rendering ─────────────────────────────────────────────────────────
 
-// Build a tour list item with textContent so tour names (user-supplied) can never
-// inject markup — no manual HTML escaping needed.
+// textContent (not innerHTML) so user-supplied tour names can never inject markup.
+function textDiv(className, text) {
+  const div = document.createElement('div');
+  div.className = className;
+  div.textContent = text;
+  return div;
+}
+
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
-
-  const name = document.createElement('div');
-  name.className = 'tour-item-name';
-  name.textContent = tour.name;
-
-  const meta = document.createElement('div');
-  meta.className = 'tour-item-meta';
-  meta.textContent = `${formatDate(tour.date)} · ${tour.distance} km`;
-
-  li.append(name, meta);
+  li.append(
+    textDiv('tour-item-name', tour.name),
+    textDiv('tour-item-meta', `${formatDate(tour.date)} · ${tour.distance} km`),
+  );
   li.addEventListener('click', () => selectTour(tour.id));
   return li;
 }
 
-function renderSidebar() {
-  elTourList.innerHTML = '';
-
-  if (!state.user) {
-    elAuthPrompt.classList.remove('hidden');
-    elTourList.classList.add('hidden');
-    elNoTours.classList.add('hidden');
-    elTourCount.textContent = '0';
-    return;
-  }
-
-  elAuthPrompt.classList.add('hidden');
-
-  if (state.tours.length === 0) {
-    elTourList.classList.add('hidden');
-    elNoTours.classList.remove('hidden');
-    elTourCount.textContent = '0';
-    return;
-  }
-
-  elNoTours.classList.add('hidden');
-  elTourList.classList.remove('hidden');
-  elTourCount.textContent = state.tours.length;
-
-  state.tours.forEach(tour => elTourList.appendChild(createTourItem(tour)));
-
-  // Show All button at bottom of list
-  const showAll = document.createElement('button');
-  showAll.className = 'show-all-btn';
-  showAll.textContent = 'Show All Tours';
-  showAll.addEventListener('click', () => {
-    state.selectedTourId = null;
-    renderSidebar();
+function createShowAllButton() {
+  const btn = document.createElement('button');
+  btn.className = 'show-all-btn';
+  btn.textContent = 'Show All Tours';
+  btn.addEventListener('click', () => {
+    deselectTour();
     renderAllHeatmap();
-    elDetailPanel.classList.add('hidden');
   });
-  elTourList.appendChild(showAll);
+  return btn;
+}
+
+function renderSidebar() {
+  const signedIn = !!state.user;
+  const hasTours = signedIn && state.tours.length > 0;
+
+  show(elAuthPrompt, !signedIn);
+  show(elNoTours, signedIn && !hasTours);
+  show(elTourList, hasTours);
+  elTourCount.textContent = signedIn ? state.tours.length : '0';
+
+  elTourList.innerHTML = '';
+  if (!hasTours) return;
+
+  state.tours.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
+  elTourList.appendChild(createShowAllButton());
 }
 
 // ── Heatmap rendering ─────────────────────────────────────────────────────────
@@ -209,38 +191,46 @@ function clearHeatmap() {
   }
 }
 
-// Replaces the current heat layer with one for the given points and fits the
-// view to them. Passing no points just clears the layer.
+// Replaces the current heat layer with one for the given points and fits the view
+// to them. Passing no points just clears the layer.
 function renderHeatmap(points, padding) {
   clearHeatmap();
   if (points.length === 0) return;
 
   state.heatLayer = L.heatLayer(points, HEAT_OPTIONS).addTo(map);
-  const latLngs = points.map(p => [p[0], p[1]]);
-  map.fitBounds(L.latLngBounds(latLngs), { padding: [padding, padding] });
+  map.fitBounds(
+    L.latLngBounds(points.map(([lat, lng]) => [lat, lng])),
+    { padding: [padding, padding] },
+  );
 }
 
 function renderAllHeatmap() {
-  const allPoints = state.tours.flatMap(t => t.heatmapData);
+  const allPoints = state.tours.flatMap((t) => t.heatmapData);
   renderHeatmap(allPoints, 40);
-  elMapEmpty.classList.toggle('hidden', allPoints.length > 0);
+  show(elMapEmpty, allPoints.length === 0);
 }
 
 function renderTourHeatmap(tour) {
-  elMapEmpty.classList.add('hidden');
+  show(elMapEmpty, false);
   renderHeatmap(tour.heatmapData, 60);
 }
 
 // ── Tour selection ────────────────────────────────────────────────────────────
 
 function selectTour(tourId) {
-  state.selectedTourId = tourId;
-  const tour = state.tours.find(t => t.id === tourId);
+  const tour = state.tours.find((t) => t.id === tourId);
   if (!tour) return;
 
+  state.selectedTourId = tourId;
   renderSidebar();
   renderTourHeatmap(tour);
   renderDetailPanel(tour);
+}
+
+function deselectTour() {
+  state.selectedTourId = null;
+  show(elDetailPanel, false);
+  renderSidebar();
 }
 
 function renderDetailPanel(tour) {
@@ -248,20 +238,17 @@ function renderDetailPanel(tour) {
   elDetailDate.textContent = formatDate(tour.date);
   elDetailDist.textContent = `${tour.distance} km`;
   elDetailDesc.textContent = tour.description || '';
-  elDetailPanel.classList.remove('hidden');
+  show(elDetailPanel, true);
 }
 
 // ── Event listeners ───────────────────────────────────────────────────────────
 
+const notifyUploadComingSoon = () => alert('GPX upload coming soon!');
+
 elBtnLogin.addEventListener('click', signIn);
 elBtnLoginSidebar.addEventListener('click', signIn);
 elBtnLogout.addEventListener('click', signOut);
-elBtnCloseDetail.addEventListener('click', () => {
-  elDetailPanel.classList.add('hidden');
-  state.selectedTourId = null;
-  renderSidebar();
-});
-const notifyUploadComingSoon = () => alert('GPX upload coming soon!');
+elBtnCloseDetail.addEventListener('click', deselectTour);
 elBtnUpload.addEventListener('click', notifyUploadComingSoon);
 elBtnUploadSidebar.addEventListener('click', notifyUploadComingSoon);
 
@@ -270,6 +257,8 @@ elBtnUploadSidebar.addEventListener('click', notifyUploadComingSoon);
 function formatDate(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   });
 }
