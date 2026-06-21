@@ -14,12 +14,18 @@ function b2cBaseUrl() {
   return `https://${tenant.split('.')[0]}.b2clogin.com/${tenant}`;
 }
 
+// Memoised so the configured cache/rateLimit persist across requests on a warm
+// instance; lazy so it reads env at call time and stays injectable for tests.
+let cachedJwksClient;
 function defaultJwksClient() {
-  return jwksRsa({
-    jwksUri: `${b2cBaseUrl()}/discovery/v2.0/keys?p=${process.env.B2C_POLICY}`,
-    cache: true,
-    rateLimit: true,
-  });
+  if (!cachedJwksClient) {
+    cachedJwksClient = jwksRsa({
+      jwksUri: `${b2cBaseUrl()}/discovery/v2.0/keys?p=${process.env.B2C_POLICY}`,
+      cache: true,
+      rateLimit: true,
+    });
+  }
+  return cachedJwksClient;
 }
 
 // B2C delivers the address as an `emails` array (sign-up/sign-in) or a single
@@ -41,7 +47,7 @@ async function authMiddleware(context, req, jwksClientFactory = defaultJwksClien
     if (!decoded) throw new Error('Malformed token');
 
     const client = jwksClientFactory();
-    const key = await promisify(client.getSigningKey.bind(client))(decoded.header.kid);
+    const key = await client.getSigningKey(decoded.header.kid);
     const payload = await verifyJwt(token, key.getPublicKey(), {
       audience: process.env.B2C_CLIENT_ID,
       issuer: `${b2cBaseUrl()}/v2.0/`,
