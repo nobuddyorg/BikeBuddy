@@ -39,11 +39,17 @@ function makeContext() {
 }
 
 function callMiddleware(ctx, token) {
-  return authMiddleware(ctx, { headers: { authorization: `Bearer ${token}` } }, mockJwksClientFactory);
+  return authMiddleware(
+    ctx,
+    { headers: { authorization: `Bearer ${token}` } },
+    mockJwksClientFactory,
+  );
 }
 
 beforeEach(() => Object.assign(process.env, TEST_ENV));
-afterEach(() => { for (const k of Object.keys(TEST_ENV)) delete process.env[k]; });
+afterEach(() => {
+  for (const k of Object.keys(TEST_ENV)) delete process.env[k];
+});
 
 describe('authMiddleware', () => {
   test('valid token — sets userId and userEmail, returns true', async () => {
@@ -66,7 +72,11 @@ describe('authMiddleware', () => {
 
   test('header without Bearer prefix — returns 401', async () => {
     const ctx = makeContext();
-    const result = await authMiddleware(ctx, { headers: { authorization: 'Basic sometoken' } }, mockJwksClientFactory);
+    const result = await authMiddleware(
+      ctx,
+      { headers: { authorization: 'Basic sometoken' } },
+      mockJwksClientFactory,
+    );
 
     expect(result).toBe(false);
     expect(ctx.res.status).toBe(401);
@@ -74,7 +84,10 @@ describe('authMiddleware', () => {
 
   test('expired token — returns 401', async () => {
     const ctx = makeContext();
-    const result = await callMiddleware(ctx, makeToken({ exp: Math.floor(Date.now() / 1000) - 60 }));
+    const result = await callMiddleware(
+      ctx,
+      makeToken({ exp: Math.floor(Date.now() / 1000) - 60 }),
+    );
 
     expect(result).toBe(false);
     expect(ctx.res.status).toBe(401);
@@ -90,7 +103,11 @@ describe('authMiddleware', () => {
 
   test('malformed token string — returns 401', async () => {
     const ctx = makeContext();
-    const result = await authMiddleware(ctx, { headers: { authorization: 'Bearer notajwt' } }, mockJwksClientFactory);
+    const result = await authMiddleware(
+      ctx,
+      { headers: { authorization: 'Bearer notajwt' } },
+      mockJwksClientFactory,
+    );
 
     expect(result).toBe(false);
     expect(ctx.res.status).toBe(401);
@@ -98,7 +115,10 @@ describe('authMiddleware', () => {
 
   test('falls back to email claim when emails array is absent', async () => {
     const ctx = makeContext();
-    const result = await callMiddleware(ctx, makeToken({ emails: undefined, email: 'other@example.com' }));
+    const result = await callMiddleware(
+      ctx,
+      makeToken({ emails: undefined, email: 'other@example.com' }),
+    );
 
     expect(result).toBe(true);
     expect(ctx.userEmail).toBe('other@example.com');
