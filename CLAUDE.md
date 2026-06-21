@@ -39,7 +39,7 @@ BikeBuddy is an Azure-hosted web app for motorcycle tour management. Users uploa
 cd functions
 npm ci
 npm run dev        # starts Azurite emulator + func start (via concurrently)
-npm test           # Jest unit tests
+npm test           # Vitest unit tests
 npm run lint       # ESLint
 npm run format     # Prettier
 
@@ -120,7 +120,7 @@ Start with epics in order: #2 → #9 → #13 → #21 → #31 → #26.
 
 ## Testing
 
-- Unit tests with Jest for: GPX parsing logic, auth middleware, input validation.
+- Unit tests with Vitest for: GPX parsing logic, auth middleware, input validation.
 - No mocking of Cosmos DB or Blob Storage in unit tests — use Azurite for local integration.
 - Test file: `<module>.test.js` next to the module.
 

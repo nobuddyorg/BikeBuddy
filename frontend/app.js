@@ -183,6 +183,15 @@ function renderSidebar() {
 
 // ── Heatmap rendering ─────────────────────────────────────────────────────────
 
+const HEAT_OPTIONS = {
+  radius: 18,
+  blur: 22,
+  minOpacity: 0.5,
+  max: 0.4,
+  maxZoom: 17,
+  gradient: { 0.0: '#3b82f6', 0.4: '#f97316', 0.7: '#ef4444', 1.0: '#fde047' },
+};
+
 function clearHeatmap() {
   if (state.heatLayer) {
     map.removeLayer(state.heatLayer);
@@ -190,49 +199,26 @@ function clearHeatmap() {
   }
 }
 
-function renderAllHeatmap() {
+// Replaces the current heat layer with one for the given points and fits the
+// view to them. Passing no points just clears the layer.
+function renderHeatmap(points, padding) {
   clearHeatmap();
+  if (points.length === 0) return;
 
-  if (state.tours.length === 0) {
-    elMapEmpty.classList.remove('hidden');
-    return;
-  }
+  state.heatLayer = L.heatLayer(points, HEAT_OPTIONS).addTo(map);
+  const latLngs = points.map(p => [p[0], p[1]]);
+  map.fitBounds(L.latLngBounds(latLngs), { padding: [padding, padding] });
+}
 
-  elMapEmpty.classList.add('hidden');
-
+function renderAllHeatmap() {
   const allPoints = state.tours.flatMap(t => t.heatmapData);
-  state.heatLayer = L.heatLayer(allPoints, {
-    radius: 18,
-    blur: 22,
-    minOpacity: 0.5,
-    max: 0.4,
-    maxZoom: 17,
-    gradient: { 0.0: '#3b82f6', 0.4: '#f97316', 0.7: '#ef4444', 1.0: '#fde047' },
-  }).addTo(map);
-
-  const latLngs = allPoints.map(p => [p[0], p[1]]);
-  if (latLngs.length > 0) {
-    map.fitBounds(L.latLngBounds(latLngs), { padding: [40, 40] });
-  }
+  renderHeatmap(allPoints, 40);
+  elMapEmpty.classList.toggle('hidden', allPoints.length > 0);
 }
 
 function renderTourHeatmap(tour) {
-  clearHeatmap();
   elMapEmpty.classList.add('hidden');
-
-  state.heatLayer = L.heatLayer(tour.heatmapData, {
-    radius: 18,
-    blur: 22,
-    minOpacity: 0.5,
-    max: 0.4,
-    maxZoom: 17,
-    gradient: { 0.0: '#3b82f6', 0.4: '#f97316', 0.7: '#ef4444', 1.0: '#fde047' },
-  }).addTo(map);
-
-  const latLngs = tour.heatmapData.map(p => [p[0], p[1]]);
-  if (latLngs.length > 0) {
-    map.fitBounds(L.latLngBounds(latLngs), { padding: [60, 60] });
-  }
+  renderHeatmap(tour.heatmapData, 60);
 }
 
 // ── Tour selection ────────────────────────────────────────────────────────────
