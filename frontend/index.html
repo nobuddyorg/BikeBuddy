@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BikeBuddy</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet.heat -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Top nav -->
+  <header class="navbar">
+    <div class="navbar-brand">
+      <span class="navbar-logo">🏍</span>
+      <span class="navbar-title">BikeBuddy</span>
+    </div>
+    <div class="navbar-actions">
+      <button id="btn-upload" class="btn btn-secondary" disabled title="Sign in to upload tours">Upload GPX</button>
+      <button id="btn-login" class="btn btn-primary">Sign In</button>
+      <div id="user-menu" class="user-menu hidden">
+        <span id="user-name"></span>
+        <button id="btn-logout" class="btn btn-ghost">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>My Tours</h2>
+        <span id="tour-count" class="badge">0</span>
+      </div>
+
+      <div id="auth-prompt" class="auth-prompt">
+        <p>Sign in to see your motorcycle tours.</p>
+        <button class="btn btn-primary btn-full" id="btn-login-sidebar">Sign In</button>
+      </div>
+
+      <ul id="tour-list" class="tour-list hidden"></ul>
+
+      <div id="no-tours" class="empty-state hidden">
+        <p>No tours yet.</p>
+        <button class="btn btn-primary btn-full" id="btn-upload-sidebar">Upload your first GPX</button>
+      </div>
+    </aside>
+
+    <!-- Map -->
+    <main class="map-container">
+      <div id="map"></div>
+      <div id="map-empty" class="map-empty-overlay hidden">
+        <div class="map-empty-card">
+          <div class="map-empty-icon">🗺️</div>
+          <h3>No tours to display</h3>
+          <p>Upload a GPX file to see your route as a heatmap.</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Tour detail panel (hidden until a tour is selected) -->
+    <aside id="detail-panel" class="detail-panel hidden">
+      <button id="btn-close-detail" class="detail-close" aria-label="Close">✕</button>
+      <h2 id="detail-name" class="detail-title"></h2>
+      <dl class="detail-meta">
+        <dt>Date</dt>
+        <dd id="detail-date">—</dd>
+        <dt>Distance</dt>
+        <dd id="detail-distance">—</dd>
+      </dl>
+      <p id="detail-description" class="detail-description"></p>
+    </aside>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

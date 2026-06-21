@@ -1,0 +1,277 @@
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+const state = {
+  user: null,
+  tours: [],
+  selectedTourId: null,
+  heatLayer: null,
+};
+
+// ── Map setup ─────────────────────────────────────────────────────────────────
+
+const map = L.map('map', {
+  center: [48.5, 10.5],
+  zoom: 6,
+  zoomControl: true,
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19,
+}).addTo(map);
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+
+const elTourList     = document.getElementById('tour-list');
+const elTourCount    = document.getElementById('tour-count');
+const elNoTours      = document.getElementById('no-tours');
+const elAuthPrompt   = document.getElementById('auth-prompt');
+const elMapEmpty     = document.getElementById('map-empty');
+const elDetailPanel  = document.getElementById('detail-panel');
+const elDetailName   = document.getElementById('detail-name');
+const elDetailDate   = document.getElementById('detail-date');
+const elDetailDist   = document.getElementById('detail-distance');
+const elDetailDesc   = document.getElementById('detail-description');
+const elBtnLogin     = document.getElementById('btn-login');
+const elBtnLoginSidebar = document.getElementById('btn-login-sidebar');
+const elBtnLogout    = document.getElementById('btn-logout');
+const elBtnUpload    = document.getElementById('btn-upload');
+const elBtnUploadSidebar = document.getElementById('btn-upload-sidebar');
+const elBtnCloseDetail = document.getElementById('btn-close-detail');
+const elUserMenu     = document.getElementById('user-menu');
+const elUserName     = document.getElementById('user-name');
+
+// ── Auth (placeholder — will be replaced by MSAL + Azure AD B2C) ─────────────
+
+function signIn() {
+  // TODO: replace with MSAL signInPopup() once B2C is configured
+  const mockUser = { name: 'Matthias', email: 'matthias@example.com', id: 'user-demo' };
+  onAuthSuccess(mockUser);
+}
+
+function signOut() {
+  state.user = null;
+  state.tours = [];
+  state.selectedTourId = null;
+  clearHeatmap();
+  renderSidebar();
+  renderNavAuth();
+}
+
+function onAuthSuccess(user) {
+  state.user = user;
+  renderNavAuth();
+  loadTours();
+}
+
+function renderNavAuth() {
+  if (state.user) {
+    elBtnLogin.classList.add('hidden');
+    elUserMenu.classList.remove('hidden');
+    elUserName.textContent = state.user.name;
+    elBtnUpload.disabled = false;
+  } else {
+    elBtnLogin.classList.remove('hidden');
+    elUserMenu.classList.add('hidden');
+    elBtnUpload.disabled = true;
+  }
+}
+
+// ── Tours (placeholder data — will call GET /api/tours) ──────────────────────
+
+function loadTours() {
+  // TODO: replace with fetch('/api/tours', { headers: authHeader() })
+  state.tours = getDemoTours();
+  renderSidebar();
+  renderAllHeatmap();
+}
+
+function getDemoTours() {
+  return [
+    {
+      id: 'tour-1',
+      name: 'Allgäu Loop',
+      date: '2026-05-12',
+      distance: 287,
+      description: 'A classic Allgäu loop via Oberstdorf and the Edelsberg.',
+      heatmapData: generateDemoPoints(47.7, 10.3, 180),
+    },
+    {
+      id: 'tour-2',
+      name: 'Black Forest Crossing',
+      date: '2026-04-28',
+      distance: 341,
+      description: 'North–south traverse of the Schwarzwald on the B500.',
+      heatmapData: generateDemoPoints(48.2, 8.2, 220),
+    },
+    {
+      id: 'tour-3',
+      name: 'Bavarian Alps',
+      date: '2026-06-01',
+      distance: 193,
+      description: 'Short but stunning: Garmisch → Zugspitze foothills → Walchensee.',
+      heatmapData: generateDemoPoints(47.5, 11.1, 120),
+    },
+  ];
+}
+
+// Generates random GPS points radiating from a center, simulating a route
+function generateDemoPoints(centerLat, centerLng, count) {
+  const points = [];
+  let lat = centerLat;
+  let lng = centerLng;
+  for (let i = 0; i < count; i++) {
+    lat += (Math.random() - 0.48) * 0.02;
+    lng += (Math.random() - 0.45) * 0.025;
+    points.push([lat, lng, 0.6 + Math.random() * 0.4]);
+  }
+  return points;
+}
+
+// ── Sidebar rendering ─────────────────────────────────────────────────────────
+
+function renderSidebar() {
+  elTourList.innerHTML = '';
+
+  if (!state.user) {
+    elAuthPrompt.classList.remove('hidden');
+    elTourList.classList.add('hidden');
+    elNoTours.classList.add('hidden');
+    elTourCount.textContent = '0';
+    return;
+  }
+
+  elAuthPrompt.classList.add('hidden');
+
+  if (state.tours.length === 0) {
+    elTourList.classList.add('hidden');
+    elNoTours.classList.remove('hidden');
+    elTourCount.textContent = '0';
+    return;
+  }
+
+  elNoTours.classList.add('hidden');
+  elTourList.classList.remove('hidden');
+  elTourCount.textContent = state.tours.length;
+
+  state.tours.forEach(tour => {
+    const li = document.createElement('li');
+    li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
+    li.innerHTML = `
+      <div class="tour-item-name">${escapeHtml(tour.name)}</div>
+      <div class="tour-item-meta">${formatDate(tour.date)} &middot; ${tour.distance} km</div>
+    `;
+    li.addEventListener('click', () => selectTour(tour.id));
+    elTourList.appendChild(li);
+  });
+
+  // Show All button at bottom of list
+  const showAll = document.createElement('button');
+  showAll.className = 'show-all-btn';
+  showAll.textContent = 'Show All Tours';
+  showAll.addEventListener('click', () => {
+    state.selectedTourId = null;
+    renderSidebar();
+    renderAllHeatmap();
+    elDetailPanel.classList.add('hidden');
+  });
+  elTourList.appendChild(showAll);
+}
+
+// ── Heatmap rendering ─────────────────────────────────────────────────────────
+
+function clearHeatmap() {
+  if (state.heatLayer) {
+    map.removeLayer(state.heatLayer);
+    state.heatLayer = null;
+  }
+}
+
+function renderAllHeatmap() {
+  clearHeatmap();
+
+  if (state.tours.length === 0) {
+    elMapEmpty.classList.remove('hidden');
+    return;
+  }
+
+  elMapEmpty.classList.add('hidden');
+
+  const allPoints = state.tours.flatMap(t => t.heatmapData);
+  state.heatLayer = L.heatLayer(allPoints, {
+    radius: 14,
+    blur: 18,
+    maxZoom: 17,
+    gradient: { 0.3: '#f97316', 0.6: '#fb923c', 1.0: '#fef3c7' },
+  }).addTo(map);
+
+  const latLngs = allPoints.map(p => [p[0], p[1]]);
+  if (latLngs.length > 0) {
+    map.fitBounds(L.latLngBounds(latLngs), { padding: [40, 40] });
+  }
+}
+
+function renderTourHeatmap(tour) {
+  clearHeatmap();
+  elMapEmpty.classList.add('hidden');
+
+  state.heatLayer = L.heatLayer(tour.heatmapData, {
+    radius: 14,
+    blur: 18,
+    maxZoom: 17,
+    gradient: { 0.3: '#f97316', 0.6: '#fb923c', 1.0: '#fef3c7' },
+  }).addTo(map);
+
+  const latLngs = tour.heatmapData.map(p => [p[0], p[1]]);
+  if (latLngs.length > 0) {
+    map.fitBounds(L.latLngBounds(latLngs), { padding: [60, 60] });
+  }
+}
+
+// ── Tour selection ────────────────────────────────────────────────────────────
+
+function selectTour(tourId) {
+  state.selectedTourId = tourId;
+  const tour = state.tours.find(t => t.id === tourId);
+  if (!tour) return;
+
+  renderSidebar();
+  renderTourHeatmap(tour);
+  renderDetailPanel(tour);
+}
+
+function renderDetailPanel(tour) {
+  elDetailName.textContent = tour.name;
+  elDetailDate.textContent = formatDate(tour.date);
+  elDetailDist.textContent = `${tour.distance} km`;
+  elDetailDesc.textContent = tour.description || '';
+  elDetailPanel.classList.remove('hidden');
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────────
+
+elBtnLogin.addEventListener('click', signIn);
+elBtnLoginSidebar.addEventListener('click', signIn);
+elBtnLogout.addEventListener('click', signOut);
+elBtnCloseDetail.addEventListener('click', () => {
+  elDetailPanel.classList.add('hidden');
+  state.selectedTourId = null;
+  renderSidebar();
+});
+elBtnUpload.addEventListener('click', () => alert('GPX upload coming soon!'));
+elBtnUploadSidebar.addEventListener('click', () => alert('GPX upload coming soon!'));
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
