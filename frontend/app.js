@@ -17,7 +17,7 @@ const map = L.map('map', {
   zoomControl: true,
 });
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   subdomains: 'abcd',
   maxZoom: 19,
@@ -202,10 +202,12 @@ function renderAllHeatmap() {
 
   const allPoints = state.tours.flatMap(t => t.heatmapData);
   state.heatLayer = L.heatLayer(allPoints, {
-    radius: 14,
-    blur: 18,
+    radius: 18,
+    blur: 22,
+    minOpacity: 0.5,
+    max: 0.4,
     maxZoom: 17,
-    gradient: { 0.3: '#f97316', 0.6: '#fb923c', 1.0: '#fef3c7' },
+    gradient: { 0.0: '#3b82f6', 0.4: '#f97316', 0.7: '#ef4444', 1.0: '#fde047' },
   }).addTo(map);
 
   const latLngs = allPoints.map(p => [p[0], p[1]]);
@@ -219,10 +221,12 @@ function renderTourHeatmap(tour) {
   elMapEmpty.classList.add('hidden');
 
   state.heatLayer = L.heatLayer(tour.heatmapData, {
-    radius: 14,
-    blur: 18,
+    radius: 18,
+    blur: 22,
+    minOpacity: 0.5,
+    max: 0.4,
     maxZoom: 17,
-    gradient: { 0.3: '#f97316', 0.6: '#fb923c', 1.0: '#fef3c7' },
+    gradient: { 0.0: '#3b82f6', 0.4: '#f97316', 0.7: '#ef4444', 1.0: '#fde047' },
   }).addTo(map);
 
   const latLngs = tour.heatmapData.map(p => [p[0], p[1]]);
