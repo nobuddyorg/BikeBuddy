@@ -17,10 +17,13 @@ const ISSUER = `https://testtenant.b2clogin.com/${TEST_ENV.B2C_TENANT}/v2.0/`;
 const now = () => Math.floor(Date.now() / 1000);
 
 // JWKS factories — never hit the network: one returns our public key, the other fails.
-const mockJwks = () => ({
-  getSigningKey: (_kid, cb) => cb(null, { getPublicKey: () => publicKeyPem }),
+// getSigningKey mirrors jwks-rsa's promise API (await client.getSigningKey(kid)).
+const mockJwks = () => ({ getSigningKey: async () => ({ getPublicKey: () => publicKeyPem }) });
+const failingJwks = () => ({
+  getSigningKey: async () => {
+    throw new Error('key not found');
+  },
 });
-const failingJwks = () => ({ getSigningKey: (_kid, cb) => cb(new Error('key not found')) });
 
 function makeToken(overrides = {}) {
   return jwt.sign(
