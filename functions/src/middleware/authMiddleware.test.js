@@ -124,6 +124,23 @@ describe('authMiddleware — rejection (401)', () => {
   });
 });
 
+describe('authMiddleware — SKIP_AUTH dev bypass', () => {
+  beforeEach(() => {
+    process.env.SKIP_AUTH = 'true';
+  });
+  afterEach(() => {
+    delete process.env.SKIP_AUTH;
+  });
+
+  test('returns true and sets hardcoded dev user without a token', async () => {
+    const { ok, ctx } = await run({ headers: {} });
+    expect(ok).toBe(true);
+    expect(ctx.userId).toBe('local-dev-user');
+    expect(ctx.userEmail).toBe('dev@localhost');
+    expect(ctx.userName).toBe('Local Dev');
+  });
+});
+
 describe('B2C configuration helpers', () => {
   test('b2cBaseUrl derives the b2clogin host from the tenant domain', () => {
     expect(b2cBaseUrl()).toBe('https://testtenant.b2clogin.com/testtenant.onmicrosoft.com');

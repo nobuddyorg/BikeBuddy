@@ -33,9 +33,20 @@ function defaultJwksClient() {
 const resolveEmail = (payload) => payload.emails?.[0] || payload.email || null;
 const resolveName = (payload) => payload.name || payload.given_name || null;
 
+// Dev-only bypass: set SKIP_AUTH=true in local.settings.json to skip JWT
+// verification and use a hardcoded local user. Never set this in production.
+function skipAuthIfDev(context) {
+  if (process.env.SKIP_AUTH !== 'true') return false;
+  context.userId = 'local-dev-user';
+  context.userEmail = 'dev@localhost';
+  context.userName = 'Local Dev';
+  return true;
+}
+
 // Returns true and sets context.userId/userEmail, or sets context.res 401 and
 // returns false. jwksClientFactory is injectable for testing.
 async function authMiddleware(context, req, jwksClientFactory = defaultJwksClient) {
+  if (skipAuthIfDev(context)) return true;
   const authHeader = req.headers.authorization || req.headers.Authorization;
   if (!authHeader?.startsWith(BEARER_PREFIX)) {
     context.res = { status: 401, body: { error: 'Authorization header missing or malformed' } };
