@@ -29,6 +29,7 @@ function makeToken(overrides = {}) {
   return jwt.sign(
     {
       sub: 'user-123',
+      name: 'Test User',
       emails: ['test@example.com'],
       aud: TEST_ENV.B2C_CLIENT_ID,
       iss: ISSUER,
@@ -55,25 +56,24 @@ afterEach(() => {
 });
 
 describe('authMiddleware — success', () => {
-  test('valid token attaches userId/userEmail and returns true', async () => {
+  test('valid token attaches userId/userEmail/userName and returns true', async () => {
     const { ok, ctx } = await run(bearer(makeToken()));
     expect(ok).toBe(true);
     expect(ctx.userId).toBe('user-123');
     expect(ctx.userEmail).toBe('test@example.com');
+    expect(ctx.userName).toBe('Test User');
     expect(ctx.res).toBeNull();
   });
 
   test.each([
-    [
-      'email claim when emails[] is absent',
-      { emails: undefined, email: 'alt@example.com' },
-      'alt@example.com',
-    ],
-    ['null when no email claim is present', { emails: undefined, email: undefined }, null],
-  ])('resolves %s', async (_label, claims, expected) => {
+    ['email claim when emails[] is absent', { emails: undefined, email: 'alt@example.com' }, 'userEmail', 'alt@example.com'],
+    ['null when no email claim is present', { emails: undefined, email: undefined }, 'userEmail', null],
+    ['given_name fallback when name absent', { name: undefined, given_name: 'Ada' }, 'userName', 'Ada'],
+    ['null userName when no name claims', { name: undefined, given_name: undefined }, 'userName', null],
+  ])('resolves %s', async (_label, claims, field, expected) => {
     const { ok, ctx } = await run(bearer(makeToken(claims)));
     expect(ok).toBe(true);
-    expect(ctx.userEmail).toBe(expected);
+    expect(ctx[field]).toBe(expected);
   });
 });
 

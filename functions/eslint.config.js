@@ -19,4 +19,9 @@ module.exports = [
     files: ['**/*.test.js'],
     languageOptions: { globals: globals.vitest },
   },
+  {
+    files: ['vitest.config.js'],
+    languageOptions: { sourceType: 'module' },
+    rules: { 'n/no-unpublished-import': 'off' },
+  },
 ];

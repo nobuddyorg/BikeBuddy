@@ -355,6 +355,87 @@ html, body {
   text-align: center;
 }
 
+/* ── Modal ───────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 32px 36px;
+  min-width: 300px;
+  text-align: center;
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+}
+
+/* ── Profile modal ───────────────────────────────── */
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.profile-name {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.profile-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  text-align: left;
+}
+
+.profile-meta dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  align-self: center;
+}
+
+.profile-meta dd {
+  font-size: 14px;
+}
+
 /* ── Utilities ───────────────────────────────────── */
 
 .hidden {
