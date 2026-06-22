@@ -22,8 +22,9 @@ steps=(
   "Install Node.js 22?|brew install node@22"
   "Install Azure Functions Core Tools v4?|brew tap azure/functions && brew trust azure/functions && brew install azure-functions-core-tools@4"
   "Install Azurite (local storage emulator)?|npm install -g azurite"
+  "Install prek (pre-commit runner)?|brew install prek"
   "Install npm dependencies (functions/)?|cd \"$REPO_ROOT/functions\" && npm ci"
-  "Install pre-commit hooks?|prek install"
+  "Install pre-commit hooks?|cd \"$REPO_ROOT\" && prek install"
   "Copy functions/local.settings.json from example?|cp \"$REPO_ROOT/functions/local.settings.json.example\" \"$REPO_ROOT/functions/local.settings.json\""
   "Copy frontend/config.js from example?|cp \"$REPO_ROOT/frontend/config.js.example\" \"$REPO_ROOT/frontend/config.js\""
 )
