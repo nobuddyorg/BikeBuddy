@@ -11,4 +11,6 @@ const BIKEBUDDY_CONFIG = {
   // Scope exposed by the API app registration
   b2cApiScope:
     'https://YOURTENANTNAME.onmicrosoft.com/bikebuddy-api/user_impersonation',
+  // Set to true locally (with SKIP_AUTH=true in local.settings.json) to bypass MSAL entirely.
+  devMode: false,
 };

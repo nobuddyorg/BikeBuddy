@@ -55,7 +55,27 @@ let msalClient;
 
 const LOGIN_SCOPES = { scopes: ['openid', BIKEBUDDY_CONFIG.b2cApiScope] };
 
+// ── Dev mode (BIKEBUDDY_CONFIG.devMode = true) ────────────────────────────────
+// Skips MSAL entirely. The backend must have SKIP_AUTH=true in local.settings.json.
+
+async function devSignIn() {
+  try {
+    const res = await fetch('/api/me');
+    if (res.ok) {
+      const data = await res.json();
+      state.user = { id: data.id, name: data.name, email: data.email, createdAt: data.createdAt };
+    }
+  } catch {
+    // API not running yet — stay logged out
+  }
+  renderNavAuth();
+  if (state.user) loadTours();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function initAuth() {
+  if (BIKEBUDDY_CONFIG.devMode) { await devSignIn(); return; }
   const tenantName = BIKEBUDDY_CONFIG.b2cTenant.split('.')[0];
   msalClient = new msal.PublicClientApplication({
     auth: {
@@ -71,6 +91,7 @@ async function initAuth() {
 }
 
 async function signIn() {
+  if (BIKEBUDDY_CONFIG.devMode) { await devSignIn(); return; }
   try {
     onAuthSuccess(await msalClient.loginPopup(LOGIN_SCOPES));
   } catch {
@@ -79,10 +100,12 @@ async function signIn() {
 }
 
 async function signOut() {
-  try {
-    await msalClient.logoutPopup({ account: msalClient.getAllAccounts()[0] });
-  } catch {
-    // ignore logout errors
+  if (!BIKEBUDDY_CONFIG.devMode) {
+    try {
+      await msalClient.logoutPopup({ account: msalClient.getAllAccounts()[0] });
+    } catch {
+      // ignore logout errors
+    }
   }
   state.user = null;
   state.tours = [];
@@ -93,6 +116,7 @@ async function signOut() {
 }
 
 async function getAccessToken() {
+  if (BIKEBUDDY_CONFIG.devMode) return null;
   const account = msalClient.getAllAccounts()[0];
   if (!account) return null;
   try {
@@ -315,7 +339,8 @@ async function openProfile() {
   if (!state.user.createdAt) {
     try {
       const token = await getAccessToken();
-      const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch('/api/me', { headers });
       if (res.ok) {
         const data = await res.json();
         state.user.name = data.name || state.user.name;
