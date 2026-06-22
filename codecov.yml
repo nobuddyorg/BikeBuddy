@@ -1,16 +1,16 @@
+ignore:
+  # Infrastructure files exercised by Azurite integration tests, not unit tests.
+  - "functions/src/lib/db.js"
+  - "functions/src/lib/blobStorage.js"
+  - "functions/src/lib/parseMultipart.js"
+
 coverage:
   status:
     project:
       default:
-        # Overall project must stay above 80 %; we're currently at ~96 %,
-        # so this is deliberately conservative to survive new infra-only files.
         target: 80%
-        threshold: 2%   # tolerate a 2 % drop before failing (e.g. a new file with partial coverage)
+        threshold: 2%
     patch:
       default:
-        # Every PR must cover at least 70 % of its own changed lines.
-        # Set lower than the project target to account for intentionally
-        # untested infrastructure code (db.js, function.json bindings, etc.)
-        # that is exercised by Azurite integration tests instead.
         target: 70%
         threshold: 0%
