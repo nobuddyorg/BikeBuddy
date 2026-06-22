@@ -12,6 +12,14 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
  * whose `.status` property is 400 when the file exceeds MAX_FILE_BYTES.
  */
 function parseMultipart(req) {
+  // Fast reject on Content-Length before buffering anything.
+  const contentLength = parseInt(req.headers['content-length'] ?? '0', 10);
+  if (contentLength > MAX_FILE_BYTES) {
+    const err = new Error('File exceeds 10 MB limit');
+    err.status = 400;
+    return Promise.reject(err);
+  }
+
   return new Promise((resolve, reject) => {
     let busboy;
     try {
@@ -62,11 +70,10 @@ function parseMultipart(req) {
       }
     });
 
-    // Azure Functions v3 exposes the raw body as req.rawBody (string/Buffer).
+    // With "dataType": "binary" in function.json, rawBody is a Buffer.
+    // Guard for other callers that may pass a string.
     const readable = new Readable();
-    readable.push(
-      typeof req.rawBody === 'string' ? Buffer.from(req.rawBody, 'binary') : req.rawBody,
-    );
+    readable.push(Buffer.isBuffer(req.rawBody) ? req.rawBody : Buffer.from(req.rawBody, 'binary'));
     readable.push(null);
     readable.pipe(busboy);
   });
