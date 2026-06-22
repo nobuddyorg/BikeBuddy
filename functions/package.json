@@ -4,7 +4,7 @@
   "description": "BikeBuddy Azure Functions backend",
   "main": "src/index.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "concurrently \"azurite --silent --location .azurite\" \"func start\"",
