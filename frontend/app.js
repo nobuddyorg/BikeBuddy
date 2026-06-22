@@ -44,14 +44,45 @@ const elBtnCloseDetail = $('btn-close-detail');
 const elUserMenu = $('user-menu');
 const elUserName = $('user-name');
 
-// ── Auth (placeholder — will be replaced by MSAL + Azure AD B2C) ─────────────
+// ── Auth (Azure AD B2C via MSAL Browser) ─────────────────────────────────────
 
-function signIn() {
-  // TODO: replace with MSAL signInPopup() once B2C is configured
-  onAuthSuccess({ name: 'Matthias', email: 'matthias@example.com', id: 'user-demo' });
+let msalClient;
+
+function buildMsalConfig() {
+  const tenantName = BIKEBUDDY_CONFIG.b2cTenant.split('.')[0];
+  return {
+    auth: {
+      clientId: BIKEBUDDY_CONFIG.b2cClientId,
+      authority: `https://${tenantName}.b2clogin.com/${BIKEBUDDY_CONFIG.b2cTenant}/${BIKEBUDDY_CONFIG.b2cPolicy}`,
+      knownAuthorities: [`${tenantName}.b2clogin.com`],
+    },
+    // memoryStorage: token is lost on page refresh (no localStorage per security policy)
+    cache: { cacheLocation: 'memoryStorage', storeAuthStateInCookie: false },
+  };
 }
 
-function signOut() {
+const LOGIN_SCOPES = { scopes: ['openid', BIKEBUDDY_CONFIG.b2cApiScope] };
+
+async function initAuth() {
+  msalClient = new msal.PublicClientApplication(buildMsalConfig());
+  await msalClient.initialize();
+  renderNavAuth();
+}
+
+async function signIn() {
+  try {
+    onAuthSuccess(await msalClient.loginPopup(LOGIN_SCOPES));
+  } catch {
+    // user cancelled popup or popup was blocked — no-op
+  }
+}
+
+async function signOut() {
+  try {
+    await msalClient.logoutPopup({ account: msalClient.getAllAccounts()[0] });
+  } catch {
+    // ignore logout errors
+  }
   state.user = null;
   state.tours = [];
   state.selectedTourId = null;
@@ -60,8 +91,22 @@ function signOut() {
   renderNavAuth();
 }
 
-function onAuthSuccess(user) {
-  state.user = user;
+async function getAccessToken() {
+  const account = msalClient.getAllAccounts()[0];
+  if (!account) return null;
+  try {
+    return (await msalClient.acquireTokenSilent({ ...LOGIN_SCOPES, account })).accessToken;
+  } catch {
+    return (await msalClient.acquireTokenPopup({ ...LOGIN_SCOPES, account })).accessToken;
+  }
+}
+
+function onAuthSuccess(result) {
+  state.user = {
+    id: result.account.homeAccountId,
+    name: result.account.name || result.idTokenClaims?.name || result.account.username,
+    email: result.idTokenClaims?.emails?.[0] || result.account.username,
+  };
   renderNavAuth();
   loadTours();
 }
@@ -76,8 +121,11 @@ function renderNavAuth() {
 
 // ── Tours (placeholder data — will call GET /api/tours) ──────────────────────
 
-function loadTours() {
-  // TODO: replace with fetch('/api/tours', { headers: authHeader() })
+async function loadTours() {
+  // TODO: replace with real API call once backend is ready
+  // const token = await getAccessToken();
+  // const res = await fetch('/api/tours', { headers: { Authorization: `Bearer ${token}` } });
+  // state.tours = await res.json();
   state.tours = getDemoTours();
   renderSidebar();
   renderAllHeatmap();
@@ -249,6 +297,8 @@ elBtnLogout.addEventListener('click', signOut);
 elBtnCloseDetail.addEventListener('click', deselectTour);
 elBtnUpload.addEventListener('click', notifyUploadComingSoon);
 elBtnUploadSidebar.addEventListener('click', notifyUploadComingSoon);
+
+initAuth();
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 

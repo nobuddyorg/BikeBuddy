@@ -16,6 +16,9 @@ functions/__pycache__/
 functions/.funcignore
 .azure/
 
+# Frontend config (contains B2C client IDs — use config.js.example as template)
+frontend/config.js
+
 # Environment & secrets
 .env
 .env.local
