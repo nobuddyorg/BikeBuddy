@@ -53,9 +53,11 @@ const elProfileSince = $('profile-since');
 
 let msalClient;
 
-function buildMsalConfig() {
+const LOGIN_SCOPES = { scopes: ['openid', BIKEBUDDY_CONFIG.b2cApiScope] };
+
+async function initAuth() {
   const tenantName = BIKEBUDDY_CONFIG.b2cTenant.split('.')[0];
-  return {
+  msalClient = new msal.PublicClientApplication({
     auth: {
       clientId: BIKEBUDDY_CONFIG.b2cClientId,
       authority: `https://${tenantName}.b2clogin.com/${BIKEBUDDY_CONFIG.b2cTenant}/${BIKEBUDDY_CONFIG.b2cPolicy}`,
@@ -63,13 +65,7 @@ function buildMsalConfig() {
     },
     // memoryStorage: token is lost on page refresh (no localStorage per security policy)
     cache: { cacheLocation: 'memoryStorage', storeAuthStateInCookie: false },
-  };
-}
-
-const LOGIN_SCOPES = { scopes: ['openid', BIKEBUDDY_CONFIG.b2cApiScope] };
-
-async function initAuth() {
-  msalClient = new msal.PublicClientApplication(buildMsalConfig());
+  });
   await msalClient.initialize();
   renderNavAuth();
 }
@@ -109,7 +105,7 @@ async function getAccessToken() {
 function onAuthSuccess(result) {
   state.user = {
     id: result.account.homeAccountId,
-    name: result.account.name || result.idTokenClaims?.name || result.account.username,
+    name: result.account.name || result.idTokenClaims?.name || result.idTokenClaims?.given_name || null,
     email: result.idTokenClaims?.emails?.[0] || result.account.username,
   };
   renderNavAuth();
@@ -304,24 +300,33 @@ function initials(name) {
 }
 
 async function openProfile() {
-  const user = state.user;
-  if (!user) return;
+  if (!state.user) return;
 
-  elProfileAvatar.textContent = initials(user.name);
-  elProfileName.textContent = user.name || user.email || '—';
-  elProfileEmail.textContent = user.email || '—';
-  elProfileSince.textContent = '—';
+  function renderProfile() {
+    elProfileAvatar.textContent = initials(state.user.name);
+    elProfileName.textContent = state.user.name || state.user.email || '—';
+    elProfileEmail.textContent = state.user.email || '—';
+    elProfileSince.textContent = state.user.createdAt ? formatDate(state.user.createdAt) : '—';
+  }
+
+  renderProfile();
   show(elProfileModal, true);
 
-  try {
-    const token = await getAccessToken();
-    const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
-    if (res.ok) {
-      const data = await res.json();
-      elProfileSince.textContent = formatDate(data.createdAt);
+  if (!state.user.createdAt) {
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        state.user.name = data.name || state.user.name;
+        state.user.email = data.email || state.user.email;
+        state.user.createdAt = data.createdAt;
+        renderProfile();
+        renderNavAuth();
+      }
+    } catch {
+      // network unavailable — leave "—" placeholder
     }
-  } catch {
-    // network unavailable — leave "—" placeholder
   }
 }
 

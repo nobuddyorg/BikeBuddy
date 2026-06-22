@@ -8,9 +8,7 @@ function getClient() {
   return cosmosClient;
 }
 
-const db = () => getClient().database(process.env.COSMOS_DATABASE);
-
 module.exports = {
-  usersContainer: () => db().container('users'),
-  toursContainer: () => db().container('tours'),
+  usersContainer: () => getClient().database(process.env.COSMOS_DATABASE).container('users'),
+  toursContainer: () => getClient().database(process.env.COSMOS_DATABASE).container('tours'),
 };
