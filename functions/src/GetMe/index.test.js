@@ -36,7 +36,11 @@ describe('GET /api/me', () => {
   test('creates user document on first login (404)', async () => {
     const err = Object.assign(new Error('Not found'), { code: 404 });
     const container = makeContainer({
-      item: vi.fn().mockReturnValue({ read: async () => { throw err; } }),
+      item: vi.fn().mockReturnValue({
+        read: async () => {
+          throw err;
+        },
+      }),
     });
     const ctx = makeContext();
     await getMe(ctx, {}, mockAuth, () => container);
@@ -51,10 +55,16 @@ describe('GET /api/me', () => {
   test('re-throws non-404 Cosmos errors', async () => {
     const err = Object.assign(new Error('Service unavailable'), { code: 503 });
     const container = makeContainer({
-      item: vi.fn().mockReturnValue({ read: async () => { throw err; } }),
+      item: vi.fn().mockReturnValue({
+        read: async () => {
+          throw err;
+        },
+      }),
     });
 
-    await expect(getMe(makeContext(), {}, mockAuth, () => container)).rejects.toThrow('Service unavailable');
+    await expect(getMe(makeContext(), {}, mockAuth, () => container)).rejects.toThrow(
+      'Service unavailable',
+    );
   });
 
   test('returns 401 when auth fails', async () => {

@@ -66,10 +66,30 @@ describe('authMiddleware — success', () => {
   });
 
   test.each([
-    ['email claim when emails[] is absent', { emails: undefined, email: 'alt@example.com' }, 'userEmail', 'alt@example.com'],
-    ['null when no email claim is present', { emails: undefined, email: undefined }, 'userEmail', null],
-    ['given_name fallback when name absent', { name: undefined, given_name: 'Ada' }, 'userName', 'Ada'],
-    ['null userName when no name claims', { name: undefined, given_name: undefined }, 'userName', null],
+    [
+      'email claim when emails[] is absent',
+      { emails: undefined, email: 'alt@example.com' },
+      'userEmail',
+      'alt@example.com',
+    ],
+    [
+      'null when no email claim is present',
+      { emails: undefined, email: undefined },
+      'userEmail',
+      null,
+    ],
+    [
+      'given_name fallback when name absent',
+      { name: undefined, given_name: 'Ada' },
+      'userName',
+      'Ada',
+    ],
+    [
+      'null userName when no name claims',
+      { name: undefined, given_name: undefined },
+      'userName',
+      null,
+    ],
   ])('resolves %s', async (_label, claims, field, expected) => {
     const { ok, ctx } = await run(bearer(makeToken(claims)));
     expect(ok).toBe(true);

@@ -3,7 +3,12 @@
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { usersContainer } = require('../lib/db');
 
-module.exports = async function (context, req, auth = authMiddleware, getContainer = usersContainer) {
+module.exports = async function (
+  context,
+  req,
+  auth = authMiddleware,
+  getContainer = usersContainer,
+) {
   if (!(await auth(context, req))) return;
 
   const { userId, userEmail, userName } = context;
