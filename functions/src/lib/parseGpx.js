@@ -15,49 +15,55 @@ function haversineKm([lat1, lon1], [lat2, lon2]) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function totalDistanceKm(points) {
-  let dist = 0;
-  for (let i = 1; i < points.length; i++) dist += haversineKm(points[i - 1], points[i]);
-  return dist;
-}
-
-// Take every Nth point so the result has at most MAX_POINTS entries, always
-// keeping the first and last point.
-function downsample(points) {
-  if (points.length <= MAX_POINTS) return points;
-  const step = Math.ceil(points.length / MAX_POINTS);
-  const result = points.filter((_, i) => i % step === 0);
+// Single pass: accumulate distance and downsample simultaneously.
+function processPoints(points) {
+  if (points.length === 0) return { distanceKm: 0, heatmapData: [] };
+  const step = points.length > MAX_POINTS ? Math.ceil(points.length / MAX_POINTS) : 1;
+  let distanceKm = 0;
+  const heatmapData = [];
+  for (let i = 0; i < points.length; i++) {
+    if (i > 0) distanceKm += haversineKm(points[i - 1], points[i]);
+    if (i % step === 0) heatmapData.push(points[i]);
+  }
   const last = points[points.length - 1];
-  if (result[result.length - 1] !== last) result.push(last);
-  return result;
+  if (heatmapData[heatmapData.length - 1] !== last) heatmapData.push(last);
+  return { distanceKm, heatmapData };
 }
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 
 /**
- * Parse a GPX string and return tour metadata + heatmap points.
+ * Parse a GPX string or Buffer and return tour metadata + heatmap points.
+ * Handles multiple <trk> and <trkseg> elements; downsamples to ≤ 5,000 points.
  *
- * @param {string} gpxString  Raw GPX XML
+ * @param {string|Buffer} gpxInput
  * @returns {{ name: string|null, date: string|null, distanceKm: number, heatmapData: [number,number][] }}
  */
-function parseGpx(gpxString) {
-  const doc = parser.parse(gpxString);
+function parseGpx(gpxInput) {
+  if (Buffer.isBuffer(gpxInput)) gpxInput = gpxInput.toString('utf8');
+  const doc = parser.parse(gpxInput);
   const gpx = doc?.gpx;
   if (!gpx) throw new Error('Not a valid GPX file');
 
-  const name = gpx.metadata?.name || gpx.trk?.name || null;
-  const time = gpx.metadata?.time || gpx.trk?.trkseg?.trkpt?.[0]?.time || null;
+  // Normalise to arrays: GPX allows multiple <trk> and <trkseg> elements.
+  const tracks = Array.isArray(gpx.trk) ? gpx.trk : gpx.trk ? [gpx.trk] : [];
+  const name = gpx.metadata?.name || tracks[0]?.name || null;
+
+  const firstTrk = tracks[0];
+  const firstSeg = Array.isArray(firstTrk?.trkseg) ? firstTrk.trkseg[0] : firstTrk?.trkseg;
+  const firstPt = Array.isArray(firstSeg?.trkpt) ? firstSeg.trkpt[0] : firstSeg?.trkpt;
+  const time = gpx.metadata?.time || firstPt?.time || null;
   const date = time ? new Date(time).toISOString() : null;
 
-  // Normalise trkpt: may be a single object or an array.
-  const rawPts = gpx.trk?.trkseg?.trkpt;
-  const trkpts = Array.isArray(rawPts) ? rawPts : rawPts ? [rawPts] : [];
+  const allPoints = tracks.flatMap((trk) => {
+    const segs = Array.isArray(trk.trkseg) ? trk.trkseg : trk.trkseg ? [trk.trkseg] : [];
+    return segs.flatMap((seg) => {
+      const pts = Array.isArray(seg.trkpt) ? seg.trkpt : seg.trkpt ? [seg.trkpt] : [];
+      return pts.map((pt) => [parseFloat(pt['@_lat']), parseFloat(pt['@_lon'])]);
+    });
+  });
 
-  const allPoints = trkpts.map((pt) => [parseFloat(pt['@_lat']), parseFloat(pt['@_lon'])]);
-
-  const distanceKm = totalDistanceKm(allPoints);
-  const heatmapData = downsample(allPoints);
-
+  const { distanceKm, heatmapData } = processPoints(allPoints);
   return { name, date, distanceKm, heatmapData };
 }
 

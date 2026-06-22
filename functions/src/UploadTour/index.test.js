@@ -16,11 +16,10 @@ function makeContext() {
 }
 
 function makeReq(overrides = {}) {
-  const buffer = Buffer.from(GPX_CONTENT, 'utf8');
   return {
     headers: { 'content-type': 'multipart/form-data; boundary=---boundary' },
     query: {},
-    rawBody: buffer,
+    rawBody: '',
     ...overrides,
   };
 }
@@ -34,29 +33,20 @@ const failAuth = async (ctx) => {
   return false;
 };
 
-function makeGpxContainer({ uploadFails = false } = {}) {
+// Returns an async factory for the gpx container (matches blobStorage.gpxContainer).
+function makeGpxContainer() {
   const blockBlob = {
-    uploadData: uploadFails
-      ? vi.fn().mockRejectedValue(new Error('upload failed'))
-      : vi.fn().mockResolvedValue({}),
-    url: 'https://blob.example/gpx-files/user-1/tour-id.gpx',
+    uploadData: vi.fn().mockResolvedValue({}),
+    url: 'https://blob.example/gpx-files/user-1/some-id.gpx',
   };
-  return {
-    createIfNotExists: vi.fn().mockResolvedValue({}),
+  const containerClient = {
     getBlockBlobClient: vi.fn().mockReturnValue(blockBlob),
   };
+  return vi.fn().mockResolvedValue(containerClient);
 }
 
-function makeToursContainer({
-  resource = {
-    id: 'tour-id',
-    gpxFileUrl: 'https://blob.example/gpx-files/user-1/tour-id.gpx',
-    name: 'Test Tour',
-    distance: 0.13,
-    createdAt: '2024-01-01T00:00:00.000Z',
-  },
-} = {}) {
-  return { items: { create: vi.fn().mockResolvedValue({ resource }) } };
+function makeToursContainer() {
+  return { items: { create: vi.fn().mockResolvedValue({ resource: {} }) } };
 }
 
 function makeParseFile(buffer = Buffer.from(GPX_CONTENT, 'utf8')) {
@@ -73,7 +63,7 @@ describe('UploadTour', () => {
       makeReq(),
       failAuth,
       makeToursContainer,
-      makeGpxContainer,
+      makeGpxContainer(),
       makeParseFile(),
     );
     expect(ctx.res.status).toBe(401);
@@ -84,7 +74,7 @@ describe('UploadTour', () => {
     const err = new Error('No file found');
     err.status = 400;
     const parseFile = vi.fn().mockRejectedValue(err);
-    await uploadTour(ctx, makeReq(), mockAuth, makeToursContainer, makeGpxContainer, parseFile);
+    await uploadTour(ctx, makeReq(), mockAuth, makeToursContainer, makeGpxContainer(), parseFile);
     expect(ctx.res.status).toBe(400);
     expect(ctx.res.body.error).toBe('No file found');
   });
@@ -92,7 +82,7 @@ describe('UploadTour', () => {
   it('returns 400 when file fails magic byte check', async () => {
     const ctx = makeContext();
     const parseFile = makeParseFile(Buffer.from('not xml at all'));
-    await uploadTour(ctx, makeReq(), mockAuth, makeToursContainer, makeGpxContainer, parseFile);
+    await uploadTour(ctx, makeReq(), mockAuth, makeToursContainer, makeGpxContainer(), parseFile);
     expect(ctx.res.status).toBe(400);
     expect(ctx.res.body.error).toMatch(/GPX\/XML/);
   });
@@ -101,7 +91,7 @@ describe('UploadTour', () => {
     const ctx = makeContext();
     // Starts with <?xml so passes magic check but parseGpx will throw.
     const parseFile = makeParseFile(Buffer.from('<?xml version="1.0"?><notgpx/>'));
-    await uploadTour(ctx, makeReq(), mockAuth, makeToursContainer, makeGpxContainer, parseFile);
+    await uploadTour(ctx, makeReq(), mockAuth, makeToursContainer, makeGpxContainer(), parseFile);
     expect(ctx.res.status).toBe(400);
     expect(ctx.res.body.error).toMatch(/parse GPX/);
   });
@@ -114,30 +104,21 @@ describe('UploadTour', () => {
       makeReq(),
       mockAuth,
       () => toursContainer,
-      makeGpxContainer,
+      makeGpxContainer(),
       makeParseFile(),
     );
     expect(ctx.res.status).toBe(201);
-    expect(ctx.res.body).toMatchObject({
-      tourId: 'tour-id',
-      gpxFileUrl: expect.stringContaining('blob'),
-    });
+    expect(ctx.res.body.tourId).toMatch(/^[\da-f-]{36}$/);
+    expect(ctx.res.body.gpxFileUrl).toContain('blob');
+    expect(ctx.res.body.name).toBe('Test Tour');
     expect(toursContainer.items.create).toHaveBeenCalledOnce();
   });
 
   it('uses query-string name over GPX name', async () => {
     const ctx = makeContext();
-    const toursContainer = makeToursContainer({
-      resource: {
-        id: 'tour-id',
-        gpxFileUrl: 'https://x',
-        name: 'My Custom Name',
-        distance: 0,
-        createdAt: '2024-01-01T00:00:00.000Z',
-      },
-    });
+    const toursContainer = makeToursContainer();
     const req = makeReq({ query: { name: 'My Custom Name' } });
-    await uploadTour(ctx, req, mockAuth, () => toursContainer, makeGpxContainer, makeParseFile());
+    await uploadTour(ctx, req, mockAuth, () => toursContainer, makeGpxContainer(), makeParseFile());
     const [doc] = toursContainer.items.create.mock.calls[0];
     expect(doc.name).toBe('My Custom Name');
   });
@@ -146,9 +127,14 @@ describe('UploadTour', () => {
     const ctx = makeContext();
     const bom = Buffer.from([0xef, 0xbb, 0xbf]);
     const bomBuffer = Buffer.concat([bom, Buffer.from(GPX_CONTENT, 'utf8')]);
-    const parseFile = makeParseFile(bomBuffer);
-    const toursContainer = makeToursContainer();
-    await uploadTour(ctx, makeReq(), mockAuth, () => toursContainer, makeGpxContainer, parseFile);
+    await uploadTour(
+      ctx,
+      makeReq(),
+      mockAuth,
+      makeToursContainer,
+      makeGpxContainer(),
+      makeParseFile(bomBuffer),
+    );
     expect(ctx.res.status).toBe(201);
   });
 });

@@ -6,7 +6,8 @@
       "direction": "in",
       "name": "req",
       "methods": ["post"],
-      "route": "tours/upload"
+      "route": "tours/upload",
+      "dataType": "binary"
     },
     {
       "type": "http",

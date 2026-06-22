@@ -60,43 +60,44 @@ module.exports = async function (
 
   let parsed;
   try {
-    parsed = parseGpx(file.buffer.toString('utf8'));
+    parsed = parseGpx(file.buffer);
   } catch {
     context.res = { status: 400, body: { error: 'Could not parse GPX file' } };
     return;
   }
 
   const tourId = uuidv4();
-  const blobName = `${userId}/${tourId}.gpx`;
-  const container = getGpxContainer();
-  await container.createIfNotExists();
-  const blockBlob = container.getBlockBlobClient(blobName);
-  await blockBlob.uploadData(file.buffer, {
-    blobHTTPHeaders: { blobContentType: 'application/gpx+xml' },
-  });
-  const gpxFileUrl = blockBlob.url;
+  const container = await getGpxContainer();
+  const blockBlob = container.getBlockBlobClient(`${userId}/${tourId}.gpx`);
 
   const tour = {
     id: tourId,
     userId,
-    name: metaParsed.data.name ?? parsed.name ?? file.filename ?? 'Untitled Tour',
+    name: metaParsed.data.name ?? parsed.name ?? 'Untitled Tour',
     description: metaParsed.data.description ?? '',
-    gpxFileUrl,
+    gpxFileUrl: blockBlob.url,
     heatmapData: parsed.heatmapData,
     images: [],
     distance: parsed.distanceKm,
     createdAt: new Date().toISOString(),
   };
-  const { resource } = await getToursContainer().items.create(tour);
+
+  // Blob upload and Cosmos DB create are independent — run in parallel.
+  await Promise.all([
+    blockBlob.uploadData(file.buffer, {
+      blobHTTPHeaders: { blobContentType: 'application/gpx+xml' },
+    }),
+    getToursContainer().items.create(tour),
+  ]);
 
   context.res = {
     status: 201,
     body: {
-      tourId: resource.id,
-      gpxFileUrl: resource.gpxFileUrl,
-      name: resource.name,
-      distance: resource.distance,
-      createdAt: resource.createdAt,
+      tourId: tour.id,
+      gpxFileUrl: tour.gpxFileUrl,
+      name: tour.name,
+      distance: tour.distance,
+      createdAt: tour.createdAt,
     },
   };
 };
