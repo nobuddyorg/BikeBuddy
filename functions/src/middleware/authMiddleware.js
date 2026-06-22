@@ -31,6 +31,7 @@ function defaultJwksClient() {
 // B2C delivers the address as an `emails` array (sign-up/sign-in) or a single
 // `email` claim; normalise to one value or null.
 const resolveEmail = (payload) => payload.emails?.[0] || payload.email || null;
+const resolveName = (payload) => payload.name || payload.given_name || null;
 
 // Returns true and sets context.userId/userEmail, or sets context.res 401 and
 // returns false. jwksClientFactory is injectable for testing.
@@ -56,6 +57,7 @@ async function authMiddleware(context, req, jwksClientFactory = defaultJwksClien
 
     context.userId = payload.sub;
     context.userEmail = resolveEmail(payload);
+    context.userName = resolveName(payload);
     return true;
   } catch {
     context.res = { status: 401, body: { error: 'Invalid or expired token' } };

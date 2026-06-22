@@ -42,15 +42,22 @@ const elBtnUpload = $('btn-upload');
 const elBtnUploadSidebar = $('btn-upload-sidebar');
 const elBtnCloseDetail = $('btn-close-detail');
 const elUserMenu = $('user-menu');
-const elUserName = $('user-name');
+const elBtnProfile = $('btn-profile');
+const elProfileModal = $('profile-modal');
+const elProfileAvatar = $('profile-avatar');
+const elProfileName = $('profile-modal-title');
+const elProfileEmail = $('profile-email');
+const elProfileSince = $('profile-since');
 
 // ── Auth (Azure AD B2C via MSAL Browser) ─────────────────────────────────────
 
 let msalClient;
 
-function buildMsalConfig() {
+const LOGIN_SCOPES = { scopes: ['openid', BIKEBUDDY_CONFIG.b2cApiScope] };
+
+async function initAuth() {
   const tenantName = BIKEBUDDY_CONFIG.b2cTenant.split('.')[0];
-  return {
+  msalClient = new msal.PublicClientApplication({
     auth: {
       clientId: BIKEBUDDY_CONFIG.b2cClientId,
       authority: `https://${tenantName}.b2clogin.com/${BIKEBUDDY_CONFIG.b2cTenant}/${BIKEBUDDY_CONFIG.b2cPolicy}`,
@@ -58,13 +65,7 @@ function buildMsalConfig() {
     },
     // memoryStorage: token is lost on page refresh (no localStorage per security policy)
     cache: { cacheLocation: 'memoryStorage', storeAuthStateInCookie: false },
-  };
-}
-
-const LOGIN_SCOPES = { scopes: ['openid', BIKEBUDDY_CONFIG.b2cApiScope] };
-
-async function initAuth() {
-  msalClient = new msal.PublicClientApplication(buildMsalConfig());
+  });
   await msalClient.initialize();
   renderNavAuth();
 }
@@ -104,7 +105,7 @@ async function getAccessToken() {
 function onAuthSuccess(result) {
   state.user = {
     id: result.account.homeAccountId,
-    name: result.account.name || result.idTokenClaims?.name || result.account.username,
+    name: result.account.name || result.idTokenClaims?.name || result.idTokenClaims?.given_name || null,
     email: result.idTokenClaims?.emails?.[0] || result.account.username,
   };
   renderNavAuth();
@@ -116,7 +117,7 @@ function renderNavAuth() {
   show(elBtnLogin, !signedIn);
   show(elUserMenu, signedIn);
   elBtnUpload.disabled = !signedIn;
-  if (signedIn) elUserName.textContent = state.user.name;
+  if (signedIn) elBtnProfile.textContent = state.user.name || state.user.email || 'Profile';
 }
 
 // ── Tours (placeholder data — will call GET /api/tours) ──────────────────────
@@ -287,6 +288,52 @@ function renderDetailPanel(tour) {
   show(elDetailPanel, true);
 }
 
+// ── Profile modal ─────────────────────────────────────────────────────────────
+
+function initials(name) {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+}
+
+async function openProfile() {
+  if (!state.user) return;
+
+  function renderProfile() {
+    elProfileAvatar.textContent = initials(state.user.name);
+    elProfileName.textContent = state.user.name || state.user.email || '—';
+    elProfileEmail.textContent = state.user.email || '—';
+    elProfileSince.textContent = state.user.createdAt ? formatDate(state.user.createdAt) : '—';
+  }
+
+  renderProfile();
+  show(elProfileModal, true);
+
+  if (!state.user.createdAt) {
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        state.user.name = data.name || state.user.name;
+        state.user.email = data.email || state.user.email;
+        state.user.createdAt = data.createdAt;
+        renderProfile();
+        renderNavAuth();
+      }
+    } catch {
+      // network unavailable — leave "—" placeholder
+    }
+  }
+}
+
+function closeProfile() {
+  show(elProfileModal, false);
+}
+
 // ── Event listeners ───────────────────────────────────────────────────────────
 
 const notifyUploadComingSoon = () => alert('GPX upload coming soon!');
@@ -294,6 +341,9 @@ const notifyUploadComingSoon = () => alert('GPX upload coming soon!');
 elBtnLogin.addEventListener('click', signIn);
 elBtnLoginSidebar.addEventListener('click', signIn);
 elBtnLogout.addEventListener('click', signOut);
+elBtnProfile.addEventListener('click', openProfile);
+$('btn-close-profile').addEventListener('click', closeProfile);
+elProfileModal.addEventListener('click', (e) => { if (e.target === elProfileModal) closeProfile(); });
 elBtnCloseDetail.addEventListener('click', deselectTour);
 elBtnUpload.addEventListener('click', notifyUploadComingSoon);
 elBtnUploadSidebar.addEventListener('click', notifyUploadComingSoon);

@@ -29,7 +29,7 @@
       <button id="btn-upload" class="btn btn-secondary" disabled title="Sign in to upload tours">Upload GPX</button>
       <button id="btn-login" class="btn btn-primary">Sign In</button>
       <div id="user-menu" class="user-menu hidden">
-        <span id="user-name"></span>
+        <button id="btn-profile" class="btn btn-ghost" aria-label="View profile"></button>
         <button id="btn-logout" class="btn btn-ghost">Sign Out</button>
       </div>
     </div>
@@ -82,6 +82,21 @@
       <p id="detail-description" class="detail-description"></p>
     </aside>
 
+  </div>
+
+  <!-- Profile modal -->
+  <div id="profile-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+    <div class="modal">
+      <button id="btn-close-profile" class="modal-close" aria-label="Close">✕</button>
+      <div id="profile-avatar" class="profile-avatar" aria-hidden="true"></div>
+      <h2 id="profile-modal-title" class="profile-name"></h2>
+      <dl class="profile-meta">
+        <dt>Email</dt>
+        <dd id="profile-email">—</dd>
+        <dt>Member since</dt>
+        <dd id="profile-since">—</dd>
+      </dl>
+    </div>
   </div>
 
   <script src="app.js"></script>
