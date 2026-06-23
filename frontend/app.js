@@ -56,20 +56,27 @@ let msalClient;
 const LOGIN_SCOPES = { scopes: ['openid', BIKEBUDDY_CONFIG.b2cApiScope] };
 
 // ── Dev mode (BIKEBUDDY_CONFIG.devMode = true) ────────────────────────────────
-// Skips MSAL entirely. The backend must have SKIP_AUTH=true in local.settings.json.
+// Skips MSAL. With the backend running (SKIP_AUTH=true), it calls the real
+// /api/me so login exercises the Functions API + Cosmos emulator. If the API
+// isn't reachable (e.g. frontend opened from file://), it falls back to a
+// synthetic user so the UI is still usable offline.
+
+const SYNTHETIC_USER = {
+  id: 'local-dev-user',
+  name: 'Local Dev',
+  email: 'dev@localhost',
+  createdAt: new Date().toISOString(),
+};
 
 async function devSignIn() {
   try {
     const res = await fetch('/api/me');
-    if (res.ok) {
-      const data = await res.json();
-      state.user = { id: data.id, name: data.name, email: data.email, createdAt: data.createdAt };
-    }
+    state.user = res.ok ? await res.json() : SYNTHETIC_USER;
   } catch {
-    // API not running yet — stay logged out
+    state.user = SYNTHETIC_USER;
   }
   renderNavAuth();
-  if (state.user) loadTours();
+  loadTours();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

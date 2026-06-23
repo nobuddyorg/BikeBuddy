@@ -14,11 +14,15 @@ module.exports = async function (
   const { userId, userEmail, userName } = context;
   const container = getContainer();
 
+  // A missing item may surface either as a thrown 404 (real Cosmos) or as a
+  // 200/404 response with resource === undefined (emulator); handle both.
   let user;
   try {
     ({ resource: user } = await container.item(userId, userId).read());
   } catch (err) {
     if (err.code !== 404) throw err;
+  }
+  if (!user) {
     user = { id: userId, name: userName, email: userEmail, createdAt: new Date().toISOString() };
     ({ resource: user } = await container.items.create(user));
   }

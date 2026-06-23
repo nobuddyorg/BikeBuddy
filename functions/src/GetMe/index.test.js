@@ -52,6 +52,24 @@ describe('GET /api/me', () => {
     expect(ctx.res.body.id).toBe('u1');
   });
 
+  test('creates user when read returns resource undefined (no throw)', async () => {
+    // Real Cosmos SDK / emulator return { statusCode: 404, resource: undefined }
+    // for a missing item rather than throwing.
+    const container = makeContainer({
+      item: vi.fn().mockReturnValue({
+        read: async () => ({ statusCode: 404, resource: undefined }),
+      }),
+    });
+    const ctx = makeContext();
+    await getMe(ctx, {}, mockAuth, () => container);
+
+    expect(container.items.create).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u1', name: 'Ada', email: 'ada@example.com' }),
+    );
+    expect(ctx.res.status).toBe(200);
+    expect(ctx.res.body.id).toBe('u1');
+  });
+
   test('re-throws non-404 Cosmos errors', async () => {
     const err = Object.assign(new Error('Service unavailable'), { code: 503 });
     const container = makeContainer({

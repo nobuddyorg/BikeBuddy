@@ -21,13 +21,19 @@ steps=(
   "Install Homebrew?|/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
   "Install Node.js 22?|brew install node@22"
   "Install Azure Functions Core Tools v4?|brew tap azure/functions && brew trust azure/functions && brew install azure-functions-core-tools@4"
-  "Install Azurite (local storage emulator)?|npm install -g azurite"
+  "Install Azurite (local blob/queue/table emulator)?|npm install -g azurite"
+  "Install Azure Static Web Apps CLI?|npm install -g @azure/static-web-apps-cli"
   "Install prek (pre-commit runner)?|brew install prek"
   "Install npm dependencies (functions/)?|cd \"$REPO_ROOT/functions\" && npm ci"
   "Install pre-commit hooks?|cd \"$REPO_ROOT\" && prek install"
   "Copy functions/local.settings.json from example?|cp \"$REPO_ROOT/functions/local.settings.json.example\" \"$REPO_ROOT/functions/local.settings.json\""
   "Copy frontend/config.js from example?|cp \"$REPO_ROOT/frontend/config.js.example\" \"$REPO_ROOT/frontend/config.js\""
+  "Pull the Cosmos DB emulator image (Docker must be running)?|docker pull mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview"
 )
+
+echo
+echo "NOTE: the Cosmos DB emulator runs in Docker — install Docker Desktop"
+echo "      (https://www.docker.com/products/docker-desktop) and start it before ./dev.sh."
 
 for step in "${steps[@]}"; do
   IFS='|' read -r question command <<< "$step"
