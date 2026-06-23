@@ -12,8 +12,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    # Holds AZURE_FUNCTIONAPP_PUBLISH_PROFILE (secret) and AZURE_FUNCTIONAPP_NAME (var).
-    environment: production
+    # Skip (neutral, not failed) until the Azure target is configured, so pushes
+    # to main aren't marked red before the infrastructure exists. Configure the
+    # repo variable AZURE_FUNCTIONAPP_NAME and secret AZURE_FUNCTIONAPP_PUBLISH_PROFILE.
+    if: vars.AZURE_FUNCTIONAPP_NAME != ''
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
