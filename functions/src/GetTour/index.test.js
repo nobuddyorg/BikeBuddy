@@ -30,14 +30,37 @@ const makeContext = () => ({ res: null, userId: 'u1' });
 
 describe('GET /api/tours/{tourId}', () => {
   it('returns the full tour (incl. heatmapData) with 200', async () => {
-    const { container, item } = makeContainer(async () => ({ resource: TOUR }));
+    const { container, item } = makeContainer(async () => ({ resource: { ...TOUR } }));
     const ctx = makeContext();
     await getTour(ctx, reqWith('t1'), mockAuth, () => container);
 
     expect(item).toHaveBeenCalledWith('t1', 'u1'); // partition key = userId (ownership)
     expect(ctx.res.status).toBe(200);
-    expect(ctx.res.body).toEqual(TOUR);
+    expect(ctx.res.body).toEqual({ ...TOUR, images: [] }); // no stored images → empty
     expect(ctx.res.body.heatmapData).toHaveLength(2);
+  });
+
+  it('returns images as { id, url } with a read SAS URL', async () => {
+    const tour = {
+      ...TOUR,
+      images: [
+        { id: 'img1', blobName: 'u1/t1/img1.jpg' },
+        { id: 'img2', blobName: 'u1/t1/img2.jpg' },
+      ],
+    };
+    const { container } = makeContainer(async () => ({ resource: tour }));
+    const getBlockBlobClient = vi.fn((name) => ({
+      generateSasUrl: async () => `https://blob/${name}?sig=x`,
+    }));
+    const imagesContainer = () => Promise.resolve({ getBlockBlobClient });
+    const ctx = makeContext();
+
+    await getTour(ctx, reqWith('t1'), mockAuth, () => container, imagesContainer);
+
+    expect(ctx.res.body.images).toEqual([
+      { id: 'img1', url: 'https://blob/u1/t1/img1.jpg?sig=x' },
+      { id: 'img2', url: 'https://blob/u1/t1/img2.jpg?sig=x' },
+    ]);
   });
 
   it('returns 404 when read resolves with no resource (missing / other user)', async () => {
