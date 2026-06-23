@@ -337,6 +337,18 @@ html, body {
   border: 1px solid var(--color-border);
 }
 
+.btn-danger {
+  background: transparent;
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  margin-top: 16px;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: #fff;
+}
+
 .btn-secondary:hover:not(:disabled) {
   background: var(--color-border);
 }

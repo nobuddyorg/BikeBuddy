@@ -41,6 +41,7 @@ const elBtnLogout = $('btn-logout');
 const elBtnUpload = $('btn-upload');
 const elBtnUploadSidebar = $('btn-upload-sidebar');
 const elBtnCloseDetail = $('btn-close-detail');
+const elBtnDeleteTour = $('btn-delete-tour');
 const elUserMenu = $('user-menu');
 const elBtnProfile = $('btn-profile');
 const elProfileModal = $('profile-modal');
@@ -310,6 +311,22 @@ function deselectTour() {
   renderSidebar();
 }
 
+async function deleteSelectedTour() {
+  const id = state.selectedTourId;
+  if (!id) return;
+  if (!confirm('Delete this tour? This cannot be undone.')) return;
+  try {
+    const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('delete failed');
+    state.tours = state.tours.filter((t) => t.id !== id);
+    deselectTour();
+    renderSidebar();
+    await renderAllHeatmap();
+  } catch {
+    alert('Could not delete the tour.');
+  }
+}
+
 function renderDetailPanel(tour) {
   elDetailName.textContent = tour.name;
   elDetailDate.textContent = formatDate(tour.createdAt);
@@ -479,6 +496,7 @@ elProfileModal.addEventListener('click', (e) => {
   if (e.target === elProfileModal) closeProfile();
 });
 elBtnCloseDetail.addEventListener('click', deselectTour);
+elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
 elBtnUpload.addEventListener('click', openUpload);
 elBtnUploadSidebar.addEventListener('click', openUpload);
 
