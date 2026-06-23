@@ -531,6 +531,40 @@ html, body {
   font-size: 13px;
 }
 
+/* ── Tour images ─────────────────────────────────── */
+
+.tour-images {
+  margin-top: 20px;
+}
+
+.images-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.image-thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  cursor: pointer;
+}
+
+.dropzone-sm {
+  padding: 14px 12px;
+}
+
 /* ── Utilities ───────────────────────────────────── */
 
 .hidden {
