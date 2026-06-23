@@ -16,6 +16,11 @@ functions/__pycache__/
 functions/.funcignore
 .azure/
 
+# Local emulators / dev tooling
+functions/.azurite/
+functions/.cosmos-emulator.pem
+.swa/
+
 # Frontend config (contains B2C client IDs — use config.js.example as template)
 frontend/config.js
 
