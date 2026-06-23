@@ -3,6 +3,7 @@
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { gpxContainer } = require('../lib/blobStorage');
+const { requireUuids } = require('../lib/validation');
 
 // DELETE /api/tours/{tourId} — removes the tour document and its GPX blob.
 // Reading/deleting with the userId partition key enforces ownership: a tour in
@@ -17,6 +18,7 @@ module.exports = async function (
   if (!(await auth(context, req))) return;
   const { userId } = context;
   const tourId = req.params?.tourId;
+  if (!requireUuids(context, { tourId })) return;
 
   // Confirm the tour exists in the caller's partition before deleting anything.
   let tour;

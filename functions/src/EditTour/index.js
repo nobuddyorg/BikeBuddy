@@ -1,17 +1,12 @@
 'use strict';
 
-const { z } = require('zod');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
+const { tourMetaSchema, requireUuids } = require('../lib/validation');
 
-// Only name and description are editable; everything else (heatmapData, images,
-// gpxFileUrl, ...) is preserved by reading the existing doc and patching in place.
-const editSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  description: z.string().max(2000).optional(),
-});
-
-// PATCH /api/tours/{tourId} — edit a tour's name/description.
+// PATCH /api/tours/{tourId} — edit a tour's name/description. Only name and
+// description are editable; everything else (heatmapData, images, gpxFileUrl,
+// ...) is preserved by reading the existing doc and patching in place.
 module.exports = async function (
   context,
   req,
@@ -21,8 +16,9 @@ module.exports = async function (
   if (!(await auth(context, req))) return;
   const { userId } = context;
   const tourId = req.params?.tourId;
+  if (!requireUuids(context, { tourId })) return;
 
-  const parsed = editSchema.safeParse(req.body ?? {});
+  const parsed = tourMetaSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     context.res = { status: 400, body: { error: parsed.error.issues[0].message } };
     return;

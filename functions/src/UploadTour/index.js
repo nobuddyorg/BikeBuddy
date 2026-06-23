@@ -1,12 +1,12 @@
 'use strict';
 
 const { v4: uuidv4 } = require('uuid');
-const { z } = require('zod');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { gpxContainer } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { parseGpx } = require('../lib/parseGpx');
+const { tourMetaSchema } = require('../lib/validation');
 
 // GPX/XML files start with "<?xml" or "<gpx" (optionally preceded by a UTF-8 BOM).
 function isXmlMagic(buffer) {
@@ -15,11 +15,6 @@ function isXmlMagic(buffer) {
   const header = start.slice(0, 5).toString('ascii');
   return header.startsWith('<?xml') || header.startsWith('<gpx');
 }
-
-const metaSchema = z.object({
-  name: z.string().max(200).optional(),
-  description: z.string().max(2000).optional(),
-});
 
 module.exports = async function (
   context,
@@ -33,7 +28,7 @@ module.exports = async function (
   const { userId } = context;
 
   // Parse optional metadata fields from query string.
-  const metaParsed = metaSchema.safeParse({
+  const metaParsed = tourMetaSchema.safeParse({
     name: req.query?.name,
     description: req.query?.description,
   });

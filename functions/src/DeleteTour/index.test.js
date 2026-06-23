@@ -2,7 +2,8 @@
 
 const deleteTour = require('./index');
 
-const TOUR = { id: 't1', userId: 'u1', name: 'Alps' };
+const TID = '11111111-1111-4111-8111-111111111111';
+const TOUR = { id: TID, userId: 'u1', name: 'Alps' };
 
 const mockAuth = async (ctx) => {
   ctx.userId = 'u1';
@@ -33,15 +34,15 @@ describe('DELETE /api/tours/{tourId}', () => {
 
     await deleteTour(
       ctx,
-      reqWith('t1'),
+      reqWith(TID),
       mockAuth,
       () => tours.container,
       () => gpx.container,
     );
 
-    expect(gpx.getBlockBlobClient).toHaveBeenCalledWith('u1/t1.gpx');
+    expect(gpx.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}.gpx`);
     expect(gpx.deleteIfExists).toHaveBeenCalled();
-    expect(tours.item).toHaveBeenCalledWith('t1', 'u1'); // partition key = userId
+    expect(tours.item).toHaveBeenCalledWith(TID, 'u1'); // partition key = userId
     expect(tours.del).toHaveBeenCalled();
     expect(ctx.res.status).toBe(204);
   });
@@ -53,7 +54,7 @@ describe('DELETE /api/tours/{tourId}', () => {
 
     await deleteTour(
       ctx,
-      reqWith('nope'),
+      reqWith(TID),
       mockAuth,
       () => tours.container,
       () => gpx.container,
@@ -73,7 +74,7 @@ describe('DELETE /api/tours/{tourId}', () => {
     await expect(
       deleteTour(
         makeContext(),
-        reqWith('t1'),
+        reqWith(TID),
         mockAuth,
         () => tours.container,
         () => gpx.container,
@@ -92,7 +93,7 @@ describe('DELETE /api/tours/{tourId}', () => {
 
     await deleteTour(
       ctx,
-      reqWith('t1'),
+      reqWith(TID),
       failAuth,
       () => tours.container,
       () => gpx.container,

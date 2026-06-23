@@ -2,12 +2,16 @@
 
 const deleteImage = require('./index');
 
-const IMG = { id: 'img1', blobName: 'u1/t1/img1.jpg' };
+const TID = '11111111-1111-4111-8111-111111111111';
+const IMG1 = '22222222-2222-4222-8222-222222222222';
+const IMG2 = '33333333-3333-4333-8333-333333333333';
+const GHOST = '44444444-4444-4444-8444-444444444444';
+const IMG = { id: IMG1, blobName: `u1/${TID}/${IMG1}.jpg` };
 const TOUR = {
-  id: 't1',
+  id: TID,
   userId: 'u1',
   name: 'Alps',
-  images: [IMG, { id: 'img2', blobName: 'u1/t1/img2.jpg' }],
+  images: [IMG, { id: IMG2, blobName: `u1/${TID}/${IMG2}.jpg` }],
 };
 
 const mockAuth = async (ctx) => {
@@ -41,16 +45,16 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
 
     await deleteImage(
       ctx,
-      reqWith('t1', 'img1'),
+      reqWith(TID, IMG1),
       mockAuth,
       () => tours.container,
       () => images.container,
     );
 
-    expect(images.getBlockBlobClient).toHaveBeenCalledWith('u1/t1/img1.jpg');
+    expect(images.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}/${IMG1}.jpg`);
     expect(images.deleteIfExists).toHaveBeenCalled();
     const [doc] = tours.replace.mock.calls[0];
-    expect(doc.images.map((i) => i.id)).toEqual(['img2']);
+    expect(doc.images.map((i) => i.id)).toEqual([IMG2]);
     expect(ctx.res.status).toBe(204);
   });
 
@@ -60,7 +64,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     const ctx = makeContext();
     await deleteImage(
       ctx,
-      reqWith('nope', 'img1'),
+      reqWith(TID, IMG1),
       mockAuth,
       () => tours.container,
       () => images.container,
@@ -77,7 +81,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     const ctx = makeContext();
     await deleteImage(
       ctx,
-      reqWith('t1', 'ghost'),
+      reqWith(TID, GHOST),
       mockAuth,
       () => tours.container,
       () => images.container,
@@ -97,7 +101,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     const ctx = makeContext();
     await deleteImage(
       ctx,
-      reqWith('t1', 'img1'),
+      reqWith(TID, IMG1),
       failAuth,
       () => tours.container,
       () => images.container,
