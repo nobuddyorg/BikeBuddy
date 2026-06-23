@@ -552,6 +552,11 @@ html, body {
   margin-bottom: 10px;
 }
 
+.image-tile {
+  position: relative;
+  margin: 0;
+}
+
 .image-thumb {
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -559,10 +564,55 @@ html, body {
   border-radius: 6px;
   background: var(--color-surface-2);
   cursor: pointer;
+  display: block;
+}
+
+.image-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.image-tile:hover .image-delete,
+.image-delete:focus-visible {
+  opacity: 1;
+}
+
+.image-delete:hover {
+  background: var(--color-danger);
 }
 
 .dropzone-sm {
   padding: 14px 12px;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: zoom-out;
+}
+
+.lightbox img {
+  max-width: 92vw;
+  max-height: 92vh;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Utilities ───────────────────────────────────── */

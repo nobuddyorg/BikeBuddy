@@ -49,6 +49,8 @@ const elImageFile = $('image-file');
 const elImageProgress = $('image-progress');
 const elImageProgressBar = $('image-progress-bar');
 const elImageError = $('image-error');
+const elLightbox = $('lightbox');
+const elLightboxImg = $('lightbox-img');
 const elEditModal = $('edit-modal');
 const elEditForm = $('edit-form');
 const elEditName = $('edit-name');
@@ -200,15 +202,21 @@ async function loadTours() {
 }
 
 // heatmapData lives only on the detail endpoint; fetch + cache it on the tour.
-async function ensureHeatmap(tour) {
-  if (tour.heatmapData) return tour.heatmapData;
+// Fetch + cache the detail fields (heatmapData, images) not present in the list.
+async function ensureDetail(tour) {
+  if (tour.heatmapData && tour.images) return;
   try {
     const res = await apiFetch(`/api/tours/${tour.id}`);
-    if (res.ok) tour.heatmapData = (await res.json()).heatmapData || [];
+    if (res.ok) {
+      const detail = await res.json();
+      tour.heatmapData = detail.heatmapData || [];
+      tour.images = detail.images || [];
+    }
   } catch {
-    tour.heatmapData = [];
+    // network unavailable — fall back to empty so callers don't break
   }
-  return tour.heatmapData || [];
+  tour.heatmapData = tour.heatmapData || [];
+  tour.images = tour.images || [];
 }
 
 // ── Sidebar rendering ─────────────────────────────────────────────────────────
@@ -293,28 +301,26 @@ function renderHeatmap(points, padding) {
 }
 
 async function renderAllHeatmap() {
-  await Promise.all(state.tours.map(ensureHeatmap));
+  await Promise.all(state.tours.map(ensureDetail));
   const allPoints = state.tours.flatMap((t) => toHeatPoints(t.heatmapData));
   renderHeatmap(allPoints, 40);
   show(elMapEmpty, allPoints.length === 0);
 }
 
-async function renderTourHeatmap(tour) {
-  await ensureHeatmap(tour);
-  show(elMapEmpty, false);
-  renderHeatmap(toHeatPoints(tour.heatmapData), 60);
-}
-
 // ── Tour selection ────────────────────────────────────────────────────────────
 
-function selectTour(tourId) {
+async function selectTour(tourId) {
   const tour = state.tours.find((t) => t.id === tourId);
   if (!tour) return;
 
   state.selectedTourId = tourId;
   renderSidebar();
-  renderTourHeatmap(tour);
-  renderDetailPanel(tour);
+  renderDetailPanel(tour); // name/meta now; resets the image section
+  await ensureDetail(tour);
+  if (state.selectedTourId !== tourId) return; // user switched while loading
+  show(elMapEmpty, false);
+  renderHeatmap(toHeatPoints(tour.heatmapData), 60);
+  renderGallery(tour);
 }
 
 function deselectTour() {
@@ -411,13 +417,59 @@ function resetImageSection() {
   elImageDropzone.classList.remove('dragover');
 }
 
-function appendThumbnail(image) {
+// A thumbnail with a click-to-open lightbox and a delete overlay button.
+function createImageTile(image) {
+  const fig = document.createElement('figure');
+  fig.className = 'image-tile';
+
   const img = document.createElement('img');
   img.className = 'image-thumb';
   img.src = image.url;
   img.alt = 'Tour photo';
   img.loading = 'lazy';
-  elImageGrid.appendChild(img);
+  img.addEventListener('click', () => openLightbox(image.url));
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'image-delete';
+  del.setAttribute('aria-label', 'Delete photo');
+  del.textContent = '✕';
+  del.addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteImage(image.id, fig);
+  });
+
+  fig.append(img, del);
+  return fig;
+}
+
+function renderGallery(tour) {
+  elImageGrid.innerHTML = '';
+  (tour.images || []).forEach((image) => elImageGrid.appendChild(createImageTile(image)));
+}
+
+function openLightbox(url) {
+  elLightboxImg.src = url;
+  show(elLightbox, true);
+}
+
+function closeLightbox() {
+  show(elLightbox, false);
+  elLightboxImg.src = '';
+}
+
+async function deleteImage(imageId, tileEl) {
+  if (!confirm('Delete this photo?')) return;
+  const tourId = state.selectedTourId;
+  try {
+    const res = await apiFetch(`/api/tours/${tourId}/images/${imageId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('delete failed');
+    tileEl.remove();
+    const tour = state.tours.find((t) => t.id === tourId);
+    if (tour?.images) tour.images = tour.images.filter((i) => i.id !== imageId);
+  } catch {
+    showImageError('Could not delete the photo.');
+  }
 }
 
 function showImageError(message) {
@@ -455,7 +507,10 @@ async function uploadImage(file) {
   xhr.onload = () => {
     show(elImageProgress, false);
     if (xhr.status === 201) {
-      appendThumbnail(JSON.parse(xhr.responseText));
+      const image = JSON.parse(xhr.responseText);
+      const tour = state.tours.find((t) => t.id === tourId);
+      if (tour) tour.images = [...(tour.images || []), image];
+      elImageGrid.appendChild(createImageTile(image));
     } else {
       let msg = 'Upload failed.';
       try {
@@ -657,6 +712,11 @@ elImageDropzone.addEventListener('drop', (e) => {
   e.preventDefault();
   elImageDropzone.classList.remove('dragover');
   uploadImage(e.dataTransfer.files[0]);
+});
+
+elLightbox.addEventListener('click', closeLightbox);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !elLightbox.classList.contains('hidden')) closeLightbox();
 });
 $('btn-close-edit').addEventListener('click', closeEdit);
 elEditModal.addEventListener('click', (e) => {
