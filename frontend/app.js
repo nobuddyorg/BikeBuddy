@@ -48,6 +48,17 @@ const elProfileAvatar = $('profile-avatar');
 const elProfileName = $('profile-modal-title');
 const elProfileEmail = $('profile-email');
 const elProfileSince = $('profile-since');
+const elUploadModal = $('upload-modal');
+const elUploadForm = $('upload-form');
+const elUploadName = $('upload-name');
+const elUploadDescription = $('upload-description');
+const elDropzone = $('dropzone');
+const elUploadFile = $('upload-file');
+const elDropzoneFilename = $('dropzone-filename');
+const elUploadProgress = $('upload-progress');
+const elUploadProgressBar = $('upload-progress-bar');
+const elUploadError = $('upload-error');
+const elBtnSubmitUpload = $('btn-submit-upload');
 
 // ── Auth (Azure AD B2C via MSAL Browser) ─────────────────────────────────────
 
@@ -151,58 +162,40 @@ function renderNavAuth() {
   if (signedIn) elBtnProfile.textContent = state.user.name || state.user.email || 'Profile';
 }
 
-// ── Tours (placeholder data — will call GET /api/tours) ──────────────────────
+// ── API ───────────────────────────────────────────────────────────────────────
+
+// fetch wrapper that attaches the bearer token when one is available
+// (in devMode getAccessToken() returns null and the backend accepts the request).
+async function apiFetch(path, options = {}) {
+  const token = await getAccessToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetch(path, { ...options, headers });
+}
+
+// ── Tours ───────────────────────────────────────────────────────────────────
 
 async function loadTours() {
-  // TODO: replace with real API call once backend is ready
-  // const token = await getAccessToken();
-  // const res = await fetch('/api/tours', { headers: { Authorization: `Bearer ${token}` } });
-  // state.tours = await res.json();
-  state.tours = getDemoTours();
-  renderSidebar();
-  renderAllHeatmap();
-}
-
-function getDemoTours() {
-  return [
-    {
-      id: 'tour-1',
-      name: 'Allgäu Loop',
-      date: '2026-05-12',
-      distance: 287,
-      description: 'A classic Allgäu loop via Oberstdorf and the Edelsberg.',
-      heatmapData: generateDemoPoints(47.7, 10.3, 180),
-    },
-    {
-      id: 'tour-2',
-      name: 'Black Forest Crossing',
-      date: '2026-04-28',
-      distance: 341,
-      description: 'North–south traverse of the Schwarzwald on the B500.',
-      heatmapData: generateDemoPoints(48.2, 8.2, 220),
-    },
-    {
-      id: 'tour-3',
-      name: 'Bavarian Alps',
-      date: '2026-06-01',
-      distance: 193,
-      description: 'Short but stunning: Garmisch → Zugspitze foothills → Walchensee.',
-      heatmapData: generateDemoPoints(47.5, 11.1, 120),
-    },
-  ];
-}
-
-// Generates random GPS points radiating from a center, simulating a route
-function generateDemoPoints(centerLat, centerLng, count) {
-  const points = [];
-  let lat = centerLat;
-  let lng = centerLng;
-  for (let i = 0; i < count; i++) {
-    lat += (Math.random() - 0.48) * 0.02;
-    lng += (Math.random() - 0.45) * 0.025;
-    points.push([lat, lng, 0.6 + Math.random() * 0.4]);
+  try {
+    const res = await apiFetch('/api/tours');
+    state.tours = res.ok ? await res.json() : [];
+  } catch {
+    state.tours = [];
   }
-  return points;
+  renderSidebar();
+  await renderAllHeatmap();
+}
+
+// heatmapData lives only on the detail endpoint; fetch + cache it on the tour.
+async function ensureHeatmap(tour) {
+  if (tour.heatmapData) return tour.heatmapData;
+  try {
+    const res = await apiFetch(`/api/tours/${tour.id}`);
+    if (res.ok) tour.heatmapData = (await res.json()).heatmapData || [];
+  } catch {
+    tour.heatmapData = [];
+  }
+  return tour.heatmapData || [];
 }
 
 // ── Sidebar rendering ─────────────────────────────────────────────────────────
@@ -220,7 +213,7 @@ function createTourItem(tour) {
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
   li.append(
     textDiv('tour-item-name', tour.name),
-    textDiv('tour-item-meta', `${formatDate(tour.date)} · ${tour.distance} km`),
+    textDiv('tour-item-meta', `${formatDate(tour.createdAt)} · ${formatDistance(tour.distance)}`),
   );
   li.addEventListener('click', () => selectTour(tour.id));
   return li;
@@ -271,6 +264,10 @@ function clearHeatmap() {
   }
 }
 
+// heatmapData from the API is [[lat, lon], ...]; add a fixed intensity so the
+// gradient renders consistently with HEAT_OPTIONS.max.
+const toHeatPoints = (heatmapData) => (heatmapData || []).map(([lat, lon]) => [lat, lon, 0.6]);
+
 // Replaces the current heat layer with one for the given points and fits the view
 // to them. Passing no points just clears the layer.
 function renderHeatmap(points, padding) {
@@ -282,15 +279,17 @@ function renderHeatmap(points, padding) {
   map.fitBounds(L.latLngBounds(points), { padding: [padding, padding] });
 }
 
-function renderAllHeatmap() {
-  const allPoints = state.tours.flatMap((t) => t.heatmapData);
+async function renderAllHeatmap() {
+  await Promise.all(state.tours.map(ensureHeatmap));
+  const allPoints = state.tours.flatMap((t) => toHeatPoints(t.heatmapData));
   renderHeatmap(allPoints, 40);
   show(elMapEmpty, allPoints.length === 0);
 }
 
-function renderTourHeatmap(tour) {
+async function renderTourHeatmap(tour) {
+  await ensureHeatmap(tour);
   show(elMapEmpty, false);
-  renderHeatmap(tour.heatmapData, 60);
+  renderHeatmap(toHeatPoints(tour.heatmapData), 60);
 }
 
 // ── Tour selection ────────────────────────────────────────────────────────────
@@ -313,8 +312,8 @@ function deselectTour() {
 
 function renderDetailPanel(tour) {
   elDetailName.textContent = tour.name;
-  elDetailDate.textContent = formatDate(tour.date);
-  elDetailDist.textContent = `${tour.distance} km`;
+  elDetailDate.textContent = formatDate(tour.createdAt);
+  elDetailDist.textContent = formatDistance(tour.distance);
   elDetailDesc.textContent = tour.description || '';
   show(elDetailPanel, true);
 }
@@ -366,19 +365,146 @@ function closeProfile() {
   show(elProfileModal, false);
 }
 
-// ── Event listeners ───────────────────────────────────────────────────────────
+// ── Upload modal ──────────────────────────────────────────────────────────────
 
-const notifyUploadComingSoon = () => alert('GPX upload coming soon!');
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+let selectedFile = null;
+
+function resetUploadForm() {
+  selectedFile = null;
+  elUploadForm.reset();
+  show(elDropzoneFilename, false);
+  show(elUploadProgress, false);
+  show(elUploadError, false);
+  elUploadProgressBar.style.width = '0%';
+  elDropzone.classList.remove('dragover');
+  elBtnSubmitUpload.disabled = true;
+}
+
+function openUpload() {
+  if (!state.user) return;
+  resetUploadForm();
+  show(elUploadModal, true);
+}
+
+function closeUpload() {
+  show(elUploadModal, false);
+}
+
+function showUploadError(message) {
+  elUploadError.textContent = message;
+  show(elUploadError, true);
+}
+
+function selectFile(file) {
+  show(elUploadError, false);
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.gpx')) {
+    showUploadError('Only .gpx files are accepted.');
+    return;
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    showUploadError('File exceeds the 10 MB limit.');
+    return;
+  }
+  selectedFile = file;
+  elDropzoneFilename.textContent = file.name;
+  show(elDropzoneFilename, true);
+  elBtnSubmitUpload.disabled = false;
+  if (!elUploadName.value) elUploadName.value = file.name.replace(/\.gpx$/i, '');
+}
+
+async function submitUpload(e) {
+  e.preventDefault();
+  if (!selectedFile) return;
+
+  const params = new URLSearchParams();
+  if (elUploadName.value.trim()) params.set('name', elUploadName.value.trim());
+  if (elUploadDescription.value.trim()) params.set('description', elUploadDescription.value.trim());
+
+  const token = await getAccessToken();
+  const fd = new FormData();
+  fd.append('file', selectedFile, selectedFile.name);
+
+  elBtnSubmitUpload.disabled = true;
+  show(elUploadError, false);
+  show(elUploadProgress, true);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', `/api/tours/upload?${params.toString()}`);
+  if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+  xhr.upload.onprogress = (ev) => {
+    if (ev.lengthComputable) {
+      elUploadProgressBar.style.width = `${Math.round((ev.loaded / ev.total) * 100)}%`;
+    }
+  };
+
+  xhr.onload = async () => {
+    if (xhr.status === 201) {
+      const { tourId } = JSON.parse(xhr.responseText);
+      closeUpload();
+      await loadTours();
+      selectTour(tourId); // success → jump to the new tour's heatmap
+    } else {
+      let msg = 'Upload failed.';
+      try {
+        msg = JSON.parse(xhr.responseText).error || msg;
+      } catch {
+        // non-JSON error body — keep the generic message
+      }
+      showUploadError(msg);
+      show(elUploadProgress, false);
+      elBtnSubmitUpload.disabled = false;
+    }
+  };
+
+  xhr.onerror = () => {
+    showUploadError('Network error during upload.');
+    show(elUploadProgress, false);
+    elBtnSubmitUpload.disabled = false;
+  };
+
+  xhr.send(fd);
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────────
 
 elBtnLogin.addEventListener('click', signIn);
 elBtnLoginSidebar.addEventListener('click', signIn);
 elBtnLogout.addEventListener('click', signOut);
 elBtnProfile.addEventListener('click', openProfile);
 $('btn-close-profile').addEventListener('click', closeProfile);
-elProfileModal.addEventListener('click', (e) => { if (e.target === elProfileModal) closeProfile(); });
+elProfileModal.addEventListener('click', (e) => {
+  if (e.target === elProfileModal) closeProfile();
+});
 elBtnCloseDetail.addEventListener('click', deselectTour);
-elBtnUpload.addEventListener('click', notifyUploadComingSoon);
-elBtnUploadSidebar.addEventListener('click', notifyUploadComingSoon);
+elBtnUpload.addEventListener('click', openUpload);
+elBtnUploadSidebar.addEventListener('click', openUpload);
+
+$('btn-close-upload').addEventListener('click', closeUpload);
+elUploadModal.addEventListener('click', (e) => {
+  if (e.target === elUploadModal) closeUpload();
+});
+elUploadForm.addEventListener('submit', submitUpload);
+elUploadFile.addEventListener('change', () => selectFile(elUploadFile.files[0]));
+elDropzone.addEventListener('click', () => elUploadFile.click());
+elDropzone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    elUploadFile.click();
+  }
+});
+elDropzone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  elDropzone.classList.add('dragover');
+});
+elDropzone.addEventListener('dragleave', () => elDropzone.classList.remove('dragover'));
+elDropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  elDropzone.classList.remove('dragover');
+  selectFile(e.dataTransfer.files[0]);
+});
 
 initAuth();
 
@@ -391,4 +517,9 @@ function formatDate(iso) {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function formatDistance(km) {
+  if (typeof km !== 'number') return '—';
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
 }
