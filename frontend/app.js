@@ -42,6 +42,12 @@ const elBtnUpload = $('btn-upload');
 const elBtnUploadSidebar = $('btn-upload-sidebar');
 const elBtnCloseDetail = $('btn-close-detail');
 const elBtnDeleteTour = $('btn-delete-tour');
+const elBtnEditTour = $('btn-edit-tour');
+const elEditModal = $('edit-modal');
+const elEditForm = $('edit-form');
+const elEditName = $('edit-name');
+const elEditDescription = $('edit-description');
+const elEditError = $('edit-error');
 const elUserMenu = $('user-menu');
 const elBtnProfile = $('btn-profile');
 const elProfileModal = $('profile-modal');
@@ -311,6 +317,57 @@ function deselectTour() {
   renderSidebar();
 }
 
+function openEdit() {
+  const tour = state.tours.find((t) => t.id === state.selectedTourId);
+  if (!tour) return;
+  elEditName.value = tour.name || '';
+  elEditDescription.value = tour.description || '';
+  show(elEditError, false);
+  show(elEditModal, true);
+}
+
+function closeEdit() {
+  show(elEditModal, false);
+}
+
+async function submitEdit(e) {
+  e.preventDefault();
+  const id = state.selectedTourId;
+  const tour = state.tours.find((t) => t.id === id);
+  if (!tour) return;
+
+  show(elEditError, false);
+  try {
+    const res = await apiFetch(`/api/tours/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: elEditName.value.trim(),
+        description: elEditDescription.value.trim(),
+      }),
+    });
+    if (!res.ok) {
+      let msg = 'Could not save changes.';
+      try {
+        msg = (await res.json()).error || msg;
+      } catch {
+        // non-JSON error body — keep the generic message
+      }
+      elEditError.textContent = msg;
+      show(elEditError, true);
+      return;
+    }
+    const updated = await res.json();
+    Object.assign(tour, { name: updated.name, description: updated.description });
+    closeEdit();
+    renderSidebar();
+    renderDetailPanel(tour);
+  } catch {
+    elEditError.textContent = 'Network error.';
+    show(elEditError, true);
+  }
+}
+
 async function deleteSelectedTour() {
   const id = state.selectedTourId;
   if (!id) return;
@@ -497,6 +554,12 @@ elProfileModal.addEventListener('click', (e) => {
 });
 elBtnCloseDetail.addEventListener('click', deselectTour);
 elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
+elBtnEditTour.addEventListener('click', openEdit);
+$('btn-close-edit').addEventListener('click', closeEdit);
+elEditModal.addEventListener('click', (e) => {
+  if (e.target === elEditModal) closeEdit();
+});
+elEditForm.addEventListener('submit', submitEdit);
 elBtnUpload.addEventListener('click', openUpload);
 elBtnUploadSidebar.addEventListener('click', openUpload);
 

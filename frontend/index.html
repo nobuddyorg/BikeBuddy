@@ -80,6 +80,7 @@
         <dd id="detail-distance">—</dd>
       </dl>
       <p id="detail-description" class="detail-description"></p>
+      <button id="btn-edit-tour" class="btn btn-secondary btn-full">Edit</button>
       <button id="btn-delete-tour" class="btn btn-danger btn-full">Delete Tour</button>
     </aside>
 
@@ -122,6 +123,26 @@
         <div id="upload-progress" class="progress hidden"><div id="upload-progress-bar" class="progress-bar"></div></div>
         <p id="upload-error" class="upload-error hidden" role="alert"></p>
         <button id="btn-submit-upload" type="submit" class="btn btn-primary btn-full" disabled>Upload</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit tour modal -->
+  <div id="edit-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <div class="modal">
+      <button id="btn-close-edit" class="modal-close" aria-label="Close">✕</button>
+      <h2 id="edit-modal-title" class="profile-name">Edit Tour</h2>
+      <form id="edit-form" class="upload-form">
+        <label class="field">
+          <span>Name</span>
+          <input id="edit-name" type="text" maxlength="200" required />
+        </label>
+        <label class="field">
+          <span>Description</span>
+          <textarea id="edit-description" rows="2" maxlength="2000"></textarea>
+        </label>
+        <p id="edit-error" class="upload-error hidden" role="alert"></p>
+        <button id="btn-submit-edit" type="submit" class="btn btn-primary btn-full">Save</button>
       </form>
     </div>
   </div>
