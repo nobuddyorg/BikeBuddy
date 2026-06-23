@@ -291,6 +291,14 @@ html, body {
   line-height: 1.6;
 }
 
+/* Stacked action buttons with consistent spacing (no per-button margins). */
+.detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
 /* ── User menu ───────────────────────────────────── */
 
 .user-menu {
@@ -341,7 +349,6 @@ html, body {
   background: transparent;
   color: var(--color-danger);
   border: 1px solid var(--color-danger);
-  margin-top: 16px;
 }
 
 .btn-danger:hover:not(:disabled) {

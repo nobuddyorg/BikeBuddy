@@ -1,0 +1,19 @@
+{
+  "name": "bikebuddy-e2e",
+  "version": "1.0.0",
+  "description": "Playwright end-to-end UI tests for BikeBuddy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ci": "playwright test",
+    "format": "prettier --write '**/*.ts'",
+    "format:check": "prettier --check '**/*.ts'"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.0"
+  }
+}
