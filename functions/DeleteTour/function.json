@@ -1,7 +1,0 @@
-{
-  "scriptFile": "../src/DeleteTour/index.js",
-  "bindings": [
-    { "authLevel": "anonymous", "type": "httpTrigger", "direction": "in", "name": "req", "methods": ["delete"], "route": "tours/{tourId}" },
-    { "type": "http", "direction": "out", "name": "res" }
-  ]
-}

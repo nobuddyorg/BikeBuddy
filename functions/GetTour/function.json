@@ -1,7 +1,0 @@
-{
-  "scriptFile": "../src/GetTour/index.js",
-  "bindings": [
-    { "authLevel": "anonymous", "type": "httpTrigger", "direction": "in", "name": "req", "methods": ["get"], "route": "tours/{tourId}" },
-    { "type": "http", "direction": "out", "name": "res" }
-  ]
-}

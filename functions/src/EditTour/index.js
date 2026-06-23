@@ -1,46 +1,53 @@
 'use strict';
 
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { app } = require('@azure/functions');
+const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
-const { tourMetaSchema, requireUuids } = require('../lib/validation');
+const { tourMetaSchema, uuidParamError } = require('../lib/validation');
+const { unauthorized, error } = require('../lib/http');
 
 // PATCH /api/tours/{tourId} — edit a tour's name/description. Only name and
 // description are editable; everything else (heatmapData, images, gpxFileUrl,
 // ...) is preserved by reading the existing doc and patching in place.
-module.exports = async function (
-  context,
-  req,
-  auth = authMiddleware,
-  getContainer = toursContainer,
-) {
-  if (!(await auth(context, req))) return;
-  const { userId } = context;
-  const tourId = req.params?.tourId;
-  if (!requireUuids(context, { tourId })) return;
+async function editTour(request, auth = authenticate, getContainer = toursContainer) {
+  const user = await auth(request);
+  if (!user) return unauthorized();
 
-  const parsed = tourMetaSchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    context.res = { status: 400, body: { error: parsed.error.issues[0].message } };
-    return;
+  const tourId = request.params.tourId;
+  const badParam = uuidParamError({ tourId });
+  if (badParam) return badParam;
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    // empty/invalid JSON body — treated as no changes, validated below
   }
+  const parsed = tourMetaSchema.safeParse(body ?? {});
+  if (!parsed.success) return error(400, parsed.error.issues[0].message);
 
   const container = getContainer();
 
-  // Read within the caller's partition (ownership): another user's tour isn't found.
   let tour;
   try {
-    ({ resource: tour } = await container.item(tourId, userId).read());
+    ({ resource: tour } = await container.item(tourId, user.userId).read());
   } catch (err) {
     if (err.code !== 404) throw err;
   }
-  if (!tour) {
-    context.res = { status: 404, body: { error: 'Tour not found' } };
-    return;
-  }
+  if (!tour) return error(404, 'Tour not found');
 
   if (parsed.data.name !== undefined) tour.name = parsed.data.name;
   if (parsed.data.description !== undefined) tour.description = parsed.data.description;
 
-  const { resource: updated } = await container.item(tourId, userId).replace(tour);
-  context.res = { status: 200, body: updated };
-};
+  const { resource: updated } = await container.item(tourId, user.userId).replace(tour);
+  return { status: 200, jsonBody: updated };
+}
+
+app.http('EditTour', {
+  methods: ['patch'],
+  authLevel: 'anonymous',
+  route: 'tours/{tourId}',
+  handler: (request) => editTour(request),
+});
+
+module.exports = { editTour };

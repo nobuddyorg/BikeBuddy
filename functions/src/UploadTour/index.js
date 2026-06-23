@@ -1,12 +1,14 @@
 'use strict';
 
+const { app } = require('@azure/functions');
 const { v4: uuidv4 } = require('uuid');
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { gpxContainer } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { parseGpx } = require('../lib/parseGpx');
 const { tourMetaSchema } = require('../lib/validation');
+const { unauthorized, error } = require('../lib/http');
 
 // GPX/XML files start with "<?xml" or "<gpx" (optionally preceded by a UTF-8 BOM).
 function isXmlMagic(buffer) {
@@ -16,49 +18,40 @@ function isXmlMagic(buffer) {
   return header.startsWith('<?xml') || header.startsWith('<gpx');
 }
 
-module.exports = async function (
-  context,
-  req,
-  auth = authMiddleware,
+// POST /api/tours/upload — parse a GPX upload, store it, create the tour.
+async function uploadTour(
+  request,
+  auth = authenticate,
   getToursContainer = toursContainer,
   getGpxContainer = gpxContainer,
   parseFile = parseMultipart,
 ) {
-  if (!(await auth(context, req))) return;
-  const { userId } = context;
+  const user = await auth(request);
+  if (!user) return unauthorized();
+  const { userId } = user;
 
-  // Parse optional metadata fields from query string.
   const metaParsed = tourMetaSchema.safeParse({
-    name: req.query?.name,
-    description: req.query?.description,
+    name: request.query.get('name') ?? undefined,
+    description: request.query.get('description') ?? undefined,
   });
-  if (!metaParsed.success) {
-    context.res = { status: 400, body: { error: metaParsed.error.issues[0].message } };
-    return;
-  }
+  if (!metaParsed.success) return error(400, metaParsed.error.issues[0].message);
 
   let file;
   try {
-    file = await parseFile(req);
+    file = await parseFile(request);
   } catch (err) {
-    context.res = { status: err.status ?? 500, body: { error: err.message } };
-    return;
+    return error(err.status ?? 500, err.message);
   }
 
   if (!isXmlMagic(file.buffer)) {
-    context.res = {
-      status: 400,
-      body: { error: 'File does not appear to be a valid GPX/XML file' },
-    };
-    return;
+    return error(400, 'File does not appear to be a valid GPX/XML file');
   }
 
   let parsed;
   try {
     parsed = parseGpx(file.buffer);
   } catch {
-    context.res = { status: 400, body: { error: 'Could not parse GPX file' } };
-    return;
+    return error(400, 'Could not parse GPX file');
   }
 
   const tourId = uuidv4();
@@ -85,9 +78,9 @@ module.exports = async function (
     getToursContainer().items.create(tour),
   ]);
 
-  context.res = {
+  return {
     status: 201,
-    body: {
+    jsonBody: {
       tourId: tour.id,
       gpxFileUrl: tour.gpxFileUrl,
       name: tour.name,
@@ -95,4 +88,13 @@ module.exports = async function (
       createdAt: tour.createdAt,
     },
   };
-};
+}
+
+app.http('UploadTour', {
+  methods: ['post'],
+  authLevel: 'anonymous',
+  route: 'tours/upload',
+  handler: (request) => uploadTour(request),
+});
+
+module.exports = { uploadTour };

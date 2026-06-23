@@ -1,6 +1,6 @@
 'use strict';
 
-const getMe = require('./index');
+const { getMe } = require('./index');
 
 const STORED_USER = {
   id: 'u1',
@@ -9,11 +9,8 @@ const STORED_USER = {
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-const mockAuth = vi.fn(async () => true);
-
-function makeContext() {
-  return { res: null, userId: 'u1', userEmail: 'ada@example.com', userName: 'Ada' };
-}
+const mockAuth = async () => ({ userId: 'u1', userEmail: 'ada@example.com', userName: 'Ada' });
+const req = {};
 
 function makeContainer(overrides = {}) {
   return {
@@ -26,14 +23,13 @@ function makeContainer(overrides = {}) {
 describe('GET /api/me', () => {
   test('returns existing user document', async () => {
     const container = makeContainer();
-    const ctx = makeContext();
-    await getMe(ctx, {}, mockAuth, () => container);
+    const res = await getMe(req, mockAuth, () => container);
 
-    expect(ctx.res.status).toBe(200);
-    expect(ctx.res.body).toEqual(STORED_USER);
+    expect(res.status).toBe(200);
+    expect(res.jsonBody).toEqual(STORED_USER);
   });
 
-  test('creates user document on first login (404)', async () => {
+  test('creates user document on first login (404 thrown)', async () => {
     const err = Object.assign(new Error('Not found'), { code: 404 });
     const container = makeContainer({
       item: vi.fn().mockReturnValue({
@@ -42,32 +38,25 @@ describe('GET /api/me', () => {
         },
       }),
     });
-    const ctx = makeContext();
-    await getMe(ctx, {}, mockAuth, () => container);
+    const res = await getMe(req, mockAuth, () => container);
 
     expect(container.items.create).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'u1', name: 'Ada', email: 'ada@example.com' }),
     );
-    expect(ctx.res.status).toBe(200);
-    expect(ctx.res.body.id).toBe('u1');
+    expect(res.status).toBe(200);
+    expect(res.jsonBody.id).toBe('u1');
   });
 
   test('creates user when read returns resource undefined (no throw)', async () => {
-    // Real Cosmos SDK / emulator return { statusCode: 404, resource: undefined }
-    // for a missing item rather than throwing.
     const container = makeContainer({
       item: vi.fn().mockReturnValue({
         read: async () => ({ statusCode: 404, resource: undefined }),
       }),
     });
-    const ctx = makeContext();
-    await getMe(ctx, {}, mockAuth, () => container);
+    const res = await getMe(req, mockAuth, () => container);
 
-    expect(container.items.create).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: 'Ada', email: 'ada@example.com' }),
-    );
-    expect(ctx.res.status).toBe(200);
-    expect(ctx.res.body.id).toBe('u1');
+    expect(container.items.create).toHaveBeenCalled();
+    expect(res.status).toBe(200);
   });
 
   test('re-throws non-404 Cosmos errors', async () => {
@@ -80,21 +69,15 @@ describe('GET /api/me', () => {
       }),
     });
 
-    await expect(getMe(makeContext(), {}, mockAuth, () => container)).rejects.toThrow(
-      'Service unavailable',
-    );
+    await expect(getMe(req, mockAuth, () => container)).rejects.toThrow('Service unavailable');
   });
 
   test('returns 401 when auth fails', async () => {
-    const authFail = vi.fn(async (ctx) => {
-      ctx.res = { status: 401, body: { error: 'Unauthorized' } };
-      return false;
-    });
+    const authFail = async () => null;
     const container = makeContainer();
-    const ctx = makeContext();
-    await getMe(ctx, {}, authFail, () => container);
+    const res = await getMe(req, authFail, () => container);
 
-    expect(ctx.res.status).toBe(401);
+    expect(res.status).toBe(401);
     expect(container.item).not.toHaveBeenCalled();
   });
 });

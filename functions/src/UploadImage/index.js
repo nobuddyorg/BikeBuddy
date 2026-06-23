@@ -1,12 +1,14 @@
 'use strict';
 
+const { app } = require('@azure/functions');
 const { v4: uuidv4 } = require('uuid');
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { resizeImage } = require('../lib/resizeImage');
-const { requireUuids, isImageContentType } = require('../lib/validation');
+const { uuidParamError, isImageContentType } = require('../lib/validation');
+const { unauthorized, error } = require('../lib/http');
 
 // Validate by magic bytes (not Content-Type): JPEG = FF D8 FF, PNG = 89 50 4E 47.
 function isJpegOrPng(buffer) {
@@ -17,19 +19,22 @@ function isJpegOrPng(buffer) {
 }
 
 // POST /api/tours/{tourId}/images — store a resized JPEG and append it to the tour.
-module.exports = async function (
-  context,
-  req,
-  auth = authMiddleware,
+async function uploadImage(
+  request,
+  auth = authenticate,
   getToursContainer = toursContainer,
   getImagesContainer = imagesContainer,
   parseFile = parseMultipart,
   resize = resizeImage,
 ) {
-  if (!(await auth(context, req))) return;
-  const { userId } = context;
-  const tourId = req.params?.tourId;
-  if (!requireUuids(context, { tourId })) return;
+  const user = await auth(request);
+  if (!user) return unauthorized();
+
+  const tourId = request.params.tourId;
+  const badParam = uuidParamError({ tourId });
+  if (badParam) return badParam;
+
+  const { userId } = user;
 
   // Ownership: the tour must be in the caller's partition.
   let tour;
@@ -38,23 +43,18 @@ module.exports = async function (
   } catch (err) {
     if (err.code !== 404) throw err;
   }
-  if (!tour) {
-    context.res = { status: 404, body: { error: 'Tour not found' } };
-    return;
-  }
+  if (!tour) return error(404, 'Tour not found');
 
   let file;
   try {
-    file = await parseFile(req);
+    file = await parseFile(request);
   } catch (err) {
-    context.res = { status: err.status ?? 500, body: { error: err.message } };
-    return;
+    return error(err.status ?? 500, err.message);
   }
 
   // Validate the declared content-type AND the actual magic bytes.
   if (!isImageContentType(file.mimeType) || !isJpegOrPng(file.buffer)) {
-    context.res = { status: 400, body: { error: 'Only JPEG or PNG images are accepted' } };
-    return;
+    return error(400, 'Only JPEG or PNG images are accepted');
   }
 
   const resized = await resize(file.buffer);
@@ -68,8 +68,14 @@ module.exports = async function (
   tour.images = [...(tour.images || []), { id: imageId, blobName }];
   await getToursContainer().item(tourId, userId).replace(tour);
 
-  context.res = {
-    status: 201,
-    body: { id: imageId, url: await readSasUrl(blockBlob) },
-  };
-};
+  return { status: 201, jsonBody: { id: imageId, url: await readSasUrl(blockBlob) } };
+}
+
+app.http('UploadImage', {
+  methods: ['post'],
+  authLevel: 'anonymous',
+  route: 'tours/{tourId}/images',
+  handler: (request) => uploadImage(request),
+});
+
+module.exports = { uploadImage };

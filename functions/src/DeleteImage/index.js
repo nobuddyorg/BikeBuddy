@@ -1,24 +1,28 @@
 'use strict';
 
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { app } = require('@azure/functions');
+const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { imagesContainer } = require('../lib/blobStorage');
-const { requireUuids } = require('../lib/validation');
+const { uuidParamError } = require('../lib/validation');
+const { unauthorized, error } = require('../lib/http');
 
 // DELETE /api/tours/{tourId}/images/{imageId} — remove an image blob and its
-// entry from tour.images. Ownership via the userId partition key (other user's
-// tour isn't found → 404).
-module.exports = async function (
-  context,
-  req,
-  auth = authMiddleware,
+// entry from tour.images. Ownership via the userId partition key.
+async function deleteImage(
+  request,
+  auth = authenticate,
   getToursContainer = toursContainer,
   getImagesContainer = imagesContainer,
 ) {
-  if (!(await auth(context, req))) return;
-  const { userId } = context;
-  const { tourId, imageId } = req.params ?? {};
-  if (!requireUuids(context, { tourId, imageId })) return;
+  const user = await auth(request);
+  if (!user) return unauthorized();
+
+  const { tourId, imageId } = request.params;
+  const badParam = uuidParamError({ tourId, imageId });
+  if (badParam) return badParam;
+
+  const { userId } = user;
 
   let tour;
   try {
@@ -26,16 +30,10 @@ module.exports = async function (
   } catch (err) {
     if (err.code !== 404) throw err;
   }
-  if (!tour) {
-    context.res = { status: 404, body: { error: 'Tour not found' } };
-    return;
-  }
+  if (!tour) return error(404, 'Tour not found');
 
   const image = (tour.images || []).find((i) => i.id === imageId);
-  if (!image) {
-    context.res = { status: 404, body: { error: 'Image not found' } };
-    return;
-  }
+  if (!image) return error(404, 'Image not found');
 
   const container = await getImagesContainer();
   await container.getBlockBlobClient(image.blobName).deleteIfExists();
@@ -43,5 +41,14 @@ module.exports = async function (
   tour.images = tour.images.filter((i) => i.id !== imageId);
   await getToursContainer().item(tourId, userId).replace(tour);
 
-  context.res = { status: 204 };
-};
+  return { status: 204 };
+}
+
+app.http('DeleteImage', {
+  methods: ['delete'],
+  authLevel: 'anonymous',
+  route: 'tours/{tourId}/images/{imageId}',
+  handler: (request) => deleteImage(request),
+});
+
+module.exports = { deleteImage };

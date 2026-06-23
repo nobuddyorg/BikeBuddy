@@ -2,6 +2,7 @@
   "name": "bikebuddy-functions",
   "version": "1.0.0",
   "description": "BikeBuddy Azure Functions backend",
+  "main": "src/**/index.js",
   "engines": {
     "node": ">=22"
   },
@@ -17,6 +18,7 @@
   },
   "dependencies": {
     "@azure/cosmos": "^4.1.1",
+    "@azure/functions": "^4.16.1",
     "@azure/storage-blob": "^12.25.0",
     "busboy": "^1.6.0",
     "fast-xml-parser": "^5.8.0",
