@@ -2,8 +2,10 @@
 
 const getTour = require('./index');
 
+const TID = '11111111-1111-4111-8111-111111111111';
+
 const TOUR = {
-  id: 't1',
+  id: TID,
   userId: 'u1',
   name: 'Alps',
   distance: 120,
@@ -32,9 +34,9 @@ describe('GET /api/tours/{tourId}', () => {
   it('returns the full tour (incl. heatmapData) with 200', async () => {
     const { container, item } = makeContainer(async () => ({ resource: { ...TOUR } }));
     const ctx = makeContext();
-    await getTour(ctx, reqWith('t1'), mockAuth, () => container);
+    await getTour(ctx, reqWith(TID), mockAuth, () => container);
 
-    expect(item).toHaveBeenCalledWith('t1', 'u1'); // partition key = userId (ownership)
+    expect(item).toHaveBeenCalledWith(TID, 'u1'); // partition key = userId (ownership)
     expect(ctx.res.status).toBe(200);
     expect(ctx.res.body).toEqual({ ...TOUR, images: [] }); // no stored images → empty
     expect(ctx.res.body.heatmapData).toHaveLength(2);
@@ -55,7 +57,7 @@ describe('GET /api/tours/{tourId}', () => {
     const imagesContainer = () => Promise.resolve({ getBlockBlobClient });
     const ctx = makeContext();
 
-    await getTour(ctx, reqWith('t1'), mockAuth, () => container, imagesContainer);
+    await getTour(ctx, reqWith(TID), mockAuth, () => container, imagesContainer);
 
     expect(ctx.res.body.images).toEqual([
       { id: 'img1', url: 'https://blob/u1/t1/img1.jpg?sig=x' },
@@ -63,10 +65,19 @@ describe('GET /api/tours/{tourId}', () => {
     ]);
   });
 
+  it('returns 400 when tourId is not a UUID', async () => {
+    const { container, item } = makeContainer(async () => ({ resource: { ...TOUR } }));
+    const ctx = makeContext();
+    await getTour(ctx, reqWith('not-a-uuid'), mockAuth, () => container);
+
+    expect(ctx.res.status).toBe(400);
+    expect(item).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when read resolves with no resource (missing / other user)', async () => {
     const { container } = makeContainer(async () => ({ resource: undefined }));
     const ctx = makeContext();
-    await getTour(ctx, reqWith('nope'), mockAuth, () => container);
+    await getTour(ctx, reqWith(TID), mockAuth, () => container);
 
     expect(ctx.res.status).toBe(404);
   });
@@ -76,7 +87,7 @@ describe('GET /api/tours/{tourId}', () => {
       throw Object.assign(new Error('Not found'), { code: 404 });
     });
     const ctx = makeContext();
-    await getTour(ctx, reqWith('nope'), mockAuth, () => container);
+    await getTour(ctx, reqWith(TID), mockAuth, () => container);
 
     expect(ctx.res.status).toBe(404);
   });
@@ -85,7 +96,7 @@ describe('GET /api/tours/{tourId}', () => {
     const { container } = makeContainer(async () => {
       throw Object.assign(new Error('boom'), { code: 503 });
     });
-    await expect(getTour(makeContext(), reqWith('t1'), mockAuth, () => container)).rejects.toThrow(
+    await expect(getTour(makeContext(), reqWith(TID), mockAuth, () => container)).rejects.toThrow(
       'boom',
     );
   });
@@ -97,7 +108,7 @@ describe('GET /api/tours/{tourId}', () => {
     };
     const { container, item } = makeContainer(async () => ({ resource: TOUR }));
     const ctx = makeContext();
-    await getTour(ctx, reqWith('t1'), failAuth, () => container);
+    await getTour(ctx, reqWith(TID), failAuth, () => container);
 
     expect(ctx.res.status).toBe(401);
     expect(item).not.toHaveBeenCalled();

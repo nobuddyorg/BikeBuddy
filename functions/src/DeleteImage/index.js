@@ -3,6 +3,7 @@
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { imagesContainer } = require('../lib/blobStorage');
+const { requireUuids } = require('../lib/validation');
 
 // DELETE /api/tours/{tourId}/images/{imageId} — remove an image blob and its
 // entry from tour.images. Ownership via the userId partition key (other user's
@@ -17,6 +18,7 @@ module.exports = async function (
   if (!(await auth(context, req))) return;
   const { userId } = context;
   const { tourId, imageId } = req.params ?? {};
+  if (!requireUuids(context, { tourId, imageId })) return;
 
   let tour;
   try {

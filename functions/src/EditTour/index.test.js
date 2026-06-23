@@ -2,8 +2,10 @@
 
 const editTour = require('./index');
 
+const TID = '11111111-1111-4111-8111-111111111111';
+
 const TOUR = {
-  id: 't1',
+  id: TID,
   userId: 'u1',
   name: 'Old name',
   description: 'old',
@@ -33,7 +35,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     const ctx = makeContext();
     await editTour(
       ctx,
-      reqWith('t1', { name: 'New', description: 'new desc' }),
+      reqWith(TID, { name: 'New', description: 'new desc' }),
       mockAuth,
       () => c.container,
     );
@@ -44,13 +46,13 @@ describe('PATCH /api/tours/{tourId}', () => {
     // unchanged fields preserved
     expect(ctx.res.body.heatmapData).toEqual(TOUR.heatmapData);
     expect(ctx.res.body.distance).toBe(120);
-    expect(c.item).toHaveBeenCalledWith('t1', 'u1'); // partition key = userId
+    expect(c.item).toHaveBeenCalledWith(TID, 'u1'); // partition key = userId
   });
 
   it('patches only the provided field', async () => {
     const c = makeContainer(async () => ({ resource: { ...TOUR } }));
     const ctx = makeContext();
-    await editTour(ctx, reqWith('t1', { name: 'Renamed' }), mockAuth, () => c.container);
+    await editTour(ctx, reqWith(TID, { name: 'Renamed' }), mockAuth, () => c.container);
 
     expect(ctx.res.body.name).toBe('Renamed');
     expect(ctx.res.body.description).toBe('old'); // untouched
@@ -61,7 +63,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     const ctx = makeContext();
     await editTour(
       ctx,
-      reqWith('t1', { name: 'X', heatmapData: [], distance: 9999 }),
+      reqWith(TID, { name: 'X', heatmapData: [], distance: 9999 }),
       mockAuth,
       () => c.container,
     );
@@ -73,7 +75,7 @@ describe('PATCH /api/tours/{tourId}', () => {
   it('returns 400 on invalid input', async () => {
     const c = makeContainer(async () => ({ resource: { ...TOUR } }));
     const ctx = makeContext();
-    await editTour(ctx, reqWith('t1', { name: '' }), mockAuth, () => c.container);
+    await editTour(ctx, reqWith(TID, { name: '' }), mockAuth, () => c.container);
 
     expect(ctx.res.status).toBe(400);
     expect(c.replace).not.toHaveBeenCalled();
@@ -82,7 +84,7 @@ describe('PATCH /api/tours/{tourId}', () => {
   it('returns 404 when the tour is not in the caller partition', async () => {
     const c = makeContainer(async () => ({ resource: undefined }));
     const ctx = makeContext();
-    await editTour(ctx, reqWith('nope', { name: 'X' }), mockAuth, () => c.container);
+    await editTour(ctx, reqWith(TID, { name: 'X' }), mockAuth, () => c.container);
 
     expect(ctx.res.status).toBe(404);
     expect(c.replace).not.toHaveBeenCalled();
@@ -95,7 +97,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     };
     const c = makeContainer(async () => ({ resource: { ...TOUR } }));
     const ctx = makeContext();
-    await editTour(ctx, reqWith('t1', { name: 'X' }), failAuth, () => c.container);
+    await editTour(ctx, reqWith(TID, { name: 'X' }), failAuth, () => c.container);
 
     expect(ctx.res.status).toBe(401);
     expect(c.item).not.toHaveBeenCalled();

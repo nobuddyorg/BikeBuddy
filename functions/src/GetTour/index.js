@@ -3,6 +3,7 @@
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
+const { requireUuids } = require('../lib/validation');
 
 // GET /api/tours/{tourId} — full tour document including heatmapData.
 // Reading with the userId partition key enforces ownership: a tour in another
@@ -20,6 +21,7 @@ module.exports = async function (
   if (!(await auth(context, req))) return;
   const { userId } = context;
   const tourId = req.params?.tourId;
+  if (!requireUuids(context, { tourId })) return;
 
   let tour;
   try {

@@ -6,6 +6,7 @@ const { toursContainer } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { resizeImage } = require('../lib/resizeImage');
+const { requireUuids, isImageContentType } = require('../lib/validation');
 
 // Validate by magic bytes (not Content-Type): JPEG = FF D8 FF, PNG = 89 50 4E 47.
 function isJpegOrPng(buffer) {
@@ -28,6 +29,7 @@ module.exports = async function (
   if (!(await auth(context, req))) return;
   const { userId } = context;
   const tourId = req.params?.tourId;
+  if (!requireUuids(context, { tourId })) return;
 
   // Ownership: the tour must be in the caller's partition.
   let tour;
@@ -49,7 +51,8 @@ module.exports = async function (
     return;
   }
 
-  if (!isJpegOrPng(file.buffer)) {
+  // Validate the declared content-type AND the actual magic bytes.
+  if (!isImageContentType(file.mimeType) || !isJpegOrPng(file.buffer)) {
     context.res = { status: 400, body: { error: 'Only JPEG or PNG images are accepted' } };
     return;
   }
