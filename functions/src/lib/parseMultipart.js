@@ -70,10 +70,16 @@ function parseMultipart(req) {
       }
     });
 
-    // With "dataType": "binary" in function.json, rawBody is a Buffer.
-    // Guard for other callers that may pass a string.
+    // With "dataType": "binary" the runtime delivers the body as a Buffer in
+    // req.body; req.rawBody may be a (lossy for binary) string. Prefer whichever
+    // is already a Buffer so image bytes survive; fall back to a latin1 decode.
+    const body = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.isBuffer(req.rawBody)
+        ? req.rawBody
+        : Buffer.from(req.rawBody ?? '', 'binary');
     const readable = new Readable();
-    readable.push(Buffer.isBuffer(req.rawBody) ? req.rawBody : Buffer.from(req.rawBody, 'binary'));
+    readable.push(body);
     readable.push(null);
     readable.pipe(busboy);
   });
