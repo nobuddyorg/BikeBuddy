@@ -21,6 +21,12 @@ functions/.azurite/
 functions/.cosmos-emulator.pem
 .swa/
 
+# Playwright (e2e)
+e2e/reports/
+e2e/playwright-report/
+e2e/test-results/
+.playwright-mcp/
+
 # Frontend config (contains B2C client IDs — use config.js.example as template)
 frontend/config.js
 
