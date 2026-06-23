@@ -1,0 +1,51 @@
+name: Deploy Functions
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # Skip (neutral, not failed) until the Azure target is configured, so pushes
+    # to main aren't marked red before the infrastructure exists. Configure the
+    # repo variable AZURE_FUNCTIONAPP_NAME and secret AZURE_FUNCTIONAPP_PUBLISH_PROFILE.
+    if: vars.AZURE_FUNCTIONAPP_NAME != ''
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      # setup-node pinned to v6.4.0. No cache is configured (caching is unsafe on a
+      # publishing workflow), so the cache-poisoning finding is a false positive.
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # zizmor: ignore[cache-poisoning]
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: functions
+
+      # Failing tests block the deploy (this step fails the job before deploy runs).
+      - name: Run tests
+        run: npm test
+        working-directory: functions
+
+      # Drop devDependencies so only runtime deps are shipped.
+      - name: Prune dev dependencies
+        run: npm prune --omit=dev
+        working-directory: functions
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
+        with:
+          app-name: ${{ vars.AZURE_FUNCTIONAPP_NAME }}
+          package: functions
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
