@@ -43,6 +43,12 @@ const elBtnUploadSidebar = $('btn-upload-sidebar');
 const elBtnCloseDetail = $('btn-close-detail');
 const elBtnDeleteTour = $('btn-delete-tour');
 const elBtnEditTour = $('btn-edit-tour');
+const elImageGrid = $('tour-image-grid');
+const elImageDropzone = $('image-dropzone');
+const elImageFile = $('image-file');
+const elImageProgress = $('image-progress');
+const elImageProgressBar = $('image-progress-bar');
+const elImageError = $('image-error');
 const elEditModal = $('edit-modal');
 const elEditForm = $('edit-form');
 const elEditName = $('edit-name');
@@ -389,7 +395,82 @@ function renderDetailPanel(tour) {
   elDetailDate.textContent = formatDate(tour.createdAt);
   elDetailDist.textContent = formatDistance(tour.distance);
   elDetailDesc.textContent = tour.description || '';
+  resetImageSection();
   show(elDetailPanel, true);
+}
+
+// ── Tour images (upload) ──────────────────────────────────────────────────────
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+function resetImageSection() {
+  elImageGrid.innerHTML = '';
+  show(elImageProgress, false);
+  show(elImageError, false);
+  elImageProgressBar.style.width = '0%';
+  elImageDropzone.classList.remove('dragover');
+}
+
+function appendThumbnail(image) {
+  const img = document.createElement('img');
+  img.className = 'image-thumb';
+  img.src = image.url;
+  img.alt = 'Tour photo';
+  img.loading = 'lazy';
+  elImageGrid.appendChild(img);
+}
+
+function showImageError(message) {
+  elImageError.textContent = message;
+  show(elImageError, true);
+}
+
+async function uploadImage(file) {
+  show(elImageError, false);
+  const tourId = state.selectedTourId;
+  if (!file || !tourId) return;
+  if (!/^image\/(jpeg|png)$/.test(file.type) && !/\.(jpe?g|png)$/i.test(file.name)) {
+    showImageError('Only JPEG or PNG images are accepted.');
+    return;
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    showImageError('Image exceeds the 10 MB limit.');
+    return;
+  }
+
+  const token = await getAccessToken();
+  const fd = new FormData();
+  fd.append('file', file, file.name);
+  show(elImageProgress, true);
+  elImageProgressBar.style.width = '0%';
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', `/api/tours/${tourId}/images`);
+  if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+  xhr.upload.onprogress = (ev) => {
+    if (ev.lengthComputable) {
+      elImageProgressBar.style.width = `${Math.round((ev.loaded / ev.total) * 100)}%`;
+    }
+  };
+  xhr.onload = () => {
+    show(elImageProgress, false);
+    if (xhr.status === 201) {
+      appendThumbnail(JSON.parse(xhr.responseText));
+    } else {
+      let msg = 'Upload failed.';
+      try {
+        msg = JSON.parse(xhr.responseText).error || msg;
+      } catch {
+        // non-JSON error body — keep the generic message
+      }
+      showImageError(msg);
+    }
+  };
+  xhr.onerror = () => {
+    show(elImageProgress, false);
+    showImageError('Network error during upload.');
+  };
+  xhr.send(fd);
 }
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
@@ -555,6 +636,28 @@ elProfileModal.addEventListener('click', (e) => {
 elBtnCloseDetail.addEventListener('click', deselectTour);
 elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
 elBtnEditTour.addEventListener('click', openEdit);
+
+elImageFile.addEventListener('change', () => {
+  uploadImage(elImageFile.files[0]);
+  elImageFile.value = ''; // allow re-selecting the same file
+});
+elImageDropzone.addEventListener('click', () => elImageFile.click());
+elImageDropzone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    elImageFile.click();
+  }
+});
+elImageDropzone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  elImageDropzone.classList.add('dragover');
+});
+elImageDropzone.addEventListener('dragleave', () => elImageDropzone.classList.remove('dragover'));
+elImageDropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  elImageDropzone.classList.remove('dragover');
+  uploadImage(e.dataTransfer.files[0]);
+});
 $('btn-close-edit').addEventListener('click', closeEdit);
 elEditModal.addEventListener('click', (e) => {
   if (e.target === elEditModal) closeEdit();
