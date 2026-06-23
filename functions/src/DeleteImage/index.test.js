@@ -1,6 +1,6 @@
 'use strict';
 
-const deleteImage = require('./index');
+const { deleteImage } = require('./index');
 
 const TID = '11111111-1111-4111-8111-111111111111';
 const IMG1 = '22222222-2222-4222-8222-222222222222';
@@ -14,10 +14,7 @@ const TOUR = {
   images: [IMG, { id: IMG2, blobName: `u1/${TID}/${IMG2}.jpg` }],
 };
 
-const mockAuth = async (ctx) => {
-  ctx.userId = 'u1';
-  return true;
-};
+const mockAuth = async () => ({ userId: 'u1' });
 
 function makeToursContainer(readImpl) {
   const read = vi.fn(readImpl);
@@ -33,7 +30,6 @@ function makeImagesContainer() {
 }
 
 const reqWith = (tourId, imageId) => ({ params: { tourId, imageId } });
-const makeContext = () => ({ res: null, userId: 'u1' });
 
 describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
   it('deletes the blob, removes the entry, returns 204', async () => {
@@ -41,10 +37,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
       resource: { ...TOUR, images: [...TOUR.images] },
     }));
     const images = makeImagesContainer();
-    const ctx = makeContext();
-
-    await deleteImage(
-      ctx,
+    const res = await deleteImage(
       reqWith(TID, IMG1),
       mockAuth,
       () => tours.container,
@@ -55,21 +48,34 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     expect(images.deleteIfExists).toHaveBeenCalled();
     const [doc] = tours.replace.mock.calls[0];
     expect(doc.images.map((i) => i.id)).toEqual([IMG2]);
-    expect(ctx.res.status).toBe(204);
+    expect(res.status).toBe(204);
+  });
+
+  it('returns 400 when an id is not a UUID', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
+    const images = makeImagesContainer();
+    const res = await deleteImage(
+      reqWith(TID, 'bad'),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+    );
+
+    expect(res.status).toBe(400);
+    expect(tours.item).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the tour is not in the caller partition', async () => {
     const tours = makeToursContainer(async () => ({ resource: undefined }));
     const images = makeImagesContainer();
-    const ctx = makeContext();
-    await deleteImage(
-      ctx,
+    const res = await deleteImage(
       reqWith(TID, IMG1),
       mockAuth,
       () => tours.container,
       () => images.container,
     );
-    expect(ctx.res.status).toBe(404);
+
+    expect(res.status).toBe(404);
     expect(images.deleteIfExists).not.toHaveBeenCalled();
   });
 
@@ -78,35 +84,30 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
       resource: { ...TOUR, images: [...TOUR.images] },
     }));
     const images = makeImagesContainer();
-    const ctx = makeContext();
-    await deleteImage(
-      ctx,
+    const res = await deleteImage(
       reqWith(TID, GHOST),
       mockAuth,
       () => tours.container,
       () => images.container,
     );
-    expect(ctx.res.status).toBe(404);
+
+    expect(res.status).toBe(404);
     expect(images.deleteIfExists).not.toHaveBeenCalled();
     expect(tours.replace).not.toHaveBeenCalled();
   });
 
   it('returns 401 when auth fails', async () => {
-    const failAuth = async (ctx) => {
-      ctx.res = { status: 401, body: { error: 'Unauthorized' } };
-      return false;
-    };
+    const failAuth = async () => null;
     const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
     const images = makeImagesContainer();
-    const ctx = makeContext();
-    await deleteImage(
-      ctx,
+    const res = await deleteImage(
       reqWith(TID, IMG1),
       failAuth,
       () => tours.container,
       () => images.container,
     );
-    expect(ctx.res.status).toBe(401);
+
+    expect(res.status).toBe(401);
     expect(tours.item).not.toHaveBeenCalled();
   });
 });

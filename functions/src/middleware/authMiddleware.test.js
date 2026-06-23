@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { authMiddleware, b2cBaseUrl, defaultJwksClient } = require('./authMiddleware');
+const { authenticate, b2cBaseUrl, defaultJwksClient } = require('./authMiddleware');
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
@@ -16,8 +16,6 @@ const TEST_ENV = {
 const ISSUER = `https://testtenant.b2clogin.com/${TEST_ENV.B2C_TENANT}/v2.0/`;
 const now = () => Math.floor(Date.now() / 1000);
 
-// JWKS factories — never hit the network: one returns our public key, the other fails.
-// getSigningKey mirrors jwks-rsa's promise API (await client.getSigningKey(kid)).
 const mockJwks = () => ({ getSigningKey: async () => ({ getPublicKey: () => publicKeyPem }) });
 const failingJwks = () => ({
   getSigningKey: async () => {
@@ -41,43 +39,35 @@ function makeToken(overrides = {}) {
   );
 }
 
-const bearer = (token) => ({ headers: { authorization: `Bearer ${token}` } });
+// v4 request: headers is a Map/Headers exposing .get().
+const bearer = (token) => ({ headers: new Map([['authorization', `Bearer ${token}`]]) });
 
-// Runs the middleware against a fresh context and returns both for assertion.
-async function run(req, factory = mockJwks) {
-  const ctx = { res: null, userId: null, userEmail: null };
-  const ok = await authMiddleware(ctx, req, factory);
-  return { ok, ctx };
-}
+const run = (req, factory = mockJwks) => authenticate(req, factory);
 
 beforeEach(() => Object.assign(process.env, TEST_ENV));
 afterEach(() => {
   for (const k of Object.keys(TEST_ENV)) delete process.env[k];
+  delete process.env.SKIP_AUTH;
 });
 
-describe('authMiddleware — success', () => {
-  test('valid token attaches userId/userEmail/userName and returns true', async () => {
-    const { ok, ctx } = await run(bearer(makeToken()));
-    expect(ok).toBe(true);
-    expect(ctx.userId).toBe('user-123');
-    expect(ctx.userEmail).toBe('test@example.com');
-    expect(ctx.userName).toBe('Test User');
-    expect(ctx.res).toBeNull();
+describe('authenticate — success', () => {
+  test('valid token resolves userId/userEmail/userName', async () => {
+    const user = await run(bearer(makeToken()));
+    expect(user).toEqual({
+      userId: 'user-123',
+      userEmail: 'test@example.com',
+      userName: 'Test User',
+    });
   });
 
   test.each([
     [
-      'email claim when emails[] is absent',
+      'email claim when emails[] absent',
       { emails: undefined, email: 'alt@example.com' },
       'userEmail',
       'alt@example.com',
     ],
-    [
-      'null when no email claim is present',
-      { emails: undefined, email: undefined },
-      'userEmail',
-      null,
-    ],
+    ['null when no email claim', { emails: undefined, email: undefined }, 'userEmail', null],
     [
       'given_name fallback when name absent',
       { name: undefined, given_name: 'Ada' },
@@ -91,53 +81,44 @@ describe('authMiddleware — success', () => {
       null,
     ],
   ])('resolves %s', async (_label, claims, field, expected) => {
-    const { ok, ctx } = await run(bearer(makeToken(claims)));
-    expect(ok).toBe(true);
-    expect(ctx[field]).toBe(expected);
+    const user = await run(bearer(makeToken(claims)));
+    expect(user[field]).toBe(expected);
   });
 });
 
-describe('authMiddleware — rejection (401)', () => {
-  // HS256 token: must be rejected because only RS256 is allowed (algorithm-confusion guard).
+describe('authenticate — rejection (null)', () => {
   const hsToken = jwt.sign(
     { sub: 'user-123', aud: TEST_ENV.B2C_CLIENT_ID, iss: ISSUER, exp: now() + 3600 },
     crypto.randomBytes(32).toString('hex'),
-    {
-      algorithm: 'HS256',
-      header: { kid: 'test-key' },
-    },
+    { algorithm: 'HS256', header: { kid: 'test-key' } },
   );
 
   test.each([
-    ['missing Authorization header', { headers: {} }],
-    ['non-Bearer scheme', { headers: { authorization: 'Basic sometoken' } }],
+    ['missing Authorization header', { headers: new Map() }],
+    ['non-Bearer scheme', { headers: new Map([['authorization', 'Basic sometoken']]) }],
     ['malformed token', bearer('notajwt')],
     ['expired token', bearer(makeToken({ exp: now() - 60 }))],
     ['wrong audience', bearer(makeToken({ aud: 'wrong-client' }))],
     ['wrong issuer', bearer(makeToken({ iss: 'https://attacker.example.com/' }))],
     ['disallowed algorithm (HS256)', bearer(hsToken)],
     ['JWKS signing-key lookup failure', bearer(makeToken()), failingJwks],
-  ])('rejects %s', async (_label, req, factory) => {
-    const { ok, ctx } = await run(req, factory);
-    expect(ok).toBe(false);
-    expect(ctx.res.status).toBe(401);
+  ])('returns null for %s', async (_label, req, factory) => {
+    expect(await run(req, factory)).toBeNull();
   });
 });
 
-describe('authMiddleware — SKIP_AUTH dev bypass', () => {
+describe('authenticate — SKIP_AUTH dev bypass', () => {
   beforeEach(() => {
     process.env.SKIP_AUTH = 'true';
   });
-  afterEach(() => {
-    delete process.env.SKIP_AUTH;
-  });
 
-  test('returns true and sets hardcoded dev user without a token', async () => {
-    const { ok, ctx } = await run({ headers: {} });
-    expect(ok).toBe(true);
-    expect(ctx.userId).toBe('local-dev-user');
-    expect(ctx.userEmail).toBe('dev@localhost');
-    expect(ctx.userName).toBe('Local Dev');
+  test('returns a hardcoded dev user without a token', async () => {
+    const user = await authenticate({ headers: new Map() });
+    expect(user).toEqual({
+      userId: 'local-dev-user',
+      userEmail: 'dev@localhost',
+      userName: 'Local Dev',
+    });
   });
 });
 

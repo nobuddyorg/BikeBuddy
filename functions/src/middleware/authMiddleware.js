@@ -35,23 +35,20 @@ const resolveName = (payload) => payload.name || payload.given_name || null;
 
 // Dev-only bypass: set SKIP_AUTH=true in local.settings.json to skip JWT
 // verification and use a hardcoded local user. Never set this in production.
-function skipAuthIfDev(context) {
-  if (process.env.SKIP_AUTH !== 'true') return false;
-  context.userId = 'local-dev-user';
-  context.userEmail = 'dev@localhost';
-  context.userName = 'Local Dev';
-  return true;
+function skipAuthIfDev() {
+  if (process.env.SKIP_AUTH !== 'true') return null;
+  return { userId: 'local-dev-user', userEmail: 'dev@localhost', userName: 'Local Dev' };
 }
 
-// Returns true and sets context.userId/userEmail, or sets context.res 401 and
-// returns false. jwksClientFactory is injectable for testing.
-async function authMiddleware(context, req, jwksClientFactory = defaultJwksClient) {
-  if (skipAuthIfDev(context)) return true;
-  const authHeader = req.headers.authorization || req.headers.Authorization;
-  if (!authHeader?.startsWith(BEARER_PREFIX)) {
-    context.res = { status: 401, body: { error: 'Authorization header missing or malformed' } };
-    return false;
-  }
+// Resolves the caller from the request's Bearer token: returns
+// { userId, userEmail, userName } on success or null on any auth failure.
+// jwksClientFactory is injectable for testing.
+async function authenticate(request, jwksClientFactory = defaultJwksClient) {
+  const dev = skipAuthIfDev();
+  if (dev) return dev;
+
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith(BEARER_PREFIX)) return null;
 
   try {
     const token = authHeader.slice(BEARER_PREFIX.length);
@@ -66,14 +63,14 @@ async function authMiddleware(context, req, jwksClientFactory = defaultJwksClien
       algorithms: ['RS256'],
     });
 
-    context.userId = payload.sub;
-    context.userEmail = resolveEmail(payload);
-    context.userName = resolveName(payload);
-    return true;
+    return {
+      userId: payload.sub,
+      userEmail: resolveEmail(payload),
+      userName: resolveName(payload),
+    };
   } catch {
-    context.res = { status: 401, body: { error: 'Invalid or expired token' } };
-    return false;
+    return null;
   }
 }
 
-module.exports = { authMiddleware, b2cBaseUrl, defaultJwksClient };
+module.exports = { authenticate, b2cBaseUrl, defaultJwksClient };

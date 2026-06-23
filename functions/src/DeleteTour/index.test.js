@@ -1,14 +1,11 @@
 'use strict';
 
-const deleteTour = require('./index');
+const { deleteTour } = require('./index');
 
 const TID = '11111111-1111-4111-8111-111111111111';
 const TOUR = { id: TID, userId: 'u1', name: 'Alps' };
 
-const mockAuth = async (ctx) => {
-  ctx.userId = 'u1';
-  return true;
-};
+const mockAuth = async () => ({ userId: 'u1' });
 
 function makeToursContainer(readImpl) {
   const read = vi.fn(readImpl);
@@ -24,16 +21,12 @@ function makeGpxContainer() {
 }
 
 const reqWith = (tourId) => ({ params: { tourId } });
-const makeContext = () => ({ res: null, userId: 'u1' });
 
 describe('DELETE /api/tours/{tourId}', () => {
   it('deletes blob + document and returns 204', async () => {
     const tours = makeToursContainer(async () => ({ resource: TOUR }));
     const gpx = makeGpxContainer();
-    const ctx = makeContext();
-
-    await deleteTour(
-      ctx,
+    const res = await deleteTour(
       reqWith(TID),
       mockAuth,
       () => tours.container,
@@ -42,25 +35,36 @@ describe('DELETE /api/tours/{tourId}', () => {
 
     expect(gpx.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}.gpx`);
     expect(gpx.deleteIfExists).toHaveBeenCalled();
-    expect(tours.item).toHaveBeenCalledWith(TID, 'u1'); // partition key = userId
+    expect(tours.item).toHaveBeenCalledWith(TID, 'u1');
     expect(tours.del).toHaveBeenCalled();
-    expect(ctx.res.status).toBe(204);
+    expect(res.status).toBe(204);
+  });
+
+  it('returns 400 when tourId is not a UUID', async () => {
+    const tours = makeToursContainer(async () => ({ resource: TOUR }));
+    const gpx = makeGpxContainer();
+    const res = await deleteTour(
+      reqWith('bad'),
+      mockAuth,
+      () => tours.container,
+      () => gpx.container,
+    );
+
+    expect(res.status).toBe(400);
+    expect(tours.item).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the tour is not in the caller partition', async () => {
     const tours = makeToursContainer(async () => ({ resource: undefined }));
     const gpx = makeGpxContainer();
-    const ctx = makeContext();
-
-    await deleteTour(
-      ctx,
+    const res = await deleteTour(
       reqWith(TID),
       mockAuth,
       () => tours.container,
       () => gpx.container,
     );
 
-    expect(ctx.res.status).toBe(404);
+    expect(res.status).toBe(404);
     expect(gpx.deleteIfExists).not.toHaveBeenCalled();
     expect(tours.del).not.toHaveBeenCalled();
   });
@@ -70,10 +74,8 @@ describe('DELETE /api/tours/{tourId}', () => {
       throw Object.assign(new Error('boom'), { code: 503 });
     });
     const gpx = makeGpxContainer();
-
     await expect(
       deleteTour(
-        makeContext(),
         reqWith(TID),
         mockAuth,
         () => tours.container,
@@ -83,23 +85,17 @@ describe('DELETE /api/tours/{tourId}', () => {
   });
 
   it('returns 401 when auth fails', async () => {
-    const failAuth = async (ctx) => {
-      ctx.res = { status: 401, body: { error: 'Unauthorized' } };
-      return false;
-    };
+    const failAuth = async () => null;
     const tours = makeToursContainer(async () => ({ resource: TOUR }));
     const gpx = makeGpxContainer();
-    const ctx = makeContext();
-
-    await deleteTour(
-      ctx,
+    const res = await deleteTour(
       reqWith(TID),
       failAuth,
       () => tours.container,
       () => gpx.container,
     );
 
-    expect(ctx.res.status).toBe(401);
+    expect(res.status).toBe(401);
     expect(tours.item).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,0 @@
-{
-  "scriptFile": "../src/UploadImage/index.js",
-  "bindings": [
-    { "authLevel": "anonymous", "type": "httpTrigger", "direction": "in", "name": "req", "methods": ["post"], "route": "tours/{tourId}/images", "dataType": "binary" },
-    { "type": "http", "direction": "out", "name": "res" }
-  ]
-}

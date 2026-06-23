@@ -6,24 +6,28 @@ const { Readable } = require('stream');
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /**
- * Parse the first file field from a multipart request.
+ * Parse the first file field from a multipart v4 HttpRequest.
  *
- * Resolves with { filename, mimeType, buffer } or rejects with an Error
- * whose `.status` property is 400 when the file exceeds MAX_FILE_BYTES.
+ * Resolves with { filename, mimeType, buffer } or rejects with an Error whose
+ * `.status` is 400 for client problems (too large, malformed, no file).
  */
-function parseMultipart(req) {
+async function parseMultipart(request) {
+  const headers = Object.fromEntries(request.headers.entries());
+
   // Fast reject on Content-Length before buffering anything.
-  const contentLength = parseInt(req.headers['content-length'] ?? '0', 10);
+  const contentLength = parseInt(headers['content-length'] ?? '0', 10);
   if (contentLength > MAX_FILE_BYTES) {
     const err = new Error('File exceeds 10 MB limit');
     err.status = 400;
-    return Promise.reject(err);
+    throw err;
   }
+
+  const body = Buffer.from(await request.arrayBuffer());
 
   return new Promise((resolve, reject) => {
     let busboy;
     try {
-      busboy = Busboy({ headers: req.headers });
+      busboy = Busboy({ headers });
     } catch {
       const err = new Error('Invalid multipart request');
       err.status = 400;
@@ -70,18 +74,7 @@ function parseMultipart(req) {
       }
     });
 
-    // With "dataType": "binary" the runtime delivers the body as a Buffer in
-    // req.body; req.rawBody may be a (lossy for binary) string. Prefer whichever
-    // is already a Buffer so image bytes survive; fall back to a latin1 decode.
-    const body = Buffer.isBuffer(req.body)
-      ? req.body
-      : Buffer.isBuffer(req.rawBody)
-        ? req.rawBody
-        : Buffer.from(req.rawBody ?? '', 'binary');
-    const readable = new Readable();
-    readable.push(body);
-    readable.push(null);
-    readable.pipe(busboy);
+    Readable.from(body).pipe(busboy);
   });
 }
 

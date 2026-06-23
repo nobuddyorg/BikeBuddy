@@ -4,7 +4,7 @@ const {
   stripHtml,
   tourMetaSchema,
   isUuid,
-  requireUuids,
+  uuidParamError,
   isImageContentType,
 } = require('./validation');
 
@@ -49,18 +49,15 @@ describe('validation helpers', () => {
     });
   });
 
-  describe('requireUuids', () => {
-    it('returns true for valid UUIDs and leaves res untouched', () => {
-      const ctx = { res: null };
-      expect(requireUuids(ctx, { tourId: UUID })).toBe(true);
-      expect(ctx.res).toBeNull();
+  describe('uuidParamError', () => {
+    it('returns null when all params are valid UUIDs', () => {
+      expect(uuidParamError({ tourId: UUID })).toBeNull();
     });
 
-    it('sets a 400 naming the bad param', () => {
-      const ctx = { res: null };
-      expect(requireUuids(ctx, { tourId: 'bad' })).toBe(false);
-      expect(ctx.res.status).toBe(400);
-      expect(ctx.res.body.error).toContain('tourId');
+    it('returns a 400 response naming the bad param', () => {
+      const res = uuidParamError({ tourId: 'bad' });
+      expect(res.status).toBe(400);
+      expect(res.jsonBody.error).toContain('tourId');
     });
   });
 

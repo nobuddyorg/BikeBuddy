@@ -18,15 +18,15 @@ const tourMetaSchema = z.object({
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v) => typeof v === 'string' && UUID_RE.test(v);
 
-// Validate route params are UUIDs; on failure set a 400 and return false.
-function requireUuids(context, params) {
+// Validate route params are UUIDs; returns a 400 response for the first invalid
+// one, or null when all are valid.
+function uuidParamError(params) {
   for (const [key, value] of Object.entries(params)) {
     if (!isUuid(value)) {
-      context.res = { status: 400, body: { error: `Invalid ${key}` } };
-      return false;
+      return { status: 400, jsonBody: { error: `Invalid ${key}` } };
     }
   }
-  return true;
+  return null;
 }
 
 const isImageContentType = (mime) => mime === 'image/jpeg' || mime === 'image/png';
@@ -35,6 +35,6 @@ module.exports = {
   stripHtml,
   tourMetaSchema,
   isUuid,
-  requireUuids,
+  uuidParamError,
   isImageContentType,
 };

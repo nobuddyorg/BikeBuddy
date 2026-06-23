@@ -1,34 +1,42 @@
 'use strict';
 
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { app } = require('@azure/functions');
+const { authenticate } = require('../middleware/authMiddleware');
 const { usersContainer } = require('../lib/db');
+const { unauthorized } = require('../lib/http');
 
-module.exports = async function (
-  context,
-  req,
-  auth = authMiddleware,
-  getContainer = usersContainer,
-) {
-  if (!(await auth(context, req))) return;
+// GET /api/me — returns the caller's user doc, creating it on first login.
+async function getMe(request, auth = authenticate, getContainer = usersContainer) {
+  const user = await auth(request);
+  if (!user) return unauthorized();
 
-  const { userId, userEmail, userName } = context;
+  const { userId, userEmail, userName } = user;
   const container = getContainer();
 
-  // A missing item may surface either as a thrown 404 (real Cosmos) or as a
-  // 200/404 response with resource === undefined (emulator); handle both.
-  let user;
+  // A missing item may throw 404 (real Cosmos) or resolve with resource
+  // undefined (emulator); handle both.
+  let doc;
   try {
-    ({ resource: user } = await container.item(userId, userId).read());
+    ({ resource: doc } = await container.item(userId, userId).read());
   } catch (err) {
     if (err.code !== 404) throw err;
   }
-  if (!user) {
-    user = { id: userId, name: userName, email: userEmail, createdAt: new Date().toISOString() };
-    ({ resource: user } = await container.items.create(user));
+  if (!doc) {
+    doc = { id: userId, name: userName, email: userEmail, createdAt: new Date().toISOString() };
+    ({ resource: doc } = await container.items.create(doc));
   }
 
-  context.res = {
+  return {
     status: 200,
-    body: { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt },
+    jsonBody: { id: doc.id, name: doc.name, email: doc.email, createdAt: doc.createdAt },
   };
-};
+}
+
+app.http('GetMe', {
+  methods: ['get'],
+  authLevel: 'anonymous',
+  route: 'me',
+  handler: (request) => getMe(request),
+});
+
+module.exports = { getMe };
