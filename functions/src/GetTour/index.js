@@ -2,7 +2,7 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
+const { toursContainer, readItem } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { uuidParamError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
@@ -24,12 +24,7 @@ async function getTour(
   const badParam = uuidParamError({ tourId });
   if (badParam) return badParam;
 
-  let tour;
-  try {
-    ({ resource: tour } = await getContainer().item(tourId, user.userId).read());
-  } catch (err) {
-    if (err.code !== 404) throw err;
-  }
+  const tour = await readItem(getContainer(), tourId, user.userId);
   if (!tour) return error(404, 'Tour not found');
 
   if (tour.images?.length) {

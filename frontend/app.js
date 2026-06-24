@@ -188,6 +188,36 @@ async function apiFetch(path, options = {}) {
   return fetch(path, { ...options, headers });
 }
 
+// Extract a friendly message from a JSON `{ error }` body, falling back if not JSON.
+function parseErrorMessage(text, fallback) {
+  try {
+    return JSON.parse(text).error || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// POST a single file as multipart with progress reporting. Resolves with the
+// parsed JSON body on 201, rejects with an Error carrying a friendly message.
+function xhrUpload(url, file, token, onProgress) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) onProgress(Math.round((ev.loaded / ev.total) * 100));
+    };
+    xhr.onload = () =>
+      xhr.status === 201
+        ? resolve(JSON.parse(xhr.responseText))
+        : reject(new Error(parseErrorMessage(xhr.responseText, 'Upload failed.')));
+    xhr.onerror = () => reject(new Error('Network error during upload.'));
+    xhr.send(fd);
+  });
+}
+
 // ── Tours ───────────────────────────────────────────────────────────────────
 
 async function loadTours() {
@@ -201,7 +231,6 @@ async function loadTours() {
   await renderAllHeatmap();
 }
 
-// heatmapData lives only on the detail endpoint; fetch + cache it on the tour.
 // Fetch + cache the detail fields (heatmapData, images) not present in the list.
 async function ensureDetail(tour) {
   if (tour.heatmapData && tour.images) return;
@@ -359,13 +388,7 @@ async function submitEdit(e) {
       }),
     });
     if (!res.ok) {
-      let msg = 'Could not save changes.';
-      try {
-        msg = (await res.json()).error || msg;
-      } catch {
-        // non-JSON error body — keep the generic message
-      }
-      elEditError.textContent = msg;
+      elEditError.textContent = parseErrorMessage(await res.text(), 'Could not save changes.');
       show(elEditError, true);
       return;
     }
@@ -491,41 +514,20 @@ async function uploadImage(file) {
   }
 
   const token = await getAccessToken();
-  const fd = new FormData();
-  fd.append('file', file, file.name);
   show(elImageProgress, true);
   elImageProgressBar.style.width = '0%';
-
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', `/api/tours/${tourId}/images`);
-  if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-  xhr.upload.onprogress = (ev) => {
-    if (ev.lengthComputable) {
-      elImageProgressBar.style.width = `${Math.round((ev.loaded / ev.total) * 100)}%`;
-    }
-  };
-  xhr.onload = () => {
+  try {
+    const image = await xhrUpload(`/api/tours/${tourId}/images`, file, token, (p) => {
+      elImageProgressBar.style.width = `${p}%`;
+    });
+    const tour = state.tours.find((t) => t.id === tourId);
+    if (tour) tour.images = [...(tour.images || []), image];
+    elImageGrid.appendChild(createImageTile(image));
+  } catch (err) {
+    showImageError(err.message);
+  } finally {
     show(elImageProgress, false);
-    if (xhr.status === 201) {
-      const image = JSON.parse(xhr.responseText);
-      const tour = state.tours.find((t) => t.id === tourId);
-      if (tour) tour.images = [...(tour.images || []), image];
-      elImageGrid.appendChild(createImageTile(image));
-    } else {
-      let msg = 'Upload failed.';
-      try {
-        msg = JSON.parse(xhr.responseText).error || msg;
-      } catch {
-        // non-JSON error body — keep the generic message
-      }
-      showImageError(msg);
-    }
-  };
-  xhr.onerror = () => {
-    show(elImageProgress, false);
-    showImageError('Network error during upload.');
-  };
-  xhr.send(fd);
+  }
 }
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
@@ -633,49 +635,62 @@ async function submitUpload(e) {
   if (elUploadDescription.value.trim()) params.set('description', elUploadDescription.value.trim());
 
   const token = await getAccessToken();
-  const fd = new FormData();
-  fd.append('file', selectedFile, selectedFile.name);
-
   elBtnSubmitUpload.disabled = true;
   show(elUploadError, false);
   show(elUploadProgress, true);
-
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', `/api/tours/upload?${params.toString()}`);
-  if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-  xhr.upload.onprogress = (ev) => {
-    if (ev.lengthComputable) {
-      elUploadProgressBar.style.width = `${Math.round((ev.loaded / ev.total) * 100)}%`;
-    }
-  };
-
-  xhr.onload = async () => {
-    if (xhr.status === 201) {
-      const { tourId } = JSON.parse(xhr.responseText);
-      closeUpload();
-      await loadTours();
-      selectTour(tourId); // success → jump to the new tour's heatmap
-    } else {
-      let msg = 'Upload failed.';
-      try {
-        msg = JSON.parse(xhr.responseText).error || msg;
-      } catch {
-        // non-JSON error body — keep the generic message
-      }
-      showUploadError(msg);
-      show(elUploadProgress, false);
-      elBtnSubmitUpload.disabled = false;
-    }
-  };
-
-  xhr.onerror = () => {
-    showUploadError('Network error during upload.');
+  elUploadProgressBar.style.width = '0%';
+  try {
+    const { tourId } = await xhrUpload(
+      `/api/tours/upload?${params.toString()}`,
+      selectedFile,
+      token,
+      (p) => {
+        elUploadProgressBar.style.width = `${p}%`;
+      },
+    );
+    closeUpload();
+    await loadTours();
+    selectTour(tourId); // success → jump to the new tour's heatmap
+  } catch (err) {
+    showUploadError(err.message);
     show(elUploadProgress, false);
     elBtnSubmitUpload.disabled = false;
-  };
+  }
+}
 
-  xhr.send(fd);
+// ── DOM wiring helpers ──────────────────────────────────────────────────────────
+
+// Wire a click / keyboard / drag-drop dropzone to a hidden file input.
+function wireDropzone(zone, input, onFile) {
+  input.addEventListener('change', () => {
+    onFile(input.files[0]);
+    input.value = ''; // allow re-selecting the same file
+  });
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      input.click();
+    }
+  });
+  zone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zone.classList.add('dragover');
+  });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    onFile(e.dataTransfer.files[0]);
+  });
+}
+
+// Close a modal via its close button or a click on the backdrop.
+function wireModalClose(modal, closeBtn, closeFn) {
+  closeBtn.addEventListener('click', closeFn);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeFn();
+  });
 }
 
 // ── Event listeners ───────────────────────────────────────────────────────────
@@ -684,70 +699,24 @@ elBtnLogin.addEventListener('click', signIn);
 elBtnLoginSidebar.addEventListener('click', signIn);
 elBtnLogout.addEventListener('click', signOut);
 elBtnProfile.addEventListener('click', openProfile);
-$('btn-close-profile').addEventListener('click', closeProfile);
-elProfileModal.addEventListener('click', (e) => {
-  if (e.target === elProfileModal) closeProfile();
-});
 elBtnCloseDetail.addEventListener('click', deselectTour);
 elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
 elBtnEditTour.addEventListener('click', openEdit);
+elBtnUpload.addEventListener('click', openUpload);
+elBtnUploadSidebar.addEventListener('click', openUpload);
+elEditForm.addEventListener('submit', submitEdit);
+elUploadForm.addEventListener('submit', submitUpload);
 
-elImageFile.addEventListener('change', () => {
-  uploadImage(elImageFile.files[0]);
-  elImageFile.value = ''; // allow re-selecting the same file
-});
-elImageDropzone.addEventListener('click', () => elImageFile.click());
-elImageDropzone.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    elImageFile.click();
-  }
-});
-elImageDropzone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  elImageDropzone.classList.add('dragover');
-});
-elImageDropzone.addEventListener('dragleave', () => elImageDropzone.classList.remove('dragover'));
-elImageDropzone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  elImageDropzone.classList.remove('dragover');
-  uploadImage(e.dataTransfer.files[0]);
-});
+wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
+wireModalClose(elEditModal, $('btn-close-edit'), closeEdit);
+wireModalClose(elUploadModal, $('btn-close-upload'), closeUpload);
+
+wireDropzone(elImageDropzone, elImageFile, uploadImage);
+wireDropzone(elDropzone, elUploadFile, selectFile);
 
 elLightbox.addEventListener('click', closeLightbox);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !elLightbox.classList.contains('hidden')) closeLightbox();
-});
-$('btn-close-edit').addEventListener('click', closeEdit);
-elEditModal.addEventListener('click', (e) => {
-  if (e.target === elEditModal) closeEdit();
-});
-elEditForm.addEventListener('submit', submitEdit);
-elBtnUpload.addEventListener('click', openUpload);
-elBtnUploadSidebar.addEventListener('click', openUpload);
-
-$('btn-close-upload').addEventListener('click', closeUpload);
-elUploadModal.addEventListener('click', (e) => {
-  if (e.target === elUploadModal) closeUpload();
-});
-elUploadForm.addEventListener('submit', submitUpload);
-elUploadFile.addEventListener('change', () => selectFile(elUploadFile.files[0]));
-elDropzone.addEventListener('click', () => elUploadFile.click());
-elDropzone.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    elUploadFile.click();
-  }
-});
-elDropzone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  elDropzone.classList.add('dragover');
-});
-elDropzone.addEventListener('dragleave', () => elDropzone.classList.remove('dragover'));
-elDropzone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  elDropzone.classList.remove('dragover');
-  selectFile(e.dataTransfer.files[0]);
 });
 
 initAuth();
