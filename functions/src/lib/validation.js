@@ -1,6 +1,7 @@
 'use strict';
 
 const { z } = require('zod');
+const { error } = require('./http');
 
 // Remove angle-bracket tags and trim, so stored text can't carry HTML/script.
 const stripHtml = (s) => s.replace(/<[^>]*>/g, '').trim();
@@ -22,9 +23,7 @@ const isUuid = (v) => typeof v === 'string' && UUID_RE.test(v);
 // one, or null when all are valid.
 function uuidParamError(params) {
   for (const [key, value] of Object.entries(params)) {
-    if (!isUuid(value)) {
-      return { status: 400, jsonBody: { error: `Invalid ${key}` } };
-    }
+    if (!isUuid(value)) return error(400, `Invalid ${key}`);
   }
   return null;
 }

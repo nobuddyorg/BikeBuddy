@@ -2,7 +2,7 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
+const { toursContainer, readItem } = require('../lib/db');
 const { tourMetaSchema, uuidParamError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
@@ -28,12 +28,7 @@ async function editTour(request, auth = authenticate, getContainer = toursContai
 
   const container = getContainer();
 
-  let tour;
-  try {
-    ({ resource: tour } = await container.item(tourId, user.userId).read());
-  } catch (err) {
-    if (err.code !== 404) throw err;
-  }
+  const tour = await readItem(container, tourId, user.userId);
   if (!tour) return error(404, 'Tour not found');
 
   if (parsed.data.name !== undefined) tour.name = parsed.data.name;

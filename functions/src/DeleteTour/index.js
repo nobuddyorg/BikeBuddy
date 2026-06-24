@@ -2,7 +2,7 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
+const { toursContainer, readItem } = require('../lib/db');
 const { gpxContainer } = require('../lib/blobStorage');
 const { uuidParamError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
@@ -24,12 +24,7 @@ async function deleteTour(
 
   const { userId } = user;
 
-  let tour;
-  try {
-    ({ resource: tour } = await getToursContainer().item(tourId, userId).read());
-  } catch (err) {
-    if (err.code !== 404) throw err;
-  }
+  const tour = await readItem(getToursContainer(), tourId, userId);
   if (!tour) return error(404, 'Tour not found');
 
   const container = await getGpxContainer();

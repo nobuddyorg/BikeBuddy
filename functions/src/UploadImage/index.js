@@ -3,7 +3,7 @@
 const { app } = require('@azure/functions');
 const { v4: uuidv4 } = require('uuid');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
+const { toursContainer, readItem } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { resizeImage } = require('../lib/resizeImage');
@@ -37,12 +37,7 @@ async function uploadImage(
   const { userId } = user;
 
   // Ownership: the tour must be in the caller's partition.
-  let tour;
-  try {
-    ({ resource: tour } = await getToursContainer().item(tourId, userId).read());
-  } catch (err) {
-    if (err.code !== 404) throw err;
-  }
+  const tour = await readItem(getToursContainer(), tourId, userId);
   if (!tour) return error(404, 'Tour not found');
 
   let file;

@@ -32,6 +32,10 @@ function processPoints(points) {
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 
+// fast-xml-parser yields a single object, an array, or undefined for a repeated
+// element; normalise to an array.
+const toArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+
 /**
  * Parse a GPX string or Buffer and return tour metadata + heatmap points.
  * Handles multiple <trk> and <trkseg> elements; downsamples to ≤ 5,000 points.
@@ -45,23 +49,19 @@ function parseGpx(gpxInput) {
   const gpx = doc?.gpx;
   if (!gpx) throw new Error('Not a valid GPX file');
 
-  // Normalise to arrays: GPX allows multiple <trk> and <trkseg> elements.
-  const tracks = Array.isArray(gpx.trk) ? gpx.trk : gpx.trk ? [gpx.trk] : [];
+  // GPX allows multiple <trk>, <trkseg> and <trkpt> elements.
+  const tracks = toArray(gpx.trk);
   const name = gpx.metadata?.name || tracks[0]?.name || null;
 
-  const firstTrk = tracks[0];
-  const firstSeg = Array.isArray(firstTrk?.trkseg) ? firstTrk.trkseg[0] : firstTrk?.trkseg;
-  const firstPt = Array.isArray(firstSeg?.trkpt) ? firstSeg.trkpt[0] : firstSeg?.trkpt;
+  const firstPt = toArray(toArray(tracks[0]?.trkseg)[0]?.trkpt)[0];
   const time = gpx.metadata?.time || firstPt?.time || null;
   const date = time ? new Date(time).toISOString() : null;
 
-  const allPoints = tracks.flatMap((trk) => {
-    const segs = Array.isArray(trk.trkseg) ? trk.trkseg : trk.trkseg ? [trk.trkseg] : [];
-    return segs.flatMap((seg) => {
-      const pts = Array.isArray(seg.trkpt) ? seg.trkpt : seg.trkpt ? [seg.trkpt] : [];
-      return pts.map((pt) => [parseFloat(pt['@_lat']), parseFloat(pt['@_lon'])]);
-    });
-  });
+  const allPoints = tracks.flatMap((trk) =>
+    toArray(trk.trkseg).flatMap((seg) =>
+      toArray(seg.trkpt).map((pt) => [parseFloat(pt['@_lat']), parseFloat(pt['@_lon'])]),
+    ),
+  );
 
   const { distanceKm, heatmapData } = processPoints(allPoints);
   return { name, date, distanceKm, heatmapData };

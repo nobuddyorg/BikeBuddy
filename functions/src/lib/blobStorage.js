@@ -19,25 +19,17 @@ function getClient() {
   return blobServiceClient;
 }
 
-// Memoised: createIfNotExists runs once per warm instance, not per request.
+// Resolve a container, running createIfNotExists once (memoised per warm instance).
+function containerOnce(name) {
+  const c = getClient().getContainerClient(name);
+  return c.createIfNotExists().then(() => c);
+}
+
 let gpxContainerPromise;
 let imagesContainerPromise;
 
-function ensureContainer(promiseRef, name, set) {
-  if (!promiseRef) {
-    const c = getClient().getContainerClient(name);
-    set(c.createIfNotExists().then(() => c));
-  }
-}
-
 module.exports = {
-  gpxContainer: () => {
-    ensureContainer(gpxContainerPromise, 'gpx-files', (p) => (gpxContainerPromise = p));
-    return gpxContainerPromise;
-  },
-  imagesContainer: () => {
-    ensureContainer(imagesContainerPromise, 'tour-images', (p) => (imagesContainerPromise = p));
-    return imagesContainerPromise;
-  },
+  gpxContainer: () => (gpxContainerPromise ??= containerOnce('gpx-files')),
+  imagesContainer: () => (imagesContainerPromise ??= containerOnce('tour-images')),
   readSasUrl,
 };
