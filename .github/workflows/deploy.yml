@@ -17,15 +17,31 @@ env:
 
 jobs:
   infra:
-    name: OpenTofu Apply
+    name: OpenTofu Apply (infra + functions)
     runs-on: ubuntu-latest
     outputs:
       functions_url: ${{ steps.output.outputs.functions_url }}
-      functions_app_name: ${{ steps.output.outputs.functions_app_name }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
         with:
           persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # zizmor: ignore[cache-poisoning]
+        with:
+          node-version: "22"
+
+      # Build the deployment package; OpenTofu uploads it to blob storage and the
+      # Function App runs it via WEBSITE_RUN_FROM_PACKAGE (no az CLI needed).
+      - name: Build Functions package
+        run: |
+          npm ci
+          npm prune --omit=dev
+          zip -r "$GITHUB_WORKSPACE/func.zip" . \
+            --exclude "*.test.js" \
+            --exclude "reports/*" \
+            --exclude ".azurite/*" \
+            --exclude "node_modules/.cache/*"
+        working-directory: functions
 
       - uses: opentofu/setup-opentofu@592200bd4b9bbf4772ace78f887668b1aee8f716 # v1.0.5
         with:
@@ -36,65 +52,13 @@ jobs:
         working-directory: infra
 
       - name: OpenTofu Apply
-        run: tofu apply -auto-approve
+        run: tofu apply -auto-approve -var="package_path=$GITHUB_WORKSPACE/func.zip"
         working-directory: infra
 
       - name: Capture outputs
         id: output
-        run: |
-          echo "functions_url=$(tofu output -raw functions_url)" >> "$GITHUB_OUTPUT"
-          echo "functions_app_name=$(tofu output -raw functions_app_name)" >> "$GITHUB_OUTPUT"
+        run: echo "functions_url=$(tofu output -raw functions_url)" >> "$GITHUB_OUTPUT"
         working-directory: infra
-
-  deploy-api:
-    name: Deploy Functions
-    needs: infra
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # zizmor: ignore[cache-poisoning]
-        with:
-          node-version: "22"
-
-      - name: Install and prune
-        run: npm ci && npm prune --omit=dev
-        working-directory: functions
-
-      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Fetch publish profile
-        id: pp
-        run: |
-          {
-            echo 'profile<<PUBLISH_PROFILE_DELIM'
-            az functionapp deployment list-publishing-profiles \
-              --resource-group bikebuddy-rg \
-              --name "$FUNCTIONS_APP_NAME" \
-              --xml
-            echo 'PUBLISH_PROFILE_DELIM'
-          } >> "$GITHUB_OUTPUT"
-        env:
-          FUNCTIONS_APP_NAME: ${{ needs.infra.outputs.functions_app_name }}
-
-      - name: Package functions
-        run: |
-          cd functions
-          zip -r ../func.zip . \
-            --exclude "*.test.js" \
-            --exclude "reports/*" \
-            --exclude ".azurite/*" \
-            --exclude "node_modules/.cache/*"
-
-      - uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
-        with:
-          app-name: ${{ needs.infra.outputs.functions_app_name }}
-          package: func.zip
-          publish-profile: ${{ steps.pp.outputs.profile }}
 
   deploy-frontend:
     name: Deploy Frontend (GitHub Pages)
