@@ -26,10 +26,17 @@ jobs:
         with:
           tofu_version: "~1.8"
 
+      # package_path must resolve for config to parse, but destroy reads from
+      # state and never uploads — a placeholder zip is enough.
+      - name: Create placeholder package
+        run: |
+          echo placeholder > placeholder.txt
+          zip "$GITHUB_WORKSPACE/func.zip" placeholder.txt
+
       - name: OpenTofu Init
         run: tofu init
         working-directory: infra
 
       - name: OpenTofu Destroy
-        run: tofu destroy -auto-approve
+        run: tofu destroy -auto-approve -var="package_path=$GITHUB_WORKSPACE/func.zip"
         working-directory: infra

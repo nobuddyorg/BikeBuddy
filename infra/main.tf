@@ -20,7 +20,15 @@ provider "azurerm" {
   features {}
 }
 
+locals {
+  tags = {
+    project = "bikebuddy"
+    env     = "prod"
+  }
+}
+
 resource "azurerm_resource_group" "main" {
   name     = "bikebuddy-rg"
   location = "westeurope"
+  tags     = local.tags
 }

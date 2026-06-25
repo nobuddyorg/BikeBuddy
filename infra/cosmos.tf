@@ -18,6 +18,8 @@ resource "azurerm_cosmosdb_account" "main" {
   capabilities {
     name = "EnableServerless"
   }
+
+  tags = local.tags
 }
 
 resource "azurerm_cosmosdb_sql_database" "main" {
