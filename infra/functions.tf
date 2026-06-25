@@ -33,6 +33,9 @@ resource "azurerm_linux_function_app" "main" {
 
     cors {
       allowed_origins = [
+        # Custom domain the GitHub Pages site is served from (https://nobuddy.org/BikeBuddy/).
+        "https://nobuddy.org",
+        # Default github.io host, kept as a fallback if the custom domain is removed.
         "https://nobuddyorg.github.io",
         "http://localhost:4280",
       ]
