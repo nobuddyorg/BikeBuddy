@@ -55,7 +55,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v4.1.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # zizmor: ignore[cache-poisoning]
         with:
           node-version: "22"
 
@@ -65,13 +65,23 @@ jobs:
 
       - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
         with:
-          creds: >-
-            {"clientId":"${{ secrets.ARM_CLIENT_ID }}",
-             "clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}",
-             "subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}",
-             "tenantId":"${{ secrets.ARM_TENANT_ID }}"}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Package and deploy
+      - name: Fetch publish profile
+        id: pp
+        run: |
+          {
+            echo 'profile<<PUBLISH_PROFILE_DELIM'
+            az functionapp deployment list-publishing-profiles \
+              --resource-group bikebuddy-rg \
+              --name "$FUNCTIONS_APP_NAME" \
+              --xml
+            echo 'PUBLISH_PROFILE_DELIM'
+          } >> "$GITHUB_OUTPUT"
+        env:
+          FUNCTIONS_APP_NAME: ${{ needs.infra.outputs.functions_app_name }}
+
+      - name: Package functions
         run: |
           cd functions
           zip -r ../func.zip . \
@@ -79,16 +89,12 @@ jobs:
             --exclude "reports/*" \
             --exclude ".azurite/*" \
             --exclude "node_modules/.cache/*"
-          cd ..
-          # az functionapp deploy (v2 API) works on Linux Consumption (Y1);
-          # the older config-zip command returns 400 on these plan types.
-          az functionapp deploy \
-            --resource-group bikebuddy-rg \
-            --name "$FUNCTIONS_APP_NAME" \
-            --src-path func.zip \
-            --type zip
-        env:
-          FUNCTIONS_APP_NAME: ${{ needs.infra.outputs.functions_app_name }}
+
+      - uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
+        with:
+          app-name: ${{ needs.infra.outputs.functions_app_name }}
+          package: func.zip
+          publish-profile: ${{ steps.pp.outputs.profile }}
 
   deploy-frontend:
     name: Deploy Frontend (GitHub Pages)
