@@ -1,0 +1,134 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  ARM_ACCESS_KEY: ${{ secrets.TF_BACKEND_ACCESS_KEY }}
+
+jobs:
+  infra:
+    name: OpenTofu Apply
+    runs-on: ubuntu-latest
+    outputs:
+      functions_url: ${{ steps.output.outputs.functions_url }}
+      functions_app_name: ${{ steps.output.outputs.functions_app_name }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - uses: opentofu/setup-opentofu@592200bd4b9bbf4772ace78f887668b1aee8f716 # v1.0.5
+        with:
+          tofu_version: "~1.8"
+
+      - name: OpenTofu Init
+        run: tofu init
+        working-directory: infra
+
+      - name: OpenTofu Apply
+        run: tofu apply -auto-approve
+        working-directory: infra
+
+      - name: Capture outputs
+        id: output
+        run: |
+          echo "functions_url=$(tofu output -raw functions_url)" >> "$GITHUB_OUTPUT"
+          echo "functions_app_name=$(tofu output -raw functions_app_name)" >> "$GITHUB_OUTPUT"
+        working-directory: infra
+
+  deploy-api:
+    name: Deploy Functions
+    needs: infra
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v4.1.0
+        with:
+          node-version: "22"
+
+      - name: Install and prune
+        run: npm ci && npm prune --omit=dev
+        working-directory: functions
+
+      - name: Package and deploy
+        run: |
+          cd functions
+          zip -r ../func.zip . \
+            --exclude "*.test.js" \
+            --exclude "reports/*" \
+            --exclude ".azurite/*" \
+            --exclude "node_modules/.cache/*"
+          cd ..
+          az login --service-principal \
+            -u "$ARM_CLIENT_ID" \
+            -p "$ARM_CLIENT_SECRET" \
+            --tenant "$ARM_TENANT_ID"
+          az account set --subscription "$ARM_SUBSCRIPTION_ID"
+          az functionapp deployment source config-zip \
+            --resource-group bikebuddy-rg \
+            --name "$FUNCTIONS_APP_NAME" \
+            --src func.zip
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          FUNCTIONS_APP_NAME: ${{ needs.infra.outputs.functions_app_name }}
+
+  deploy-frontend:
+    name: Deploy Frontend (GitHub Pages)
+    needs: infra
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+
+      - name: Generate config.js
+        env:
+          FUNCTIONS_URL: ${{ needs.infra.outputs.functions_url }}
+        run: |
+          cat > frontend/config.js <<'JSEOF'
+          'use strict';
+          const BIKEBUDDY_CONFIG = {
+            devMode: false,
+            apiBaseUrl: 'API_BASE_URL_PLACEHOLDER',
+            b2cTenant: '',
+            b2cClientId: '',
+            b2cPolicy: 'B2C_1_signupsignin',
+            b2cApiScope: '',
+          };
+          JSEOF
+          sed -i "s|API_BASE_URL_PLACEHOLDER|${FUNCTIONS_URL}|" frontend/config.js
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: frontend/
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
