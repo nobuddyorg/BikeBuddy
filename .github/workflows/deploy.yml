@@ -63,6 +63,14 @@ jobs:
         run: npm ci && npm prune --omit=dev
         working-directory: functions
 
+      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          creds: >-
+            {"clientId":"${{ secrets.ARM_CLIENT_ID }}",
+             "clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}",
+             "subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}",
+             "tenantId":"${{ secrets.ARM_TENANT_ID }}"}
+
       - name: Package and deploy
         run: |
           cd functions
@@ -72,20 +80,14 @@ jobs:
             --exclude ".azurite/*" \
             --exclude "node_modules/.cache/*"
           cd ..
-          az login --service-principal \
-            -u "$ARM_CLIENT_ID" \
-            -p "$ARM_CLIENT_SECRET" \
-            --tenant "$ARM_TENANT_ID"
-          az account set --subscription "$ARM_SUBSCRIPTION_ID"
-          az functionapp deployment source config-zip \
+          # az functionapp deploy (v2 API) works on Linux Consumption (Y1);
+          # the older config-zip command returns 400 on these plan types.
+          az functionapp deploy \
             --resource-group bikebuddy-rg \
             --name "$FUNCTIONS_APP_NAME" \
-            --src func.zip
+            --src-path func.zip \
+            --type zip
         env:
-          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
           FUNCTIONS_APP_NAME: ${{ needs.infra.outputs.functions_app_name }}
 
   deploy-frontend:
