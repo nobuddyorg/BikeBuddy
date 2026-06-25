@@ -666,7 +666,11 @@ function wireDropzone(zone, input, onFile) {
     onFile(input.files[0]);
     input.value = ''; // allow re-selecting the same file
   });
-  zone.addEventListener('click', () => input.click());
+  // The input is nested inside the zone; ignore the click it bubbles back up,
+  // otherwise input.click() re-enters this handler and the browser blocks the dialog.
+  zone.addEventListener('click', (e) => {
+    if (e.target !== input) input.click();
+  });
   zone.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
