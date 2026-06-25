@@ -1,7 +1,7 @@
 'use strict';
 
 const { app } = require('@azure/functions');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer, readItem } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
@@ -54,7 +54,7 @@ async function uploadImage(
 
   const resized = await resize(file.buffer);
 
-  const imageId = uuidv4();
+  const imageId = randomUUID();
   const blobName = `${userId}/${tourId}/${imageId}.jpg`;
   const container = await getImagesContainer();
   const blockBlob = container.getBlockBlobClient(blobName);
