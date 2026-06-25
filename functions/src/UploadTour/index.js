@@ -1,7 +1,7 @@
 'use strict';
 
 const { app } = require('@azure/functions');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { gpxContainer } = require('../lib/blobStorage');
@@ -54,7 +54,7 @@ async function uploadTour(
     return error(400, 'Could not parse GPX file');
   }
 
-  const tourId = uuidv4();
+  const tourId = randomUUID();
   const container = await getGpxContainer();
   const blockBlob = container.getBlockBlobClient(`${userId}/${tourId}.gpx`);
 
