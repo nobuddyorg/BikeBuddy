@@ -181,11 +181,13 @@ function renderNavAuth() {
 
 // fetch wrapper that attaches the bearer token when one is available
 // (in devMode getAccessToken() returns null and the backend accepts the request).
+const API_BASE = BIKEBUDDY_CONFIG.apiBaseUrl || '';
+
 async function apiFetch(path, options = {}) {
   const token = await getAccessToken();
   const headers = { ...(options.headers || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return fetch(path, { ...options, headers });
+  return fetch(API_BASE + path, { ...options, headers });
 }
 
 // Extract a friendly message from a JSON `{ error }` body, falling back if not JSON.
@@ -517,7 +519,7 @@ async function uploadImage(file) {
   show(elImageProgress, true);
   elImageProgressBar.style.width = '0%';
   try {
-    const image = await xhrUpload(`/api/tours/${tourId}/images`, file, token, (p) => {
+    const image = await xhrUpload(`${API_BASE}/api/tours/${tourId}/images`, file, token, (p) => {
       elImageProgressBar.style.width = `${p}%`;
     });
     const tour = state.tours.find((t) => t.id === tourId);
@@ -641,7 +643,7 @@ async function submitUpload(e) {
   elUploadProgressBar.style.width = '0%';
   try {
     const { tourId } = await xhrUpload(
-      `/api/tours/upload?${params.toString()}`,
+      `${API_BASE}/api/tours/upload?${params.toString()}`,
       selectedFile,
       token,
       (p) => {

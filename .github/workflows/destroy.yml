@@ -1,0 +1,35 @@
+name: Destroy Infrastructure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  ARM_ACCESS_KEY: ${{ secrets.TF_BACKEND_ACCESS_KEY }}
+
+jobs:
+  destroy:
+    name: OpenTofu Destroy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - uses: opentofu/setup-opentofu@592200bd4b9bbf4772ace78f887668b1aee8f716 # v1.0.5
+        with:
+          tofu_version: "~1.8"
+
+      - name: OpenTofu Init
+        run: tofu init
+        working-directory: infra
+
+      - name: OpenTofu Destroy
+        run: tofu destroy -auto-approve
+        working-directory: infra

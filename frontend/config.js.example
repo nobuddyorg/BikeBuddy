@@ -1,7 +1,11 @@
 'use strict';
-// Copy to config.js and fill in your Azure AD B2C values.
+// Copy to config.js and fill in your values.
 // config.js is gitignored — never commit the file with real values.
 const BIKEBUDDY_CONFIG = {
+  // Leave empty for local dev (SWA CLI proxies /api/* to localhost:7071).
+  // In production this is set by CI to the Azure Functions URL, e.g.:
+  //   https://bikebuddy-api.azurewebsites.net
+  apiBaseUrl: '',
   // Full onmicrosoft.com domain (matches backend B2C_TENANT env var)
   b2cTenant: 'YOURTENANTNAME.onmicrosoft.com',
   // Client ID of the SPA app registration in B2C
