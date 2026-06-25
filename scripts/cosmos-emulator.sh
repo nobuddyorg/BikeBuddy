@@ -30,8 +30,11 @@ else
 fi
 
 echo "==> Waiting for emulator gateway on http://localhost:8081 (up to 2 min)..."
+# Probe the gateway endpoint directly rather than grepping container logs: the
+# vnext-preview image's log wording is not stable across releases, but a 2xx/4xx
+# response on :8081 reliably means the gateway is accepting requests.
 for _ in $(seq 1 60); do
-  if docker logs "$CONTAINER" 2>&1 | grep -q 'fully ready to accept requests'; then
+  if curl -sS -o /dev/null http://localhost:8081/ 2>/dev/null; then
     echo "==> Emulator is ready. Data explorer: http://localhost:1234"
     exit 0
   fi
