@@ -15,7 +15,10 @@ const req = {};
 function makeContainer(overrides = {}) {
   return {
     item: vi.fn().mockReturnValue({ read: async () => ({ resource: STORED_USER }) }),
-    items: { create: vi.fn().mockResolvedValue({ resource: STORED_USER }) },
+    items: {
+      create: vi.fn().mockResolvedValue({ resource: STORED_USER }),
+      upsert: vi.fn((doc) => Promise.resolve({ resource: doc })),
+    },
     ...overrides,
   };
 }
@@ -57,6 +60,33 @@ describe('GET /api/me', () => {
 
     expect(container.items.create).toHaveBeenCalled();
     expect(res.status).toBe(200);
+  });
+
+  test('backfills name/email when the token now carries them', async () => {
+    const stored = { id: 'u1', name: null, email: null, createdAt: STORED_USER.createdAt };
+    const container = makeContainer({
+      item: vi.fn().mockReturnValue({ read: async () => ({ resource: stored }) }),
+    });
+    const res = await getMe(req, mockAuth, () => container);
+
+    expect(container.items.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u1', name: 'Ada', email: 'ada@example.com' }),
+    );
+    expect(container.items.create).not.toHaveBeenCalled();
+    expect(res.jsonBody).toEqual({
+      id: 'u1',
+      name: 'Ada',
+      email: 'ada@example.com',
+      createdAt: STORED_USER.createdAt,
+    });
+  });
+
+  test('does not upsert when stored name/email already match the token', async () => {
+    const container = makeContainer();
+    await getMe(req, mockAuth, () => container);
+
+    expect(container.items.upsert).not.toHaveBeenCalled();
+    expect(container.items.create).not.toHaveBeenCalled();
   });
 
   test('re-throws non-404 Cosmos errors', async () => {
