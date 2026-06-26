@@ -7,6 +7,8 @@ const state = {
   tours: [],
   selectedTourId: null,
   heatLayer: null,
+  sort: 'date-desc',
+  search: '',
 };
 
 // ── Map setup ─────────────────────────────────────────────────────────────────
@@ -20,6 +22,14 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
   maxZoom: 19,
 }).addTo(map);
 
+// Leaflet caches the container size, so when the detail panel opens/closes (or
+// the window resizes) the map keeps its old width and leaves gray space. Recompute
+// after the layout has reflowed.
+function refreshMapSize() {
+  requestAnimationFrame(() => map.invalidateSize());
+}
+window.addEventListener('resize', refreshMapSize);
+
 // ── DOM helpers + refs ──────────────────────────────────────────────────────────
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +38,9 @@ const show = (el, visible) => el.classList.toggle('hidden', !visible);
 const elTourList = $('tour-list');
 const elTourCount = $('tour-count');
 const elNoTours = $('no-tours');
+const elTourControls = $('tour-controls');
+const elTourSearch = $('tour-search');
+const elTourSort = $('tour-sort');
 const elAuthPrompt = $('auth-prompt');
 const elMapEmpty = $('map-empty');
 const elDetailPanel = $('detail-panel');
@@ -304,6 +317,35 @@ function createTourItem(tour) {
   return li;
 }
 
+// Fuzzy match: every character of the query appears in order in the text
+// (case-insensitive). Empty query matches everything.
+function fuzzyMatch(query, text) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const t = (text || '').toLowerCase();
+  let i = 0;
+  for (const ch of t) {
+    if (ch === q[i] && ++i === q.length) return true;
+  }
+  return false;
+}
+
+const tourTime = (t) => new Date(t.createdAt).getTime() || 0;
+const SORTERS = {
+  'date-desc': (a, b) => tourTime(b) - tourTime(a),
+  'date-asc': (a, b) => tourTime(a) - tourTime(b),
+  'name-asc': (a, b) => (a.name || '').localeCompare(b.name || ''),
+  'name-desc': (a, b) => (b.name || '').localeCompare(a.name || ''),
+  'length-desc': (a, b) => (b.distance || 0) - (a.distance || 0),
+  'length-asc': (a, b) => (a.distance || 0) - (b.distance || 0),
+};
+
+// Tours filtered by the search box and ordered by the chosen sort.
+function visibleTours() {
+  const sorter = SORTERS[state.sort] || SORTERS['date-desc'];
+  return state.tours.filter((t) => fuzzyMatch(state.search, t.name)).sort(sorter);
+}
+
 function createShowAllButton() {
   const btn = document.createElement('button');
   btn.className = 'show-all-btn';
@@ -321,25 +363,35 @@ function renderSidebar() {
 
   show(elAuthPrompt, !signedIn);
   show(elNoTours, signedIn && !hasTours);
+  show(elTourControls, hasTours);
   show(elTourList, hasTours);
   elTourCount.textContent = signedIn ? state.tours.length : '0';
 
   elTourList.innerHTML = '';
   if (!hasTours) return;
 
-  state.tours.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
+  const visible = visibleTours();
+  if (visible.length === 0) {
+    elTourList.appendChild(textDiv('tour-empty', 'No tours match your search.'));
+    return;
+  }
+  visible.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
   elTourList.appendChild(createShowAllButton());
 }
 
 // ── Heatmap rendering ─────────────────────────────────────────────────────────
 
+// Tuning: previously max(0.4) < per-point intensity(0.6), so even a single pass
+// saturated to the hottest colour. With max=1.0 and a lower per-point intensity
+// a single pass sits at the cool end and only overlapping passes heat up — the
+// dynamic-range "stretch" is preserved. minOpacity keeps sparse segments visible.
 const HEAT_OPTIONS = {
-  radius: 18,
-  blur: 22,
-  minOpacity: 0.5,
-  max: 0.4,
+  radius: 16,
+  blur: 20,
+  minOpacity: 0.45,
+  max: 1.0,
   maxZoom: 17,
-  gradient: { 0.0: '#3b82f6', 0.4: '#f97316', 0.7: '#ef4444', 1.0: '#fde047' },
+  gradient: { 0.0: '#3b82f6', 0.3: '#22d3ee', 0.55: '#f97316', 0.8: '#ef4444', 1.0: '#fde047' },
 };
 
 function clearHeatmap() {
@@ -351,7 +403,7 @@ function clearHeatmap() {
 
 // heatmapData from the API is [[lat, lon], ...]; add a fixed intensity so the
 // gradient renders consistently with HEAT_OPTIONS.max.
-const toHeatPoints = (heatmapData) => (heatmapData || []).map(([lat, lon]) => [lat, lon, 0.6]);
+const toHeatPoints = (heatmapData) => (heatmapData || []).map(([lat, lon]) => [lat, lon, 0.4]);
 
 // Replaces the current heat layer with one for the given points and fits the view
 // to them. Passing no points just clears the layer.
@@ -390,6 +442,7 @@ async function selectTour(tourId) {
 function deselectTour() {
   state.selectedTourId = null;
   show(elDetailPanel, false);
+  refreshMapSize();
   renderSidebar();
 }
 
@@ -461,6 +514,7 @@ function renderDetailPanel(tour) {
   elDetailDesc.textContent = tour.description || '';
   resetImageSection();
   show(elDetailPanel, true);
+  refreshMapSize();
 }
 
 // ── Tour images (upload) ──────────────────────────────────────────────────────
@@ -732,6 +786,15 @@ elBtnUpload.addEventListener('click', openUpload);
 elBtnUploadSidebar.addEventListener('click', openUpload);
 elEditForm.addEventListener('submit', submitEdit);
 elUploadForm.addEventListener('submit', submitUpload);
+
+elTourSearch.addEventListener('input', () => {
+  state.search = elTourSearch.value;
+  renderSidebar();
+});
+elTourSort.addEventListener('change', () => {
+  state.sort = elTourSort.value;
+  renderSidebar();
+});
 
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
 wireModalClose(elEditModal, $('btn-close-edit'), closeEdit);

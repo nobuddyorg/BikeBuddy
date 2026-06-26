@@ -16,12 +16,29 @@ export interface UserDoc {
   createdAt: string;
 }
 
-let container: Container | undefined;
+let client: CosmosClient | undefined;
+function db() {
+  if (!client) client = new CosmosClient(CONNECTION_STRING);
+  return client.database(DATABASE);
+}
+
 export function usersContainer(): Container {
-  if (!container) {
-    container = new CosmosClient(CONNECTION_STRING).database(DATABASE).container('users');
+  return db().container('users');
+}
+
+export function toursContainer(): Container {
+  return db().container('tours');
+}
+
+// Remove every tour (partition key is /userId) so list/sort/search tests start
+// from a known set.
+export async function clearTours(): Promise<void> {
+  const { resources } = await toursContainer()
+    .items.query<{ id: string; userId: string }>('SELECT c.id, c.userId FROM c')
+    .fetchAll();
+  for (const { id, userId } of resources) {
+    await toursContainer().item(id, userId).delete();
   }
-  return container;
 }
 
 // Remove every user so a test starts with a clean user DB. Partition key is /id.
