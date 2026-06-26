@@ -66,6 +66,38 @@ repos:
         files: ^e2e/.*\.ts$
         stages: [pre-commit]
 
+  # ESLint (frontend/) — browser globals; reuses functions' eslint install. Runs
+  # from the repo root so the file is inside ESLint's base path.
+  - repo: local
+    hooks:
+      - id: eslint-frontend
+        name: ESLint (frontend)
+        entry: functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js frontend/app.js
+        language: system
+        pass_filenames: false
+        files: ^frontend/app\.js$
+        stages: [pre-commit]
+
+  # Prettier check (frontend/) — fix with: cd functions && npx prettier --write '../frontend/...'
+  - repo: local
+    hooks:
+      - id: prettier-frontend
+        name: Prettier (frontend)
+        # --config: frontend/ has no .prettierrc, so point at functions' config
+        # explicitly (Prettier resolves config from each file's directory).
+        entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../frontend/app.js' '../frontend/style.css' '../frontend/index.html'"
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.(js|css|html)$
+        stages: [pre-commit]
+
+  # ShellCheck for shell scripts (auto-installs in its own env).
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        args: ["--severity=warning"]
+
   # OpenGrep SAST — runs separately in CI; local install auto-bootstrapped
   - repo: local
     hooks:
