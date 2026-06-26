@@ -1,5 +1,5 @@
 resource "azurerm_storage_account" "main" {
-  name                            = "bikebuddyfiles"
+  name                            = "bikebuddyfiles${random_string.suffix.result}"
   resource_group_name             = azurerm_resource_group.main.name
   location                        = azurerm_resource_group.main.location
   account_tier                    = "Standard"

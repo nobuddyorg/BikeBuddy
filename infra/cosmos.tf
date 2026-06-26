@@ -1,5 +1,5 @@
 resource "azurerm_cosmosdb_account" "main" {
-  name                = "bikebuddy-cosmos"
+  name                = "bikebuddy-cosmos-${random_string.suffix.result}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   offer_type          = "Standard"
@@ -12,6 +12,8 @@ resource "azurerm_cosmosdb_account" "main" {
   geo_location {
     location          = azurerm_resource_group.main.location
     failover_priority = 0
+    # West Europe is capacity-constrained for zone-redundant accounts; not needed here.
+    zone_redundant = false
   }
 
   # Serverless: pay per request, no idle cost.

@@ -44,7 +44,7 @@ data "azurerm_storage_account_sas" "package" {
 }
 
 resource "azurerm_linux_function_app" "main" {
-  name                       = "bikebuddy-api"
+  name                       = "bikebuddy-api-${random_string.suffix.result}"
   resource_group_name        = azurerm_resource_group.main.name
   location                   = azurerm_resource_group.main.location
   service_plan_id            = azurerm_service_plan.main.id
