@@ -39,13 +39,3 @@ resource "azurerm_storage_container" "deployments" {
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
 }
-
-# The package blob. The md5 in the name changes whenever the code changes, which
-# changes the WEBSITE_RUN_FROM_PACKAGE URL and makes the host pull the new build.
-resource "azurerm_storage_blob" "app_package" {
-  name                   = "func-${filemd5(var.package_path)}.zip"
-  storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.deployments.name
-  type                   = "Block"
-  source                 = var.package_path
-}
