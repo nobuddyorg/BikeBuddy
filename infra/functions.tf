@@ -56,11 +56,12 @@ resource "azurerm_linux_function_app" "main" {
     COSMOS_CONNECTION_STRING = "AccountEndpoint=${azurerm_cosmosdb_account.main.endpoint};AccountKey=${azurerm_cosmosdb_account.main.primary_key};"
     COSMOS_DATABASE          = "bikebuddy"
     BLOB_CONNECTION_STRING   = azurerm_storage_account.main.primary_connection_string
-    B2C_TENANT               = "placeholder.onmicrosoft.com"
-    B2C_CLIENT_ID            = "placeholder"
-    B2C_POLICY               = "B2C_1_signupsignin"
-    # Switch to false once Azure AD B2C is configured (#8).
-    SKIP_AUTH = "true"
+    # Microsoft Entra External ID (#8). Empty until the external tenant exists;
+    # CI fills these from repo variables and flips SKIP_AUTH to false.
+    ENTRA_TENANT_SUBDOMAIN = var.entra_tenant_subdomain
+    ENTRA_TENANT_ID        = var.entra_tenant_id
+    ENTRA_CLIENT_ID        = var.entra_client_id
+    SKIP_AUTH              = var.entra_client_id == "" ? "true" : "false"
     # Run the code straight from the package blob — the canonical, az-CLI-free
     # deployment method for Linux Consumption.
     WEBSITE_RUN_FROM_PACKAGE = "${azurerm_storage_blob.app_package.url}${data.azurerm_storage_account_sas.package.sas}"

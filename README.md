@@ -22,7 +22,7 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours, visualize
 | Backend  | Azure Functions (Node.js 22, Consumption Plan)   |
 | Database | Azure Cosmos DB Serverless                       |
 | Storage  | Azure Blob Storage (LRS)                         |
-| Auth     | Azure AD B2C                                     |
+| Auth     | Microsoft Entra External ID                      |
 
 ## Getting started
 
@@ -42,8 +42,8 @@ Azure Static Web Apps CLI and `prek`, pulls the Cosmos DB emulator image, and
 copies the config templates. Then fill in your values (or keep the local-dev
 defaults — see below):
 
-- `functions/local.settings.json` — `COSMOS_CONNECTION_STRING`, `B2C_*`
-- `frontend/config.js` — `b2cTenant`, `b2cClientId`
+- `functions/local.settings.json` — `COSMOS_CONNECTION_STRING`, `ENTRA_*`
+- `frontend/config.js` — `entraSubdomain`, `entraClientId`
 
 ### Run the full stack locally
 
@@ -63,7 +63,7 @@ stop it with `docker stop bikebuddy-cosmos`.
 
 ### Local auth (no Azure needed)
 
-For local development you don't need a real Azure AD B2C tenant:
+For local development you don't need a real Microsoft Entra External ID tenant:
 
 - `functions/local.settings.json` → `"SKIP_AUTH": "true"` makes the API skip JWT
   verification and use a local dev user.

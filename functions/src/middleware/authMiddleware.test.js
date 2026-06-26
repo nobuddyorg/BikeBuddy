@@ -2,20 +2,23 @@
 
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { authenticate, b2cBaseUrl, defaultJwksClient } = require('./authMiddleware');
+const { authenticate, openIdConfigUrl } = require('./authMiddleware');
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
 const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' });
 
 const TEST_ENV = {
-  B2C_TENANT: 'testtenant.onmicrosoft.com',
-  B2C_CLIENT_ID: 'test-client-id',
-  B2C_POLICY: 'B2C_1_signupsignin',
+  ENTRA_TENANT_SUBDOMAIN: 'bikebuddy',
+  ENTRA_TENANT_ID: 'aaaabbbb-0000-cccc-1111-dddd2222eeee',
+  ENTRA_CLIENT_ID: 'test-client-id',
 };
-const ISSUER = `https://testtenant.b2clogin.com/${TEST_ENV.B2C_TENANT}/v2.0/`;
+const ISSUER = `https://${TEST_ENV.ENTRA_TENANT_ID}.ciamlogin.com/${TEST_ENV.ENTRA_TENANT_ID}/v2.0`;
 const now = () => Math.floor(Date.now() / 1000);
 
+// configLoader stub: returns the issuer/jwksUri the middleware would read from
+// the OIDC metadata document.
+const mockConfig = async () => ({ issuer: ISSUER, jwksUri: 'https://example/keys' });
 const mockJwks = () => ({ getSigningKey: async () => ({ getPublicKey: () => publicKeyPem }) });
 const failingJwks = () => ({
   getSigningKey: async () => {
@@ -28,8 +31,8 @@ function makeToken(overrides = {}) {
     {
       sub: 'user-123',
       name: 'Test User',
-      emails: ['test@example.com'],
-      aud: TEST_ENV.B2C_CLIENT_ID,
+      email: 'test@example.com',
+      aud: TEST_ENV.ENTRA_CLIENT_ID,
       iss: ISSUER,
       exp: now() + 3600,
       ...overrides,
@@ -42,7 +45,7 @@ function makeToken(overrides = {}) {
 // v4 request: headers is a Map/Headers exposing .get().
 const bearer = (token) => ({ headers: new Map([['authorization', `Bearer ${token}`]]) });
 
-const run = (req, factory = mockJwks) => authenticate(req, factory);
+const run = (req, factory = mockJwks) => authenticate(req, factory, mockConfig);
 
 beforeEach(() => Object.assign(process.env, TEST_ENV));
 afterEach(() => {
@@ -62,12 +65,17 @@ describe('authenticate — success', () => {
 
   test.each([
     [
-      'email claim when emails[] absent',
-      { emails: undefined, email: 'alt@example.com' },
+      'preferred_username when email absent',
+      { email: undefined, preferred_username: 'alt@example.com' },
       'userEmail',
       'alt@example.com',
     ],
-    ['null when no email claim', { emails: undefined, email: undefined }, 'userEmail', null],
+    [
+      'null when no email claim',
+      { email: undefined, preferred_username: undefined },
+      'userEmail',
+      null,
+    ],
     [
       'given_name fallback when name absent',
       { name: undefined, given_name: 'Ada' },
@@ -88,7 +96,7 @@ describe('authenticate — success', () => {
 
 describe('authenticate — rejection (null)', () => {
   const hsToken = jwt.sign(
-    { sub: 'user-123', aud: TEST_ENV.B2C_CLIENT_ID, iss: ISSUER, exp: now() + 3600 },
+    { sub: 'user-123', aud: TEST_ENV.ENTRA_CLIENT_ID, iss: ISSUER, exp: now() + 3600 },
     crypto.randomBytes(32).toString('hex'),
     { algorithm: 'HS256', header: { kid: 'test-key' } },
   );
@@ -122,12 +130,10 @@ describe('authenticate — SKIP_AUTH dev bypass', () => {
   });
 });
 
-describe('B2C configuration helpers', () => {
-  test('b2cBaseUrl derives the b2clogin host from the tenant domain', () => {
-    expect(b2cBaseUrl()).toBe('https://testtenant.b2clogin.com/testtenant.onmicrosoft.com');
-  });
-
-  test('defaultJwksClient returns a usable JWKS client', () => {
-    expect(typeof defaultJwksClient().getSigningKey).toBe('function');
+describe('External ID configuration helpers', () => {
+  test('openIdConfigUrl builds the ciamlogin metadata URL from env', () => {
+    expect(openIdConfigUrl()).toBe(
+      'https://bikebuddy.ciamlogin.com/aaaabbbb-0000-cccc-1111-dddd2222eeee/v2.0/.well-known/openid-configuration',
+    );
   });
 });

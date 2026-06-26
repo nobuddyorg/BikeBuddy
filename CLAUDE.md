@@ -4,7 +4,7 @@
 
 BikeBuddy is an Azure-hosted web app for motorcycle tour management. Users upload GPX files, see their rides as interactive heatmaps, and attach photos to tours.
 
-**Stack:** Azure Static Web App (frontend) · Azure Functions Node.js 20 (backend API) · Azure Cosmos DB Serverless (database) · Azure Blob Storage (files) · Azure AD B2C (auth) · Leaflet.js + Leaflet.heat (maps)
+**Stack:** Azure Static Web App (frontend) · Azure Functions Node.js 20 (backend API) · Azure Cosmos DB Serverless (database) · Azure Blob Storage (files) · Microsoft Entra External ID (auth) · Leaflet.js + Leaflet.heat (maps)
 
 **Cost target:** < €5/month on the Azure free/serverless tier.
 
@@ -64,7 +64,7 @@ npm run format     # Prettier
 
 ## Authentication
 
-All API endpoints (except public health checks) require a valid Azure AD B2C JWT in the `Authorization: Bearer <token>` header. Use the shared `authMiddleware.js` — never inline auth logic in individual functions.
+All API endpoints (except public health checks) require a valid Microsoft Entra External ID JWT in the `Authorization: Bearer <token>` header. Use the shared `authMiddleware.js` — never inline auth logic in individual functions.
 
 The middleware attaches `context.userId` and `context.userEmail` for downstream use.
 
@@ -87,7 +87,7 @@ The middleware attaches `context.userId` and `context.userEmail` for downstream 
 - Azure Functions: Consumption plan only. No Premium plan.
 - Blob Storage: LRS redundancy. No GRS.
 - Static Web App: Free tier.
-- Azure AD B2C: Free tier (50,000 MAU/month).
+- Microsoft Entra External ID: Free tier (50,000 MAU/month).
 
 ---
 

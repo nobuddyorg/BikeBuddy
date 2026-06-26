@@ -75,11 +75,19 @@ const elUploadProgressBar = $('upload-progress-bar');
 const elUploadError = $('upload-error');
 const elBtnSubmitUpload = $('btn-submit-upload');
 
-// ── Auth (Azure AD B2C via MSAL Browser) ─────────────────────────────────────
+// ── Auth (Microsoft Entra External ID via MSAL Browser) ──────────────────────
 
 let msalClient;
 
-const LOGIN_SCOPES = { scopes: ['openid', BIKEBUDDY_CONFIG.b2cApiScope] };
+const LOGIN_SCOPES = {
+  scopes: ['openid', 'profile', ...(BIKEBUDDY_CONFIG.entraApiScope ? [BIKEBUDDY_CONFIG.entraApiScope] : [])],
+};
+
+// Use the no-auth dev path when devMode is set OR External ID isn't configured
+// yet. Pairs with the backend's SKIP_AUTH so the app stays usable before — and
+// flips to real auth the moment — the tenant details are provided.
+const USE_DEV_AUTH =
+  BIKEBUDDY_CONFIG.devMode || !(BIKEBUDDY_CONFIG.entraSubdomain && BIKEBUDDY_CONFIG.entraClientId);
 
 // ── Dev mode (BIKEBUDDY_CONFIG.devMode = true) ────────────────────────────────
 // Skips MSAL. With the backend running (SKIP_AUTH=true), it calls the real
@@ -96,7 +104,7 @@ const SYNTHETIC_USER = {
 
 async function devSignIn() {
   try {
-    const res = await fetch('/api/me');
+    const res = await fetch(`${API_BASE}/api/me`);
     state.user = res.ok ? await res.json() : SYNTHETIC_USER;
   } catch {
     state.user = SYNTHETIC_USER;
@@ -108,13 +116,15 @@ async function devSignIn() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function initAuth() {
-  if (BIKEBUDDY_CONFIG.devMode) { await devSignIn(); return; }
-  const tenantName = BIKEBUDDY_CONFIG.b2cTenant.split('.')[0];
+  if (USE_DEV_AUTH) { await devSignIn(); return; }
+  // Microsoft Entra External ID authority: https://<subdomain>.ciamlogin.com/
+  const subdomain = BIKEBUDDY_CONFIG.entraSubdomain;
   msalClient = new msal.PublicClientApplication({
     auth: {
-      clientId: BIKEBUDDY_CONFIG.b2cClientId,
-      authority: `https://${tenantName}.b2clogin.com/${BIKEBUDDY_CONFIG.b2cTenant}/${BIKEBUDDY_CONFIG.b2cPolicy}`,
-      knownAuthorities: [`${tenantName}.b2clogin.com`],
+      clientId: BIKEBUDDY_CONFIG.entraClientId,
+      authority: `https://${subdomain}.ciamlogin.com/`,
+      knownAuthorities: [`${subdomain}.ciamlogin.com`],
+      redirectUri: window.location.origin + window.location.pathname,
     },
     // memoryStorage: token is lost on page refresh (no localStorage per security policy)
     cache: { cacheLocation: 'memoryStorage', storeAuthStateInCookie: false },
@@ -124,7 +134,7 @@ async function initAuth() {
 }
 
 async function signIn() {
-  if (BIKEBUDDY_CONFIG.devMode) { await devSignIn(); return; }
+  if (USE_DEV_AUTH) { await devSignIn(); return; }
   try {
     onAuthSuccess(await msalClient.loginPopup(LOGIN_SCOPES));
   } catch {
@@ -133,7 +143,7 @@ async function signIn() {
 }
 
 async function signOut() {
-  if (!BIKEBUDDY_CONFIG.devMode) {
+  if (!USE_DEV_AUTH) {
     try {
       await msalClient.logoutPopup({ account: msalClient.getAllAccounts()[0] });
     } catch {
@@ -149,7 +159,7 @@ async function signOut() {
 }
 
 async function getAccessToken() {
-  if (BIKEBUDDY_CONFIG.devMode) return null;
+  if (USE_DEV_AUTH) return null;
   const account = msalClient.getAllAccounts()[0];
   if (!account) return null;
   try {
@@ -163,7 +173,7 @@ function onAuthSuccess(result) {
   state.user = {
     id: result.account.homeAccountId,
     name: result.account.name || result.idTokenClaims?.name || result.idTokenClaims?.given_name || null,
-    email: result.idTokenClaims?.emails?.[0] || result.account.username,
+    email: result.idTokenClaims?.email || result.idTokenClaims?.preferred_username || result.account.username,
   };
   renderNavAuth();
   loadTours();
