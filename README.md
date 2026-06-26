@@ -1,6 +1,6 @@
-# BikeBuddy 🏍
+# BikeBuddy 🧭
 
-BikeBuddy – Your ride, your routes, your memories. Upload GPX tours, visualize them as heatmaps, and share your adventures with ease.
+BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any ride (cycling or motorcycling), visualize them as heatmaps, and share your adventures with ease.
 
 ![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js)
 ![Azure Functions](https://img.shields.io/badge/Azure%20Functions-v4-blue?logo=azure-functions)

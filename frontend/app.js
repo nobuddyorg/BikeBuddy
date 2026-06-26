@@ -77,7 +77,6 @@ const elUserMenu = $('user-menu');
 const elBtnProfile = $('btn-profile');
 const elProfileModal = $('profile-modal');
 const elProfileAvatar = $('profile-avatar');
-const elProfileName = $('profile-modal-title');
 const elProfileEmail = $('profile-email');
 const elProfileSince = $('profile-since');
 const elUploadModal = $('upload-modal');
@@ -144,11 +143,25 @@ async function initAuth() {
       knownAuthorities: [`${subdomain}.ciamlogin.com`],
       redirectUri: window.location.origin + window.location.pathname,
     },
-    // memoryStorage: token is lost on page refresh (no localStorage per security policy)
-    cache: { cacheLocation: 'memoryStorage', storeAuthStateInCookie: false },
+    // sessionStorage: the session survives a page refresh but is cleared when the
+    // tab closes (no long-lived localStorage token, per the security stance).
+    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
   });
   await msalClient.initialize();
-  renderNavAuth();
+
+  // Restore a cached session after a refresh so the user isn't asked to sign in
+  // again (token is reacquired silently on the first API call).
+  const account = msalClient.getAllAccounts()[0];
+  if (account) {
+    setUserFromAccount(account);
+  } else {
+    renderNavAuth();
+  }
+}
+
+function setUserFromAccount(account) {
+  state.user = { id: account.homeAccountId, email: account.username || null };
+  renderSignedIn();
 }
 
 async function signIn() {
@@ -192,7 +205,6 @@ async function getAccessToken() {
 function onAuthSuccess(result) {
   state.user = {
     id: result.account.homeAccountId,
-    name: result.account.name || result.idTokenClaims?.name || result.idTokenClaims?.given_name || null,
     email: result.idTokenClaims?.email || result.idTokenClaims?.preferred_username || result.account.username,
   };
   renderSignedIn();
@@ -226,7 +238,9 @@ function renderNavAuth() {
   show(elBtnLogin, !signedIn);
   show(elUserMenu, signedIn);
   elBtnUpload.disabled = !signedIn;
-  if (signedIn) elBtnProfile.textContent = state.user.name || state.user.email || 'Profile';
+  // Email is the user's identity (display names are optional/unreliable for
+  // self-service sign-up); fall back to a neutral label, never "unknown".
+  if (signedIn) elBtnProfile.textContent = state.user.email || 'Account';
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -672,18 +686,15 @@ async function uploadImage(file) {
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
 
-function initials(name) {
-  if (!name) return '?';
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
+// Avatar initials from the email local part (e.g. "ada.lovelace@x" → "AD").
+function initials(email) {
+  if (!email) return '?';
+  const local = email.split('@')[0].replace(/[^a-zA-Z]/g, '');
+  return (local.slice(0, 2) || '?').toUpperCase();
 }
 
 function renderProfile() {
-  elProfileAvatar.textContent = initials(state.user.name);
-  elProfileName.textContent = state.user.name || state.user.email || '—';
+  elProfileAvatar.textContent = initials(state.user.email);
   elProfileEmail.textContent = state.user.email || '—';
   elProfileSince.textContent = state.user.createdAt ? formatDate(state.user.createdAt) : '—';
 }
@@ -693,8 +704,8 @@ async function openProfile() {
   renderProfile();
   show(elProfileModal, true);
 
-  // Join date + name live on the user doc; hydrate if login claims lacked them.
-  if (!state.user.createdAt || !state.user.name) {
+  // Join date lives on the user doc; hydrate if the login session lacked it.
+  if (!state.user.createdAt) {
     await refreshUser();
     renderProfile();
   }
