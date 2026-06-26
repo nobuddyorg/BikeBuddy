@@ -23,3 +23,23 @@ variable "entra_client_id" {
   type        = string
   default     = ""
 }
+
+# Cost guard rail (#3): monthly budget alert. Keeps spend bounded to the
+# free/serverless tiers (target < €5/month).
+variable "budget_amount" {
+  description = "Monthly budget amount in the subscription's billing currency."
+  type        = number
+  default     = 5
+}
+
+variable "budget_contact_email" {
+  description = "Email that receives budget threshold alerts. The subscription owner by default."
+  type        = string
+  default     = "nobuddyorgcloud@outlook.com"
+}
+
+variable "budget_start_date" {
+  description = "Budget start date (must be the first of a month, RFC3339)."
+  type        = string
+  default     = "2026-06-01T00:00:00Z"
+}
