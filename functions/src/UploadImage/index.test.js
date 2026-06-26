@@ -54,6 +54,44 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(doc.images[0].blobName).toBe(`u1/${TID}/${res.jsonBody.id}.jpg`);
   });
 
+  it('stores and returns GPS coords when the image is geotagged', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
+    const images = makeImagesContainer();
+    const readGps = vi.fn().mockResolvedValue({ lat: 48.137, lon: 11.575 });
+    const res = await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      makeParseFile(JPEG),
+      noResize,
+      readGps,
+    );
+
+    expect(res.status).toBe(201);
+    expect(res.jsonBody).toMatchObject({ lat: 48.137, lon: 11.575 });
+    const [doc] = tours.replace.mock.calls[0];
+    expect(doc.images[0]).toMatchObject({ lat: 48.137, lon: 11.575 });
+  });
+
+  it('omits coords for an image without GPS', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
+    const images = makeImagesContainer();
+    const res = await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      makeParseFile(JPEG),
+      noResize,
+      async () => null,
+    );
+
+    expect(res.jsonBody.lat).toBeUndefined();
+    const [doc] = tours.replace.mock.calls[0];
+    expect(doc.images[0].lat).toBeUndefined();
+  });
+
   it('accepts PNG by magic bytes', async () => {
     const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
     const images = makeImagesContainer();

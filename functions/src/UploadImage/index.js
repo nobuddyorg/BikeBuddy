@@ -7,6 +7,7 @@ const { toursContainer, readItem } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { resizeImage } = require('../lib/resizeImage');
+const { extractGps } = require('../lib/extractGps');
 const { uuidParamError, isImageContentType } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
@@ -26,6 +27,7 @@ async function uploadImage(
   getImagesContainer = imagesContainer,
   parseFile = parseMultipart,
   resize = resizeImage,
+  readGps = extractGps,
 ) {
   const user = await auth(request);
   if (!user) return unauthorized();
@@ -52,6 +54,8 @@ async function uploadImage(
     return error(400, 'Only JPEG or PNG images are accepted');
   }
 
+  // Read GPS from the ORIGINAL buffer before resizing re-encodes and drops EXIF.
+  const gps = await readGps(file.buffer);
   const resized = await resize(file.buffer);
 
   const imageId = randomUUID();
@@ -60,10 +64,18 @@ async function uploadImage(
   const blockBlob = container.getBlockBlobClient(blobName);
   await blockBlob.uploadData(resized, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } });
 
-  tour.images = [...(tour.images || []), { id: imageId, blobName }];
+  const image = { id: imageId, blobName, ...(gps && { lat: gps.lat, lon: gps.lon }) };
+  tour.images = [...(tour.images || []), image];
   await getToursContainer().item(tourId, userId).replace(tour);
 
-  return { status: 201, jsonBody: { id: imageId, url: await readSasUrl(blockBlob) } };
+  return {
+    status: 201,
+    jsonBody: {
+      id: imageId,
+      url: await readSasUrl(blockBlob),
+      ...(gps && { lat: gps.lat, lon: gps.lon }),
+    },
+  };
 }
 
 app.http('UploadImage', {

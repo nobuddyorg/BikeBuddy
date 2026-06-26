@@ -33,6 +33,7 @@ async function getTour(
       tour.images.map(async (img) => ({
         id: img.id,
         url: await readSasUrl(container.getBlockBlobClient(img.blobName)),
+        ...(typeof img.lat === 'number' && { lat: img.lat, lon: img.lon }),
       })),
     );
   } else {

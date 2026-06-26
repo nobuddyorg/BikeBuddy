@@ -21,6 +21,7 @@
     "@azure/functions": "^4.16.1",
     "@azure/storage-blob": "^12.25.0",
     "busboy": "^1.6.0",
+    "exif-reader": "^2.0.3",
     "fast-xml-parser": "^5.8.0",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^4.0.1",
