@@ -17,6 +17,12 @@ async function getMe(request, auth = authenticate, getContainer = usersContainer
   if (!doc) {
     doc = { id: userId, name: userName, email: userEmail, createdAt: new Date().toISOString() };
     ({ resource: doc } = await container.items.create(doc));
+  } else if ((userName && userName !== doc.name) || (userEmail && userEmail !== doc.email)) {
+    // Backfill/refresh profile fields once the token carries them (e.g. the
+    // name claim that was absent on the very first login right after sign-up).
+    doc.name = userName || doc.name;
+    doc.email = userEmail || doc.email;
+    ({ resource: doc } = await container.items.upsert(doc));
   }
 
   return {
