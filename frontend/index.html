@@ -50,6 +50,18 @@
         <button class="btn btn-primary btn-full" id="btn-login-sidebar">Sign In</button>
       </div>
 
+      <div id="tour-controls" class="tour-controls hidden">
+        <input id="tour-search" type="search" class="tour-search" placeholder="Search tours…" aria-label="Search tours" autocomplete="off" />
+        <select id="tour-sort" class="tour-sort" aria-label="Sort tours">
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="name-asc">Name A–Z</option>
+          <option value="name-desc">Name Z–A</option>
+          <option value="length-desc">Longest first</option>
+          <option value="length-asc">Shortest first</option>
+        </select>
+      </div>
+
       <ul id="tour-list" class="tour-list hidden"></ul>
 
       <div id="no-tours" class="empty-state hidden">
