@@ -61,5 +61,48 @@ describe('parseGpx', () => {
 </gpx>`;
     const result = parseGpx(gpx);
     expect(result.name).toBeNull();
+    expect(result.date).toBeNull();
+  });
+
+  it('falls back to track name and first trackpoint time when metadata is absent', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>Fallback Trail</name><trkseg>
+    <trkpt lat="48.0" lon="11.0"><time>2025-03-02T06:00:00Z</time></trkpt>
+  </trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.name).toBe('Fallback Trail');
+    expect(result.date).toBe('2025-03-02T06:00:00.000Z');
+  });
+
+  it('aggregates points across multiple tracks and segments in order', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="48.0" lon="11.00"/>
+    <trkpt lat="48.0" lon="11.01"/>
+  </trkseg></trk>
+  <trk><trkseg>
+    <trkpt lat="48.0" lon="11.02"/>
+  </trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.heatmapData).toEqual([
+      [48.0, 11.0],
+      [48.0, 11.01],
+      [48.0, 11.02],
+    ]);
+    expect(result.distanceKm).toBeGreaterThan(0);
+  });
+
+  it('returns zero distance and empty heatmap when there are no trackpoints', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg></trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.distanceKm).toBe(0);
+    expect(result.heatmapData).toEqual([]);
   });
 });
