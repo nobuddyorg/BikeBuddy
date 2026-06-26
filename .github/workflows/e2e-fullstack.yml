@@ -36,18 +36,7 @@ jobs:
           node-version: "22"
 
       - name: Start Cosmos DB emulator
-        run: |
-          docker run --detach --name cosmos \
-            --publish 8081:8081 --publish 1234:1234 \
-            mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
-          echo "Waiting for the emulator to become ready..."
-          for _ in $(seq 1 60); do
-            if docker logs cosmos 2>&1 | grep -q 'fully ready to accept requests'; then
-              echo "emulator ready"; exit 0
-            fi
-            sleep 3
-          done
-          echo "emulator did not become ready"; docker logs cosmos; exit 1
+        run: ./scripts/cosmos-emulator.sh
 
       - name: Install backend toolchain
         run: npm install -g azure-functions-core-tools@4 azurite @azure/static-web-apps-cli
@@ -61,15 +50,7 @@ jobs:
         working-directory: functions
 
       - name: Start Azurite + Functions host
-        run: |
-          azurite --silent --skipApiVersionCheck --location /tmp/azurite &
-          (cd functions && func start > /tmp/func.log 2>&1 &)
-          echo "Waiting for the Functions host on :7071..."
-          for _ in $(seq 1 60); do
-            if curl -s http://localhost:7071/api/me -o /dev/null; then echo "host up"; exit 0; fi
-            sleep 2
-          done
-          echo "Functions host did not start"; cat /tmp/func.log; exit 1
+        run: ./scripts/start-backend.sh
 
       - name: Install e2e dependencies
         run: npm ci

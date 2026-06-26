@@ -31,17 +31,8 @@ jobs:
         with:
           tofu_version: "~1.8"
 
-      - name: OpenTofu Init
-        run: tofu init
-        working-directory: infrastructure
-
-      - name: OpenTofu Apply
-        run: |
-          tofu apply -auto-approve \
-            -var="entra_tenant_subdomain=$ENTRA_SUBDOMAIN" \
-            -var="entra_tenant_id=$ENTRA_TENANT_ID" \
-            -var="entra_client_id=$ENTRA_CLIENT_ID"
-        working-directory: infrastructure
+      - name: OpenTofu init + apply
+        run: ./scripts/tofu-apply.sh
         env:
           ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
           ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
@@ -81,11 +72,8 @@ jobs:
       - name: Install Azure Functions Core Tools
         run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
 
-      # --javascript: CI has no local.settings.json, so func can't auto-detect the
-      # runtime; state it explicitly (Node v4 model).
       - name: Publish (remote build)
-        run: func azure functionapp publish "$FUNCTIONS_APP_NAME" --build remote --javascript
-        working-directory: functions
+        run: ./scripts/publish-functions.sh
         env:
           FUNCTIONS_APP_NAME: ${{ needs.infrastructure.outputs.functions_app_name }}
 
@@ -113,21 +101,7 @@ jobs:
           FUNCTIONS_URL: ${{ needs.infrastructure.outputs.functions_url }}
           ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
           ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
-        run: |
-          API_SCOPE=""
-          if [ -n "$ENTRA_CLIENT_ID" ]; then API_SCOPE="api://$ENTRA_CLIENT_ID/access_as_user"; fi
-          # Unquoted heredoc so the env vars below expand. Values are public
-          # (client ID + subdomain are exposed in any SPA), so repo variables, not secrets.
-          cat > frontend/config.js <<JSEOF
-          'use strict';
-          const BIKEBUDDY_CONFIG = {
-            apiBaseUrl: '${FUNCTIONS_URL}',
-            entraSubdomain: '${ENTRA_SUBDOMAIN}',
-            entraClientId: '${ENTRA_CLIENT_ID}',
-            entraApiScope: '${API_SCOPE}',
-            devMode: false,
-          };
-          JSEOF
+        run: ./scripts/generate-config.sh
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
