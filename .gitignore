@@ -59,8 +59,8 @@ coverage/
 .understand-anything/
 
 # Terraform
-infra/.terraform/
-infra/.terraform.lock.hcl
-infra/terraform.tfstate
-infra/terraform.tfstate.backup
+infrastructure/.terraform/
+infrastructure/.terraform.lock.hcl
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.backup
 func.zip
