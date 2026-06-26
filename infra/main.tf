@@ -10,7 +10,7 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "bikebuddy-tfstate-rg"
-    storage_account_name = "bikebuddytfstate"
+    storage_account_name = "bikebuddytfstate8769"
     container_name       = "tfstate"
     key                  = "bikebuddy.tfstate"
   }
