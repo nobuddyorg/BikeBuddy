@@ -75,13 +75,17 @@ jobs:
              "subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}",
              "tenantId":"${{ secrets.ARM_TENANT_ID }}"}
 
-      # Flex Consumption: remote build so native deps (sharp) compile for Linux.
-      - uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
-        with:
-          app-name: ${{ needs.infra.outputs.functions_app_name }}
-          package: functions
-          scm-do-build-during-deployment: true
-          enable-oryx-build: true
+      # Flex Consumption deploys from its package container via the publish API.
+      # functions-action's Kudu/zip path targets wwwroot and doesn't register on
+      # Flex, so use Core Tools with a remote build (compiles sharp for Linux).
+      - name: Install Azure Functions Core Tools
+        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+
+      - name: Publish (remote build)
+        run: func azure functionapp publish "$FUNCTIONS_APP_NAME" --build remote
+        working-directory: functions
+        env:
+          FUNCTIONS_APP_NAME: ${{ needs.infra.outputs.functions_app_name }}
 
   deploy-frontend:
     name: Deploy Frontend (GitHub Pages)
