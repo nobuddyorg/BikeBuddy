@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-BikeBuddy is an Azure-hosted web app for motorcycle tour management. Users upload GPX files, see their rides as interactive heatmaps, and attach photos to tours.
+BikeBuddy is an Azure-hosted web app for bike tour management — usable for any ride, cycling or motorcycling. Users upload GPX files, see their rides as interactive heatmaps, and attach photos to tours.
 
 **Stack:** GitHub Pages (frontend) · Azure Functions Node.js 22, Flex Consumption (backend API) · Azure Cosmos DB Serverless (database) · Azure Blob Storage (files) · Microsoft Entra External ID (auth) · Leaflet.js + Leaflet.heat (maps) · OpenTofu (infrastructure)
 
