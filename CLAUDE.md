@@ -4,7 +4,7 @@
 
 BikeBuddy is an Azure-hosted web app for motorcycle tour management. Users upload GPX files, see their rides as interactive heatmaps, and attach photos to tours.
 
-**Stack:** GitHub Pages (frontend) · Azure Functions Node.js 22, Flex Consumption (backend API) · Azure Cosmos DB Serverless (database) · Azure Blob Storage (files) · Microsoft Entra External ID (auth) · Leaflet.js + Leaflet.heat (maps) · OpenTofu (infra)
+**Stack:** GitHub Pages (frontend) · Azure Functions Node.js 22, Flex Consumption (backend API) · Azure Cosmos DB Serverless (database) · Azure Blob Storage (files) · Microsoft Entra External ID (auth) · Leaflet.js + Leaflet.heat (maps) · OpenTofu (infrastructure)
 
 **Cost target:** < €5/month on the free/serverless tier.
 
@@ -28,7 +28,7 @@ BikeBuddy is an Azure-hosted web app for motorcycle tour management. Users uploa
 │       ├── lib/                       # shared helpers: db, blobStorage, parseGpx, validation, …
 │       ├── middleware/authMiddleware.js
 │       └── <FunctionName>/index.js    # one folder per function (GetTours, UploadTour, …)
-├── infra/             # OpenTofu (azurerm): Cosmos, Storage, Flex Functions + bootstrap.sh + README
+├── infrastructure/    # OpenTofu (azurerm): Cosmos, Storage, Flex Functions + bootstrap.sh + README
 ├── e2e/               # Playwright end-to-end tests
 ├── scripts/           # helper scripts (cosmos-emulator.sh)
 ├── dev.sh             # start full local stack   ·   setup.sh installs prerequisites
@@ -53,7 +53,7 @@ npm run format     # Prettier
 ./dev.sh           # run ./setup.sh first if tools are missing
 
 # Infrastructure (OpenTofu)
-cd infra
+cd infrastructure
 ./bootstrap.sh <state-storage-name>   # one-time: create the tofu state backend
 tofu init && tofu apply               # provision/update Azure resources
 
@@ -153,8 +153,8 @@ One workflow — `.github/workflows/deploy.yml` — deploys everything on push t
 
 1. **Infra:** `tofu init && tofu apply` provisions/updates Azure resources and outputs the Functions app name + URL.
 2. **Functions:** `func azure functionapp publish <name> --build remote --javascript` (Core Tools). Flex Consumption deploys code from a blob package container, **not** `WEBSITE_RUN_FROM_PACKAGE` — do **not** use `azure/functions-action` (its Kudu/zip path targets wwwroot, which Flex ignores → 404). `--build remote` compiles `sharp` for Linux; `--javascript` is required because CI has no `local.settings.json`.
-3. **Frontend:** generates `config.js` from the infra outputs + `ENTRA_*` repo variables, then publishes to **GitHub Pages** (<https://nobuddy.org/BikeBuddy/>).
+3. **Frontend:** generates `config.js` from the infrastructure outputs + `ENTRA_*` repo variables, then publishes to **GitHub Pages** (<https://nobuddy.org/BikeBuddy/>).
 
-- The tofu **state backend** (a storage account) is a one-time prerequisite created by `infra/bootstrap.sh` — it is not managed by tofu.
+- The tofu **state backend** (a storage account) is a one-time prerequisite created by `infrastructure/bootstrap.sh` — it is not managed by tofu.
 - `destroy.yml` (manual `workflow_dispatch`) runs `tofu destroy`.
 - Secrets in GitHub repository **secrets** (`ARM_*`, `TF_BACKEND_ACCESS_KEY`); public Entra values in repo **variables** (`ENTRA_*`) — never in code.
