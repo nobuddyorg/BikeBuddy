@@ -110,6 +110,7 @@ async function devSignIn() {
     state.user = SYNTHETIC_USER;
   }
   renderNavAuth();
+  renderSidebar();
   loadTours();
 }
 
@@ -175,8 +176,30 @@ function onAuthSuccess(result) {
     name: result.account.name || result.idTokenClaims?.name || result.idTokenClaims?.given_name || null,
     email: result.idTokenClaims?.email || result.idTokenClaims?.preferred_username || result.account.username,
   };
+  renderSignedIn();
+}
+
+// Render the signed-in UI synchronously (so the Sign In prompt never lingers
+// behind the tours request), then load tours and hydrate the canonical user.
+function renderSignedIn() {
   renderNavAuth();
+  renderSidebar();
   loadTours();
+  refreshUser();
+}
+
+// The user doc (id, name, email, createdAt) is the source of truth; token
+// claims can be missing right after sign-up (e.g. name), so merge it in once
+// loaded. Uses apiFetch → API_BASE (a relative URL would hit the Pages origin).
+async function refreshUser() {
+  try {
+    const res = await apiFetch('/api/me');
+    if (!res.ok) return;
+    state.user = { ...state.user, ...(await res.json()) };
+    renderNavAuth();
+  } catch {
+    // network unavailable — keep token-derived values
+  }
 }
 
 function renderNavAuth() {
@@ -553,35 +576,22 @@ function initials(name) {
     .join('');
 }
 
+function renderProfile() {
+  elProfileAvatar.textContent = initials(state.user.name);
+  elProfileName.textContent = state.user.name || state.user.email || '—';
+  elProfileEmail.textContent = state.user.email || '—';
+  elProfileSince.textContent = state.user.createdAt ? formatDate(state.user.createdAt) : '—';
+}
+
 async function openProfile() {
   if (!state.user) return;
-
-  function renderProfile() {
-    elProfileAvatar.textContent = initials(state.user.name);
-    elProfileName.textContent = state.user.name || state.user.email || '—';
-    elProfileEmail.textContent = state.user.email || '—';
-    elProfileSince.textContent = state.user.createdAt ? formatDate(state.user.createdAt) : '—';
-  }
-
   renderProfile();
   show(elProfileModal, true);
 
-  if (!state.user.createdAt) {
-    try {
-      const token = await getAccessToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await fetch('/api/me', { headers });
-      if (res.ok) {
-        const data = await res.json();
-        state.user.name = data.name || state.user.name;
-        state.user.email = data.email || state.user.email;
-        state.user.createdAt = data.createdAt;
-        renderProfile();
-        renderNavAuth();
-      }
-    } catch {
-      // network unavailable — leave "—" placeholder
-    }
+  // Join date + name live on the user doc; hydrate if login claims lacked them.
+  if (!state.user.createdAt || !state.user.name) {
+    await refreshUser();
+    renderProfile();
   }
 }
 
