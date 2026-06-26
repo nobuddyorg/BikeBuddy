@@ -81,8 +81,10 @@ jobs:
       - name: Install Azure Functions Core Tools
         run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
 
+      # --javascript: CI has no local.settings.json, so func can't auto-detect the
+      # runtime; state it explicitly (Node v4 model).
       - name: Publish (remote build)
-        run: func azure functionapp publish "$FUNCTIONS_APP_NAME" --build remote
+        run: func azure functionapp publish "$FUNCTIONS_APP_NAME" --build remote --javascript
         working-directory: functions
         env:
           FUNCTIONS_APP_NAME: ${{ needs.infra.outputs.functions_app_name }}
