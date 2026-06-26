@@ -10,8 +10,9 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- Leaflet.heat -->
   <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-  <!-- MSAL Browser (Azure AD B2C auth) -->
-  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/dist/msal-browser.min.js"></script>
+  <!-- MSAL Browser (Microsoft Entra External ID auth). Vendored locally:
+       loading cross-origin from a CDN was blocked by the browser (ORB) on GitHub Pages. -->
+  <script src="vendor/msal-browser.min.js"></script>
   <!-- App config — copy config.js.example to config.js and fill in B2C values -->
   <script src="config.js"></script>
 

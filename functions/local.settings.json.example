@@ -6,9 +6,9 @@
     "COSMOS_CONNECTION_STRING": "<your-cosmos-db-connection-string>",
     "COSMOS_DATABASE": "bikebuddy",
     "BLOB_CONNECTION_STRING": "UseDevelopmentStorage=true",
-    "B2C_TENANT": "<your-tenant>.onmicrosoft.com",
-    "B2C_CLIENT_ID": "<your-b2c-app-client-id>",
-    "B2C_POLICY": "B2C_1_signupsignin",
-    "SKIP_AUTH": "false"
+    "ENTRA_TENANT_SUBDOMAIN": "<your-tenant-subdomain>",
+    "ENTRA_TENANT_ID": "<your-tenant-guid>",
+    "ENTRA_CLIENT_ID": "<your-app-client-id>",
+    "SKIP_AUTH": "true"
   }
 }

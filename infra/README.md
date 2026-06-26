@@ -15,15 +15,19 @@ az account set --subscription <SUB_ID>
 export ARM_ACCESS_KEY="$(az storage account keys list -g bikebuddy-tfstate-rg \
   -n <globally-unique-name> --query '[0].value' -o tsv)"
 
-# build the Functions package (deployed via WEBSITE_RUN_FROM_PACKAGE)
-( cd ../functions && npm ci && npm prune --omit=dev \
-  && zip -r ../func.zip . -x '*.test.js' 'reports/*' '.azurite/*' )
-
+# 1. provision infra (resource group, Cosmos, Storage, Flex Consumption app)
 tofu init
-tofu apply -var="package_path=../func.zip"
+tofu apply
+
+# 2. deploy the function code (remote build so sharp compiles for Linux)
+cd ../functions && func azure functionapp publish "$(cd ../infra && tofu output -raw functions_app_name)" --build remote
 ```
 
-That's it — one `tofu apply` provisions and deploys everything.
+Flex Consumption deploys code from a blob container via the publish API, so it's
+a two-step flow: `tofu apply` for infra, then `func ... publish` for the code.
+(The Functions runtime — Y1 Consumption — used to run straight from a package
+blob in a single `tofu apply`, but Y1 is blocked by the new-subscription VM
+quota; Flex avoids that and is the better serverless tier.)
 
 ## State backend (the one prerequisite)
 
