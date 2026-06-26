@@ -4,9 +4,9 @@
 
 BikeBuddy is an Azure-hosted web app for motorcycle tour management. Users upload GPX files, see their rides as interactive heatmaps, and attach photos to tours.
 
-**Stack:** Azure Static Web App (frontend) · Azure Functions Node.js 20 (backend API) · Azure Cosmos DB Serverless (database) · Azure Blob Storage (files) · Microsoft Entra External ID (auth) · Leaflet.js + Leaflet.heat (maps)
+**Stack:** GitHub Pages (frontend) · Azure Functions Node.js 22, Flex Consumption (backend API) · Azure Cosmos DB Serverless (database) · Azure Blob Storage (files) · Microsoft Entra External ID (auth) · Leaflet.js + Leaflet.heat (maps) · OpenTofu (infra)
 
-**Cost target:** < €5/month on the Azure free/serverless tier.
+**Cost target:** < €5/month on the free/serverless tier.
 
 ---
 
@@ -14,18 +14,24 @@ BikeBuddy is an Azure-hosted web app for motorcycle tour management. Users uploa
 
 ```
 /
-├── frontend/          # Static Web App — plain HTML/CSS/JS, no bundler
+├── frontend/          # GitHub Pages site — plain HTML/CSS/JS, no bundler
 │   ├── index.html
 │   ├── app.js
-│   └── style.css
-├── functions/         # Azure Functions app (Node.js)
+│   ├── style.css
+│   ├── config.js.example      # committed; config.js is generated in CI (gitignored)
+│   └── vendor/                # vendored MSAL Browser (served locally, not a CDN)
+├── functions/         # Azure Functions app (Node.js 22, Flex Consumption)
 │   ├── host.json
 │   ├── package.json
 │   ├── local.settings.json.example   # committed; actual file is gitignored
 │   └── src/
+│       ├── lib/                       # shared helpers: db, blobStorage, parseGpx, validation, …
 │       ├── middleware/authMiddleware.js
-│       └── <FunctionName>/
-│           └── index.js
+│       └── <FunctionName>/index.js    # one folder per function (GetTours, UploadTour, …)
+├── infra/             # OpenTofu (azurerm): Cosmos, Storage, Flex Functions + bootstrap.sh + README
+├── e2e/               # Playwright end-to-end tests
+├── scripts/           # helper scripts (cosmos-emulator.sh)
+├── dev.sh             # start full local stack   ·   setup.sh installs prerequisites
 ├── docs/
 └── CLAUDE.md
 ```
@@ -43,17 +49,30 @@ npm test           # Vitest unit tests
 npm run lint       # ESLint
 npm run format     # Prettier
 
-# No build step for frontend — open frontend/index.html directly or via Static Web App CLI
+# Full local stack: Cosmos emulator + Functions (+Azurite) + SWA CLI proxy
+./dev.sh           # run ./setup.sh first if tools are missing
+
+# Infrastructure (OpenTofu)
+cd infra
+./bootstrap.sh <state-storage-name>   # one-time: create the tofu state backend
+tofu init && tofu apply               # provision/update Azure resources
+
+# End-to-end tests (Playwright)
+cd e2e && npm ci
+npm test               # against a running local stack
+npm run test:fullstack # deployed-style full run
+
+# No build step for frontend — open frontend/index.html directly or via the SWA CLI proxy
 ```
 
-**Prerequisites:** Node.js 20, Azure Functions Core Tools v4, Azurite (`npm i -g azurite`).
+**Prerequisites:** Node.js 22, Azure Functions Core Tools v4, Azurite (`npm i -g azurite`), OpenTofu, Docker (Cosmos emulator).
 
 ---
 
 ## Architecture Decisions
 
-- **No framework for frontend.** Plain JS to keep the Static Web App truly static and avoid a build pipeline. Use CDN links for Leaflet and MSAL.
-- **Node.js, not Python, for Functions.** Faster cold starts on Consumption plan; better Azure SDK support for Cosmos DB and Blob Storage.
+- **No framework for frontend.** Plain JS to keep the site static and avoid a build pipeline. Leaflet is loaded from CDN; **MSAL Browser is vendored** in `frontend/vendor/` (served locally, not CDN).
+- **Node.js, not Python, for Functions.** Faster cold starts; better Azure SDK support for Cosmos DB and Blob Storage. Backend runs on **Flex Consumption** (scale-to-zero, ~€0 idle, no App Service VM quota).
 - **Cosmos DB partition key:** `users` → `/id`, `tours` → `/userId`. Never query cross-partition unless absolutely necessary.
 - **`heatmapData` is never returned in list endpoints** (`GET /api/tours`). Fetch it only in the detail endpoint to keep list payloads small.
 - **GPX files > 5,000 trackpoints are downsampled** before storing `heatmapData`. Keeps Cosmos DB documents under the 2 MB limit.
@@ -67,6 +86,8 @@ npm run format     # Prettier
 All API endpoints (except public health checks) require a valid Microsoft Entra External ID JWT in the `Authorization: Bearer <token>` header. Use the shared `authMiddleware.js` — never inline auth logic in individual functions.
 
 The middleware attaches `context.userId` and `context.userEmail` for downstream use.
+
+When `ENTRA_CLIENT_ID` is unset the API runs in **no-auth mode** (`SKIP_AUTH=true`) and the frontend falls back to a shared `local-dev-user` — used for local dev. Real per-user auth is enabled by setting the `ENTRA_*` repo variables (the External ID tenant now exists).
 
 ---
 
@@ -84,9 +105,9 @@ The middleware attaches `context.userId` and `context.userEmail` for downstream 
 
 - Always use **Serverless** capacity for Cosmos DB — never provisioned throughput.
 - Cosmos DB index policy: exclude `heatmapData` and `images` arrays from indexing (they're not queried).
-- Azure Functions: Consumption plan only. No Premium plan.
+- Azure Functions: **Flex Consumption (FC1)** only. No Premium plan.
 - Blob Storage: LRS redundancy. No GRS.
-- Static Web App: Free tier.
+- Frontend: GitHub Pages (free).
 - Microsoft Entra External ID: Free tier (50,000 MAU/month).
 
 ---
@@ -128,6 +149,12 @@ Start with epics in order: #2 → #9 → #13 → #21 → #31 → #26.
 
 ## Deployment
 
-- **Functions:** GitHub Actions workflow `.github/workflows/deploy-functions.yml` deploys on push to `main`.
-- **Frontend:** Azure Static Web App auto-deploys from `main` via its own GitHub Actions workflow (generated by Azure).
-- Secrets stored in GitHub repository secrets — never in code.
+One workflow — `.github/workflows/deploy.yml` — deploys everything on push to `main`, in order:
+
+1. **Infra:** `tofu init && tofu apply` provisions/updates Azure resources and outputs the Functions app name + URL.
+2. **Functions:** `func azure functionapp publish <name> --build remote --javascript` (Core Tools). Flex Consumption deploys code from a blob package container, **not** `WEBSITE_RUN_FROM_PACKAGE` — do **not** use `azure/functions-action` (its Kudu/zip path targets wwwroot, which Flex ignores → 404). `--build remote` compiles `sharp` for Linux; `--javascript` is required because CI has no `local.settings.json`.
+3. **Frontend:** generates `config.js` from the infra outputs + `ENTRA_*` repo variables, then publishes to **GitHub Pages** (<https://nobuddy.org/BikeBuddy/>).
+
+- The tofu **state backend** (a storage account) is a one-time prerequisite created by `infra/bootstrap.sh` — it is not managed by tofu.
+- `destroy.yml` (manual `workflow_dispatch`) runs `tofu destroy`.
+- Secrets in GitHub repository **secrets** (`ARM_*`, `TF_BACKEND_ACCESS_KEY`); public Entra values in repo **variables** (`ENTRA_*`) — never in code.
