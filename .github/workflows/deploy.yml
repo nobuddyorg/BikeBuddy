@@ -17,31 +17,15 @@ env:
 
 jobs:
   infra:
-    name: OpenTofu Apply (infra + functions)
+    name: OpenTofu Apply
     runs-on: ubuntu-latest
     outputs:
       functions_url: ${{ steps.output.outputs.functions_url }}
+      functions_app_name: ${{ steps.output.outputs.functions_app_name }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
         with:
           persist-credentials: false
-
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # zizmor: ignore[cache-poisoning]
-        with:
-          node-version: "22"
-
-      # Build the deployment package; OpenTofu uploads it to blob storage and the
-      # Function App runs it via WEBSITE_RUN_FROM_PACKAGE (no az CLI needed).
-      - name: Build Functions package
-        run: |
-          npm ci
-          npm prune --omit=dev
-          zip -r "$GITHUB_WORKSPACE/func.zip" . \
-            --exclude "*.test.js" \
-            --exclude "reports/*" \
-            --exclude ".azurite/*" \
-            --exclude "node_modules/.cache/*"
-        working-directory: functions
 
       - uses: opentofu/setup-opentofu@592200bd4b9bbf4772ace78f887668b1aee8f716 # v1.0.5
         with:
@@ -52,13 +36,52 @@ jobs:
         working-directory: infra
 
       - name: OpenTofu Apply
-        run: tofu apply -auto-approve -var="package_path=$GITHUB_WORKSPACE/func.zip"
+        run: |
+          tofu apply -auto-approve \
+            -var="entra_tenant_subdomain=$ENTRA_SUBDOMAIN" \
+            -var="entra_tenant_id=$ENTRA_TENANT_ID" \
+            -var="entra_client_id=$ENTRA_CLIENT_ID"
         working-directory: infra
+        env:
+          ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
+          ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
+          ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
 
       - name: Capture outputs
         id: output
-        run: echo "functions_url=$(tofu output -raw functions_url)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "functions_url=$(tofu output -raw functions_url)" >> "$GITHUB_OUTPUT"
+          echo "functions_app_name=$(tofu output -raw functions_app_name)" >> "$GITHUB_OUTPUT"
         working-directory: infra
+
+  deploy-functions:
+    name: Deploy Functions (Flex, remote build)
+    needs: infra
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # zizmor: ignore[cache-poisoning]
+        with:
+          node-version: "22"
+
+      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          creds: >-
+            {"clientId":"${{ secrets.ARM_CLIENT_ID }}",
+             "clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}",
+             "subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}",
+             "tenantId":"${{ secrets.ARM_TENANT_ID }}"}
+
+      # Flex Consumption: remote build so native deps (sharp) compile for Linux.
+      - uses: Azure/functions-action@bc63708cc6539760eea18d8a7de4ce8ef5fdf593 # v1.5.6
+        with:
+          app-name: ${{ needs.infra.outputs.functions_app_name }}
+          package: functions
+          scm-do-build-during-deployment: true
+          enable-oryx-build: true
 
   deploy-frontend:
     name: Deploy Frontend (GitHub Pages)
@@ -82,19 +105,23 @@ jobs:
       - name: Generate config.js
         env:
           FUNCTIONS_URL: ${{ needs.infra.outputs.functions_url }}
+          ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
+          ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
         run: |
-          cat > frontend/config.js <<'JSEOF'
+          API_SCOPE=""
+          if [ -n "$ENTRA_CLIENT_ID" ]; then API_SCOPE="api://$ENTRA_CLIENT_ID/access_as_user"; fi
+          # Unquoted heredoc so the env vars below expand. Values are public
+          # (client ID + subdomain are exposed in any SPA), so repo variables, not secrets.
+          cat > frontend/config.js <<JSEOF
           'use strict';
           const BIKEBUDDY_CONFIG = {
+            apiBaseUrl: '${FUNCTIONS_URL}',
+            entraSubdomain: '${ENTRA_SUBDOMAIN}',
+            entraClientId: '${ENTRA_CLIENT_ID}',
+            entraApiScope: '${API_SCOPE}',
             devMode: false,
-            apiBaseUrl: 'API_BASE_URL_PLACEHOLDER',
-            b2cTenant: '',
-            b2cClientId: '',
-            b2cPolicy: 'B2C_1_signupsignin',
-            b2cApiScope: '',
           };
           JSEOF
-          sed -i "s|API_BASE_URL_PLACEHOLDER|${FUNCTIONS_URL}|" frontend/config.js
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
