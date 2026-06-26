@@ -7,6 +7,8 @@ const state = {
   tours: [],
   selectedTourId: null,
   heatLayer: null,
+  pinLayer: null,
+  showPins: false,
   sort: 'date-desc',
   search: '',
 };
@@ -41,6 +43,8 @@ const elNoTours = $('no-tours');
 const elTourControls = $('tour-controls');
 const elTourSearch = $('tour-search');
 const elTourSort = $('tour-sort');
+const elPinToggle = $('pin-toggle');
+const elPinToggleInput = $('pin-toggle-input');
 const elAuthPrompt = $('auth-prompt');
 const elMapEmpty = $('map-empty');
 const elDetailPanel = $('detail-panel');
@@ -168,6 +172,8 @@ async function signOut() {
   state.tours = [];
   state.selectedTourId = null;
   clearHeatmap();
+  clearPins();
+  show(elPinToggle, false);
   renderSidebar();
   renderNavAuth();
 }
@@ -421,6 +427,49 @@ async function renderAllHeatmap() {
   const allPoints = state.tours.flatMap((t) => toHeatPoints(t.heatmapData));
   renderHeatmap(allPoints, 40);
   show(elMapEmpty, allPoints.length === 0);
+  renderPins();
+}
+
+// ── Photo pins (#100) ─────────────────────────────────────────────────────────
+
+// Geotagged images across all loaded tours (lat/lon come from the detail fetch).
+function geotaggedImages() {
+  return state.tours.flatMap((t) =>
+    (t.images || []).filter((img) => typeof img.lat === 'number' && typeof img.lon === 'number'),
+  );
+}
+
+function photoPinIcon(url) {
+  return L.divIcon({
+    className: 'photo-pin',
+    html: `<img src="${url}" alt="Tour photo" />`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  });
+}
+
+function clearPins() {
+  if (state.pinLayer) {
+    map.removeLayer(state.pinLayer);
+    state.pinLayer = null;
+  }
+}
+
+// The toggle is hidden unless some photo has coordinates; the layer is only
+// added when the toggle is on (default off, per #100).
+function renderPins() {
+  clearPins();
+  const images = geotaggedImages();
+  show(elPinToggle, images.length > 0);
+  if (!state.showPins || images.length === 0) return;
+
+  state.pinLayer = L.layerGroup(
+    images.map((img) => {
+      const marker = L.marker([img.lat, img.lon], { icon: photoPinIcon(img.url) });
+      marker.on('click', () => openLightbox(img.url));
+      return marker;
+    }),
+  ).addTo(map);
 }
 
 // ── Tour selection ────────────────────────────────────────────────────────────
@@ -437,6 +486,7 @@ async function selectTour(tourId) {
   show(elMapEmpty, false);
   renderHeatmap(toHeatPoints(tour.heatmapData), 60);
   renderGallery(tour);
+  renderPins();
 }
 
 function deselectTour() {
@@ -612,6 +662,7 @@ async function uploadImage(file) {
     const tour = state.tours.find((t) => t.id === tourId);
     if (tour) tour.images = [...(tour.images || []), image];
     elImageGrid.appendChild(createImageTile(image));
+    renderPins(); // a newly uploaded geotagged photo may add a marker
   } catch (err) {
     showImageError(err.message);
   } finally {
@@ -794,6 +845,10 @@ elTourSearch.addEventListener('input', () => {
 elTourSort.addEventListener('change', () => {
   state.sort = elTourSort.value;
   renderSidebar();
+});
+elPinToggleInput.addEventListener('change', () => {
+  state.showPins = elPinToggleInput.checked;
+  renderPins();
 });
 
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
