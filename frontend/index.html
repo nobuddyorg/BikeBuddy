@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BikeBuddy</title>
+    <meta
+      name="description"
+      content="Upload GPX rides (cycling or motorcycling) and see them as interactive heatmaps."
+    />
+    <meta name="theme-color" content="#0f1117" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <!-- Social link previews -->
+    <meta property="og:title" content="BikeBuddy" />
+    <meta
+      property="og:description"
+      content="Upload GPX rides and see them as interactive heatmaps."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nobuddy.org/BikeBuddy/" />
+    <meta name="twitter:card" content="summary" />
 
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -13,7 +29,7 @@
     <!-- MSAL Browser (Microsoft Entra External ID auth). Vendored locally:
        loading cross-origin from a CDN was blocked by the browser (ORB) on GitHub Pages. -->
     <script src="vendor/msal-browser.min.js"></script>
-    <!-- App config — copy config.js.example to config.js and fill in B2C values -->
+    <!-- App config — copy config.js.example to config.js and fill in Entra values -->
     <script src="config.js"></script>
 
     <link rel="stylesheet" href="style.css" />

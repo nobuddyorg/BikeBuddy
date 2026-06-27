@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BikeBuddy">
+  <rect width="64" height="64" rx="14" fill="#0f1117" />
+  <circle cx="32" cy="32" r="20" fill="none" stroke="#f97316" stroke-width="3" />
+  <polygon points="32,15 38,34 32,29 26,34" fill="#f97316" />
+  <polygon points="32,49 26,30 32,35 38,30" fill="#8892a4" />
+</svg>
