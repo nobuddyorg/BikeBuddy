@@ -1,3 +1,6 @@
+# Encryption at rest is on by default with Microsoft-managed keys (AES-256) — no
+# config needed. We stay on platform-managed keys (no CMK/Key Vault) to keep
+# within the cost target; see docs/explanation/design-decisions.md.
 resource "azurerm_storage_account" "main" {
   name                            = "bikebuddyfiles${random_string.suffix.result}"
   resource_group_name             = azurerm_resource_group.main.name

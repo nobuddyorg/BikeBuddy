@@ -1,3 +1,5 @@
+# Cosmos DB encrypts data at rest by default with Microsoft-managed keys (no CMK
+# configured); see docs/explanation/design-decisions.md.
 resource "azurerm_cosmosdb_account" "main" {
   name                = "bikebuddy-cosmos-${random_string.suffix.result}"
   location            = azurerm_resource_group.main.location
