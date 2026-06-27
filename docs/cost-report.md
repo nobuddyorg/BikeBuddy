@@ -3,7 +3,7 @@
 **Target:** < €5 / month for a personal-scale deployment (a handful of users, a
 few hundred tours, light daily traffic).
 
-**Status:** *Projected* analysis based on the architecture and Azure pricing.
+**Status:** _Projected_ analysis based on the architecture and Azure pricing.
 Replace the projected figures with real numbers from Azure Cost Management once
 the app has run for a month (see [Reviewing actual costs](#reviewing-actual-costs)).
 
@@ -15,16 +15,16 @@ the app has run for a month (see [Reviewing actual costs](#reviewing-actual-cost
 
 ## Summary
 
-| Resource | Tier / billing | Free grant | Projected cost |
-| -------- | -------------- | ---------- | -------------- |
-| Static Web App | **Free** | Unlimited apps, 100 GB bandwidth/mo | **€0** |
-| Azure AD B2C | **Free** | 50,000 MAU/mo | **€0** |
-| Azure Functions | Consumption (pay-per-use) | 1M executions + 400,000 GB-s/mo | **€0** (within free grant) |
-| Cosmos DB | **Serverless** (pay-per-RU) | none, but RU/storage are tiny here | **~€0–1** |
-| Blob Storage | Standard, LRS, Hot | none | **~€0–0.50** |
-| Application Insights | Pay-per-GB ingested | 5 GB/mo | **€0** (sampling on) |
-| Bandwidth (egress) | pay-per-GB | 100 GB/mo | **€0** |
-| **Total** | | | **≈ €0–2 / month** |
+| Resource             | Tier / billing              | Free grant                          | Projected cost             |
+| -------------------- | --------------------------- | ----------------------------------- | -------------------------- |
+| Static Web App       | **Free**                    | Unlimited apps, 100 GB bandwidth/mo | **€0**                     |
+| Azure AD B2C         | **Free**                    | 50,000 MAU/mo                       | **€0**                     |
+| Azure Functions      | Consumption (pay-per-use)   | 1M executions + 400,000 GB-s/mo     | **€0** (within free grant) |
+| Cosmos DB            | **Serverless** (pay-per-RU) | none, but RU/storage are tiny here  | **~€0–1**                  |
+| Blob Storage         | Standard, LRS, Hot          | none                                | **~€0–0.50**               |
+| Application Insights | Pay-per-GB ingested         | 5 GB/mo                             | **€0** (sampling on)       |
+| Bandwidth (egress)   | pay-per-GB                  | 100 GB/mo                           | **€0**                     |
+| **Total**            |                             |                                     | **≈ €0–2 / month**         |
 
 The architecture is deliberately built on free / serverless tiers, so almost
 everything is **€0** at this scale. The only metered services that can accrue
@@ -65,7 +65,7 @@ Serverless bills per **Request Unit (RU)** consumed plus storage (~€0.25/GB/mo
 
 At a few hundred tours and light traffic this is well under 1 €.
 
-**Mitigated cost risk — indexing.** By default Cosmos indexes *every* field,
+**Mitigated cost risk — indexing.** By default Cosmos indexes _every_ field,
 including the large `heatmapData` (up to 5,000 points) and `images` arrays,
 which inflates write RU and storage. The `tours` container now ships a custom
 index policy that **excludes `/heatmapData/*` and `/images/*`** (see
@@ -106,15 +106,15 @@ JSON payloads, and a few resized images stays far below this.
 
 ## Cost surprises & mitigations
 
-| Risk | Status | Mitigation |
-| ---- | ------ | ---------- |
+| Risk                                                            | Status    | Mitigation                                           |
+| --------------------------------------------------------------- | --------- | ---------------------------------------------------- |
 | Cosmos indexes `heatmapData`/`images` → high write RU + storage | **Fixed** | Custom index policy excludes them (`init-cosmos.js`) |
-| Provisioned Cosmos throughput billed 24/7 | Avoided | Serverless only |
-| Storing original full-size images | Avoided | `sharp` resize to ≤ 2000px before upload |
-| Returning `heatmapData` in list view → RU + egress | Avoided | List endpoint omits it; fetched only in detail |
-| Public blob containers / unbounded reads | Avoided | Private containers + short-lived SAS URLs |
-| App Insights ingestion over 5 GB | Watch | Sampling on; add a daily cap if needed |
-| GRS replication (2× storage cost) | Avoided | LRS |
+| Provisioned Cosmos throughput billed 24/7                       | Avoided   | Serverless only                                      |
+| Storing original full-size images                               | Avoided   | `sharp` resize to ≤ 2000px before upload             |
+| Returning `heatmapData` in list view → RU + egress              | Avoided   | List endpoint omits it; fetched only in detail       |
+| Public blob containers / unbounded reads                        | Avoided   | Private containers + short-lived SAS URLs            |
+| App Insights ingestion over 5 GB                                | Watch     | Sampling on; add a daily cap if needed               |
+| GRS replication (2× storage cost)                               | Avoided   | LRS                                                  |
 
 ---
 

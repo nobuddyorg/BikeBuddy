@@ -49,13 +49,13 @@ az ad sp create-for-rbac --name bikebuddy-ci --role Contributor \
 
 Store these as repo **secrets** (Settings → Secrets and variables → Actions):
 
-| Secret | Value |
-|--------|-------|
-| `ARM_CLIENT_ID` | service principal `appId` |
-| `ARM_CLIENT_SECRET` | service principal `password` |
-| `ARM_TENANT_ID` | service principal `tenant` |
-| `ARM_SUBSCRIPTION_ID` | target subscription ID |
-| `TF_BACKEND_ACCESS_KEY` | state storage account key |
+| Secret                  | Value                        |
+| ----------------------- | ---------------------------- |
+| `ARM_CLIENT_ID`         | service principal `appId`    |
+| `ARM_CLIENT_SECRET`     | service principal `password` |
+| `ARM_TENANT_ID`         | service principal `tenant`   |
+| `ARM_SUBSCRIPTION_ID`   | target subscription ID       |
+| `TF_BACKEND_ACCESS_KEY` | state storage account key    |
 
 CI then runs the exact same `tofu apply` (see `.github/workflows/deploy.yml`).
 
