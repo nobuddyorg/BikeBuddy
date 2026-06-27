@@ -71,3 +71,12 @@ test('help modal explains the app and closes', async ({ page }) => {
   await page.locator('#btn-close-help').click();
   await expect(page.locator('#help-modal')).toBeHidden();
 });
+
+test('modals close on Escape and restore focus to the opener', async ({ page }) => {
+  await page.locator('#btn-help').focus();
+  await page.locator('#btn-help').click();
+  await expect(page.locator('#help-modal')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#help-modal')).toBeHidden();
+  await expect(page.locator('#btn-help')).toBeFocused();
+});

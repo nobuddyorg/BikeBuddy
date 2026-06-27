@@ -37,6 +37,19 @@ window.addEventListener('resize', refreshMapSize);
 const $ = (id) => document.getElementById(id);
 const show = (el, visible) => el.classList.toggle('hidden', !visible);
 
+// Non-blocking notification. type: 'info' | 'error' | 'success'. Click or wait
+// to dismiss. Used instead of alert() and for surfacing otherwise-silent errors.
+function toast(message, type = 'info', ms = 4000) {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  el.textContent = message;
+  const remove = () => el.remove();
+  el.addEventListener('click', remove);
+  elToasts.appendChild(el);
+  setTimeout(remove, ms);
+}
+
 const elTourList = $('tour-list');
 const elTourCount = $('tour-count');
 const elNoTours = $('no-tours');
@@ -77,6 +90,7 @@ const elUserMenu = $('user-menu');
 const elBtnProfile = $('btn-profile');
 const elBtnHelp = $('btn-help');
 const elHelpModal = $('help-modal');
+const elToasts = $('toasts');
 const elProfileModal = $('profile-modal');
 const elProfileAvatar = $('profile-avatar');
 const elProfileEmail = $('profile-email');
@@ -306,9 +320,11 @@ function xhrUpload(url, file, token, onProgress) {
 async function loadTours() {
   try {
     const res = await apiFetch('/api/tours');
-    state.tours = res.ok ? await res.json() : [];
+    if (!res.ok) throw new Error('load failed');
+    state.tours = await res.json();
   } catch {
     state.tours = [];
+    toast('Couldn’t load your tours. Check your connection and try again.', 'error');
   }
   renderSidebar();
   await renderAllHeatmap();
@@ -557,11 +573,11 @@ function openEdit() {
   elEditName.value = tour.name || '';
   elEditDescription.value = tour.description || '';
   show(elEditError, false);
-  show(elEditModal, true);
+  openModal(elEditModal);
 }
 
 function closeEdit() {
-  show(elEditModal, false);
+  closeModal(elEditModal);
 }
 
 async function submitEdit(e) {
@@ -607,8 +623,9 @@ async function deleteSelectedTour() {
     deselectTour();
     renderSidebar();
     await renderAllHeatmap();
+    toast('Tour deleted.', 'success');
   } catch {
-    alert('Could not delete the tour.');
+    toast('Could not delete the tour.', 'error');
   }
 }
 
@@ -743,7 +760,7 @@ function renderProfile() {
 async function openProfile() {
   if (!state.user) return;
   renderProfile();
-  show(elProfileModal, true);
+  openModal(elProfileModal);
 
   // Join date lives on the user doc; hydrate if the login session lacked it.
   if (!state.user.createdAt) {
@@ -753,7 +770,7 @@ async function openProfile() {
 }
 
 function closeProfile() {
-  show(elProfileModal, false);
+  closeModal(elProfileModal);
 }
 
 // ── Upload modal ──────────────────────────────────────────────────────────────
@@ -775,11 +792,11 @@ function resetUploadForm() {
 function openUpload() {
   if (!state.user) return;
   resetUploadForm();
-  show(elUploadModal, true);
+  openModal(elUploadModal);
 }
 
 function closeUpload() {
-  show(elUploadModal, false);
+  closeModal(elUploadModal);
 }
 
 function showUploadError(message) {
@@ -830,6 +847,7 @@ async function submitUpload(e) {
     closeUpload();
     await loadTours();
     selectTour(tourId); // success → jump to the new tour's heatmap
+    toast('Tour uploaded.', 'success');
   } catch (err) {
     showUploadError(err.message);
     show(elUploadProgress, false);
@@ -868,6 +886,45 @@ function wireDropzone(zone, input, onFile) {
   });
 }
 
+// ── Modal accessibility (#115) ──────────────────────────────────────────────
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
+let modalReturnFocus = null;
+
+// Open a modal accessibly: remember focus, reveal it, move focus inside.
+function openModal(modal) {
+  modalReturnFocus = document.activeElement;
+  show(modal, true);
+  const focusables = modal.querySelectorAll(FOCUSABLE);
+  (focusables[focusables.length > 1 ? 1 : 0] || modal).focus();
+}
+
+// Close a modal and restore focus to whatever opened it.
+function closeModal(modal) {
+  show(modal, false);
+  if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
+  modalReturnFocus = null;
+}
+
+const openModalEl = () => document.querySelector('.modal-overlay:not(.hidden)');
+
+// Keep Tab focus inside the open modal.
+function trapFocus(e, modal) {
+  if (e.key !== 'Tab') return;
+  const f = [...modal.querySelectorAll(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+  if (f.length === 0) return;
+  const first = f[0];
+  const last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
 // Close a modal via its close button or a click on the backdrop.
 function wireModalClose(modal, closeBtn, closeFn) {
   closeBtn.addEventListener('click', closeFn);
@@ -903,8 +960,8 @@ elPinToggleInput.addEventListener('change', () => {
   renderPins();
 });
 
-elBtnHelp.addEventListener('click', () => show(elHelpModal, true));
-wireModalClose(elHelpModal, $('btn-close-help'), () => show(elHelpModal, false));
+elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
+wireModalClose(elHelpModal, $('btn-close-help'), () => closeModal(elHelpModal));
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
 wireModalClose(elEditModal, $('btn-close-edit'), closeEdit);
 wireModalClose(elUploadModal, $('btn-close-upload'), closeUpload);
@@ -914,7 +971,13 @@ wireDropzone(elDropzone, elUploadFile, selectFile);
 
 elLightbox.addEventListener('click', closeLightbox);
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !elLightbox.classList.contains('hidden')) closeLightbox();
+  if (e.key === 'Escape') {
+    if (!elLightbox.classList.contains('hidden')) return closeLightbox();
+    const open = openModalEl();
+    if (open) return closeModal(open);
+  }
+  const open = openModalEl();
+  if (open) trapFocus(e, open);
 });
 
 initAuth();
