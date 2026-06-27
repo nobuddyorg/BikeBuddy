@@ -71,3 +71,23 @@ test('help modal explains the app and closes', async ({ page }) => {
   await page.locator('#btn-close-help').click();
   await expect(page.locator('#help-modal')).toBeHidden();
 });
+
+test('modals close on Escape and restore focus to the opener', async ({ page }) => {
+  await page.locator('#btn-help').focus();
+  await page.locator('#btn-help').click();
+  await expect(page.locator('#help-modal')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#help-modal')).toBeHidden();
+  await expect(page.locator('#btn-help')).toBeFocused();
+});
+
+test('mobile viewport: layout stays usable with no horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 720 });
+  await page.goto('/');
+  await expect(page.locator('#map')).toBeVisible();
+  await expect(page.locator('#user-menu')).toBeVisible();
+  const overflows = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(overflows).toBe(false);
+});
