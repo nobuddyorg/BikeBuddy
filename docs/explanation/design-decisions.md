@@ -1,6 +1,6 @@
 # Explanation: Design decisions
 
-The *why* behind the architecture. For *what*, see [Architecture](../reference/architecture.md).
+The _why_ behind the architecture. For _what_, see [Architecture](../reference/architecture.md).
 
 ## No frontend framework
 

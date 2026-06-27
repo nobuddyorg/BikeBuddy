@@ -12,7 +12,7 @@ BikeBuddy is an Azure-hosted web app for bike tour management — usable for any
 
 ## Repository Structure
 
-```
+```text
 /
 ├── frontend/          # GitHub Pages site — plain HTML/CSS/JS, no bundler
 │   ├── index.html
@@ -116,14 +116,14 @@ When `ENTRA_CLIENT_ID` is unset the API runs in **no-auth mode** (`SKIP_AUTH=tru
 
 Issues are organized into epics on GitHub:
 
-| Epic | Issues | Description |
-|------|--------|-------------|
-| #2  | #3–#8   | Azure Infrastructure Setup |
-| #9  | #10–#12 | User Auth & Profile |
-| #13 | #14–#20 | Tour Management (GPX) |
-| #21 | #22–#25 | Map & Heatmap |
-| #26 | #27–#30 | Image Management (later phase) |
-| #31 | #32–#34 | CI/CD & Developer Experience |
+| Epic | Issues  | Description                    |
+| ---- | ------- | ------------------------------ |
+| #2   | #3–#8   | Azure Infrastructure Setup     |
+| #9   | #10–#12 | User Auth & Profile            |
+| #13  | #14–#20 | Tour Management (GPX)          |
+| #21  | #22–#25 | Map & Heatmap                  |
+| #26  | #27–#30 | Image Management (later phase) |
+| #31  | #32–#34 | CI/CD & Developer Experience   |
 
 Start with epics in order: #2 → #9 → #13 → #21 → #31 → #26.
 
@@ -151,13 +151,13 @@ Start with epics in order: #2 → #9 → #13 → #21 → #31 → #26.
 
 Every PR is gated by these workflows (all must be green to merge):
 
-| Workflow | Guarantees |
-|----------|------------|
-| `tests.yml` | Vitest unit tests + coverage (Codecov). |
-| `e2e.yml` | Playwright static UI tests. |
+| Workflow            | Guarantees                                                                   |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `tests.yml`         | Vitest unit tests + coverage (Codecov).                                      |
+| `e2e.yml`           | Playwright static UI tests.                                                  |
 | `e2e-fullstack.yml` | Playwright against the real backend (Functions + Cosmos emulator + Azurite). |
-| `security.yml` | OpenGrep SAST + **prek** (all pre-commit hooks). |
-| `infra-check.yml` | `tofu fmt -check` + `tofu validate`. |
+| `security.yml`      | OpenGrep SAST + **prek** (all pre-commit hooks).                             |
+| `infra-check.yml`   | `tofu fmt -check` + `tofu validate`.                                         |
 
 Lint/format run via pre-commit hooks (so they also gate CI through prek): ESLint + Prettier for **both** `functions/` and `frontend/`, Prettier for `e2e/`, `shellcheck` for shell scripts, plus zizmor (Actions) and file-hygiene hooks. Run locally with `prek run --all-files`.
 

@@ -1,0 +1,12 @@
+{
+  "Exclude": [
+    "frontend/vendor/",
+    "\\.terraform/",
+    "package-lock\\.json",
+    "functions/coverage/",
+    "^LICENSE$"
+  ],
+  "Disable": {
+    "Indentation": true
+  }
+}
