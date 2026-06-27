@@ -32,6 +32,7 @@ const isImageContentType = (mime) => mime === 'image/jpeg' || mime === 'image/pn
 
 module.exports = {
   stripHtml,
+  nameSchema,
   tourMetaSchema,
   isUuid,
   uuidParamError,

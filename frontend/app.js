@@ -97,6 +97,10 @@ const elHelpModal = $('help-modal');
 const elToasts = $('toasts');
 const elProfileModal = $('profile-modal');
 const elProfileAvatar = $('profile-avatar');
+const elProfileTitle = $('profile-modal-title');
+const elProfileNameForm = $('profile-name-form');
+const elProfileNameInput = $('profile-name-input');
+const elProfileNameError = $('profile-name-error');
 const elProfileEmail = $('profile-email');
 const elBtnExportData = $('btn-export-data');
 const elBtnDeleteAccount = $('btn-delete-account');
@@ -275,12 +279,12 @@ function renderNavAuth() {
   show(elBtnLogin, !signedIn);
   show(elUserMenu, signedIn);
   elBtnUpload.disabled = !signedIn;
-  // Compact circular avatar (initials from the email) keeps the header small on
-  // mobile; the full email lives in the profile modal + the button title.
+  // Compact circular avatar (display-name initials, falling back to email)
+  // keeps the header small on mobile; the full name/email live in the modal.
   if (signedIn) {
-    elBtnProfile.textContent = initials(state.user.email);
+    elBtnProfile.textContent = initials(state.user.name || state.user.email);
     elBtnProfile.classList.add('btn-avatar');
-    elBtnProfile.title = state.user.email || 'Account';
+    elBtnProfile.title = state.user.name || state.user.email || 'Account';
   }
 }
 
@@ -761,16 +765,23 @@ async function uploadImage(file) {
 // ── Profile modal ─────────────────────────────────────────────────────────────
 
 // Avatar initials from the email local part (e.g. "ada.lovelace@x" → "AD").
-function initials(email) {
-  if (!email) return '?';
-  const local = email.split('@')[0].replace(/[^a-zA-Z]/g, '');
-  return (local.slice(0, 2) || '?').toUpperCase();
+// Avatar initials: prefer the display name (one word → its first letter; more
+// words → first letter of the first + last word); fall back to the email.
+function initials(nameOrEmail) {
+  if (!nameOrEmail) return '?';
+  const source = nameOrEmail.includes('@') ? nameOrEmail.split('@')[0] : nameOrEmail;
+  const words = source.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  const letters = words.length === 1 ? words[0][0] : words[0][0] + words[words.length - 1][0];
+  return letters.toUpperCase();
 }
 
 function renderProfile() {
-  elProfileAvatar.textContent = initials(state.user.email);
+  elProfileTitle.textContent = state.user.name || 'Your account';
+  elProfileAvatar.textContent = initials(state.user.name || state.user.email);
   elProfileEmail.textContent = state.user.email || '—';
   elProfileSince.textContent = state.user.createdAt ? formatDate(state.user.createdAt) : '—';
+  elProfileNameInput.value = state.user.name || '';
 }
 
 async function openProfile() {
@@ -787,6 +798,35 @@ async function openProfile() {
 
 function closeProfile() {
   closeModal(elProfileModal);
+}
+
+// Save an edited display name to the user doc (PATCH /api/me).
+async function saveProfileName(e) {
+  e.preventDefault();
+  const name = elProfileNameInput.value.trim();
+  show(elProfileNameError, false);
+  try {
+    const res = await apiFetch('/api/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      elProfileNameError.textContent = parseErrorMessage(
+        await res.text(),
+        'Could not save your name.',
+      );
+      show(elProfileNameError, true);
+      return;
+    }
+    state.user = { ...state.user, ...(await res.json()) };
+    renderProfile();
+    renderNavAuth();
+    toast('Name updated.', 'success');
+  } catch {
+    elProfileNameError.textContent = 'Network error.';
+    show(elProfileNameError, true);
+  }
 }
 
 // GDPR: download all of the user's data as JSON.
@@ -991,6 +1031,7 @@ elBtnLogin.addEventListener('click', signIn);
 elBtnLoginSidebar.addEventListener('click', signIn);
 elBtnLogout.addEventListener('click', signOut);
 elBtnProfile.addEventListener('click', openProfile);
+elProfileNameForm.addEventListener('submit', saveProfileName);
 elBtnExportData.addEventListener('click', downloadMyData);
 elBtnDeleteAccount.addEventListener('click', deleteMyAccount);
 elBtnCloseDetail.addEventListener('click', deselectTour);

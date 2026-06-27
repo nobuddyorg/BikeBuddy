@@ -85,7 +85,7 @@ test('profile button is a compact avatar; expand toggle collapses the sidebar', 
   page,
 }) => {
   await expect(page.locator('#btn-profile')).toHaveClass(/btn-avatar/);
-  await expect(page.locator('#btn-profile')).toHaveText('DE'); // dev@localhost → "DE"
+  await expect(page.locator('#btn-profile')).toHaveText('LD'); // "Local Dev" → first+last initials
 
   await expect(page.locator('.sidebar')).toBeVisible();
   await page.locator('#btn-map-expand').click();
