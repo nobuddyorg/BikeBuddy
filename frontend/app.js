@@ -850,7 +850,8 @@ async function downloadMyData() {
 async function deleteMyAccount() {
   if (
     !confirm(
-      'Permanently delete your account and all your tours and photos? This cannot be undone.',
+      'Permanently delete your account? Your tours and photos are removed immediately; ' +
+        'your sign-in is fully removed shortly after. This cannot be undone.',
     )
   )
     return;
@@ -858,7 +859,7 @@ async function deleteMyAccount() {
     const res = await apiFetch('/api/account', { method: 'DELETE' });
     if (!res.ok) throw new Error('delete failed');
     closeProfile();
-    toast('Your account and data have been deleted.', 'success');
+    toast('Your data has been deleted. Your login will be fully removed shortly.', 'success');
     await signOut();
   } catch {
     toast('Could not delete your account. Please try again.', 'error');

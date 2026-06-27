@@ -24,5 +24,9 @@ async function readItem(container, id, partitionKey) {
 module.exports = {
   usersContainer: () => getClient().database(process.env.COSMOS_DATABASE).container('users'),
   toursContainer: () => getClient().database(process.env.COSMOS_DATABASE).container('tours'),
+  // Queue of Entra directory object ids to delete out-of-band (GDPR); processed
+  // by the scheduled deletion job, never by the public API.
+  deletionsContainer: () =>
+    getClient().database(process.env.COSMOS_DATABASE).container('deletions'),
   readItem,
 };

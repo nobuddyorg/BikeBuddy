@@ -45,6 +45,21 @@ resource "azurerm_cosmosdb_sql_container" "users" {
   }
 }
 
+# Queue of Entra directory object ids to delete out-of-band (GDPR), written by
+# the API on account deletion and drained by the scheduled deletion job.
+resource "azurerm_cosmosdb_sql_container" "deletions" {
+  name                = "deletions"
+  resource_group_name = azurerm_resource_group.main.name
+  account_name        = azurerm_cosmosdb_account.main.name
+  database_name       = azurerm_cosmosdb_sql_database.main.name
+  partition_key_paths = ["/id"]
+
+  indexing_policy {
+    indexing_mode = "consistent"
+    included_path { path = "/*" }
+  }
+}
+
 resource "azurerm_cosmosdb_sql_container" "tours" {
   name                = "tours"
   resource_group_name = azurerm_resource_group.main.name

@@ -30,6 +30,7 @@ function makeToken(overrides = {}) {
   return jwt.sign(
     {
       sub: 'user-123',
+      oid: 'oid-123',
       name: 'Test User',
       email: 'test@example.com',
       aud: TEST_ENV.ENTRA_CLIENT_ID,
@@ -54,13 +55,19 @@ afterEach(() => {
 });
 
 describe('authenticate — success', () => {
-  test('valid token resolves userId/userEmail/userName', async () => {
+  test('valid token resolves userId/userOid/userEmail/userName', async () => {
     const user = await run(bearer(makeToken()));
     expect(user).toEqual({
       userId: 'user-123',
+      userOid: 'oid-123',
       userEmail: 'test@example.com',
       userName: 'Test User',
     });
+  });
+
+  test('userOid is null when the oid claim is absent', async () => {
+    const user = await run(bearer(makeToken({ oid: undefined })));
+    expect(user.userOid).toBeNull();
   });
 
   test.each([

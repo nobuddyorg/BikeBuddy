@@ -2,7 +2,7 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { usersContainer, toursContainer, readItem } = require('../lib/db');
+const { usersContainer, toursContainer, deletionsContainer, readItem } = require('../lib/db');
 const { gpxContainer, imagesContainer } = require('../lib/blobStorage');
 const { unauthorized } = require('../lib/http');
 
@@ -14,6 +14,8 @@ async function deleteBlobsByPrefix(container, prefix) {
 
 // DELETE /api/account — permanently delete the caller's account and all their
 // data: tours (Cosmos), GPX + image blobs (userId prefix), and the user doc.
+// Also queues the Entra directory object id for out-of-band deletion (GDPR) —
+// the public API never holds the privileged "delete any user" Graph credential.
 async function deleteAccount(
   request,
   auth = authenticate,
@@ -21,10 +23,17 @@ async function deleteAccount(
   getTours = toursContainer,
   getGpx = gpxContainer,
   getImages = imagesContainer,
+  getDeletions = deletionsContainer,
 ) {
   const user = await auth(request);
   if (!user) return unauthorized();
-  const { userId } = user;
+  const { userId, userOid } = user;
+
+  // Queue the identity for deletion first so the intent survives even if a later
+  // step fails. Only real Entra users have an oid (dev/no-auth has none).
+  if (userOid) {
+    await getDeletions().items.upsert({ id: userOid, requestedAt: new Date().toISOString() });
+  }
 
   // Tours live in the user's partition — delete each.
   const toursC = getTours();

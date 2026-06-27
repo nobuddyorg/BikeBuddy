@@ -42,6 +42,36 @@ describe('DELETE /api/me', () => {
     expect(res.status).toBe(401);
   });
 
+  it('queues the Entra oid for out-of-band deletion when present', async () => {
+    const authWithOid = async () => ({ userId: UID, userOid: 'oid-1' });
+    const deletions = { items: { upsert: vi.fn().mockResolvedValue({}) } };
+    const res = await deleteAccount(
+      {},
+      authWithOid,
+      () => makeUsers(true).container,
+      () => makeTours([]).container,
+      async () => makeBlobs([]).container,
+      async () => makeBlobs([]).container,
+      () => deletions,
+    );
+    expect(res.status).toBe(204);
+    expect(deletions.items.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: 'oid-1' }));
+  });
+
+  it('does not queue a deletion in dev/no-auth mode (no oid)', async () => {
+    const deletions = { items: { upsert: vi.fn() } };
+    await deleteAccount(
+      {},
+      mockAuth, // returns { userId } with no userOid
+      () => makeUsers(true).container,
+      () => makeTours([]).container,
+      async () => makeBlobs([]).container,
+      async () => makeBlobs([]).container,
+      () => deletions,
+    );
+    expect(deletions.items.upsert).not.toHaveBeenCalled();
+  });
+
   it('cascades: deletes tours, prefixed blobs, and the user doc', async () => {
     const tours = makeTours(['t1', 't2']);
     const users = makeUsers(true);
