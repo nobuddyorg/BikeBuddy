@@ -4,9 +4,10 @@
 # argument) by scanning the scripts/ tree next to buddy.sh, so it stays in sync
 # automatically as scripts are added or renamed.
 #
-# Enable it:
-#   bash:  echo 'source "$HOME/Repos/BikeBuddy/scripts/completion/buddy-completion.bash"' >> ~/.bashrc
-#   zsh:   echo 'autoload -Uz bashcompinit && bashcompinit && source "$HOME/Repos/BikeBuddy/scripts/completion/buddy-completion.bash"' >> ~/.zshrc
+# Enable it (the kubectl way) by eval'ing what `./buddy.sh completion` prints:
+#   bash (~/.bashrc):  eval "$(./buddy.sh completion)"
+#   zsh  (~/.zshrc):   autoload -Uz bashcompinit && bashcompinit; eval "$(./buddy.sh completion)"
+# (eval, not source <(...), so it also works in macOS's system bash 3.2)
 
 _buddy_complete() {
   local cur scripts_dir

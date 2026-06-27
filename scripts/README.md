@@ -47,16 +47,19 @@ repo root (run them from anywhere).
 
 ## Tab completion (optional)
 
-Source the completion script to tab-complete groups and commands:
+`./buddy.sh completion` prints a completion script (the `kubectl` pattern).
+Eval its output to tab-complete groups and commands:
 
 ```bash
 # bash (~/.bashrc)
-source "$PWD/scripts/completion/buddy-completion.bash"
+eval "$(./buddy.sh completion)"
 
 # zsh (~/.zshrc)
 autoload -Uz bashcompinit && bashcompinit
-source "$PWD/scripts/completion/buddy-completion.bash"
+eval "$(./buddy.sh completion)"
 ```
+
+(`eval`, rather than `source <(...)`, also works in macOS's system bash 3.2.)
 
 ## Examples
 

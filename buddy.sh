@@ -2,6 +2,7 @@
 # Single entry point for every helper script in this repo.
 #   ./buddy.sh <command-group> <command> [options]
 #   ./buddy.sh --help
+#   ./buddy.sh completion            # print the tab-completion script
 # Commands live in scripts/<group>/<command>.sh; the help text below is
 # auto-generated from each script's `# Description:` line.
 set -euo pipefail
@@ -38,8 +39,19 @@ print_help() {
       printf "  %-*s  - %s\n" "$max_len" "${commands[$idx]}" "${descriptions[$idx]}"
     done
   done
+
+  echo -e "\nother:"
+  echo "  completion  - Print the tab-completion script (e.g. eval \"\$($0 completion)\")"
   echo
 }
+
+# Print the completion script to stdout so it can be eval'd, the way
+# `kubectl completion` works: eval "$(./buddy.sh completion)"
+# (eval, not source <(...), to also work in macOS's system bash 3.2)
+if [ "${1:-}" = "completion" ]; then
+  cat "$SCRIPTS_ROOT/completion/buddy-completion.bash"
+  exit 0
+fi
 
 if [ $# -lt 2 ]; then
   print_help
