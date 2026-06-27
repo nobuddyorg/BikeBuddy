@@ -94,6 +94,8 @@ const elToasts = $('toasts');
 const elProfileModal = $('profile-modal');
 const elProfileAvatar = $('profile-avatar');
 const elProfileEmail = $('profile-email');
+const elBtnExportData = $('btn-export-data');
+const elBtnDeleteAccount = $('btn-delete-account');
 const elProfileSince = $('profile-since');
 const elUploadModal = $('upload-modal');
 const elUploadForm = $('upload-form');
@@ -773,6 +775,42 @@ function closeProfile() {
   closeModal(elProfileModal);
 }
 
+// GDPR: download all of the user's data as JSON.
+async function downloadMyData() {
+  try {
+    const res = await apiFetch('/api/me/export');
+    if (!res.ok) throw new Error('export failed');
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bikebuddy-export.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Your data export has been downloaded.', 'success');
+  } catch {
+    toast('Could not export your data.', 'error');
+  }
+}
+
+// GDPR: permanently delete the account and all data, then sign out.
+async function deleteMyAccount() {
+  if (
+    !confirm(
+      'Permanently delete your account and all your tours and photos? This cannot be undone.',
+    )
+  )
+    return;
+  try {
+    const res = await apiFetch('/api/account', { method: 'DELETE' });
+    if (!res.ok) throw new Error('delete failed');
+    closeProfile();
+    toast('Your account and data have been deleted.', 'success');
+    await signOut();
+  } catch {
+    toast('Could not delete your account. Please try again.', 'error');
+  }
+}
+
 // ── Upload modal ──────────────────────────────────────────────────────────────
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -939,6 +977,8 @@ elBtnLogin.addEventListener('click', signIn);
 elBtnLoginSidebar.addEventListener('click', signIn);
 elBtnLogout.addEventListener('click', signOut);
 elBtnProfile.addEventListener('click', openProfile);
+elBtnExportData.addEventListener('click', downloadMyData);
+elBtnDeleteAccount.addEventListener('click', deleteMyAccount);
 elBtnCloseDetail.addEventListener('click', deselectTour);
 elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
 elBtnEditTour.addEventListener('click', openEdit);

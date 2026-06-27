@@ -560,6 +560,13 @@ body {
   font-size: 14px;
 }
 
+.profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
 /* ── Upload form ─────────────────────────────────── */
 
 .upload-form {
