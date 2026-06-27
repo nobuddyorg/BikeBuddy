@@ -488,6 +488,36 @@ body {
   color: var(--color-text);
 }
 
+/* ── Help modal ──────────────────────────────────── */
+
+.help-modal {
+  max-width: 480px;
+}
+
+.help-content {
+  text-align: left;
+  margin-top: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.help-content h3 {
+  font-size: 14px;
+  margin: 14px 0 4px;
+}
+
+.help-content p {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.help-content code {
+  background: var(--color-surface-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
 /* ── Profile modal ───────────────────────────────── */
 
 .profile-avatar {

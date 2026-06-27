@@ -62,3 +62,12 @@ test('sign out returns to the signed-out state', async ({ page }) => {
   await expect(page.locator('#user-menu')).toBeHidden();
   await expect(page.locator('#auth-prompt')).toBeVisible();
 });
+
+test('help modal explains the app and closes', async ({ page }) => {
+  await page.locator('#btn-help').click();
+  await expect(page.locator('#help-modal')).toBeVisible();
+  await expect(page.locator('#help-modal')).toContainText('How to use BikeBuddy');
+  await expect(page.locator('#help-modal')).toContainText('Upload GPX');
+  await page.locator('#btn-close-help').click();
+  await expect(page.locator('#help-modal')).toBeHidden();
+});

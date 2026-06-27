@@ -26,6 +26,9 @@
         <span class="navbar-title">BikeBuddy</span>
       </div>
       <div class="navbar-actions">
+        <button id="btn-help" class="btn btn-ghost" aria-label="Help" title="How to use BikeBuddy">
+          ?
+        </button>
         <button id="btn-upload" class="btn btn-secondary" disabled title="Sign in to upload tours">
           Upload GPX
         </button>
@@ -131,6 +134,45 @@
           <button id="btn-delete-tour" class="btn btn-danger btn-full">Delete Tour</button>
         </div>
       </aside>
+    </div>
+
+    <!-- Help modal -->
+    <div
+      id="help-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="help-modal-title"
+    >
+      <div class="modal help-modal">
+        <button id="btn-close-help" class="modal-close" aria-label="Close">✕</button>
+        <h2 id="help-modal-title" class="profile-name">How to use BikeBuddy</h2>
+        <div class="help-content">
+          <h3>🧭 What is this?</h3>
+          <p>
+            Upload GPX tracks from your rides — cycling or motorcycling — and see them as an
+            interactive heatmap. Warmer colours mean you rode there more often.
+          </p>
+          <h3>🔑 Sign in</h3>
+          <p>Sign in to upload tours and have them saved to your account.</p>
+          <h3>⬆️ Upload a tour</h3>
+          <p>
+            Click <strong>Upload GPX</strong>, give it a name, and drop a <code>.gpx</code> file. It
+            appears on the map straight away.
+          </p>
+          <h3>📋 Your tours</h3>
+          <p>
+            The sidebar lists your tours. Use the search box to filter and the dropdown to sort by
+            date, name, or length. Click a tour to focus it; <strong>Show All Tours</strong> brings
+            back the combined heatmap.
+          </p>
+          <h3>📷 Photos &amp; pins</h3>
+          <p>
+            Open a tour to add photos, edit, or delete it. Toggle <strong>Photo pins</strong> on the
+            map to show geotagged photos where they were taken.
+          </p>
+        </div>
+      </div>
     </div>
 
     <!-- Profile modal -->
