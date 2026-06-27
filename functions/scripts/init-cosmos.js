@@ -18,6 +18,7 @@ const databaseId = process.env.COSMOS_DATABASE || 'bikebuddy';
 // from indexing to keep Serverless RU/storage costs down.
 const containers = [
   { id: 'users', partitionKey: '/id' },
+  { id: 'deletions', partitionKey: '/id' },
   {
     id: 'tours',
     partitionKey: '/userId',

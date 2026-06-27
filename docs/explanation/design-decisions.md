@@ -39,6 +39,20 @@ re-encoded as JPEG. GPS is read from the **original** EXIF before resize strips
 it, so geotagged photos can appear as map pins. Private blobs are served via
 short-lived **SAS URLs** rather than public containers.
 
+## Account deletion (GDPR), out-of-band
+
+`DELETE /api/account` purges all app data immediately (tours, blobs, user doc)
+and **queues** the user's Entra directory object id in a `deletions` container.
+A **scheduled GitHub Action** (`process-deletions.yml`) then deletes those users
+from the External ID tenant via Graph.
+
+Why out-of-band: deleting a directory user needs a tenant-wide
+`User.ReadWrite.All` Graph credential. Keeping that **only in CI** (never in the
+internet-facing Functions app) means a compromise of the web app can't delete
+arbitrary users. GDPR allows the identity removal to complete shortly after (the
+app data — the bulk of personal data — is already gone). The job only ever
+deletes ids the API queued, and is idempotent.
+
 ## OpenTofu, reproducibly
 
 Infrastructure is OpenTofu with remote azurerm state, so local runs and CI share

@@ -81,6 +81,8 @@ async function authenticate(
 
     return {
       userId: payload.sub,
+      // Directory object id — needed to delete the user via Graph (GDPR).
+      userOid: payload.oid ?? null,
       userEmail: resolveEmail(payload),
       userName: resolveName(payload),
     };
