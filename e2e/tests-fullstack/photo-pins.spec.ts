@@ -7,6 +7,7 @@ import { clearUsers, clearTours, toursContainer } from './usersDb';
 
 const TID = '22222222-2222-4222-8222-222222222222';
 const IID = '33333333-3333-4333-8333-333333333333';
+const IID2 = '44444444-4444-4444-8444-444444444444';
 
 test.describe('photo pins', () => {
   test.beforeEach(async () => {
@@ -22,25 +23,30 @@ test.describe('photo pins', () => {
         [48.1, 11.5],
         [48.2, 11.6],
       ],
-      images: [{ id: IID, blobName: `local-dev-user/${TID}/${IID}.jpg`, lat: 48.1, lon: 11.5 }],
+      // Two photos at the SAME coordinates → both must be shown (fanned), not
+      // stacked into one (#126).
+      images: [
+        { id: IID, blobName: `local-dev-user/${TID}/${IID}.jpg`, lat: 48.1, lon: 11.5 },
+        { id: IID2, blobName: `local-dev-user/${TID}/${IID2}.jpg`, lat: 48.1, lon: 11.5 },
+      ],
     });
   });
 
-  test('toggle is hidden by default off, reveals/hides pins', async ({ page }) => {
+  test('toggle off by default; reveals both co-located pins fanned out', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('#user-menu')).toBeVisible();
     await expect(page.locator('#tour-list')).toContainText('Geotagged Tour');
 
-    // Toggle visible (a geotagged image exists) but off → no pins.
+    // Toggle visible (geotagged images exist) but off → no pins.
     await expect(page.locator('#pin-toggle')).toBeVisible();
     await expect(page.locator('#pin-toggle-input')).not.toBeChecked();
     await expect(page.locator('.photo-pin')).toHaveCount(0);
 
-    // Turn on → a pin appears.
+    // Turn on → both co-located pins appear (fanned, each clickable).
     await page.locator('#pin-toggle-input').check();
-    await expect(page.locator('.photo-pin')).toHaveCount(1);
+    await expect(page.locator('.photo-pin')).toHaveCount(2);
 
-    // Turn off → pin removed.
+    // Turn off → pins removed.
     await page.locator('#pin-toggle-input').uncheck();
     await expect(page.locator('.photo-pin')).toHaveCount(0);
   });
