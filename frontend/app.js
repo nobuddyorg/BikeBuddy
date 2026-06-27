@@ -75,6 +75,8 @@ const elEditDescription = $('edit-description');
 const elEditError = $('edit-error');
 const elUserMenu = $('user-menu');
 const elBtnProfile = $('btn-profile');
+const elBtnHelp = $('btn-help');
+const elHelpModal = $('help-modal');
 const elProfileModal = $('profile-modal');
 const elProfileAvatar = $('profile-avatar');
 const elProfileEmail = $('profile-email');
@@ -875,6 +877,8 @@ elPinToggleInput.addEventListener('change', () => {
   renderPins();
 });
 
+elBtnHelp.addEventListener('click', () => show(elHelpModal, true));
+wireModalClose(elHelpModal, $('btn-close-help'), () => show(elHelpModal, false));
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
 wireModalClose(elEditModal, $('btn-close-edit'), closeEdit);
 wireModalClose(elUploadModal, $('btn-close-upload'), closeUpload);
