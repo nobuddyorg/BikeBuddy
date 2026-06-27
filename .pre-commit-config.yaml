@@ -121,6 +121,25 @@ repos:
       - id: editorconfig-checker
         alias: ec
 
+  # OpenTofu fmt + validate (needs the tofu CLI). Skipped in the prek CI job
+  # (infra-check.yml is the CI authority); runs locally on commit.
+  - repo: local
+    hooks:
+      - id: tofu-fmt
+        name: OpenTofu fmt
+        entry: bash -c 'cd infrastructure && tofu fmt -check -recursive'
+        language: system
+        pass_filenames: false
+        files: ^infrastructure/.*\.tf$
+        stages: [pre-commit]
+      - id: tofu-validate
+        name: OpenTofu validate
+        entry: bash -c 'cd infrastructure && tofu init -backend=false -input=false >/dev/null && tofu validate'
+        language: system
+        pass_filenames: false
+        files: ^infrastructure/.*\.tf$
+        stages: [pre-commit]
+
   # OpenGrep SAST — runs separately in CI; local install auto-bootstrapped
   - repo: local
     hooks:

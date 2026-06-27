@@ -49,5 +49,6 @@ jobs:
           extra-args: "--all-files"
         env:
           # opengrep runs as its own job above; skip the local hook here
-          # no-commit-to-branch is not meaningful in CI
-          SKIP: no-commit-to-branch,opengrep-check
+          # no-commit-to-branch is not meaningful in CI; tofu fmt/validate run
+          # in infra-check.yml (no tofu CLI here).
+          SKIP: no-commit-to-branch,opengrep-check,tofu-fmt,tofu-validate
