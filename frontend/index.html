@@ -69,6 +69,11 @@
           <button class="btn btn-primary btn-full" id="btn-login-sidebar">Sign In</button>
         </div>
 
+        <div id="tour-loading" class="tour-loading hidden">
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Loading your tours…</span>
+        </div>
+
         <div id="tour-controls" class="tour-controls hidden">
           <input
             id="tour-search"
@@ -101,6 +106,15 @@
       <!-- Map -->
       <main class="map-container">
         <div id="map"></div>
+        <button
+          id="btn-map-expand"
+          class="map-expand-btn"
+          aria-label="Expand map"
+          title="Expand map"
+          aria-pressed="false"
+        >
+          ⛶
+        </button>
         <label id="pin-toggle" class="pin-toggle hidden">
           <input type="checkbox" id="pin-toggle-input" />
           <span>📷 Photo pins</span>
