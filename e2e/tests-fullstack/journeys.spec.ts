@@ -52,6 +52,25 @@ test.describe('user journeys', () => {
     await expect(page.locator('#tour-list')).not.toContainText('Original Name');
   });
 
+  test('edit display name updates the avatar initials and persists', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#user-menu')).toBeVisible();
+
+    await page.locator('#btn-profile').click();
+    await expect(page.locator('#profile-modal')).toBeVisible();
+    await page.locator('#profile-name-input').fill('Alpine Rider');
+    await page.locator('#profile-name-form button[type="submit"]').click();
+
+    // Avatar shows first+last initials: "Alpine Rider" → "AR".
+    await expect(page.locator('#btn-profile')).toHaveText('AR');
+
+    // Reopen → the name persisted (input + title).
+    await page.locator('#btn-close-profile').click();
+    await page.locator('#btn-profile').click();
+    await expect(page.locator('#profile-name-input')).toHaveValue('Alpine Rider');
+    await expect(page.locator('#profile-modal-title')).toHaveText('Alpine Rider');
+  });
+
   test('profile shows the provisioned email and a real join date', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('#user-menu')).toBeVisible();

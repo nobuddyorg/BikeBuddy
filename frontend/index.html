@@ -226,6 +226,14 @@
           <dt>Member since</dt>
           <dd id="profile-since">—</dd>
         </dl>
+        <form id="profile-name-form" class="upload-form">
+          <label class="field">
+            <span>Display name</span>
+            <input id="profile-name-input" type="text" maxlength="200" placeholder="Your name" />
+          </label>
+          <p id="profile-name-error" class="upload-error hidden" role="alert"></p>
+          <button type="submit" class="btn btn-secondary btn-full">Save name</button>
+        </form>
         <div class="profile-actions">
           <button id="btn-export-data" class="btn btn-secondary btn-full">Export my data</button>
           <button id="btn-delete-account" class="btn btn-danger btn-full">Delete account</button>
