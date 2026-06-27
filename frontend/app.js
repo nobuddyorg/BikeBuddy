@@ -484,6 +484,34 @@ function clearPins() {
   }
 }
 
+// Group images that share (almost) the same spot so co-located pins can be
+// fanned out instead of stacking on top of each other (#126). ~4 decimals ≈ 11m.
+function groupByLocation(images) {
+  const groups = new Map();
+  for (const img of images) {
+    const key = `${img.lat.toFixed(4)},${img.lon.toFixed(4)}`;
+    (groups.get(key) || groups.set(key, []).get(key)).push(img);
+  }
+  return [...groups.values()];
+}
+
+// Small circular offsets (in degrees) so each pin in a co-located group is
+// individually visible and clickable. A single pin stays exactly on its spot.
+function fanOffsets(n) {
+  if (n <= 1) return [[0, 0]];
+  const r = 0.0002;
+  return Array.from({ length: n }, (_, i) => {
+    const angle = (2 * Math.PI * i) / n;
+    return [r * Math.cos(angle), r * Math.sin(angle)];
+  });
+}
+
+function makePinMarker(img, dLat, dLon) {
+  const marker = L.marker([img.lat + dLat, img.lon + dLon], { icon: photoPinIcon(img.url) });
+  marker.on('click', () => openLightbox(img.url));
+  return marker;
+}
+
 // The toggle is hidden unless some photo has coordinates; the layer is only
 // added when the toggle is on (default off, per #100).
 function renderPins() {
@@ -492,13 +520,11 @@ function renderPins() {
   show(elPinToggle, images.length > 0);
   if (!state.showPins || images.length === 0) return;
 
-  state.pinLayer = L.layerGroup(
-    images.map((img) => {
-      const marker = L.marker([img.lat, img.lon], { icon: photoPinIcon(img.url) });
-      marker.on('click', () => openLightbox(img.url));
-      return marker;
-    }),
-  ).addTo(map);
+  const markers = groupByLocation(images).flatMap((group) => {
+    const offsets = fanOffsets(group.length);
+    return group.map((img, i) => makePinMarker(img, offsets[i][0], offsets[i][1]));
+  });
+  state.pinLayer = L.layerGroup(markers).addTo(map);
 }
 
 // ── Tour selection ────────────────────────────────────────────────────────────
