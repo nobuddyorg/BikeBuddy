@@ -762,6 +762,58 @@ body {
   border-left-color: #10b981;
 }
 
+/* ── Responsive (mobile / tablet) ────────────────── */
+
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  /* Sidebar becomes a scrollable strip above the map. */
+  .sidebar {
+    width: 100%;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .map-container {
+    flex: 1;
+    min-height: 55vh;
+  }
+
+  /* Detail panel overlays the map from the bottom instead of squeezing it. */
+  .detail-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-height: 78vh;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    z-index: 1500;
+  }
+
+  .navbar {
+    padding: 0 12px;
+  }
+
+  .navbar-title {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn {
+    padding: 7px 10px;
+  }
+
+  .modal {
+    min-width: 0;
+    width: calc(100vw - 32px);
+    padding: 28px 20px;
+  }
+}
+
 /* ── Utilities ───────────────────────────────────── */
 
 .hidden {
