@@ -1,6 +1,6 @@
 # BikeBuddy 🧭
 
-BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any ride (cycling or motorcycling), visualize them as heatmaps, and share your adventures with ease.
+BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any ride (cycling or motorcycling), visualize them as heatmaps, and attach photos.
 
 ![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js)
 ![Azure Functions](https://img.shields.io/badge/Azure%20Functions-v4-blue?logo=azure-functions)
@@ -14,71 +14,26 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 ![zizmor](https://img.shields.io/badge/GH%20Actions-zizmor-blueviolet)
 ![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)
 
-## Stack
+**Stack:** GitHub Pages · Azure Functions (Node 22, Flex Consumption) · Cosmos DB Serverless · Blob Storage · Microsoft Entra External ID · Leaflet · OpenTofu.
 
-| Layer    | Technology                                       |
-| -------- | ------------------------------------------------ |
-| Frontend | Plain HTML/CSS/JS · Leaflet.js · Leaflet.heat (GitHub Pages) |
-| Backend  | Azure Functions (Node.js 22, Flex Consumption)   |
-| Database | Azure Cosmos DB Serverless                       |
-| Storage  | Azure Blob Storage (LRS)                         |
-| Auth     | Microsoft Entra External ID                      |
-| Infra    | OpenTofu (azurerm)                               |
-
-## Getting started
-
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop) (runs the Cosmos DB emulator) — must be running
-- [Homebrew](https://brew.sh) (macOS) for the one-time setup script
-
-### One-time setup
+## Quickstart
 
 ```bash
-./setup.sh
+./setup.sh   # one-time: install tools + config templates (Docker must be running)
+./dev.sh     # start the full local stack → http://localhost:4280
 ```
 
-Interactively installs Node 22, Azure Functions Core Tools v4, Azurite, the
-Azure Static Web Apps CLI and `prek`, pulls the Cosmos DB emulator image, and
-copies the config templates. Then fill in your values (or keep the local-dev
-defaults — see below):
+## Documentation
 
-- `functions/local.settings.json` — `COSMOS_CONNECTION_STRING`, `ENTRA_*`
-- `frontend/config.js` — `entraSubdomain`, `entraClientId`
+Full docs live in [`docs/`](docs/README.md), organised by [Diátaxis](https://diataxis.fr):
 
-### Run the full stack locally
+- **Tutorial** — [Getting started](docs/tutorials/getting-started.md)
+- **How-to** — [User guide](docs/how-to/user-guide.md) · [Developer guide](docs/how-to/developer-guide.md) (local dev, auth/tokens, deploy)
+- **Reference** — [Architecture](docs/reference/architecture.md) · [Configuration](docs/reference/configuration.md)
+- **Explanation** — [Design decisions](docs/explanation/design-decisions.md) · [Cost report](docs/cost-report.md)
 
-```bash
-./dev.sh
-```
+Infrastructure details: [`infrastructure/README.md`](infrastructure/README.md). Contributor conventions: [`CLAUDE.md`](CLAUDE.md).
 
-This brings up everything and opens the app at `http://localhost:4280`:
+## License
 
-- **App** (Static Web App via SWA CLI) — `http://localhost:4280`
-- **Functions API** — `http://localhost:7071/api`
-- **Cosmos DB** — emulator at `http://localhost:8081` (explorer `http://localhost:1234`)
-- **Blob storage** — Azurite
-
-The emulator container (`bikebuddy-cosmos`) is left running between sessions;
-stop it with `docker stop bikebuddy-cosmos`.
-
-### Local auth (no Azure needed)
-
-For local development you don't need a real Microsoft Entra External ID tenant:
-
-- `functions/local.settings.json` → `"SKIP_AUTH": "true"` makes the API skip JWT
-  verification and use a local dev user.
-- `frontend/config.js` → `devMode: true` makes the frontend skip MSAL and call
-  the API directly.
-
-Both are set by the config templates for local use. **Never** enable them in a
-deployed environment.
-
-### Tests, lint, format
-
-```bash
-cd functions
-npm test        # Vitest unit tests
-npm run lint    # ESLint
-npm run format  # Prettier
-```
+See [LICENSE](LICENSE).
