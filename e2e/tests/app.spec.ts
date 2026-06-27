@@ -81,6 +81,19 @@ test('modals close on Escape and restore focus to the opener', async ({ page }) 
   await expect(page.locator('#btn-help')).toBeFocused();
 });
 
+test('profile button is a compact avatar; expand toggle collapses the sidebar', async ({
+  page,
+}) => {
+  await expect(page.locator('#btn-profile')).toHaveClass(/btn-avatar/);
+  await expect(page.locator('#btn-profile')).toHaveText('DE'); // dev@localhost → "DE"
+
+  await expect(page.locator('.sidebar')).toBeVisible();
+  await page.locator('#btn-map-expand').click();
+  await expect(page.locator('.sidebar')).toBeHidden();
+  await page.locator('#btn-map-expand').click();
+  await expect(page.locator('.sidebar')).toBeVisible();
+});
+
 test('mobile viewport: layout stays usable with no horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 720 });
   await page.goto('/');

@@ -9,6 +9,7 @@ const state = {
   heatLayer: null,
   pinLayer: null,
   showPins: false,
+  loadingTours: false,
   sort: 'date-desc',
   search: '',
 };
@@ -53,11 +54,14 @@ function toast(message, type = 'info', ms = 4000) {
 const elTourList = $('tour-list');
 const elTourCount = $('tour-count');
 const elNoTours = $('no-tours');
+const elTourLoading = $('tour-loading');
 const elTourControls = $('tour-controls');
 const elTourSearch = $('tour-search');
 const elTourSort = $('tour-sort');
 const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
+const elBtnMapExpand = $('btn-map-expand');
+const elAppLayout = document.querySelector('.app-layout');
 const elAuthPrompt = $('auth-prompt');
 const elMapEmpty = $('map-empty');
 const elDetailPanel = $('detail-panel');
@@ -168,9 +172,10 @@ async function initAuth() {
       knownAuthorities: [`${subdomain}.ciamlogin.com`],
       redirectUri: window.location.origin + window.location.pathname,
     },
-    // sessionStorage: the session survives a page refresh but is cleared when the
-    // tab closes (no long-lived localStorage token, per the security stance).
-    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
+    // localStorage: keep the user signed in across tab close/reopen (token still
+    // expires normally; sign-out clears it). Supersedes the earlier sessionStorage
+    // choice (#146).
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false },
   });
   await msalClient.initialize();
 
@@ -244,6 +249,7 @@ function onAuthSuccess(result) {
 // Render the signed-in UI synchronously (so the Sign In prompt never lingers
 // behind the tours request), then load tours and hydrate the canonical user.
 function renderSignedIn() {
+  state.loadingTours = true;
   renderNavAuth();
   renderSidebar();
   loadTours();
@@ -269,9 +275,13 @@ function renderNavAuth() {
   show(elBtnLogin, !signedIn);
   show(elUserMenu, signedIn);
   elBtnUpload.disabled = !signedIn;
-  // Email is the user's identity (display names are optional/unreliable for
-  // self-service sign-up); fall back to a neutral label, never "unknown".
-  if (signedIn) elBtnProfile.textContent = state.user.email || 'Account';
+  // Compact circular avatar (initials from the email) keeps the header small on
+  // mobile; the full email lives in the profile modal + the button title.
+  if (signedIn) {
+    elBtnProfile.textContent = initials(state.user.email);
+    elBtnProfile.classList.add('btn-avatar');
+    elBtnProfile.title = state.user.email || 'Account';
+  }
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -327,6 +337,8 @@ async function loadTours() {
   } catch {
     state.tours = [];
     toast('Couldn’t load your tours. Check your connection and try again.', 'error');
+  } finally {
+    state.loadingTours = false;
   }
   renderSidebar();
   await renderAllHeatmap();
@@ -412,13 +424,15 @@ function createShowAllButton() {
 
 function renderSidebar() {
   const signedIn = !!state.user;
-  const hasTours = signedIn && state.tours.length > 0;
+  const loading = signedIn && state.loadingTours;
+  const hasTours = signedIn && !loading && state.tours.length > 0;
 
+  show(elTourLoading, loading);
   show(elAuthPrompt, !signedIn);
-  show(elNoTours, signedIn && !hasTours);
+  show(elNoTours, signedIn && !loading && state.tours.length === 0);
   show(elTourControls, hasTours);
   show(elTourList, hasTours);
-  elTourCount.textContent = signedIn ? state.tours.length : '0';
+  elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
 
   elTourList.innerHTML = '';
   if (!hasTours) return;
@@ -998,6 +1012,18 @@ elTourSort.addEventListener('change', () => {
 elPinToggleInput.addEventListener('change', () => {
   state.showPins = elPinToggleInput.checked;
   renderPins();
+});
+
+// The browser may restore the checkbox's checked state on reload while JS state
+// resets to false — sync them so pins render without an off/on dance (#145).
+elPinToggleInput.checked = state.showPins;
+
+// Expand the map to (near) full screen by collapsing the side panels (#143).
+elBtnMapExpand.addEventListener('click', () => {
+  const expanded = elAppLayout.classList.toggle('map-expanded');
+  elBtnMapExpand.setAttribute('aria-pressed', String(expanded));
+  elBtnMapExpand.title = expanded ? 'Restore panels' : 'Expand map';
+  refreshMapSize();
 });
 
 elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
