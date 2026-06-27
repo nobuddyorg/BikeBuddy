@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# Serialise deploys so two pushes can't run `tofu apply` concurrently and race
+# the remote state lock. Never cancel an in-flight deploy mid-apply.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 env:
   ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
