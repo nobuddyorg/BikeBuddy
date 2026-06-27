@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
+# Description: Start the full local dev stack (Cosmos emulator + API + frontend)
 # Start the full local dev stack and open the app in the browser:
 #   Cosmos DB emulator (Docker) → Functions API (+ Azurite) → Static Web App (SWA CLI proxy)
-# Run ./setup.sh first if tools are missing.
+# Run `./buddy.sh development setup` first if tools are missing.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FUNCTIONS_DIR="$REPO_ROOT/functions"
 
 # ── Use Node 22 (the Functions runtime doesn't support newer majors) ──────────
@@ -21,11 +22,11 @@ fi
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 for cmd in node npm func swa docker; do
-  command -v "$cmd" &>/dev/null || { echo "ERROR: '$cmd' not found. Run ./setup.sh first." >&2; exit 1; }
+  command -v "$cmd" &>/dev/null || { echo "ERROR: '$cmd' not found. Run './buddy.sh development setup' first." >&2; exit 1; }
 done
 docker info >/dev/null 2>&1 || { echo "ERROR: Docker daemon not running. Start Docker Desktop." >&2; exit 1; }
-[[ -f "$FUNCTIONS_DIR/local.settings.json" ]] || { echo "ERROR: functions/local.settings.json missing. Run ./setup.sh." >&2; exit 1; }
-[[ -f "$REPO_ROOT/frontend/config.js" ]] || { echo "ERROR: frontend/config.js missing. Run ./setup.sh." >&2; exit 1; }
+[[ -f "$FUNCTIONS_DIR/local.settings.json" ]] || { echo "ERROR: functions/local.settings.json missing. Run './buddy.sh development setup'." >&2; exit 1; }
+[[ -f "$REPO_ROOT/frontend/config.js" ]] || { echo "ERROR: frontend/config.js missing. Run './buddy.sh development setup'." >&2; exit 1; }
 
 PIDS=()
 cleanup() {
@@ -37,7 +38,7 @@ cleanup() {
 trap cleanup INT TERM
 
 # ── 1. Cosmos DB emulator ─────────────────────────────────────────────────────
-"$REPO_ROOT/scripts/cosmos-emulator.sh"
+"$REPO_ROOT/scripts/development/start-cosmos.sh"
 
 # ── 2. Create database + containers (idempotent) ──────────────────────────────
 echo "==> Initializing Cosmos database + containers..."

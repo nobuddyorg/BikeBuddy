@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Description: Provision/update Azure resources (tofu init + apply)
 # Run OpenTofu init + apply for the infrastructure, passing Microsoft Entra
 # External ID variables from the environment (empty = no-auth mode). Used by the
 # deploy workflow and runnable locally.
@@ -7,7 +8,7 @@
 # ARM_ACCESS_KEY env vars from secrets.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT/infrastructure"
 
 tofu init

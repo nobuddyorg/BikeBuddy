@@ -36,7 +36,7 @@ jobs:
         working-directory: functions
 
       - name: Process pending deletions
-        run: ./scripts/process-deletions.sh
+        run: ./buddy.sh maintenance delete-users
         env:
           GRAPH_TENANT_ID: ${{ secrets.GRAPH_TENANT_ID }}
           GRAPH_CLIENT_ID: ${{ secrets.GRAPH_CLIENT_ID }}

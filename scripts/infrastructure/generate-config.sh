@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Description: Generate the frontend config.js from environment variables
 # Generate frontend/config.js from environment variables. Used by the deploy
 # workflow and runnable locally to point the static frontend at an API.
 #
@@ -7,7 +8,7 @@
 # come from repo *variables*, never secrets.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="${CONFIG_OUT:-$ROOT/frontend/config.js}"
 
 API_SCOPE=""

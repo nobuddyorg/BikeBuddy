@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Description: Start only Azurite + the Functions host (waits for :7071)
 # Start Azurite (blob emulator) and the Azure Functions host in the background,
 # then wait until the API answers on :7071. Used by the full-stack e2e workflow
 # and reproducible locally.
@@ -8,7 +9,7 @@
 # those before running. Background processes persist for later CI steps.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 AZURITE_LOCATION="${AZURITE_LOCATION:-/tmp/azurite}"
 FUNC_LOG="${FUNC_LOG:-/tmp/func.log}"
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Description: Publish the Functions app code to Azure Flex Consumption (remote build)
 # Publish the Functions app to Azure Flex Consumption with a remote build
 # (compiles sharp for Linux). Flex deploys code from its package container via
 # the publish API, so this is the correct path (not azure/functions-action).
@@ -9,7 +10,7 @@
 # so the runtime can't be auto-detected.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_NAME="${1:-${FUNCTIONS_APP_NAME:-}}"
 
 if [ -z "$APP_NAME" ]; then

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# Description: One-time install of local prerequisites + config templates
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 ask() {
   local prompt="$1"
@@ -33,8 +34,8 @@ steps=(
 )
 
 echo
-echo "NOTE: the Cosmos DB emulator runs in Docker — install Docker Desktop"
-echo "      (https://www.docker.com/products/docker-desktop) and start it before ./dev.sh."
+echo "NOTE: the Cosmos DB emulator runs in Docker. Install Docker Desktop"
+echo "      (https://www.docker.com/products/docker-desktop) and start it before \`./buddy.sh development start-all\`."
 
 for step in "${steps[@]}"; do
   IFS='|' read -r question command <<< "$step"
@@ -46,7 +47,7 @@ done
 
 echo
 echo "Setup finished. Fill in your values in:"
-echo "  functions/local.settings.json  (COSMOS_CONNECTION_STRING, ENTRA_* — or leave ENTRA blank and keep SKIP_AUTH=true for local dev)"
-echo "  frontend/config.js             (entraSubdomain, entraClientId — only needed for real auth)"
+echo "  functions/local.settings.json  (COSMOS_CONNECTION_STRING, ENTRA_*, or leave ENTRA blank and keep SKIP_AUTH=true for local dev)"
+echo "  frontend/config.js             (entraSubdomain, entraClientId, only needed for real auth)"
 echo
-echo "Then run: ./dev.sh"
+echo "Then run: ./buddy.sh development start-all"

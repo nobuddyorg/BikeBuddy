@@ -36,7 +36,7 @@ jobs:
           node-version: "22"
 
       - name: Start Cosmos DB emulator
-        run: ./scripts/cosmos-emulator.sh
+        run: ./buddy.sh development start-cosmos
 
       - name: Install backend toolchain
         run: npm install -g azure-functions-core-tools@4 azurite @azure/static-web-apps-cli
@@ -50,7 +50,7 @@ jobs:
         working-directory: functions
 
       - name: Start Azurite + Functions host
-        run: ./scripts/start-backend.sh
+        run: ./buddy.sh development start-backend
 
       - name: Install e2e dependencies
         run: npm ci

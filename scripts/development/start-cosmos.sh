@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Description: Start only the Cosmos DB emulator (Docker) and wait until ready
 # Start the Azure Cosmos DB Linux emulator (vnext-preview) in Docker and wait
 # until it's ready. Idempotent: reuses the container if it already exists.
 #
