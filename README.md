@@ -4,7 +4,7 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 
 ![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js)
 ![Azure Functions](https://img.shields.io/badge/Azure%20Functions-v4-blue?logo=azure-functions)
-![Azure Static Web Apps](https://img.shields.io/badge/Azure%20Static%20Web%20Apps-free%20tier-blue?logo=microsoft-azure)
+![GitHub Pages](https://img.shields.io/badge/hosting-GitHub%20Pages-blue?logo=github)
 ![ESLint](https://img.shields.io/badge/ESLint-10-4B32C3?logo=eslint)
 ![Prettier](https://img.shields.io/badge/Prettier-3-F7B93E?logo=prettier)
 ![Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest)
@@ -18,11 +18,12 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 
 | Layer    | Technology                                       |
 | -------- | ------------------------------------------------ |
-| Frontend | Plain HTML/CSS/JS · Leaflet.js · Leaflet.heat    |
-| Backend  | Azure Functions (Node.js 22, Consumption Plan)   |
+| Frontend | Plain HTML/CSS/JS · Leaflet.js · Leaflet.heat (GitHub Pages) |
+| Backend  | Azure Functions (Node.js 22, Flex Consumption)   |
 | Database | Azure Cosmos DB Serverless                       |
 | Storage  | Azure Blob Storage (LRS)                         |
 | Auth     | Microsoft Entra External ID                      |
+| Infra    | OpenTofu (azurerm)                               |
 
 ## Getting started
 
