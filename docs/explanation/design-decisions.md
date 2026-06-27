@@ -46,6 +46,21 @@ one source of truth. Globally-unique names carry a random suffix so the config
 applies cleanly in any subscription. The state-backend storage account is the one
 bootstrap prerequisite (it can't create itself).
 
+## Encryption at rest
+
+All stored data is encrypted at rest with **Microsoft-managed keys** (AES-256),
+on by default and verified:
+
+- **Blob Storage** — `keySource = Microsoft.Storage`, blob + file services encrypted.
+- **Cosmos DB** — platform encryption is always on (no `keyVaultKeyUri`/CMK).
+
+We deliberately stay on **platform-managed keys**. Customer-managed keys (CMK)
+would add an Azure Key Vault (cost + operational overhead) and push past the
+< €5/month target without a real threat-model benefit here. Note that
+`infrastructure_encryption_enabled` (a second encryption layer) is fixed at
+account creation, so it isn't retrofitted to the existing storage account; it
+could be enabled on a fresh deployment if ever required.
+
 ## Cost
 
 Everything targets the free/serverless tier (< €5/month), enforced by a budget
