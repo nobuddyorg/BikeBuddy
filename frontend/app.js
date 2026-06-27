@@ -96,7 +96,11 @@ const elBtnSubmitUpload = $('btn-submit-upload');
 let msalClient;
 
 const LOGIN_SCOPES = {
-  scopes: ['openid', 'profile', ...(BIKEBUDDY_CONFIG.entraApiScope ? [BIKEBUDDY_CONFIG.entraApiScope] : [])],
+  scopes: [
+    'openid',
+    'profile',
+    ...(BIKEBUDDY_CONFIG.entraApiScope ? [BIKEBUDDY_CONFIG.entraApiScope] : []),
+  ],
 };
 
 // Use the no-auth dev path when devMode is set OR External ID isn't configured
@@ -133,7 +137,10 @@ async function devSignIn() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function initAuth() {
-  if (USE_DEV_AUTH) { await devSignIn(); return; }
+  if (USE_DEV_AUTH) {
+    await devSignIn();
+    return;
+  }
   // Microsoft Entra External ID authority: https://<subdomain>.ciamlogin.com/
   const subdomain = BIKEBUDDY_CONFIG.entraSubdomain;
   msalClient = new msal.PublicClientApplication({
@@ -165,7 +172,10 @@ function setUserFromAccount(account) {
 }
 
 async function signIn() {
-  if (USE_DEV_AUTH) { await devSignIn(); return; }
+  if (USE_DEV_AUTH) {
+    await devSignIn();
+    return;
+  }
   try {
     onAuthSuccess(await msalClient.loginPopup(LOGIN_SCOPES));
   } catch {
@@ -205,7 +215,10 @@ async function getAccessToken() {
 function onAuthSuccess(result) {
   state.user = {
     id: result.account.homeAccountId,
-    email: result.idTokenClaims?.email || result.idTokenClaims?.preferred_username || result.account.username,
+    email:
+      result.idTokenClaims?.email ||
+      result.idTokenClaims?.preferred_username ||
+      result.account.username,
   };
   renderSignedIn();
 }
