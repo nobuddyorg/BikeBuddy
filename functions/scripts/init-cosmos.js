@@ -31,17 +31,41 @@ const containers = [
   },
 ];
 
+// After a container (re)start the gateway answers on :8081 before the pgcosmos
+// data engine is ready ("still starting"), and the socket may briefly refuse
+// connections — both are transient. Retry until the engine is warm.
+function isTransient(err) {
+  return /still starting|ECONNREFUSED|ECONNRESET|socket hang up|ServiceUnavailable|503/i.test(
+    `${err.code || ''} ${err.message || ''}`,
+  );
+}
+
+async function withRetry(fn, attempts = 30, delayMs = 2000) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt >= attempts || !isTransient(err)) throw err;
+      console.log(`  emulator warming up, retry ${attempt}/${attempts}...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 async function main() {
   const client = new CosmosClient(connectionString);
-  const { database } = await client.databases.createIfNotExists({ id: databaseId });
-  console.log(`✓ database "${databaseId}"`);
 
-  // Note: createIfNotExists does not update an existing container's index
-  // policy — recreate the container (or use container.replace) to re-apply.
-  for (const def of containers) {
-    await database.containers.createIfNotExists(def);
-    console.log(`✓ container "${def.id}" (partitionKey ${def.partitionKey})`);
-  }
+  // createIfNotExists is idempotent, so retrying the whole sequence is safe.
+  // Note: it does not update an existing container's index policy — recreate
+  // the container (or use container.replace) to re-apply.
+  await withRetry(async () => {
+    const { database } = await client.databases.createIfNotExists({ id: databaseId });
+    console.log(`✓ database "${databaseId}"`);
+    for (const def of containers) {
+      await database.containers.createIfNotExists(def);
+      console.log(`✓ container "${def.id}" (partitionKey ${def.partitionKey})`);
+    }
+  });
   console.log('Cosmos initialized.');
 }
 

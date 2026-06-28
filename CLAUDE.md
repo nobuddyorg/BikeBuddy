@@ -28,10 +28,10 @@ BikeBuddy is an Azure-hosted web app for bike tour management — usable for any
 │       ├── lib/                       # shared helpers: db, blobStorage, parseGpx, validation, …
 │       ├── middleware/authMiddleware.js
 │       └── <FunctionName>/index.js    # one folder per function (GetTours, UploadTour, …)
-├── infrastructure/    # OpenTofu (azurerm): Cosmos, Storage, Flex Functions + bootstrap.sh + README
+├── infrastructure/    # OpenTofu (azurerm): Cosmos, Storage, Flex Functions + README
 ├── e2e/               # Playwright end-to-end tests
-├── scripts/           # helper scripts (cosmos-emulator.sh)
-├── dev.sh             # start full local stack   ·   setup.sh installs prerequisites
+├── buddy.sh           # single entry point: ./buddy.sh <group> <command>
+├── scripts/           # helper scripts, grouped: development/ infrastructure/ maintenance/
 ├── docs/
 └── CLAUDE.md
 ```
@@ -49,13 +49,14 @@ npm test           # Vitest unit tests
 npm run lint       # ESLint
 npm run format     # Prettier
 
-# Full local stack: Cosmos emulator + Functions (+Azurite) + SWA CLI proxy
-./dev.sh           # run ./setup.sh first if tools are missing
+# Helper scripts run through one entry point: ./buddy.sh <group> <command>
+# (./buddy.sh --help lists every group/command, auto-generated from each script)
+./buddy.sh development setup       # one-time: install tools + config templates
+./buddy.sh development start-all   # full local stack (Cosmos emulator + Functions + Azurite + SWA proxy)
 
-# Infrastructure (OpenTofu)
-cd infrastructure
-./bootstrap.sh <state-storage-name>   # one-time: create the tofu state backend
-tofu init && tofu apply               # provision/update Azure resources
+# Infrastructure (OpenTofu) via buddy.sh, or raw in infrastructure/
+./buddy.sh infrastructure setup-state <state-storage-name>   # one-time: create the tofu state backend
+./buddy.sh infrastructure provision                          # tofu init && apply (provision/update Azure)
 
 # End-to-end tests (Playwright)
 cd e2e && npm ci
@@ -171,6 +172,7 @@ One workflow — `.github/workflows/deploy.yml` — deploys everything on push t
 2. **Functions:** `func azure functionapp publish <name> --build remote --javascript` (Core Tools). Flex Consumption deploys code from a blob package container, **not** `WEBSITE_RUN_FROM_PACKAGE` — do **not** use `azure/functions-action` (its Kudu/zip path targets wwwroot, which Flex ignores → 404). `--build remote` compiles `sharp` for Linux; `--javascript` is required because CI has no `local.settings.json`.
 3. **Frontend:** generates `config.js` from the infrastructure outputs + `ENTRA_*` repo variables, then publishes to **GitHub Pages** (<https://nobuddy.org/BikeBuddy/>).
 
-- The tofu **state backend** (a storage account) is a one-time prerequisite created by `infrastructure/bootstrap.sh` — it is not managed by tofu.
+- Every workflow step that does real work calls `./buddy.sh <group> <command>` (the same scripts you run locally); see [docs/how-to/developer-guide.md](docs/how-to/developer-guide.md).
+- The tofu **state backend** (a storage account) is a one-time prerequisite created by `./buddy.sh infrastructure setup-state`. It is not managed by tofu.
 - `destroy.yml` (manual `workflow_dispatch`) runs `tofu destroy`.
 - Secrets in GitHub repository **secrets** (`ARM_*`, `TF_BACKEND_ACCESS_KEY`); public Entra values in repo **variables** (`ENTRA_*`) — never in code.

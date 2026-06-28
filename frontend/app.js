@@ -135,6 +135,10 @@ const LOGIN_SCOPES = {
 const USE_DEV_AUTH =
   BIKEBUDDY_CONFIG.devMode || !(BIKEBUDDY_CONFIG.entraSubdomain && BIKEBUDDY_CONFIG.entraClientId);
 
+// In dev mode there's no real session, so remember an explicit sign-out to keep
+// the user logged out across refreshes (real auth persists via MSAL's cache).
+const DEV_SIGNED_OUT_KEY = 'bb-dev-signed-out';
+
 // ── Dev mode (BIKEBUDDY_CONFIG.devMode = true) ────────────────────────────────
 // Skips MSAL. With the backend running (SKIP_AUTH=true), it calls the real
 // /api/me so login exercises the Functions API + Cosmos emulator. If the API
@@ -164,6 +168,10 @@ async function devSignIn() {
 
 async function initAuth() {
   if (USE_DEV_AUTH) {
+    if (localStorage.getItem(DEV_SIGNED_OUT_KEY)) {
+      renderNavAuth();
+      return;
+    }
     await devSignIn();
     return;
   }
@@ -200,6 +208,7 @@ function setUserFromAccount(account) {
 
 async function signIn() {
   if (USE_DEV_AUTH) {
+    localStorage.removeItem(DEV_SIGNED_OUT_KEY);
     await devSignIn();
     return;
   }
@@ -211,7 +220,9 @@ async function signIn() {
 }
 
 async function signOut() {
-  if (!USE_DEV_AUTH) {
+  if (USE_DEV_AUTH) {
+    localStorage.setItem(DEV_SIGNED_OUT_KEY, '1');
+  } else {
     try {
       await msalClient.logoutPopup({ account: msalClient.getAllAccounts()[0] });
     } catch {
@@ -224,6 +235,8 @@ async function signOut() {
   clearHeatmap();
   clearPins();
   show(elPinToggle, false);
+  show(elDetailPanel, false);
+  [elEditModal, elUploadModal, elProfileModal, elHelpModal].forEach((m) => show(m, false));
   renderSidebar();
   renderNavAuth();
 }

@@ -18,9 +18,12 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 
 ## Quickstart
 
+All helper scripts run through a single entry point, `./buddy.sh <group> <command>`
+(`./buddy.sh --help` lists everything):
+
 ```bash
-./setup.sh   # one-time: install tools + config templates (Docker must be running)
-./dev.sh     # start the full local stack → http://localhost:4280
+./buddy.sh development setup       # one-time: install tools + config templates (Docker must be running)
+./buddy.sh development start-all   # start the full local stack → http://localhost:4280
 ```
 
 ## Documentation

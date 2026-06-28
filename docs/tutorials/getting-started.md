@@ -11,7 +11,7 @@ on the map. No Azure account needed — everything runs against local emulators.
 ## 1. Install the toolchain
 
 ```bash
-./setup.sh
+./buddy.sh local setup
 ```
 
 This interactively installs Node 22, Azure Functions Core Tools v4, Azurite,
@@ -22,7 +22,7 @@ the config templates. The defaults run in **no-auth mode** (`SKIP_AUTH=true`,
 ## 2. Start the stack
 
 ```bash
-./dev.sh
+./buddy.sh development start-all
 ```
 
 It brings everything up and opens the app at <http://localhost:4280>:

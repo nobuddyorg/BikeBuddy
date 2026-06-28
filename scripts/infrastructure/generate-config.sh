@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Generate frontend/config.js from environment variables. Used by the deploy
-# workflow and runnable locally to point the static frontend at an API.
-#
-# Inputs (env): FUNCTIONS_URL, ENTRA_SUBDOMAIN, ENTRA_CLIENT_ID, DEV_MODE.
-# All values are public (client id + subdomain are exposed in any SPA), so they
-# come from repo *variables*, never secrets.
+# Description: Generate the frontend config.js from environment variables
+# All values are public (exposed in any SPA), so they come from repo variables,
+# never secrets. Inputs: FUNCTIONS_URL, ENTRA_SUBDOMAIN, ENTRA_CLIENT_ID, DEV_MODE.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="${CONFIG_OUT:-$ROOT/frontend/config.js}"
 
 API_SCOPE=""

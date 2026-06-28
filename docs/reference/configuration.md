@@ -25,8 +25,8 @@ automatically once `entra_client_id` is set.
 | `entraApiScope`  | `api://<clientId>/access_as_user`                |
 | `devMode`        | `true` bypasses MSAL (local)                     |
 
-Generated in CI by `scripts/generate-config.sh`; locally copied from
-`config.js.example`.
+Generated in CI by `./buddy.sh infrastructure generate-config`; locally copied
+from `config.js.example`.
 
 ## GitHub Actions
 

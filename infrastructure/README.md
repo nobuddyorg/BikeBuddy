@@ -10,7 +10,7 @@ az login
 az account set --subscription <SUB_ID>
 
 # one-time: create the state-backend storage (see "State backend" below)
-./bootstrap.sh <globally-unique-name>      # then set storage_account_name in main.tf
+./buddy.sh infrastructure setup-state <globally-unique-name>   # then set storage_account_name in main.tf
 
 export ARM_ACCESS_KEY="$(az storage account keys list -g bikebuddy-tfstate-rg \
   -n <globally-unique-name> --query '[0].value' -o tsv)"
@@ -32,8 +32,9 @@ quota; Flex avoids that and is the better serverless tier.)
 ## State backend (the one prerequisite)
 
 OpenTofu stores state in an Azure Storage account. That account must exist
-**before** `tofu init`, so it can't be created by the apply itself. `bootstrap.sh`
-creates it once. Storage account names are globally unique, so pick your own and
+**before** `tofu init`, so it can't be created by the apply itself.
+`./buddy.sh infrastructure setup-state` creates it once. Storage account names
+are globally unique, so pick your own and
 put it in the `backend "azurerm"` block in `main.tf`.
 
 Local runs and CI share this same remote state, so they never diverge.

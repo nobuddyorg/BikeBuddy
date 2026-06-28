@@ -38,7 +38,7 @@ jobs:
           tofu_version: "~1.8"
 
       - name: OpenTofu init + apply
-        run: ./scripts/tofu-apply.sh
+        run: ./buddy.sh infrastructure provision
         env:
           ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
           ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
@@ -79,7 +79,7 @@ jobs:
         run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
 
       - name: Publish (remote build)
-        run: ./scripts/publish-functions.sh
+        run: ./buddy.sh infrastructure publish-functions
         env:
           FUNCTIONS_APP_NAME: ${{ needs.infrastructure.outputs.functions_app_name }}
 
@@ -107,7 +107,7 @@ jobs:
           FUNCTIONS_URL: ${{ needs.infrastructure.outputs.functions_url }}
           ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
           ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
-        run: ./scripts/generate-config.sh
+        run: ./buddy.sh infrastructure generate-config
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1

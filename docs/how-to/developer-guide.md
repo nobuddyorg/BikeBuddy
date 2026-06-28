@@ -2,19 +2,33 @@
 
 ## Local development
 
-Full stack (Cosmos emulator + Functions + Azurite + SWA proxy):
+Every helper script runs through one entry point — `./buddy.sh <group> <command>`
+(`./buddy.sh --help` lists them all). Full stack (Cosmos emulator + Functions +
+Azurite + SWA proxy):
 
 ```bash
-./dev.sh            # run ./setup.sh first if tools are missing
+./buddy.sh development start-all   # run `./buddy.sh development setup` first if tools are missing
 ```
 
-Or piece by piece (the same scripts CI uses — see [`scripts/README.md`](../../scripts/README.md)):
+Or piece by piece (these are the same scripts CI runs, so anything CI does you
+can reproduce locally):
 
 ```bash
-./scripts/cosmos-emulator.sh          # Cosmos emulator
+./buddy.sh development start-cosmos   # Cosmos emulator
 node functions/scripts/init-cosmos.js # create DB + containers
-./scripts/start-backend.sh            # Azurite + Functions host (:7071)
+./buddy.sh development start-backend  # Azurite + Functions host (:7071)
 ```
+
+`buddy.sh` dispatches to `scripts/<group>/<command>.sh`; `./buddy.sh --help`
+lists every command (generated from each script's `# Description:` line).
+
+**Tab completion** (the `kubectl` pattern) — add to `~/.bashrc` or `~/.zshrc`:
+
+```bash
+eval "$(./buddy.sh completion)"
+```
+
+(`eval`, rather than `source <(...)`, also works in macOS's system bash 3.2.)
 
 ## Tests, lint, format
 
@@ -54,7 +68,7 @@ To run against a **real** tenant locally, fill `ENTRA_*` in
 
 Push to `main` → `.github/workflows/deploy.yml` runs three jobs: OpenTofu apply,
 Functions publish (Flex, remote build), and GitHub Pages. To run the same steps
-by hand, see [`infrastructure/README.md`](../../infrastructure/README.md) and the
-`scripts/` (`tofu-apply.sh`, `publish-functions.sh`, `generate-config.sh`).
+by hand: `./buddy.sh infrastructure provision`, `./buddy.sh infrastructure publish-functions`,
+`./buddy.sh infrastructure generate-config` (see [`infrastructure/README.md`](../../infrastructure/README.md)).
 
 `destroy.yml` (manual) tears the infrastructure down.
