@@ -14,7 +14,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile.junit=reports/test-results.xml",
     "lint": "eslint src/ --no-error-on-unmatched-pattern",
-    "format": "prettier --write 'src/**/*.js'"
+    "format": "prettier --write 'src/**/*.js'",
+    "mutate": "stryker run"
   },
   "dependencies": {
     "@azure/cosmos": "^4.1.1",
@@ -30,6 +31,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10.5.0",
     "eslint-plugin-n": "^18.1.0",
