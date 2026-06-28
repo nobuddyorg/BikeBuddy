@@ -1,0 +1,7 @@
+# CI installs unpinned global tooling (Functions Core Tools, Azurite, SWA CLI)
+# that has no lockfile; allow it in the workflows that need it.
+rules:
+  adhoc-packages:
+    ignore:
+      - gate.yml
+      - deploy.yml
