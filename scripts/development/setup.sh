@@ -23,7 +23,7 @@ steps=(
   "Install Node.js 22?|brew install node@22"
   "Install Azure Functions Core Tools v4?|brew tap azure/functions && brew trust azure/functions && brew install azure-functions-core-tools@4"
   "Install Azurite (local blob/queue/table emulator)?|npm install -g azurite"
-  "Install Azure Static Web Apps CLI?|npm install -g @azure/static-web-apps-cli"
+  "Install SWA CLI (local dev proxy only, not Azure hosting)?|npm install -g @azure/static-web-apps-cli"
   "Install OpenTofu (infrastructure)?|brew install opentofu"
   "Install prek (pre-commit runner)?|brew install prek"
   "Install npm dependencies (functions/)?|cd \"$REPO_ROOT/functions\" && npm ci"
