@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently \"azurite --silent --skipApiVersionCheck --location .azurite\" \"func start\"",
+    "dev": "func start",
     "start": "func start",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -31,8 +31,6 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.9",
-    "azurite": "^3.32.0",
-    "concurrently": "^10.0.3",
     "eslint": "^10.5.0",
     "eslint-plugin-n": "^18.1.0",
     "globals": "^17.6.0",
