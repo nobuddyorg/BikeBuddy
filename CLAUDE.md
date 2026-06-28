@@ -172,7 +172,7 @@ One workflow — `.github/workflows/deploy.yml` — deploys everything on push t
 2. **Functions:** `func azure functionapp publish <name> --build remote --javascript` (Core Tools). Flex Consumption deploys code from a blob package container, **not** `WEBSITE_RUN_FROM_PACKAGE` — do **not** use `azure/functions-action` (its Kudu/zip path targets wwwroot, which Flex ignores → 404). `--build remote` compiles `sharp` for Linux; `--javascript` is required because CI has no `local.settings.json`.
 3. **Frontend:** generates `config.js` from the infrastructure outputs + `ENTRA_*` repo variables, then publishes to **GitHub Pages** (<https://nobuddy.org/BikeBuddy/>).
 
-- Every workflow step that does real work calls `./buddy.sh <group> <command>` (the same scripts you run locally); see [`scripts/README.md`](scripts/README.md).
+- Every workflow step that does real work calls `./buddy.sh <group> <command>` (the same scripts you run locally); see [docs/how-to/developer-guide.md](docs/how-to/developer-guide.md).
 - The tofu **state backend** (a storage account) is a one-time prerequisite created by `./buddy.sh infrastructure setup-state`. It is not managed by tofu.
 - `destroy.yml` (manual `workflow_dispatch`) runs `tofu destroy`.
 - Secrets in GitHub repository **secrets** (`ARM_*`, `TF_BACKEND_ACCESS_KEY`); public Entra values in repo **variables** (`ENTRA_*`) — never in code.

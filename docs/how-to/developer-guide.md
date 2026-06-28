@@ -10,13 +10,25 @@ Azurite + SWA proxy):
 ./buddy.sh development start-all   # run `./buddy.sh development setup` first if tools are missing
 ```
 
-Or piece by piece (the same scripts CI uses — see [`scripts/README.md`](../../scripts/README.md)):
+Or piece by piece (these are the same scripts CI runs, so anything CI does you
+can reproduce locally):
 
 ```bash
-./buddy.sh development start-cosmos         # Cosmos emulator
+./buddy.sh development start-cosmos   # Cosmos emulator
 node functions/scripts/init-cosmos.js # create DB + containers
-./buddy.sh development start-backend        # Azurite + Functions host (:7071)
+./buddy.sh development start-backend  # Azurite + Functions host (:7071)
 ```
+
+`buddy.sh` dispatches to `scripts/<group>/<command>.sh`; `./buddy.sh --help`
+lists every command (generated from each script's `# Description:` line).
+
+**Tab completion** (the `kubectl` pattern) — add to `~/.bashrc` or `~/.zshrc`:
+
+```bash
+eval "$(./buddy.sh completion)"
+```
+
+(`eval`, rather than `source <(...)`, also works in macOS's system bash 3.2.)
 
 ## Tests, lint, format
 
