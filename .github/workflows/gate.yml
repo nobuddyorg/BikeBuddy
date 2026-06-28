@@ -78,7 +78,7 @@ jobs:
           check_name: "Unit Tests"
           files: functions/reports/test-results.xml
           compare_to_earlier_commit: false
-          comment_mode: off
+          comment_mode: always
           test_changes_limit: 0
 
       - name: Coverage summary
@@ -146,7 +146,7 @@ jobs:
           check_name: "E2E Tests"
           files: e2e/reports/e2e-results.xml
           compare_to_earlier_commit: false
-          comment_mode: off
+          comment_mode: always
           test_changes_limit: 0
 
   e2e-fullstack:
@@ -208,5 +208,5 @@ jobs:
           check_name: "E2E Tests (full stack)"
           files: e2e/reports/e2e-fullstack-results.xml
           compare_to_earlier_commit: false
-          comment_mode: off
+          comment_mode: always
           test_changes_limit: 0
