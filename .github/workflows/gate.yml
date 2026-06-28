@@ -151,6 +151,29 @@ jobs:
           test_changes_limit: 0
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+  mutation:
+    needs: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Run Stryker mutation tests
+        run: npm run mutate
+        working-directory: functions
+
   e2e-fullstack:
     needs: unit
     runs-on: ubuntu-latest

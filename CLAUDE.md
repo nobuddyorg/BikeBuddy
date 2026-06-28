@@ -158,6 +158,7 @@ One workflow — `gate.yml` — gates every PR with a fail-fast chain of jobs (e
 | `unit`          | Vitest unit tests + coverage (Codecov). Needs `prek`.                                                                                                                                 |
 | `e2e`           | Playwright static UI tests. Needs `unit`.                                                                                                                                             |
 | `e2e-fullstack` | Playwright against the real backend (Functions + Cosmos emulator + Azurite). Needs `unit`.                                                                                            |
+| `mutation`      | Stryker mutation tests (`npm run mutate`); fails below the 60% break threshold. Runs in parallel with `e2e`. Needs `unit`.                                                            |
 
 Because `prek` runs the OpenGrep and OpenTofu hooks (the CI job installs the tofu CLI), there's no separate security or infra-check workflow. Run all hooks locally with `prek run --all-files`.
 

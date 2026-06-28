@@ -16,7 +16,11 @@ export default {
     '!src/lib/blobStorage.js',
     '!src/lib/parseMultipart.js',
   ],
-  coverageAnalysis: 'all',
+  coverageAnalysis: 'perTest',
+  // Skip mutants that only run at module load (app.http() registration, top-level
+  // schema consts). Unit tests call handlers directly and never re-import per mutant,
+  // so these can't be killed — and reloading the module per mutant blows the timeout.
+  ignoreStatic: true,
   thresholds: {
     high: 80,
     low: 70,
