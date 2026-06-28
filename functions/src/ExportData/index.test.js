@@ -42,7 +42,9 @@ describe('GET /api/me/export', () => {
     expect(res.jsonBody.tours).toEqual(TOURS);
     expect(res.jsonBody.exportedAt).toBeTruthy();
 
-    const [, options] = tours.query.mock.calls[0];
+    const [spec, options] = tours.query.mock.calls[0];
+    expect(spec.query).toMatch(/SELECT \* FROM c WHERE c\.userId = @userId/);
+    expect(spec.parameters).toEqual([{ name: '@userId', value: 'u1' }]);
     expect(options).toEqual({ partitionKey: 'u1' });
   });
 });

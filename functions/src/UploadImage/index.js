@@ -85,4 +85,4 @@ app.http('UploadImage', {
   handler: (request) => uploadImage(request),
 });
 
-module.exports = { uploadImage };
+module.exports = { uploadImage, isJpegOrPng };

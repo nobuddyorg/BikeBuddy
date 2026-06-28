@@ -10,6 +10,7 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 ![Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest)
 [![Gate](https://github.com/nobuddyorg/BikeBuddy/actions/workflows/gate.yml/badge.svg)](https://github.com/nobuddyorg/BikeBuddy/actions/workflows/gate.yml)
 [![codecov](https://codecov.io/gh/nobuddyorg/BikeBuddy/graph/badge.svg?token=Kk7defQRUB)](https://codecov.io/gh/nobuddyorg/BikeBuddy)
+[![Mutation testing badge](https://img.shields.io/endpoint?style=plastic&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fnobuddyorg%2FBikeBuddy%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/nobuddyorg/BikeBuddy/main)
 ![OpenGrep](https://img.shields.io/badge/SAST-OpenGrep-4A90D9)
 ![zizmor](https://img.shields.io/badge/GH%20Actions-zizmor-blueviolet)
 ![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)

@@ -1,3 +1,8 @@
+// Publish to the Stryker dashboard only when the API key is available (CI on
+// nobuddyorg/BikeBuddy). Local runs and key-less CI keep the offline reporters.
+const reporters = ['html', 'clear-text', 'progress'];
+if (process.env.STRYKER_DASHBOARD_API_KEY) reporters.push('dashboard');
+
 /** @type {import('@stryker-mutator/core').PartialStrykerOptions} */
 export default {
   packageManager: 'npm',
@@ -16,14 +21,22 @@ export default {
     '!src/lib/blobStorage.js',
     '!src/lib/parseMultipart.js',
   ],
-  coverageAnalysis: 'all',
+  coverageAnalysis: 'perTest',
+  // Skip mutants that only run at module load (app.http() registration, top-level
+  // schema consts). Unit tests call handlers directly and never re-import per mutant,
+  // so these can't be killed — and reloading the module per mutant blows the timeout.
+  ignoreStatic: true,
   thresholds: {
-    high: 80,
-    low: 70,
-    break: 60,
+    high: 90,
+    low: 85,
+    break: 85,
   },
-  reporters: ['html', 'clear-text', 'progress'],
+  reporters,
   htmlReporter: {
     fileName: 'reports/mutation/index.html',
+  },
+  // project/version are auto-detected from the CI git context (badge tracks main).
+  dashboard: {
+    reportType: 'full',
   },
 };

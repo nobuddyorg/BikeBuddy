@@ -1,6 +1,6 @@
 'use strict';
 
-const { uploadImage } = require('./index');
+const { uploadImage, isJpegOrPng } = require('./index');
 
 const TID = '11111111-1111-4111-8111-111111111111';
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
@@ -32,6 +32,29 @@ const makeParseFile = (buffer, mimeType = 'image/jpeg') =>
 const noResize = (buf) => Promise.resolve(buf);
 const reqWith = (tourId) => ({ params: { tourId } });
 
+describe('isJpegOrPng (magic-byte validation)', () => {
+  it('accepts valid 4-byte JPEG and PNG signatures', () => {
+    expect(isJpegOrPng(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe(true);
+    expect(isJpegOrPng(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toBe(true);
+  });
+
+  it('rejects a buffer shorter than 4 bytes', () => {
+    expect(isJpegOrPng(Buffer.from([0xff, 0xd8, 0xff]))).toBe(false);
+  });
+
+  it.each([
+    ['JPEG byte 0', [0x00, 0xd8, 0xff, 0xe0]],
+    ['JPEG byte 1', [0xff, 0x00, 0xff, 0xe0]],
+    ['JPEG byte 2', [0xff, 0xd8, 0x00, 0xe0]],
+    ['PNG byte 0', [0x00, 0x50, 0x4e, 0x47]],
+    ['PNG byte 1', [0x89, 0x00, 0x4e, 0x47]],
+    ['PNG byte 2', [0x89, 0x50, 0x00, 0x47]],
+    ['PNG byte 3', [0x89, 0x50, 0x4e, 0x00]],
+  ])('rejects when %s is wrong', (_label, bytes) => {
+    expect(isJpegOrPng(Buffer.from(bytes))).toBe(false);
+  });
+});
+
 describe('POST /api/tours/{tourId}/images', () => {
   it('resizes, stores, appends to tour.images and returns 201 + SAS url', async () => {
     const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
@@ -47,11 +70,34 @@ describe('POST /api/tours/{tourId}/images', () => {
 
     expect(res.status).toBe(201);
     expect(res.jsonBody.url).toBe('https://blob/sas-url');
-    expect(images.blockBlob.uploadData).toHaveBeenCalled();
+    expect(images.blockBlob.uploadData).toHaveBeenCalledWith(JPEG, {
+      blobHTTPHeaders: { blobContentType: 'image/jpeg' },
+    });
     const [doc] = tours.replace.mock.calls[0];
     expect(doc.images).toHaveLength(1);
     expect(doc.images[0].id).toBe(res.jsonBody.id);
     expect(doc.images[0].blobName).toBe(`u1/${TID}/${res.jsonBody.id}.jpg`);
+  });
+
+  it('appends to existing images rather than replacing them', async () => {
+    const existing = { id: 'img0', blobName: 'u1/old.jpg' };
+    const tours = makeToursContainer(async () => ({
+      resource: { ...TOUR, images: [existing] },
+    }));
+    const images = makeImagesContainer();
+    await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      makeParseFile(JPEG),
+      noResize,
+      async () => null,
+    );
+
+    const [doc] = tours.replace.mock.calls[0];
+    expect(doc.images).toHaveLength(2);
+    expect(doc.images[0]).toEqual(existing);
   });
 
   it('stores and returns GPS coords when the image is geotagged', async () => {
@@ -118,6 +164,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       noResize,
     );
     expect(res.status).toBe(400);
+    expect(res.jsonBody.error).toBe('Only JPEG or PNG images are accepted');
     expect(images.getBlockBlobClient).not.toHaveBeenCalled();
     expect(tours.replace).not.toHaveBeenCalled();
   });
@@ -164,6 +211,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       noResize,
     );
     expect(res.status).toBe(404);
+    expect(res.jsonBody.error).toBe('Tour not found');
   });
 
   it('returns 401 when auth fails', async () => {
