@@ -2,7 +2,12 @@
 
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { authenticate, openIdConfigUrl } = require('./authMiddleware');
+const {
+  authenticate,
+  openIdConfigUrl,
+  getOpenIdConfig,
+  defaultJwksClient,
+} = require('./authMiddleware');
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
@@ -78,6 +83,12 @@ describe('authenticate — success', () => {
       'alt@example.com',
     ],
     [
+      'emails[] array fallback',
+      { email: undefined, preferred_username: undefined, emails: ['array@example.com'] },
+      'userEmail',
+      'array@example.com',
+    ],
+    [
       'null when no email claim',
       { email: undefined, preferred_username: undefined },
       'userEmail',
@@ -142,5 +153,35 @@ describe('External ID configuration helpers', () => {
     expect(openIdConfigUrl()).toBe(
       'https://bikebuddy.ciamlogin.com/aaaabbbb-0000-cccc-1111-dddd2222eeee/v2.0/.well-known/openid-configuration',
     );
+  });
+});
+
+describe('getOpenIdConfig', () => {
+  const doc = {
+    issuer: 'https://tenant.ciamlogin.com/v2.0',
+    jwks_uri: 'https://tenant.ciamlogin.com/keys',
+  };
+
+  test('throws when the metadata endpoint returns a non-ok status', async () => {
+    const failFetch = async () => ({ ok: false, status: 503 });
+    await expect(getOpenIdConfig(failFetch)).rejects.toThrow('OIDC metadata fetch failed: 503');
+  });
+
+  test('fetches metadata and caches the result on subsequent calls', async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => doc });
+    const config1 = await getOpenIdConfig(fetchFn);
+    const config2 = await getOpenIdConfig(fetchFn);
+    expect(config1).toEqual({ issuer: doc.issuer, jwksUri: doc.jwks_uri });
+    expect(config2).toBe(config1);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('defaultJwksClient', () => {
+  test('creates a jwks-rsa client and caches it', () => {
+    const first = defaultJwksClient('https://example.com/keys');
+    const second = defaultJwksClient('https://example.com/keys');
+    expect(typeof first.getSigningKey).toBe('function');
+    expect(second).toBe(first);
   });
 });
