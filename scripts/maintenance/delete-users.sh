@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Description: Drain the GDPR account-deletion queue (delete users via Graph)
-# Resolve the Cosmos connection string (via az) and run the out-of-band Entra
-# deletion job. Requires: az login (or CI service principal) for the Cosmos
-# account, and GRAPH_TENANT_ID/GRAPH_CLIENT_ID/GRAPH_CLIENT_SECRET in the env.
+# Needs az login (for the Cosmos key) and GRAPH_TENANT_ID/GRAPH_CLIENT_ID/
+# GRAPH_CLIENT_SECRET in the env.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

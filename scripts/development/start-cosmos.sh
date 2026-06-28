@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 # Description: Start only the Cosmos DB emulator (Docker) and wait until ready
-# Start the Azure Cosmos DB Linux emulator (vnext-preview) in Docker and wait
-# until it's ready. Idempotent: reuses the container if it already exists.
-#
-# vnext-preview serves the gateway over HTTP on :8081 (no TLS/cert needed) and a
-# data explorer on http://localhost:1234. It's the cross-platform-friendly
-# emulator recommended for macOS/Linux.
+# vnext-preview serves the gateway over plain HTTP on :8081 (no TLS/cert) and a
+# data explorer on :1234, which is why no cert setup is needed on macOS/Linux.
 set -euo pipefail
 
 CONTAINER="bikebuddy-cosmos"

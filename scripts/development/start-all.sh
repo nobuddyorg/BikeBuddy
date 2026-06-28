@@ -1,32 +1,28 @@
 #!/usr/bin/env bash
 # Description: Start the full local dev stack (Cosmos emulator + API + frontend)
-# Start the full local dev stack and open the app in the browser:
-#   Cosmos DB emulator (Docker) → Functions API (+ Azurite) → Static Web App (SWA CLI proxy)
-# Run `./buddy.sh development setup` first if tools are missing.
 set -euo pipefail
+
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FUNCTIONS_DIR="$REPO_ROOT/functions"
 
-# ── Use Node 22 (the Functions runtime doesn't support newer majors) ──────────
+# The Functions runtime supports Node 20/22 only; prefer brew's node@22 if present.
 NODE22_BIN="$(brew --prefix node@22 2>/dev/null)/bin"
-if [[ -d "$NODE22_BIN" ]]; then
-  export PATH="$NODE22_BIN:$PATH"
-fi
+[[ -d "$NODE22_BIN" ]] && export PATH="$NODE22_BIN:$PATH"
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-if [[ "$NODE_MAJOR" != "22" && "$NODE_MAJOR" != "20" ]]; then
-  echo "ERROR: Azure Functions needs Node 20 or 22 (found $(node --version 2>/dev/null))." >&2
-  echo "       Install it with: brew install node@22" >&2
-  exit 1
-fi
+[[ "$NODE_MAJOR" == "22" || "$NODE_MAJOR" == "20" ]] ||
+  die "Azure Functions needs Node 20 or 22 (found $(node --version 2>/dev/null)). Install: brew install node@22"
 
-# ── Preflight ─────────────────────────────────────────────────────────────────
 for cmd in node npm func swa docker; do
-  command -v "$cmd" &>/dev/null || { echo "ERROR: '$cmd' not found. Run './buddy.sh development setup' first." >&2; exit 1; }
+  command -v "$cmd" &>/dev/null || die "'$cmd' not found. Run './buddy.sh development setup' first."
 done
-docker info >/dev/null 2>&1 || { echo "ERROR: Docker daemon not running. Start Docker Desktop." >&2; exit 1; }
-[[ -f "$FUNCTIONS_DIR/local.settings.json" ]] || { echo "ERROR: functions/local.settings.json missing. Run './buddy.sh development setup'." >&2; exit 1; }
-[[ -f "$REPO_ROOT/frontend/config.js" ]] || { echo "ERROR: frontend/config.js missing. Run './buddy.sh development setup'." >&2; exit 1; }
+docker info >/dev/null 2>&1 || die "Docker daemon not running. Start Docker Desktop."
+[[ -f "$FUNCTIONS_DIR/local.settings.json" ]] || die "functions/local.settings.json missing. Run './buddy.sh development setup'."
+[[ -f "$REPO_ROOT/frontend/config.js" ]] || die "frontend/config.js missing. Run './buddy.sh development setup'."
 
 PIDS=()
 cleanup() {
@@ -37,14 +33,11 @@ cleanup() {
 }
 trap cleanup INT TERM
 
-# ── 1. Cosmos DB emulator ─────────────────────────────────────────────────────
 "$REPO_ROOT/scripts/development/start-cosmos.sh"
 
-# ── 2. Create database + containers (idempotent) ──────────────────────────────
 echo "==> Initializing Cosmos database + containers..."
 (cd "$FUNCTIONS_DIR" && node scripts/init-cosmos.js)
 
-# ── 3. Functions API + Azurite ────────────────────────────────────────────────
 echo "==> Installing function dependencies..."
 (cd "$FUNCTIONS_DIR" && npm ci --silent)
 echo "==> Starting Functions API + Azurite (Node $(node --version))..."
@@ -53,8 +46,7 @@ PIDS+=($!)
 echo "==> Waiting for API on http://localhost:7071..."
 until curl -s http://localhost:7071/api/me -o /dev/null 2>/dev/null; do sleep 2; done
 
-# ── 4. Static Web App (serves frontend, proxies /api → :7071) ─────────────────
-echo "==> Starting Static Web App on http://localhost:4280..."
+echo "==> Starting frontend on http://localhost:4280 (SWA CLI proxies /api to :7071)..."
 swa start "$REPO_ROOT/frontend" --api-devserver-url http://localhost:7071 &
 PIDS+=($!)
 until curl -s http://localhost:4280 -o /dev/null 2>/dev/null; do sleep 2; done

@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 # Description: Publish the Functions app code to Azure Flex Consumption (remote build)
-# Publish the Functions app to Azure Flex Consumption with a remote build
-# (compiles sharp for Linux). Flex deploys code from its package container via
-# the publish API, so this is the correct path (not azure/functions-action).
-# Used by the deploy workflow and runnable locally.
-#
-# Requires az login (locally) or the CI service-principal session, and the app
-# name as $1 or $FUNCTIONS_APP_NAME. --javascript: CI has no local.settings.json
-# so the runtime can't be auto-detected.
+# Flex deploys code via the publish API, not azure/functions-action. --build
+# remote compiles sharp for Linux; --javascript because CI has no
+# local.settings.json to auto-detect the runtime. App name: $1 or FUNCTIONS_APP_NAME.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

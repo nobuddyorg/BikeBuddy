@@ -1,18 +1,7 @@
-# Shell completion for buddy.sh (works in bash and zsh).
-#
-# Completes the command group (first argument) and the command (second
-# argument) by scanning the scripts/ tree next to buddy.sh, so it stays in sync
-# automatically as scripts are added or renamed.
-#
-# Enable it (the kubectl way) by eval'ing what `./buddy.sh completion` prints,
-# in both bash and zsh (eval, not source <(...), so it also works in macOS's
-# system bash 3.2):
-#   ~/.bashrc / ~/.zshrc:  eval "$(./buddy.sh completion)"
+# Tab completion for buddy.sh. Enable with: eval "$(./buddy.sh completion)"
 
-# Under zsh, `complete`/`compgen` only exist once bashcompinit is loaded, and
-# bashcompinit's `complete` shim in turn needs compinit (it defines `compdef`).
-# Initialise both here so a bare `eval "$(./buddy.sh completion)"` works in zsh
-# too, even in a shell that hasn't set up completion yet.
+# zsh's `complete` comes from bashcompinit, which in turn needs compinit
+# (it defines compdef) — load both so a bare eval works in a fresh zsh.
 if [ -n "${ZSH_VERSION:-}" ]; then
   whence compdef >/dev/null 2>&1 || { autoload -Uz compinit && compinit -u; }
   autoload -Uz bashcompinit && bashcompinit
@@ -22,27 +11,23 @@ _buddy_complete() {
   local cur scripts_dir
   cur="${COMP_WORDS[COMP_CWORD]}"
 
-  # Resolve scripts/ relative to the typed buddy.sh path so completion works
-  # regardless of the current directory.
+  # Resolve scripts/ from the typed buddy.sh path so completion is cwd-independent.
   scripts_dir="$(cd "$(dirname "${COMP_WORDS[0]}")" 2>/dev/null && pwd)/scripts"
   [ -d "$scripts_dir" ] || return 0
 
   if [ "$COMP_CWORD" -eq 1 ]; then
-    local groups=""
-    local dir
+    local groups="" dir
     for dir in "$scripts_dir"/*/; do
       [ -d "$dir" ] || continue
-      groups+="$(basename "$dir") "
+      dir=${dir%/}; groups+="${dir##*/} "
     done
     # shellcheck disable=SC2207
     COMPREPLY=($(compgen -W "$groups" -- "$cur"))
   elif [ "$COMP_CWORD" -eq 2 ]; then
-    local group="${COMP_WORDS[1]}"
-    local cmds=""
-    local file
+    local group="${COMP_WORDS[1]}" cmds="" file
     for file in "$scripts_dir/$group"/*.sh; do
       [ -e "$file" ] || continue
-      cmds+="$(basename "$file" .sh) "
+      file=${file##*/}; cmds+="${file%.sh} "
     done
     # shellcheck disable=SC2207
     COMPREPLY=($(compgen -W "$cmds" -- "$cur"))

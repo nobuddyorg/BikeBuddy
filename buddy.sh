@@ -1,31 +1,36 @@
 #!/usr/bin/env bash
-# Single entry point for every helper script in this repo.
-#   ./buddy.sh <command-group> <command> [options]
-#   ./buddy.sh --help
-#   ./buddy.sh completion            # print the tab-completion script
-# Commands live in scripts/<group>/<command>.sh; the help text below is
-# auto-generated from each script's `# Description:` line.
+# Single entry point: ./buddy.sh <group> <command> [options]
+# Groups/commands are scripts/<group>/<command>.sh; --help is generated from
+# each script's `# Description:` line.
 set -euo pipefail
 
 cd "$(dirname "$0")" || exit 1
 
 SCRIPTS_ROOT="./scripts"
 
+# Read a script's `# Description:` line without spawning grep/sed per file.
+description_of() {
+  local line
+  while IFS= read -r line; do
+    case $line in '# Description: '*) printf '%s' "${line#'# Description: '}"; return;; esac
+  done <"$1"
+}
+
 print_help() {
   echo -e "\nUsage: $0 <command-group> <command> [options]\n"
   echo "Available command groups and commands:"
 
   for group_dir in "$SCRIPTS_ROOT"/*/; do
-    group_name=$(basename "$group_dir")
+    local group_name=${group_dir%/}; group_name=${group_name##*/}
 
     commands=()
     descriptions=()
     max_len=0
 
-    for script_path in "$group_dir"/*.sh; do
+    for script_path in "$group_dir"*.sh; do
       [ -e "$script_path" ] || continue
-      cmd=$(basename "$script_path" .sh)
-      desc=$(grep -m1 '^# Description:' "$script_path" | sed 's/^# Description: //')
+      local cmd=${script_path##*/}; cmd=${cmd%.sh}
+      local desc; desc=$(description_of "$script_path")
       [ -z "$desc" ] && continue
       commands+=("$cmd")
       descriptions+=("$desc")
@@ -45,9 +50,6 @@ print_help() {
   echo
 }
 
-# Print the completion script to stdout so it can be eval'd, the way
-# `kubectl completion` works: eval "$(./buddy.sh completion)"
-# (eval, not source <(...), to also work in macOS's system bash 3.2)
 if [ "${1:-}" = "completion" ]; then
   cat "$SCRIPTS_ROOT/completion/buddy-completion.bash"
   exit 0

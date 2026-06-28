@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 # Description: Start only Azurite + the Functions host (waits for :7071)
-# Start Azurite (blob emulator) and the Azure Functions host in the background,
-# then wait until the API answers on :7071. Used by the full-stack e2e workflow
-# and reproducible locally.
-#
-# The Functions host reads its settings from the environment (COSMOS_CONNECTION_STRING,
-# BLOB_CONNECTION_STRING, SKIP_AUTH, ...) or functions/local.settings.json. Set
-# those before running. Background processes persist for later CI steps.
+# Settings come from the environment or functions/local.settings.json. Runs in
+# the background (nohup) so the processes persist for later CI steps.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
