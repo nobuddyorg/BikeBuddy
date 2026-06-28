@@ -100,7 +100,7 @@ jobs:
           path: code-coverage-results.md
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.1
+        uses: codecov/codecov-action@e53489f4d376d79066609109e7a95a29eb3740b1 # v7.0.0
         if: ${{ !env.ACT }}
         with:
           files: functions/coverage/cobertura-coverage.xml
