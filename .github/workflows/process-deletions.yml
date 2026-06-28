@@ -1,4 +1,4 @@
-name: Process account deletions
+name: Account Deletions
 
 # Out-of-band GDPR job: deletes Entra users queued by the API on account
 # deletion. The privileged Graph credential lives only here (CI secrets),
