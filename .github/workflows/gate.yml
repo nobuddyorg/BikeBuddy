@@ -154,6 +154,8 @@ jobs:
   mutation:
     needs: unit
     runs-on: ubuntu-latest
+    # STRYKER_DASHBOARD_API_KEY is stored as an environment secret on the "ci" environment
+    environment: ci
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -173,6 +175,8 @@ jobs:
       - name: Run Stryker mutation tests
         run: npm run mutate
         working-directory: functions
+        env:
+          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
 
   e2e-fullstack:
     needs: unit

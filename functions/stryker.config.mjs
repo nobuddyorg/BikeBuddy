@@ -1,3 +1,8 @@
+// Publish to the Stryker dashboard only when the API key is available (CI on
+// nobuddyorg/BikeBuddy). Local runs and key-less CI keep the offline reporters.
+const reporters = ['html', 'clear-text', 'progress'];
+if (process.env.STRYKER_DASHBOARD_API_KEY) reporters.push('dashboard');
+
 /** @type {import('@stryker-mutator/core').PartialStrykerOptions} */
 export default {
   packageManager: 'npm',
@@ -26,8 +31,12 @@ export default {
     low: 85,
     break: 85,
   },
-  reporters: ['html', 'clear-text', 'progress'],
+  reporters,
   htmlReporter: {
     fileName: 'reports/mutation/index.html',
+  },
+  // project/version are auto-detected from the CI git context (badge tracks main).
+  dashboard: {
+    reportType: 'full',
   },
 };
