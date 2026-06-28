@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   playwright:
     runs-on: ubuntu-latest
@@ -37,7 +41,6 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: e2e
 
-      # Fails the job (red) on any test failure, which is the blocking signal.
       - name: Run Playwright tests
         run: npm run test:ci
         working-directory: e2e
