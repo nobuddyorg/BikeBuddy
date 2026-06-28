@@ -12,6 +12,8 @@ const BIKEBUDDY_CONFIG = {
   entraClientId: '',
   // Scope the SPA requests for the API, e.g. api://<clientId>/access_as_user.
   entraApiScope: '',
-  // Set true locally (with SKIP_AUTH=true in local.settings.json) to bypass MSAL.
-  devMode: false,
+  // Bypass MSAL and use the local dev user (pairs with SKIP_AUTH=true). Default
+  // true: this file is only the local-dev template; CI generates its own
+  // config.js with real values and devMode false.
+  devMode: true,
 };
