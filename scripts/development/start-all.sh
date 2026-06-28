@@ -27,20 +27,21 @@ docker info >/dev/null 2>&1 || die "Docker daemon not running. Start Docker Desk
 PIDS=()
 cleanup() {
   echo ""
-  echo "==> Shutting down (emulator left running; stop it with: docker stop bikebuddy-cosmos)"
+  echo "==> Shutting down (emulators left running; stop with: ./buddy.sh development stop)"
   for pid in "${PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done
   exit 0
 }
 trap cleanup INT TERM
 
 "$REPO_ROOT/scripts/development/start-cosmos.sh"
+"$REPO_ROOT/scripts/development/start-azurite.sh"
 
 echo "==> Initializing Cosmos database + containers..."
 (cd "$FUNCTIONS_DIR" && node scripts/init-cosmos.js)
 
 echo "==> Installing function dependencies..."
 (cd "$FUNCTIONS_DIR" && npm ci --silent)
-echo "==> Starting Functions API + Azurite (Node $(node --version))..."
+echo "==> Starting Functions API (Node $(node --version))..."
 (cd "$FUNCTIONS_DIR" && npm run dev) &
 PIDS+=($!)
 echo "==> Waiting for API on http://localhost:7071..."

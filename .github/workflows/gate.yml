@@ -179,9 +179,10 @@ jobs:
             functions/package-lock.json
             e2e/package-lock.json
 
-      - run: npm install -g azure-functions-core-tools@4 azurite @azure/static-web-apps-cli
+      - run: npm install -g azure-functions-core-tools@4 @azure/static-web-apps-cli
 
       - run: ./buddy.sh development start-cosmos
+      - run: ./buddy.sh development start-azurite
 
       - run: npm ci
         working-directory: functions

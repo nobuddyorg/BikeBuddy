@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
-# Description: Start only Azurite + the Functions host (waits for :7071)
+# Description: Start the Azurite storage emulator (Docker) and the Functions host (waits for :7071)
 # Settings come from the environment or functions/local.settings.json. Runs in
 # the background (nohup) so the processes persist for later CI steps.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-AZURITE_LOCATION="${AZURITE_LOCATION:-/tmp/azurite}"
 FUNC_LOG="${FUNC_LOG:-/tmp/func.log}"
 
-echo "==> Starting Azurite (location: $AZURITE_LOCATION)..."
-mkdir -p "$AZURITE_LOCATION"
-nohup azurite --silent --skipApiVersionCheck --location "$AZURITE_LOCATION" \
-  >/tmp/azurite.log 2>&1 &
+"$ROOT/scripts/development/start-azurite.sh"
 
 echo "==> Starting Functions host..."
 (cd "$ROOT/functions" && nohup func start >"$FUNC_LOG" 2>&1 &)

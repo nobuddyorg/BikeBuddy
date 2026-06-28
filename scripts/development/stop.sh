@@ -13,13 +13,14 @@ done
 
 # Catch stragglers that outlived their port binding.
 pkill -f "func start" 2>/dev/null || true
-pkill -f "azurite" 2>/dev/null || true
 pkill -f "swa start" 2>/dev/null || true
 
-# The Cosmos emulator runs as a Docker container (start-all leaves it up).
-if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx bikebuddy-cosmos; then
-  echo "==> Stopping Cosmos emulator container"
-  docker stop bikebuddy-cosmos >/dev/null
-fi
+# Both emulators run as Docker containers (start-all leaves them up).
+for container in bikebuddy-cosmos bikebuddy-azurite; do
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$container"; then
+    echo "==> Stopping $container container"
+    docker stop "$container" >/dev/null
+  fi
+done
 
 echo "==> Local dev stack stopped."
