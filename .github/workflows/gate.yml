@@ -179,6 +179,8 @@ jobs:
 
       - run: npm install -g azure-functions-core-tools@4 azurite @azure/static-web-apps-cli
 
+      - run: ./buddy.sh development start-cosmos
+
       - run: npm ci
         working-directory: functions
 
