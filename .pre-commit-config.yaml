@@ -121,8 +121,7 @@ repos:
       - id: editorconfig-checker
         alias: ec
 
-  # OpenTofu fmt + validate (needs the tofu CLI). Skipped in the prek CI job
-  # (infra-check.yml is the CI authority); runs locally on commit.
+  # OpenTofu fmt + validate (needs the tofu CLI; CI installs it for the prek job).
   - repo: local
     hooks:
       - id: tofu-fmt
@@ -140,7 +139,7 @@ repos:
         files: ^infrastructure/.*\.tf$
         stages: [pre-commit]
 
-  # OpenGrep SAST — runs separately in CI; local install auto-bootstrapped
+  # OpenGrep SAST — install auto-bootstrapped on first run (local and CI).
   - repo: local
     hooks:
       - id: opengrep-check
