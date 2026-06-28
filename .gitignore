@@ -46,6 +46,10 @@ out/
 # Test coverage
 coverage/
 
+# Stryker mutation testing
+functions/.stryker-tmp/
+functions/reports/mutation/
+
 # Editor
 .vscode/
 .idea/
