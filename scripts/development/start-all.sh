@@ -10,7 +10,7 @@ die() {
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FUNCTIONS_DIR="$REPO_ROOT/functions"
 
-# The Functions runtime supports Node 20/22 only; prefer brew's node@22 if present.
+# The Functions runtime supports Node 20/22 only.
 NODE22_BIN="$(brew --prefix node@22 2>/dev/null)/bin"
 [[ -d "$NODE22_BIN" ]] && export PATH="$NODE22_BIN:$PATH"
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
