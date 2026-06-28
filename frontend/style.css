@@ -31,6 +31,12 @@ body {
   line-height: 1.5;
 }
 
+/* Single-screen app: panes scroll internally, the page itself never does. Also
+   stops .app-layout's margin-top collapsing through body and adding height. */
+body {
+  overflow: hidden;
+}
+
 /* ── Navbar ─────────────────────────────────────── */
 
 .navbar {
@@ -45,7 +51,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  z-index: 1000;
+  z-index: 1100; /* above Leaflet's controls (z-index 1000) */
 }
 
 .navbar-brand {
