@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^4.1.9",
     "azurite": "^3.32.0",
     "concurrently": "^10.0.3",
     "eslint": "^10.5.0",
