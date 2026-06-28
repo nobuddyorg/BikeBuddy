@@ -48,14 +48,11 @@ repo root (run them from anywhere).
 ## Tab completion (optional)
 
 `./buddy.sh completion` prints a completion script (the `kubectl` pattern).
-Eval its output to tab-complete groups and commands:
+Eval its output to tab-complete groups and commands. The same one line works in
+both shells (it loads `bashcompinit` itself under zsh):
 
 ```bash
-# bash (~/.bashrc)
-eval "$(./buddy.sh completion)"
-
-# zsh (~/.zshrc)
-autoload -Uz bashcompinit && bashcompinit
+# ~/.bashrc or ~/.zshrc
 eval "$(./buddy.sh completion)"
 ```
 

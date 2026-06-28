@@ -4,10 +4,19 @@
 # argument) by scanning the scripts/ tree next to buddy.sh, so it stays in sync
 # automatically as scripts are added or renamed.
 #
-# Enable it (the kubectl way) by eval'ing what `./buddy.sh completion` prints:
-#   bash (~/.bashrc):  eval "$(./buddy.sh completion)"
-#   zsh  (~/.zshrc):   autoload -Uz bashcompinit && bashcompinit; eval "$(./buddy.sh completion)"
-# (eval, not source <(...), so it also works in macOS's system bash 3.2)
+# Enable it (the kubectl way) by eval'ing what `./buddy.sh completion` prints,
+# in both bash and zsh (eval, not source <(...), so it also works in macOS's
+# system bash 3.2):
+#   ~/.bashrc / ~/.zshrc:  eval "$(./buddy.sh completion)"
+
+# Under zsh, `complete`/`compgen` only exist once bashcompinit is loaded, and
+# bashcompinit's `complete` shim in turn needs compinit (it defines `compdef`).
+# Initialise both here so a bare `eval "$(./buddy.sh completion)"` works in zsh
+# too, even in a shell that hasn't set up completion yet.
+if [ -n "${ZSH_VERSION:-}" ]; then
+  whence compdef >/dev/null 2>&1 || { autoload -Uz compinit && compinit -u; }
+  autoload -Uz bashcompinit && bashcompinit
+fi
 
 _buddy_complete() {
   local cur scripts_dir
