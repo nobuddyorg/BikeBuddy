@@ -5,6 +5,8 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 ![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js)
 ![Azure Functions](https://img.shields.io/badge/Azure%20Functions-v4-blue?logo=azure-functions)
 ![GitHub Pages](https://img.shields.io/badge/hosting-GitHub%20Pages-blue?logo=github)
+![Azure](https://img.shields.io/badge/cloud-Azure-0078D4?logo=microsoftazure&logoColor=white)
+![OpenTofu](https://img.shields.io/badge/infrastructure-OpenTofu-844FBA?logo=opentofu&logoColor=white)
 ![ESLint](https://img.shields.io/badge/ESLint-10-4B32C3?logo=eslint)
 ![Prettier](https://img.shields.io/badge/Prettier-3-F7B93E?logo=prettier)
 ![Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest)
@@ -13,7 +15,10 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 [![Mutation testing badge](https://img.shields.io/endpoint?style=plastic&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fnobuddyorg%2FBikeBuddy%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/nobuddyorg/BikeBuddy/main)
 ![OpenGrep](https://img.shields.io/badge/SAST-OpenGrep-4A90D9)
 ![zizmor](https://img.shields.io/badge/GH%20Actions-zizmor-blueviolet)
+[![CodeQL](https://img.shields.io/badge/security-CodeQL-blue?logo=github)](https://github.com/nobuddyorg/BikeBuddy/security/code-scanning)
 ![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)
+[![Last commit](https://img.shields.io/github/last-commit/nobuddyorg/BikeBuddy)](https://github.com/nobuddyorg/BikeBuddy/commits/main)
+[![License: MIT](https://img.shields.io/github/license/nobuddyorg/BikeBuddy)](LICENSE)
 
 **Stack:** GitHub Pages · Azure Functions (Node 22, Flex Consumption) · Cosmos DB Serverless · Blob Storage · Microsoft Entra External ID · Leaflet · OpenTofu.
 
