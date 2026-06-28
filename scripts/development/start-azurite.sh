@@ -22,7 +22,9 @@ else
     --publish 10000:10000 \
     --publish 10001:10001 \
     --publish 10002:10002 \
-    "$IMAGE" >/dev/null
+    "$IMAGE" \
+    azurite -l /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 \
+    --skipApiVersionCheck >/dev/null
 fi
 
 echo "==> Waiting for Azurite blob endpoint on http://localhost:10000 (up to 30 s)..."
