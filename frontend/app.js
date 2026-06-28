@@ -235,6 +235,8 @@ async function signOut() {
   clearHeatmap();
   clearPins();
   show(elPinToggle, false);
+  show(elDetailPanel, false);
+  [elEditModal, elUploadModal, elProfileModal, elHelpModal].forEach((m) => show(m, false));
   renderSidebar();
   renderNavAuth();
 }
