@@ -12,17 +12,24 @@ const UUID = '11111111-1111-4111-8111-111111111111';
 
 describe('validation helpers', () => {
   describe('stripHtml', () => {
-    it('removes tags and trims', () => {
-      expect(stripHtml('  <b>hi</b> there <script>x</script>  ')).toBe('hi there x');
+    it('removes angle brackets and trims', () => {
+      expect(stripHtml('  <b>hi</b> there <script>x</script>  ')).toBe(
+        'bhi/b there scriptx/script',
+      );
+    });
+
+    it('defeats the nested-tag bypass that CodeQL flags', () => {
+      expect(stripHtml('<<script>script>')).not.toContain('<');
+      expect(stripHtml('<<script>script>')).not.toContain('>');
     });
   });
 
   describe('tourMetaSchema', () => {
-    it('strips HTML from name and description', () => {
+    it('strips angle brackets from name and description', () => {
       const r = tourMetaSchema.safeParse({ name: '<b>Alps</b>', description: '<i>nice</i>' });
       expect(r.success).toBe(true);
-      expect(r.data.name).toBe('Alps');
-      expect(r.data.description).toBe('nice');
+      expect(r.data.name).toBe('bAlps/b');
+      expect(r.data.description).toBe('inice/i');
     });
 
     it('rejects an over-long name (after stripping)', () => {
@@ -31,7 +38,7 @@ describe('validation helpers', () => {
     });
 
     it('rejects a name that is empty after stripping', () => {
-      const r = tourMetaSchema.safeParse({ name: '<br/>' });
+      const r = tourMetaSchema.safeParse({ name: '<>' });
       expect(r.success).toBe(false);
     });
 

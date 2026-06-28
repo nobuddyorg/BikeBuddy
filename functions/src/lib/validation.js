@@ -3,8 +3,7 @@
 const { z } = require('zod');
 const { error } = require('./http');
 
-// Remove angle-bracket tags and trim, so stored text can't carry HTML/script.
-const stripHtml = (s) => s.replace(/<[^>]*>/g, '').trim();
+const stripHtml = (s) => s.replace(/[<>]/g, '').trim();
 
 // User-facing text: stripped first, then length-checked.
 const nameSchema = z.string().transform(stripHtml).pipe(z.string().min(1).max(200));

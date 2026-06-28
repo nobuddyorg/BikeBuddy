@@ -37,7 +37,7 @@ describe('PATCH /api/me', () => {
   it('strips HTML from the name', async () => {
     const c = makeContainer();
     const res = await updateProfile(reqWith({ name: '<b>Ada</b>' }), mockAuth, () => c.container);
-    expect(res.jsonBody.name).toBe('Ada');
+    expect(res.jsonBody.name).toBe('bAda/b');
   });
 
   it('rejects an empty name', async () => {
