@@ -92,13 +92,6 @@ jobs:
           thresholds: "80 90"
           fail_below_min: true
 
-      - name: Add coverage PR comment
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
-        if: ${{ github.event_name == 'pull_request' && !env.ACT }}
-        with:
-          recreate: true
-          path: code-coverage-results.md
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.1
         if: ${{ !env.ACT }}
