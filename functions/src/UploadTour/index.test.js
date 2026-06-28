@@ -21,8 +21,12 @@ function makeGpxContainer() {
     uploadData: vi.fn().mockResolvedValue({}),
     url: 'https://blob.example/gpx-files/user-1/some-id.gpx',
   };
-  const containerClient = { getBlockBlobClient: vi.fn().mockReturnValue(blockBlob) };
-  return vi.fn().mockResolvedValue(containerClient);
+  const getBlockBlobClient = vi.fn().mockReturnValue(blockBlob);
+  const get = vi.fn().mockResolvedValue({ getBlockBlobClient });
+  // Expose the inner mocks so tests can assert on blob name / upload options.
+  get.getBlockBlobClient = getBlockBlobClient;
+  get.blockBlob = blockBlob;
+  return get;
 }
 
 function makeToursContainer() {
@@ -90,18 +94,61 @@ describe('UploadTour', () => {
 
   it('creates tour and returns 201 on success', async () => {
     const toursContainer = makeToursContainer();
-    const res = await uploadTour(
-      reqWith(),
-      mockAuth,
-      () => toursContainer,
-      makeGpxContainer(),
-      makeParseFile(),
-    );
+    const gpx = makeGpxContainer();
+    const res = await uploadTour(reqWith(), mockAuth, () => toursContainer, gpx, makeParseFile());
     expect(res.status).toBe(201);
     expect(res.jsonBody.tourId).toMatch(/^[\da-f-]{36}$/);
     expect(res.jsonBody.gpxFileUrl).toContain('blob');
     expect(res.jsonBody.name).toBe('Test Tour');
     expect(toursContainer.items.create).toHaveBeenCalledOnce();
+
+    const [doc] = toursContainer.items.create.mock.calls[0];
+    expect(doc.images).toEqual([]);
+    expect(doc.description).toBe('');
+    expect(gpx.getBlockBlobClient).toHaveBeenCalledWith(`user-1/${doc.id}.gpx`);
+    expect(gpx.blockBlob.uploadData).toHaveBeenCalledWith(expect.any(Buffer), {
+      blobHTTPHeaders: { blobContentType: 'application/gpx+xml' },
+    });
+  });
+
+  it('stores the description from the query string', async () => {
+    const toursContainer = makeToursContainer();
+    await uploadTour(
+      reqWith({ description: 'Nice ride' }),
+      mockAuth,
+      () => toursContainer,
+      makeGpxContainer(),
+      makeParseFile(),
+    );
+    const [doc] = toursContainer.items.create.mock.calls[0];
+    expect(doc.description).toBe('Nice ride');
+  });
+
+  it('returns 400 when the metadata fails validation', async () => {
+    const res = await uploadTour(
+      reqWith({ name: 'a'.repeat(201) }),
+      mockAuth,
+      makeToursContainer,
+      makeGpxContainer(),
+      makeParseFile(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts a file starting with <gpx (no XML declaration)', async () => {
+    const gpxNoDecl = Buffer.from(
+      '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">' +
+        '<trk><trkseg><trkpt lat="48.1" lon="11.5"/></trkseg></trk></gpx>',
+      'utf8',
+    );
+    const res = await uploadTour(
+      reqWith(),
+      mockAuth,
+      makeToursContainer,
+      makeGpxContainer(),
+      makeParseFile(gpxNoDecl),
+    );
+    expect(res.status).toBe(201);
   });
 
   it('uses query-string name over GPX name', async () => {

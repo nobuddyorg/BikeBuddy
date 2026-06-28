@@ -22,6 +22,16 @@ describe('toDecimal', () => {
     expect(toDecimal(undefined, 'N')).toBeNull();
     expect(toDecimal('nope', 'N')).toBeNull();
   });
+
+  it('includes the seconds term', () => {
+    // 48 + 30/60 + 36/3600 = 48.51 — pins the s/3600 contribution and its sign.
+    expect(toDecimal([48, 30, 36], 'N')).toBeCloseTo(48.51, 5);
+  });
+
+  it('returns null for a non-finite decimal', () => {
+    expect(toDecimal(['x', 0, 0], 'N')).toBeNull();
+    expect(toDecimal(NaN, 'N')).toBeNull();
+  });
 });
 
 describe('gpsFromExifTags', () => {
@@ -54,6 +64,38 @@ describe('gpsFromExifTags', () => {
       },
     };
     expect(gpsFromExifTags(tags)).toBeNull();
+  });
+
+  const gpsTags = (lat, latRef, lon, lonRef) => ({
+    GPSInfo: {
+      GPSLatitude: lat,
+      GPSLatitudeRef: latRef,
+      GPSLongitude: lon,
+      GPSLongitudeRef: lonRef,
+    },
+  });
+
+  it('returns null when only one coordinate is unreadable', () => {
+    expect(gpsFromExifTags(gpsTags([48, 8, 0], 'N', undefined, 'E'))).toBeNull();
+    expect(gpsFromExifTags(gpsTags(undefined, 'N', [11, 34, 0], 'E'))).toBeNull();
+  });
+
+  it('rejects each coordinate just outside its range', () => {
+    expect(gpsFromExifTags(gpsTags([100, 0, 0], 'S', [11, 0, 0], 'E'))).toBeNull(); // lat < -90
+    expect(gpsFromExifTags(gpsTags([200, 0, 0], 'N', [11, 0, 0], 'E'))).toBeNull(); // lat > 90
+    expect(gpsFromExifTags(gpsTags([48, 0, 0], 'N', [200, 0, 0], 'W'))).toBeNull(); // lon < -180
+    expect(gpsFromExifTags(gpsTags([48, 0, 0], 'N', [200, 0, 0], 'E'))).toBeNull(); // lon > 180
+  });
+
+  it('accepts the exact ±90 / ±180 boundaries', () => {
+    expect(gpsFromExifTags(gpsTags([90, 0, 0], 'S', [180, 0, 0], 'W'))).toEqual({
+      lat: -90,
+      lon: -180,
+    });
+    expect(gpsFromExifTags(gpsTags([90, 0, 0], 'N', [180, 0, 0], 'E'))).toEqual({
+      lat: 90,
+      lon: 180,
+    });
   });
 });
 

@@ -29,6 +29,20 @@ describe('parseGpx', () => {
     expect(result.distanceKm).toBeLessThan(5);
   });
 
+  it('computes the exact great-circle distance (lat and lon both vary)', () => {
+    // 48,11 -> 49,12: every term of the Haversine formula contributes.
+    // Reference value from an independent computation: 133.3878 km.
+    const result = parseGpx(
+      makeGpx({
+        points: [
+          [48, 11],
+          [49, 12],
+        ],
+      }),
+    );
+    expect(result.distanceKm).toBeCloseTo(133.3878, 2);
+  });
+
   it('returns heatmapData as [[lat, lon]] pairs', () => {
     const result = parseGpx(makeGpx({ points: TWO_POINTS }));
     expect(result.heatmapData).toEqual(TWO_POINTS);
@@ -39,6 +53,8 @@ describe('parseGpx', () => {
     const points = Array.from({ length: 6000 }, (_, i) => [48 + i * 0.0001, 11]);
     const result = parseGpx(makeGpx({ points }));
     expect(result.heatmapData.length).toBeLessThanOrEqual(5000);
+    // step = ceil(6000 / 5000) = 2 → every 2nd point (3000) plus the last (odd index).
+    expect(result.heatmapData).toHaveLength(3001);
     // first and last are preserved
     expect(result.heatmapData[0]).toEqual(points[0]);
     expect(result.heatmapData[result.heatmapData.length - 1]).toEqual(points[points.length - 1]);

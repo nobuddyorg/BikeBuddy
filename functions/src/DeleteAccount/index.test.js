@@ -88,6 +88,10 @@ describe('DELETE /api/me', () => {
     );
 
     expect(res.status).toBe(204);
+    const [spec, options] = tours.query.mock.calls[0];
+    expect(spec.query).toMatch(/SELECT c\.id FROM c WHERE c\.userId = @userId/);
+    expect(spec.parameters).toEqual([{ name: '@userId', value: UID }]);
+    expect(options).toEqual({ partitionKey: UID });
     expect(tours.del).toHaveBeenCalledTimes(2);
     expect(tours.item).toHaveBeenCalledWith('t1', UID);
     expect(gpx.listBlobsFlat).toHaveBeenCalledWith({ prefix: `${UID}/` });

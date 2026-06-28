@@ -22,9 +22,9 @@ export default {
   // so these can't be killed — and reloading the module per mutant blows the timeout.
   ignoreStatic: true,
   thresholds: {
-    high: 80,
-    low: 70,
-    break: 60,
+    high: 90,
+    low: 85,
+    break: 85,
   },
   reporters: ['html', 'clear-text', 'progress'],
   htmlReporter: {

@@ -37,11 +37,11 @@ describe('GET /api/tours/{tourId}', () => {
     expect(res.jsonBody.heatmapData).toHaveLength(2);
   });
 
-  it('returns images as { id, url } with a read SAS URL', async () => {
+  it('returns images as { id, url }, including lat/lon only when geotagged', async () => {
     const tour = {
       ...TOUR,
       images: [
-        { id: 'img1', blobName: 'u1/t1/img1.jpg' },
+        { id: 'img1', blobName: 'u1/t1/img1.jpg', lat: 48.1, lon: 11.5 },
         { id: 'img2', blobName: 'u1/t1/img2.jpg' },
       ],
     };
@@ -53,8 +53,9 @@ describe('GET /api/tours/{tourId}', () => {
 
     const res = await getTour(reqWith(TID), mockAuth, () => container, imagesContainer);
 
-    expect(res.jsonBody.images).toEqual([
-      { id: 'img1', url: 'https://blob/u1/t1/img1.jpg?sig=x' },
+    // toStrictEqual so a stray lat/lon: undefined on the non-geotagged image is caught.
+    expect(res.jsonBody.images).toStrictEqual([
+      { id: 'img1', url: 'https://blob/u1/t1/img1.jpg?sig=x', lat: 48.1, lon: 11.5 },
       { id: 'img2', url: 'https://blob/u1/t1/img2.jpg?sig=x' },
     ]);
   });
@@ -72,6 +73,7 @@ describe('GET /api/tours/{tourId}', () => {
     const res = await getTour(reqWith(TID), mockAuth, () => container);
 
     expect(res.status).toBe(404);
+    expect(res.jsonBody.error).toBe('Tour not found');
   });
 
   it('returns 404 when read throws a 404', async () => {
