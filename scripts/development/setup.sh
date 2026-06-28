@@ -28,8 +28,8 @@ steps=(
   "Install prek (pre-commit runner)?|brew install prek"
   "Install npm dependencies (functions/)?|cd \"$REPO_ROOT/functions\" && npm ci"
   "Install pre-commit hooks?|cd \"$REPO_ROOT\" && prek install"
-  "Copy functions/local.settings.json from example?|cp \"$REPO_ROOT/functions/local.settings.json.example\" \"$REPO_ROOT/functions/local.settings.json\""
-  "Copy frontend/config.js from example?|cp \"$REPO_ROOT/frontend/config.js.example\" \"$REPO_ROOT/frontend/config.js\""
+  "Write functions/local.settings.json (overwrites with local-dev defaults)?|cp \"$REPO_ROOT/functions/local.settings.json.example\" \"$REPO_ROOT/functions/local.settings.json\" && echo 'wrote local.settings.json'"
+  "Write frontend/config.js (overwrites with local-dev defaults)?|cp \"$REPO_ROOT/frontend/config.js.example\" \"$REPO_ROOT/frontend/config.js\" && echo 'wrote config.js'"
   "Pull the Cosmos DB emulator image (Docker must be running)?|docker pull mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview"
 )
 
