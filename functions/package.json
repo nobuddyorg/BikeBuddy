@@ -13,8 +13,10 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile.junit=reports/test-results.xml",
-    "lint": "eslint src/ --no-error-on-unmatched-pattern",
-    "format": "prettier --write 'src/**/*.js'",
+    "test:integration": "vitest run --config vitest.integration.config.js",
+    "test:integration:ci": "vitest run --config vitest.integration.config.js --reporter=default --reporter=junit --outputFile.junit=reports/integration-results.xml",
+    "lint": "eslint src/ test/ --no-error-on-unmatched-pattern",
+    "format": "prettier --write 'src/**/*.js' 'test/**/*.js'",
     "mutate": "stryker run"
   },
   "dependencies": {
