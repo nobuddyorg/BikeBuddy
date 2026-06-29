@@ -6,7 +6,7 @@ const isCI = !!process.env.CI;
 // Static UI tests: serve frontend/src with a dependency-free file server; the
 // app's devMode falls back to a synthetic local user, so no backend is needed.
 export default defineConfig({
-  testDir: '.',
+  testDir: './tests',
   globalSetup: './global-setup.ts',
   fullyParallel: true,
   forbidOnly: isCI,
@@ -14,7 +14,7 @@ export default defineConfig({
   reporter: isCI
     ? [
         ['github'],
-        ['junit', { outputFile: 'reports/frontend-e2e-results.xml' }],
+        ['junit', { outputFile: 'reports/e2e-results.xml' }],
         ['html', { open: 'never' }],
       ]
     : [['list']],

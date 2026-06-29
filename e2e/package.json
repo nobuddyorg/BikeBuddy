@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test --config playwright.fullstack.config.ts",
+    "test": "playwright test",
+    "test:ci": "playwright test",
     "test:fullstack": "playwright test --config playwright.fullstack.config.ts",
     "format": "prettier --write '**/*.ts'",
     "format:check": "prettier --check '**/*.ts'"

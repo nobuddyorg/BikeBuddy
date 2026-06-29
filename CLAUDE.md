@@ -22,8 +22,7 @@ BikeBuddy is an Azure-hosted web app for bike tour management — usable for any
 │   │   ├── style.css
 │   │   ├── config.js.example  # committed; src/config.js is generated in CI (gitignored)
 │   │   └── vendor/            # vendored MSAL Browser (served locally, not a CDN)
-│   ├── test/                  # Vitest unit tests for src/lib/
-│   └── e2e/                   # Playwright static-UI tests (serve src/, no backend)
+│   └── test/                  # Vitest unit tests for src/lib/
 ├── functions/         # Azure Functions app (Node.js 22, Flex Consumption)
 │   ├── host.json
 │   ├── package.json
@@ -33,7 +32,7 @@ BikeBuddy is an Azure-hosted web app for bike tour management — usable for any
 │       ├── middleware/authMiddleware.js
 │       └── <FunctionName>/index.js    # one folder per function (GetTours, UploadTour, …)
 ├── infrastructure/    # OpenTofu (azurerm): Cosmos, Storage, Flex Functions
-├── e2e/               # Playwright end-to-end tests
+├── e2e/               # Playwright tests: tests/ (static UI) + tests-fullstack/ (real backend)
 ├── buddy.sh           # single entry point: ./buddy.sh <group> <command>
 ├── scripts/           # helper scripts, grouped: development/ infrastructure/ maintenance/
 ├── docs/
@@ -62,16 +61,14 @@ npm run format     # Prettier
 ./buddy.sh infrastructure setup-state <state-storage-name>   # one-time: create the tofu state backend
 ./buddy.sh infrastructure provision                          # tofu init && apply (provision/update Azure)
 
-# End-to-end tests (Playwright)
-cd e2e && npm ci
-npm test               # against a running local stack
-npm run test:fullstack # deployed-style full run
+# Frontend unit tests (plain JS, no bundler — Vitest over src/lib/)
+cd frontend && npm ci
+npm test               # Vitest unit tests
 
-# Frontend tests (plain JS, no bundler): unit (Vitest) + static UI (Playwright)
-cd frontend
-npm ci
-npm test           # Vitest unit tests for src/lib/
-npm run test:e2e   # Playwright static UI tests (serves src/, no backend)
+# End-to-end tests (Playwright) — all suites live in e2e/
+cd e2e && npm ci
+npm test               # static UI tests (serves frontend/src, no backend)
+npm run test:fullstack # full stack against a running local stack
 
 # No build step for the site — open frontend/src/index.html directly or via the SWA CLI proxy
 ```
@@ -167,9 +164,10 @@ One workflow — `gate.yml` — gates every PR with a fail-fast chain of jobs (e
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `prek`          | All pre-commit hooks: ESLint + Prettier (`functions/`, `frontend/`, `e2e/`), shellcheck, markdownlint, zizmor, file hygiene, **OpenGrep SAST**, and **`tofu fmt` + `tofu validate`**. |
 | `unit`          | Functions Vitest unit tests + coverage (Codecov). Needs `prek`.                                                                                                                       |
-| `frontend`      | **Frontend Tests** — Vitest unit tests (`frontend/test/`) + Playwright static UI tests (`frontend/e2e/`). Needs `unit`.                                                               |
+| `frontend`      | Frontend Vitest unit tests (`frontend/test/` over `src/lib/`). Needs `unit`.                                                                                                          |
+| `e2e`           | Playwright static UI tests (`e2e/tests/`, serves `frontend/src`, no backend). Needs `unit`.                                                                                           |
 | `e2e-fullstack` | Playwright against the real backend (Functions + Cosmos emulator + Azurite). Needs `unit`.                                                                                            |
-| `mutation`      | Stryker mutation tests (`npm run mutate`); fails below the 85% break threshold. Runs in parallel with `frontend`. Needs `unit`.                                                       |
+| `mutation`      | Stryker mutation tests (`npm run mutate`); fails below the 85% break threshold. Needs `unit`.                                                                                         |
 
 Because `prek` runs the OpenGrep and OpenTofu hooks (the CI job installs the tofu CLI), there's no separate security or infra-check workflow. Run all hooks locally with `prek run --all-files`.
 

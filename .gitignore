@@ -27,10 +27,8 @@ e2e/playwright-report/
 e2e/test-results/
 .playwright-mcp/
 
-# Frontend tests (Vitest + Playwright)
+# Frontend tests (Vitest)
 frontend/reports/
-frontend/test-results/
-frontend/playwright-report/
 frontend/coverage/
 
 # Frontend config (contains B2C client IDs — use config.js.example as template)

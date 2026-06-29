@@ -55,16 +55,15 @@ repos:
         files: ^functions/src/
         stages: [pre-commit]
 
-  # Prettier check (TypeScript e2e — both the fullstack suite and the frontend
-  # static suite) — reuses functions' prettier; fix with: cd functions && npx prettier --write
+  # Prettier check (e2e/ TypeScript) — reuses functions' prettier; fix with: cd e2e && npm run format
   - repo: local
     hooks:
       - id: prettier-e2e
         name: Prettier (e2e)
-        entry: bash -c "cd functions && npx prettier --check '../e2e/**/*.ts' '../frontend/e2e/**/*.ts'"
+        entry: bash -c "cd functions && npx prettier --check '../e2e/**/*.ts'"
         language: system
         pass_filenames: false
-        files: ^(e2e|frontend/e2e)/.*\.ts$
+        files: ^e2e/.*\.ts$
         stages: [pre-commit]
 
   # ESLint (frontend/) — browser + ESM; reuses functions' eslint install. Runs
