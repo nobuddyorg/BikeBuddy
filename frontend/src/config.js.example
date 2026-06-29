@@ -1,7 +1,7 @@
 'use strict';
 // Copy to config.js and fill in your values.
 // config.js is gitignored — never commit the file with real values.
-const BIKEBUDDY_CONFIG = {
+window.BIKEBUDDY_CONFIG = {
   // Leave empty for local dev (SWA CLI proxies /api/* to localhost:7071).
   // In production CI sets this to the Azure Functions URL.
   apiBaseUrl: '',

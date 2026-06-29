@@ -6,7 +6,7 @@ The _why_ behind the architecture. For _what_, see [Architecture](../reference/a
 
 Plain HTML/CSS/JS keeps the site truly static (no build pipeline) and trivially
 hostable on GitHub Pages. Leaflet loads from a CDN; MSAL is **vendored** in
-`frontend/vendor/` because loading it cross-origin from a CDN was blocked by the
+`frontend/src/vendor/` because loading it cross-origin from a CDN was blocked by the
 browser (ORB) on GitHub Pages.
 
 ## Node.js Functions on Flex Consumption

@@ -1,4 +1,4 @@
-// Minimal static file server for ../frontend (no dependencies).
+// Minimal static file server for ../src (no dependencies).
 // Unknown paths (including /api/*) return 404, which the frontend's devMode
 // treats as "API unavailable" and falls back to a synthetic local user — so the
 // UI is fully testable without the backend.
@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = join(fileURLToPath(import.meta.url), '..', '..', 'frontend');
+const root = join(fileURLToPath(import.meta.url), '..', '..', 'src');
 const port = Number(process.env.E2E_PORT) || 4281;
 
 const TYPES = {

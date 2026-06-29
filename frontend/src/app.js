@@ -1,5 +1,15 @@
 'use strict';
 
+import { formatDate, formatDistance, initials } from './lib/format.js';
+import { visibleTours } from './lib/tours.js';
+import { validateGpxUpload, validateImageUpload } from './lib/files.js';
+
+// Globals provided by classic <script>s loaded before this module: config.js
+// (BIKEBUDDY_CONFIG), the vendored MSAL bundle, and Leaflet + its heat plugin.
+const BIKEBUDDY_CONFIG = window.BIKEBUDDY_CONFIG || {};
+const msal = window.msal;
+const L = window.L;
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 const state = {
@@ -399,35 +409,6 @@ function createTourItem(tour) {
   return li;
 }
 
-// Fuzzy match: every character of the query appears in order in the text
-// (case-insensitive). Empty query matches everything.
-function fuzzyMatch(query, text) {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const t = (text || '').toLowerCase();
-  let i = 0;
-  for (const ch of t) {
-    if (ch === q[i] && ++i === q.length) return true;
-  }
-  return false;
-}
-
-const tourTime = (t) => new Date(t.createdAt).getTime() || 0;
-const SORTERS = {
-  'date-desc': (a, b) => tourTime(b) - tourTime(a),
-  'date-asc': (a, b) => tourTime(a) - tourTime(b),
-  'name-asc': (a, b) => (a.name || '').localeCompare(b.name || ''),
-  'name-desc': (a, b) => (b.name || '').localeCompare(a.name || ''),
-  'length-desc': (a, b) => (b.distance || 0) - (a.distance || 0),
-  'length-asc': (a, b) => (a.distance || 0) - (b.distance || 0),
-};
-
-// Tours filtered by the search box and ordered by the chosen sort.
-function visibleTours() {
-  const sorter = SORTERS[state.sort] || SORTERS['date-desc'];
-  return state.tours.filter((t) => fuzzyMatch(state.search, t.name)).sort(sorter);
-}
-
 function createShowAllButton() {
   const btn = document.createElement('button');
   btn.className = 'show-all-btn';
@@ -454,7 +435,7 @@ function renderSidebar() {
   elTourList.innerHTML = '';
   if (!hasTours) return;
 
-  const visible = visibleTours();
+  const visible = visibleTours(state.tours, state.sort, state.search);
   if (visible.length === 0) {
     elTourList.appendChild(textDiv('tour-empty', 'No tours match your search.'));
     return;
@@ -674,8 +655,6 @@ function renderDetailPanel(tour) {
 
 // ── Tour images (upload) ──────────────────────────────────────────────────────
 
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-
 function resetImageSection() {
   elImageGrid.innerHTML = '';
   show(elImageProgress, false);
@@ -748,12 +727,9 @@ async function uploadImage(file) {
   show(elImageError, false);
   const tourId = state.selectedTourId;
   if (!file || !tourId) return;
-  if (!/^image\/(jpeg|png)$/.test(file.type) && !/\.(jpe?g|png)$/i.test(file.name)) {
-    showImageError('Only JPEG or PNG images are accepted.');
-    return;
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    showImageError('Image exceeds the 10 MB limit.');
+  const imageError = validateImageUpload(file);
+  if (imageError) {
+    showImageError(imageError);
     return;
   }
 
@@ -776,18 +752,6 @@ async function uploadImage(file) {
 }
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
-
-// Avatar initials from the email local part (e.g. "ada.lovelace@x" → "AD").
-// Avatar initials: prefer the display name (one word → its first letter; more
-// words → first letter of the first + last word); fall back to the email.
-function initials(nameOrEmail) {
-  if (!nameOrEmail) return '?';
-  const source = nameOrEmail.includes('@') ? nameOrEmail.split('@')[0] : nameOrEmail;
-  const words = source.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  const letters = words.length === 1 ? words[0][0] : words[0][0] + words[words.length - 1][0];
-  return letters.toUpperCase();
-}
 
 function renderProfile() {
   elProfileTitle.textContent = state.user.name || 'Your account';
@@ -881,7 +845,6 @@ async function deleteMyAccount() {
 
 // ── Upload modal ──────────────────────────────────────────────────────────────
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 let selectedFile = null;
 
 function resetUploadForm() {
@@ -913,12 +876,9 @@ function showUploadError(message) {
 function selectFile(file) {
   show(elUploadError, false);
   if (!file) return;
-  if (!file.name.toLowerCase().endsWith('.gpx')) {
-    showUploadError('Only .gpx files are accepted.');
-    return;
-  }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    showUploadError('File exceeds the 10 MB limit.');
+  const uploadError = validateGpxUpload(file);
+  if (uploadError) {
+    showUploadError(uploadError);
     return;
   }
   selectedFile = file;
@@ -1102,19 +1062,3 @@ document.addEventListener('keydown', (e) => {
 });
 
 initAuth();
-
-// ── Utilities ─────────────────────────────────────────────────────────────────
-
-function formatDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function formatDistance(km) {
-  if (typeof km !== 'number') return '—';
-  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
-}

@@ -15,11 +15,15 @@ BikeBuddy is an Azure-hosted web app for bike tour management — usable for any
 ```text
 /
 ├── frontend/          # GitHub Pages site — plain HTML/CSS/JS, no bundler
-│   ├── index.html
-│   ├── app.js
-│   ├── style.css
-│   ├── config.js.example      # committed; config.js is generated in CI (gitignored)
-│   └── vendor/                # vendored MSAL Browser (served locally, not a CDN)
+│   ├── src/                   # the published site (this dir is what Pages deploys)
+│   │   ├── index.html         # loads app.js as <script type="module">
+│   │   ├── app.js             # ES-module entry; imports pure helpers from src/lib/
+│   │   ├── lib/               # pure, unit-tested helpers: format, tours, files
+│   │   ├── style.css
+│   │   ├── config.js.example  # committed; src/config.js is generated in CI (gitignored)
+│   │   └── vendor/            # vendored MSAL Browser (served locally, not a CDN)
+│   ├── test/                  # Vitest unit tests for src/lib/
+│   └── e2e/                   # Playwright static-UI tests (serve src/, no backend)
 ├── functions/         # Azure Functions app (Node.js 22, Flex Consumption)
 │   ├── host.json
 │   ├── package.json
@@ -63,7 +67,13 @@ cd e2e && npm ci
 npm test               # against a running local stack
 npm run test:fullstack # deployed-style full run
 
-# No build step for frontend — open frontend/index.html directly or via the SWA CLI proxy
+# Frontend tests (plain JS, no bundler): unit (Vitest) + static UI (Playwright)
+cd frontend
+npm ci
+npm test           # Vitest unit tests for src/lib/
+npm run test:e2e   # Playwright static UI tests (serves src/, no backend)
+
+# No build step for the site — open frontend/src/index.html directly or via the SWA CLI proxy
 ```
 
 **Prerequisites:** Node.js 22, Azure Functions Core Tools v4, Azurite (`npm i -g azurite`), OpenTofu, Docker (Cosmos emulator).
@@ -72,7 +82,7 @@ npm run test:fullstack # deployed-style full run
 
 ## Architecture Decisions
 
-- **No framework for frontend.** Plain JS to keep the site static and avoid a build pipeline. Leaflet is loaded from CDN; **MSAL Browser is vendored** in `frontend/vendor/` (served locally, not CDN).
+- **No framework for frontend.** Plain JS to keep the site static and avoid a build pipeline. Leaflet is loaded from CDN; **MSAL Browser is vendored** in `frontend/src/vendor/` (served locally, not CDN).
 - **Node.js, not Python, for Functions.** Faster cold starts; better Azure SDK support for Cosmos DB and Blob Storage. Backend runs on **Flex Consumption** (scale-to-zero, ~€0 idle, no App Service VM quota).
 - **Cosmos DB partition key:** `users` → `/id`, `tours` → `/userId`. Never query cross-partition unless absolutely necessary.
 - **`heatmapData` is never returned in list endpoints** (`GET /api/tours`). Fetch it only in the detail endpoint to keep list payloads small.
@@ -145,6 +155,7 @@ Start with epics in order: #2 → #9 → #13 → #21 → #31 → #26.
 - Unit tests with Vitest for: GPX parsing logic, auth middleware, input validation.
 - No mocking of Cosmos DB or Blob Storage in unit tests — use Azurite for local integration.
 - Test file: `<module>.test.js` next to the module.
+- **Frontend:** pure logic lives in `frontend/src/lib/*.js` (ES modules) so it's importable; Vitest tests live in `frontend/test/`. Keep DOM/auth/map glue in `app.js`; extract anything testable into `lib/`.
 
 ---
 
@@ -155,10 +166,10 @@ One workflow — `gate.yml` — gates every PR with a fail-fast chain of jobs (e
 | Job             | Guarantees                                                                                                                                                                            |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `prek`          | All pre-commit hooks: ESLint + Prettier (`functions/`, `frontend/`, `e2e/`), shellcheck, markdownlint, zizmor, file hygiene, **OpenGrep SAST**, and **`tofu fmt` + `tofu validate`**. |
-| `unit`          | Vitest unit tests + coverage (Codecov). Needs `prek`.                                                                                                                                 |
-| `e2e`           | Playwright static UI tests. Needs `unit`.                                                                                                                                             |
+| `unit`          | Functions Vitest unit tests + coverage (Codecov). Needs `prek`.                                                                                                                       |
+| `frontend`      | **Frontend Tests** — Vitest unit tests (`frontend/test/`) + Playwright static UI tests (`frontend/e2e/`). Needs `unit`.                                                               |
 | `e2e-fullstack` | Playwright against the real backend (Functions + Cosmos emulator + Azurite). Needs `unit`.                                                                                            |
-| `mutation`      | Stryker mutation tests (`npm run mutate`); fails below the 85% break threshold. Runs in parallel with `e2e`. Needs `unit`.                                                            |
+| `mutation`      | Stryker mutation tests (`npm run mutate`); fails below the 85% break threshold. Runs in parallel with `frontend`. Needs `unit`.                                                       |
 
 Because `prek` runs the OpenGrep and OpenTofu hooks (the CI job installs the tofu CLI), there's no separate security or infra-check workflow. Run all hooks locally with `prek run --all-files`.
 

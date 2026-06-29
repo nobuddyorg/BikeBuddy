@@ -5,7 +5,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-OUT="${CONFIG_OUT:-$ROOT/frontend/config.js}"
+OUT="${CONFIG_OUT:-$ROOT/frontend/src/config.js}"
 
 API_SCOPE=""
 if [ -n "${ENTRA_CLIENT_ID:-}" ]; then
@@ -14,7 +14,7 @@ fi
 
 cat >"$OUT" <<JSEOF
 'use strict';
-const BIKEBUDDY_CONFIG = {
+window.BIKEBUDDY_CONFIG = {
   apiBaseUrl: '${FUNCTIONS_URL:-}',
   entraSubdomain: '${ENTRA_SUBDOMAIN:-}',
   entraClientId: '${ENTRA_CLIENT_ID:-}',

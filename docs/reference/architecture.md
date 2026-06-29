@@ -14,7 +14,7 @@ Azure Functions (Node 22, Flex Consumption)   ── auth: Entra External ID (OI
 
 | Component | Tech                                       | Notes                                                                   |
 | --------- | ------------------------------------------ | ----------------------------------------------------------------------- |
-| Frontend  | Static HTML/CSS/JS on GitHub Pages         | No bundler; Leaflet via CDN, MSAL vendored in `frontend/vendor/`.       |
+| Frontend  | Static HTML/CSS/JS on GitHub Pages         | No bundler; Leaflet via CDN, MSAL vendored in `frontend/src/vendor/`.   |
 | API       | Azure Functions, Node 22, Flex Consumption | One folder per function in `functions/src/<Name>/`.                     |
 | Database  | Cosmos DB Serverless                       | `users` partitioned by `/id`, `tours` by `/userId`.                     |
 | Files     | Azure Blob Storage (LRS)                   | Images resized (≤2000px) with `sharp`; served via short-lived SAS URLs. |

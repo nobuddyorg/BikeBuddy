@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: typos
         # Vendored third-party minified bundle — short variable names trip the spell checker.
-        exclude: ^frontend/vendor/
+        exclude: ^frontend/src/vendor/
 
   # zizmor: detects security vulnerabilities in GitHub Actions workflows
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
@@ -55,27 +55,29 @@ repos:
         files: ^functions/src/
         stages: [pre-commit]
 
-  # Prettier check (e2e/ TypeScript) — reuses functions' prettier; fix with: cd e2e && npm run format
+  # Prettier check (TypeScript e2e — both the fullstack suite and the frontend
+  # static suite) — reuses functions' prettier; fix with: cd functions && npx prettier --write
   - repo: local
     hooks:
       - id: prettier-e2e
         name: Prettier (e2e)
-        entry: bash -c "cd functions && npx prettier --check '../e2e/**/*.ts'"
+        entry: bash -c "cd functions && npx prettier --check '../e2e/**/*.ts' '../frontend/e2e/**/*.ts'"
         language: system
         pass_filenames: false
-        files: ^e2e/.*\.ts$
+        files: ^(e2e|frontend/e2e)/.*\.ts$
         stages: [pre-commit]
 
-  # ESLint (frontend/) — browser globals; reuses functions' eslint install. Runs
-  # from the repo root so the file is inside ESLint's base path.
+  # ESLint (frontend/) — browser + ESM; reuses functions' eslint install. Runs
+  # from the repo root so the files are inside ESLint's base path.
   - repo: local
     hooks:
       - id: eslint-frontend
         name: ESLint (frontend)
-        entry: functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js frontend/app.js
+        entry: functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js frontend/src frontend/test
         language: system
         pass_filenames: false
-        files: ^frontend/app\.js$
+        files: ^frontend/(src|test)/.*\.js$
+        exclude: ^frontend/src/vendor/
         stages: [pre-commit]
 
   # Prettier check (frontend/) — fix with: cd functions && npx prettier --write '../frontend/...'
@@ -85,10 +87,11 @@ repos:
         name: Prettier (frontend)
         # --config: frontend/ has no .prettierrc, so point at functions' config
         # explicitly (Prettier resolves config from each file's directory).
-        entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../frontend/app.js' '../frontend/style.css' '../frontend/index.html'"
+        entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../frontend/*.js' '../frontend/src/*.{js,css,html}' '../frontend/src/lib/**/*.js' '../frontend/test/**/*.js'"
         language: system
         pass_filenames: false
         files: ^frontend/.*\.(js|css|html)$
+        exclude: ^frontend/src/vendor/
         stages: [pre-commit]
 
   # ShellCheck for shell scripts (auto-installs in its own env).
