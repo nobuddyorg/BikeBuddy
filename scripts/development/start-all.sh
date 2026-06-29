@@ -22,7 +22,7 @@ for cmd in node npm func swa docker; do
 done
 docker info >/dev/null 2>&1 || die "Docker daemon not running. Start Docker Desktop."
 [[ -f "$FUNCTIONS_DIR/local.settings.json" ]] || die "functions/local.settings.json missing. Run './buddy.sh development setup'."
-[[ -f "$REPO_ROOT/frontend/config.js" ]] || die "frontend/config.js missing. Run './buddy.sh development setup'."
+[[ -f "$REPO_ROOT/frontend/src/config.js" ]] || die "frontend/src/config.js missing. Run './buddy.sh development setup'."
 
 PIDS=()
 cleanup() {
@@ -48,7 +48,7 @@ echo "==> Waiting for API on http://localhost:7071..."
 until curl -s http://localhost:7071/api/me -o /dev/null 2>/dev/null; do sleep 2; done
 
 echo "==> Starting frontend on http://localhost:4280 (SWA CLI proxies /api to :7071)..."
-swa start "$REPO_ROOT/frontend" --api-devserver-url http://localhost:7071 &
+swa start "$REPO_ROOT/frontend/src" --api-devserver-url http://localhost:7071 &
 PIDS+=($!)
 until curl -s http://localhost:4280 -o /dev/null 2>/dev/null; do sleep 2; done
 

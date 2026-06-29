@@ -1,0 +1,15 @@
+{
+  "name": "bikebuddy-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BikeBuddy frontend (static, no bundler) — dev tooling for unit tests only",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:ci": "vitest run --reporter=default --reporter=junit --outputFile=reports/unit-results.xml",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
+  }
+}

@@ -29,7 +29,7 @@ steps=(
   "Install npm dependencies (functions/)?|cd \"$REPO_ROOT/functions\" && npm ci"
   "Install pre-commit hooks?|cd \"$REPO_ROOT\" && prek install"
   "Write functions/local.settings.json with local-dev defaults?|cp \"$REPO_ROOT/functions/local.settings.json.example\" \"$REPO_ROOT/functions/local.settings.json\" && echo 'wrote local.settings.json'"
-  "Write frontend/config.js with local-dev defaults?|cp \"$REPO_ROOT/frontend/config.js.example\" \"$REPO_ROOT/frontend/config.js\" && echo 'wrote config.js'"
+  "Write frontend/src/config.js with local-dev defaults?|cp \"$REPO_ROOT/frontend/src/config.js.example\" \"$REPO_ROOT/frontend/src/config.js\" && echo 'wrote config.js'"
   "Pull the Cosmos DB emulator image (Docker must be running)?|docker pull mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview"
 )
 
@@ -48,6 +48,6 @@ done
 echo
 echo "Setup finished. Fill in your values in:"
 echo "  functions/local.settings.json  (COSMOS_CONNECTION_STRING, ENTRA_*, or leave ENTRA blank and keep SKIP_AUTH=true for local dev)"
-echo "  frontend/config.js             (entraSubdomain, entraClientId, only needed for real auth)"
+echo "  frontend/src/config.js             (entraSubdomain, entraClientId, only needed for real auth)"
 echo
 echo "Then run: ./buddy.sh development start-all"

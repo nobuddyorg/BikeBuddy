@@ -62,7 +62,7 @@ This is the default from the config templates. Never enable it in a deployed env
 
 To run against a **real** tenant locally, fill `ENTRA_*` in
 `functions/local.settings.json` and `entraSubdomain`/`entraClientId` in
-`frontend/config.js`. See [Configuration](../reference/configuration.md).
+`frontend/src/config.js`. See [Configuration](../reference/configuration.md).
 
 ## Deploy
 

@@ -15,7 +15,7 @@
 Set by the deploy via `infrastructure/` Tofu variables; `SKIP_AUTH` is `false`
 automatically once `entra_client_id` is set.
 
-## Frontend — `frontend/config.js` (generated)
+## Frontend — `frontend/src/config.js` (generated)
 
 | Field            | Purpose                                          |
 | ---------------- | ------------------------------------------------ |
