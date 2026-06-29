@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { buddyTest, expect } from '../pages/buddy-test';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -18,33 +18,22 @@ const GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-test('tour lifecycle: upload → list → detail → image → delete', async ({ page }) => {
+buddyTest('tour lifecycle: upload → list → detail → image → delete', async ({ on, page }) => {
   await page.goto('/');
-  await expect(page.locator('#user-menu')).toBeVisible(); // real /api/me login
+  await expect(on(page).main.locators.userMenu).toBeVisible(); // real /api/me login
 
   const tourName = `CI E2E ${Date.now()}`;
 
-  // Upload a GPX through the modal → real POST /api/tours/upload.
-  await page.locator('#btn-upload').click();
-  await page.locator('#upload-name').fill(tourName);
-  await page.locator('#upload-file').setInputFiles({
-    name: 'ride.gpx',
-    mimeType: 'application/gpx+xml',
-    buffer: Buffer.from(GPX),
-  });
-  await expect(page.locator('#btn-submit-upload')).toBeEnabled();
-  await page.locator('#btn-submit-upload').click();
-
-  // Appears in the list and opens in the detail panel.
-  await expect(page.locator('#tour-list')).toContainText(tourName);
-  await expect(page.locator('#detail-name')).toHaveText(tourName);
+  // Upload a GPX through the modal → real POST /api/tours/upload (asserts it
+  // lands in the list), then it opens in the detail panel.
+  await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
 
   // Upload an image → real POST .../images → thumbnail appears.
-  await page.locator('#image-file').setInputFiles(SAMPLE_JPG);
-  await expect(page.locator('#tour-image-grid .image-thumb')).toHaveCount(1);
+  await on(page).main.do.addImage(SAMPLE_JPG);
+  await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
 
   // Delete the tour (confirm dialog) → disappears from the list.
-  page.on('dialog', (d) => d.accept());
-  await page.locator('#btn-delete-tour').click();
-  await expect(page.locator('#tour-list')).not.toContainText(tourName);
+  await on(page).main.do.deleteTour();
+  await expect(on(page).main.locators.list.container).not.toContainText(tourName);
 });
