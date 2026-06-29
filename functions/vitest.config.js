@@ -5,6 +5,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'forks',
+    // Unit tests live next to the modules; integration tests (test/integration)
+    // need a running func host and run via vitest.integration.config.js.
+    include: ['src/**/*.test.js'],
     coverage: {
       provider: 'v8',
       // cobertura → CodeCoverageSummary (PR comment); lcov → Codecov; text → CI log

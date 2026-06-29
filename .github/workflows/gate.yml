@@ -279,3 +279,55 @@ jobs:
           comment_mode: always
           test_changes_limit: 0
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  integration:
+    needs: unit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    env:
+      COSMOS_CONNECTION_STRING: "AccountEndpoint=http://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw=="
+      COSMOS_DATABASE: bikebuddy
+      BLOB_CONNECTION_STRING: "UseDevelopmentStorage=true"
+      SKIP_AUTH: "true"
+      FUNCTIONS_WORKER_RUNTIME: node
+      AzureWebJobsStorage: "UseDevelopmentStorage=true"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - run: npm install -g azure-functions-core-tools@4
+
+      - run: ./buddy.sh development start-cosmos
+      - run: ./buddy.sh development start-azurite
+
+      - run: npm ci
+        working-directory: functions
+
+      - run: node scripts/init-cosmos.js
+        working-directory: functions
+
+      # The integration suite's globalSetup starts the func host and stops it after.
+      - run: npm run test:integration:ci
+        working-directory: functions
+
+      - name: Publish test results
+        if: ${{ github.event_name == 'pull_request' && !cancelled() && !env.ACT }}
+        uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.20.0
+        with:
+          check_name: "Integration Tests"
+          files: functions/reports/integration-results.xml
+          compare_to_earlier_commit: false
+          comment_mode: always
+          test_changes_limit: 0
+          github_token: ${{ secrets.GITHUB_TOKEN }}

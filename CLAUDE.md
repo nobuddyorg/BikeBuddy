@@ -27,10 +27,12 @@ BikeBuddy is an Azure-hosted web app for bike tour management — usable for any
 │   ├── host.json
 │   ├── package.json
 │   ├── local.settings.json.example   # committed; actual file is gitignored
-│   └── src/
-│       ├── lib/                       # shared helpers: db, blobStorage, parseGpx, validation, …
-│       ├── middleware/authMiddleware.js
-│       └── <FunctionName>/index.js    # one folder per function (GetTours, UploadTour, …)
+│   ├── src/
+│   │   ├── lib/                       # shared helpers: db, blobStorage, parseGpx, validation, …
+│   │   ├── middleware/authMiddleware.js
+│   │   ├── <FunctionName>/index.js    # one folder per function (GetTours, UploadTour, …)
+│   │   └── <module>.test.js           # Vitest unit tests next to each module
+│   └── test/integration/             # HTTP integration tests against a real func host
 ├── infrastructure/    # OpenTofu (azurerm): Cosmos, Storage, Flex Functions
 ├── e2e/               # Playwright tests: tests/ (static UI) + tests-fullstack/ (real backend)
 ├── buddy.sh           # single entry point: ./buddy.sh <group> <command>
@@ -48,7 +50,8 @@ BikeBuddy is an Azure-hosted web app for bike tour management — usable for any
 cd functions
 npm ci
 npm run dev        # starts Azurite emulator + func start (via concurrently)
-npm test           # Vitest unit tests
+npm test           # Vitest unit tests (src/**/*.test.js)
+npm run test:integration  # HTTP tests vs a real func host (needs Cosmos + Azurite up)
 npm run lint       # ESLint
 npm run format     # Prettier
 
@@ -152,6 +155,7 @@ Start with epics in order: #2 → #9 → #13 → #21 → #31 → #26.
 - Unit tests with Vitest for: GPX parsing logic, auth middleware, input validation.
 - No mocking of Cosmos DB or Blob Storage in unit tests — use Azurite for local integration.
 - Test file: `<module>.test.js` next to the module.
+- **Integration tests** live in `functions/test/integration/` and hit a real `func start` host over HTTP (status codes + payloads). Their vitest globalSetup starts the host and stops it after; Cosmos + Azurite must be up (`./buddy.sh development start-cosmos` + `start-azurite`). Run with `npm run test:integration`.
 - **Frontend:** pure logic lives in `frontend/src/lib/*.js` (ES modules) so it's importable; Vitest tests live in `frontend/test/`. Keep DOM/auth/map glue in `app.js`; extract anything testable into `lib/`.
 
 ---
@@ -167,6 +171,7 @@ One workflow — `gate.yml` — gates every PR with a fail-fast chain of jobs (e
 | `frontend`      | Frontend Vitest unit tests (`frontend/test/` over `src/lib/`). Needs `unit`.                                                                                                          |
 | `e2e`           | Playwright static UI tests (`e2e/tests/`, serves `frontend/src`, no backend). Needs `unit`.                                                                                           |
 | `e2e-fullstack` | Playwright against the real backend (Functions + Cosmos emulator + Azurite). Needs `unit`.                                                                                            |
+| `integration`   | Functions HTTP integration tests; starts a real func host (+ Cosmos + Azurite) and hits the endpoints. Needs `unit`.                                                                  |
 | `mutation`      | Stryker mutation tests (`npm run mutate`); fails below the 85% break threshold. Needs `unit`.                                                                                         |
 
 Because `prek` runs the OpenGrep and OpenTofu hooks (the CI job installs the tofu CLI), there's no separate security or infra-check workflow. Run all hooks locally with `prek run --all-files`.

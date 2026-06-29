@@ -41,7 +41,7 @@ repos:
         entry: bash -c 'cd functions && npm run lint'
         language: system
         pass_filenames: false
-        files: ^functions/src/
+        files: ^functions/(src|test)/
         stages: [pre-commit]
 
   # Prettier check (functions/) — auto-fix with: npm run format
@@ -49,10 +49,10 @@ repos:
     hooks:
       - id: prettier
         name: Prettier
-        entry: bash -c "cd functions && npx prettier --check 'src/**/*.js'"
+        entry: bash -c "cd functions && npx prettier --check 'src/**/*.js' 'test/**/*.js'"
         language: system
         pass_filenames: false
-        files: ^functions/src/
+        files: ^functions/(src|test)/
         stages: [pre-commit]
 
   # Prettier check (e2e/ TypeScript) — reuses functions' prettier; fix with: cd e2e && npm run format
