@@ -28,7 +28,7 @@ BikeBuddy is an Azure-hosted web app for bike tour management — usable for any
 │       ├── lib/                       # shared helpers: db, blobStorage, parseGpx, validation, …
 │       ├── middleware/authMiddleware.js
 │       └── <FunctionName>/index.js    # one folder per function (GetTours, UploadTour, …)
-├── infrastructure/    # OpenTofu (azurerm): Cosmos, Storage, Flex Functions + README
+├── infrastructure/    # OpenTofu (azurerm): Cosmos, Storage, Flex Functions
 ├── e2e/               # Playwright end-to-end tests
 ├── buddy.sh           # single entry point: ./buddy.sh <group> <command>
 ├── scripts/           # helper scripts, grouped: development/ infrastructure/ maintenance/

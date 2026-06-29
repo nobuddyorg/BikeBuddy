@@ -69,6 +69,6 @@ To run against a **real** tenant locally, fill `ENTRA_*` in
 Push to `main` → `.github/workflows/deploy.yml` runs three jobs: OpenTofu apply,
 Functions publish (Flex, remote build), and GitHub Pages. To run the same steps
 by hand: `./buddy.sh infrastructure provision`, `./buddy.sh infrastructure publish-functions`,
-`./buddy.sh infrastructure generate-config` (see [`infrastructure/README.md`](../../infrastructure/README.md)).
+`./buddy.sh infrastructure generate-config` (see [Infrastructure](infrastructure.md)).
 
 `destroy.yml` (manual) tears the infrastructure down.

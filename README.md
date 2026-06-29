@@ -39,7 +39,7 @@ Full docs live in [`docs/`](docs/README.md), organised by [Diátaxis](https://di
 - **Reference** — [Architecture](docs/reference/architecture.md) · [Configuration](docs/reference/configuration.md)
 - **Explanation** — [Design decisions](docs/explanation/design-decisions.md) · [Cost report](docs/cost-report.md)
 
-Infrastructure details: [`infrastructure/README.md`](infrastructure/README.md). Contributor conventions: [`CLAUDE.md`](CLAUDE.md).
+Infrastructure details: [Infrastructure how-to](docs/how-to/infrastructure.md). Contributor conventions: [`CLAUDE.md`](CLAUDE.md).
 
 ## Technology map
 
