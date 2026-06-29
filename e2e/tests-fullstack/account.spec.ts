@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, listUsers } from './usersDb';
 
 // GDPR account export + deletion against the real backend (#117).
@@ -12,44 +12,30 @@ const GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-async function uploadTour(page: Page) {
-  await page.locator('#btn-upload').click();
-  await page.locator('#upload-name').fill('Account Tour');
-  await page.locator('#upload-file').setInputFiles({
-    name: 'ride.gpx',
-    mimeType: 'application/gpx+xml',
-    buffer: Buffer.from(GPX),
-  });
-  await expect(page.locator('#btn-submit-upload')).toBeEnabled();
-  await page.locator('#btn-submit-upload').click();
-  await expect(page.locator('#tour-list')).toContainText('Account Tour');
-}
-
-test.describe('account data (GDPR)', () => {
-  test.beforeEach(async () => {
+buddyTest.describe('account data (GDPR)', () => {
+  buddyTest.beforeEach(async () => {
     await clearUsers();
     await clearTours();
   });
 
-  test('export downloads JSON; delete removes all user data', async ({ page }) => {
+  buddyTest('export downloads JSON; delete removes all user data', async ({ on, page }) => {
     await page.goto('/');
-    await expect(page.locator('#user-menu')).toBeVisible();
-    await uploadTour(page);
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    await on(page).main.do.uploadGpx({ name: 'Account Tour', gpx: GPX });
 
-    await page.locator('#btn-profile').click();
-    await expect(page.locator('#profile-modal')).toBeVisible();
+    await on(page).main.do.openProfile();
+    await expect(on(page).modal.profile()).toBeVisible();
 
     // Export → a JSON file download.
     const downloadPromise = page.waitForEvent('download');
-    await page.locator('#btn-export-data').click();
+    await on(page).modal.profile.do.exportData();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('bikebuddy-export.json');
 
-    // Delete account (auto-accept the confirm) → signed out, DB emptied.
-    page.on('dialog', (d) => d.accept());
-    await page.locator('#btn-delete-account').click();
-    await expect(page.locator('#btn-login')).toBeVisible();
-    await expect(page.locator('#user-menu')).toBeHidden();
+    // Delete account (auto-accepts the confirm) → signed out, DB emptied.
+    await on(page).modal.profile.do.deleteAccount();
+    await expect(on(page).main.locators.buttons.login).toBeVisible();
+    await expect(on(page).main.locators.userMenu).toBeHidden();
 
     expect(await listUsers()).toHaveLength(0);
   });

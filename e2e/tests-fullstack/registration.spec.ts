@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, listUsers } from './usersDb';
 
 // Registration = first authenticated visit provisioning a user record (GET
@@ -9,16 +9,16 @@ import { clearUsers, listUsers } from './usersDb';
 // proxy. devMode + SKIP_AUTH supply a deterministic local identity, so the test
 // covers the app's own user provisioning rather than the Entra OTP UI.
 
-test.describe('user registration', () => {
-  test.beforeEach(async () => {
+buddyTest.describe('user registration', () => {
+  buddyTest.beforeEach(async () => {
     await clearUsers();
   });
 
-  test('first login provisions exactly one user record', async ({ page }) => {
+  buddyTest('first login provisions exactly one user record', async ({ on, page }) => {
     expect(await listUsers()).toHaveLength(0);
 
     await page.goto('/');
-    await expect(page.locator('#user-menu')).toBeVisible(); // /api/me succeeded
+    await expect(on(page).main.locators.userMenu).toBeVisible(); // /api/me succeeded
 
     const users = await listUsers();
     expect(users).toHaveLength(1);
@@ -26,14 +26,14 @@ test.describe('user registration', () => {
     expect(users[0].createdAt).toBeTruthy();
   });
 
-  test('revisiting does not create a duplicate user', async ({ page }) => {
+  buddyTest('revisiting does not create a duplicate user', async ({ on, page }) => {
     await page.goto('/');
-    await expect(page.locator('#user-menu')).toBeVisible();
+    await expect(on(page).main.locators.userMenu).toBeVisible();
     const [first] = await listUsers();
     expect(first).toBeTruthy();
 
     await page.goto('/'); // second login for the same identity
-    await expect(page.locator('#user-menu')).toBeVisible();
+    await expect(on(page).main.locators.userMenu).toBeVisible();
 
     const users = await listUsers();
     expect(users).toHaveLength(1);

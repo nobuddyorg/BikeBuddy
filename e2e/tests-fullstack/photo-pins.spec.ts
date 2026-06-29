@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
 // Photo pins (#100): markers for geotagged images, default hidden, toggled on.
@@ -9,8 +9,8 @@ const TID = '22222222-2222-4222-8222-222222222222';
 const IID = '33333333-3333-4333-8333-333333333333';
 const IID2 = '44444444-4444-4444-8444-444444444444';
 
-test.describe('photo pins', () => {
-  test.beforeEach(async () => {
+buddyTest.describe('photo pins', () => {
+  buddyTest.beforeEach(async () => {
     await clearUsers();
     await clearTours();
     await toursContainer().items.create({
@@ -32,22 +32,25 @@ test.describe('photo pins', () => {
     });
   });
 
-  test('toggle off by default; reveals both co-located pins fanned out', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('#user-menu')).toBeVisible();
-    await expect(page.locator('#tour-list')).toContainText('Geotagged Tour');
+  buddyTest(
+    'toggle off by default; reveals both co-located pins fanned out',
+    async ({ on, page }) => {
+      await page.goto('/');
+      await expect(on(page).main.locators.userMenu).toBeVisible();
+      await expect(on(page).main.locators.list.container).toContainText('Geotagged Tour');
 
-    // Toggle visible (geotagged images exist) but off → no pins.
-    await expect(page.locator('#pin-toggle')).toBeVisible();
-    await expect(page.locator('#pin-toggle-input')).not.toBeChecked();
-    await expect(page.locator('.photo-pin')).toHaveCount(0);
+      // Toggle visible (geotagged images exist) but off → no pins.
+      await expect(on(page).main.locators.pins.toggle).toBeVisible();
+      await expect(on(page).main.locators.pins.toggleInput).not.toBeChecked();
+      await expect(on(page).main.locators.pins.markers).toHaveCount(0);
 
-    // Turn on → both co-located pins appear (fanned, each clickable).
-    await page.locator('#pin-toggle-input').check();
-    await expect(page.locator('.photo-pin')).toHaveCount(2);
+      // Turn on → both co-located pins appear (fanned, each clickable).
+      await on(page).main.do.showPins(true);
+      await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-    // Turn off → pins removed.
-    await page.locator('#pin-toggle-input').uncheck();
-    await expect(page.locator('.photo-pin')).toHaveCount(0);
-  });
+      // Turn off → pins removed.
+      await on(page).main.do.showPins(false);
+      await expect(on(page).main.locators.pins.markers).toHaveCount(0);
+    },
+  );
 });

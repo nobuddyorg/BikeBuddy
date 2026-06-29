@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours } from './usersDb';
 
 // Sorting + fuzzy search over the tour list (#102), against the real backend.
@@ -20,56 +20,60 @@ const TOURS = [
   { name: 'Coastal Run', lon2: '12.0000' },
 ];
 
-async function uploadTour(page: Page, name: string, body: string) {
-  await page.locator('#btn-upload').click();
-  await page.locator('#upload-name').fill(name);
-  await page.locator('#upload-file').setInputFiles({
-    name: `${name}.gpx`,
-    mimeType: 'application/gpx+xml',
-    buffer: Buffer.from(body),
-  });
-  await expect(page.locator('#btn-submit-upload')).toBeEnabled();
-  await page.locator('#btn-submit-upload').click();
-  await expect(page.locator('#tour-list')).toContainText(name);
-}
-
-const listNames = (page: Page) => page.locator('#tour-list .tour-item-name').allTextContents();
-
-test.describe('tour list: sort + fuzzy search', () => {
-  test.beforeEach(async () => {
+buddyTest.describe('tour list: sort + fuzzy search', () => {
+  buddyTest.beforeEach(async () => {
     await clearUsers();
     await clearTours();
   });
 
-  test('fuzzy search filters and sort reorders the list', async ({ page }) => {
+  buddyTest('fuzzy search filters and sort reorders the list', async ({ on, page }) => {
     await page.goto('/');
-    await expect(page.locator('#user-menu')).toBeVisible();
-    for (const t of TOURS) await uploadTour(page, t.name, gpx(t.name, t.lon2));
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    for (const t of TOURS)
+      await on(page).main.do.uploadGpx({ name: t.name, gpx: gpx(t.name, t.lon2) });
+
+    const list = on(page).main.locators.list.container;
 
     // Fuzzy search: non-contiguous subsequence still matches.
-    await page.locator('#tour-search').fill('alp');
-    await expect(page.locator('#tour-list')).toContainText('Alpine Loop');
-    await expect(page.locator('#tour-list')).not.toContainText('Black Forest');
-    await expect(page.locator('#tour-list')).not.toContainText('Coastal Run');
+    await on(page).main.do.search('alp');
+    await expect(list).toContainText('Alpine Loop');
+    await expect(list).not.toContainText('Black Forest');
+    await expect(list).not.toContainText('Coastal Run');
 
-    await page.locator('#tour-search').fill('cstrn'); // c-o-a-s-t-a-l ... subsequence of "Coastal Run"
-    await expect(await listNames(page)).toEqual(['Coastal Run']);
+    await on(page).main.do.search('cstrn'); // subsequence of "Coastal Run"
+    expect(await on(page).main.do.tourNames()).toEqual(['Coastal Run']);
 
-    await page.locator('#tour-search').fill('zzz'); // no match
-    await expect(page.locator('#tour-list')).toContainText('No tours match');
+    await on(page).main.do.search('zzz'); // no match
+    await expect(list).toContainText('No tours match');
 
-    await page.locator('#tour-search').fill('');
+    await on(page).main.do.search('');
 
     // Sort by name.
-    await page.locator('#tour-sort').selectOption('name-asc');
-    expect(await listNames(page)).toEqual(['Alpine Loop', 'Black Forest', 'Coastal Run']);
-    await page.locator('#tour-sort').selectOption('name-desc');
-    expect(await listNames(page)).toEqual(['Coastal Run', 'Black Forest', 'Alpine Loop']);
+    await on(page).main.do.sortBy('name-asc');
+    expect(await on(page).main.do.tourNames()).toEqual([
+      'Alpine Loop',
+      'Black Forest',
+      'Coastal Run',
+    ]);
+    await on(page).main.do.sortBy('name-desc');
+    expect(await on(page).main.do.tourNames()).toEqual([
+      'Coastal Run',
+      'Black Forest',
+      'Alpine Loop',
+    ]);
 
     // Sort by length.
-    await page.locator('#tour-sort').selectOption('length-desc');
-    expect(await listNames(page)).toEqual(['Coastal Run', 'Black Forest', 'Alpine Loop']);
-    await page.locator('#tour-sort').selectOption('length-asc');
-    expect(await listNames(page)).toEqual(['Alpine Loop', 'Black Forest', 'Coastal Run']);
+    await on(page).main.do.sortBy('length-desc');
+    expect(await on(page).main.do.tourNames()).toEqual([
+      'Coastal Run',
+      'Black Forest',
+      'Alpine Loop',
+    ]);
+    await on(page).main.do.sortBy('length-asc');
+    expect(await on(page).main.do.tourNames()).toEqual([
+      'Alpine Loop',
+      'Black Forest',
+      'Coastal Run',
+    ]);
   });
 });
