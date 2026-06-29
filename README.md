@@ -20,8 +20,6 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 [![Last commit](https://img.shields.io/github/last-commit/nobuddyorg/BikeBuddy)](https://github.com/nobuddyorg/BikeBuddy/commits/main)
 [![License: MIT](https://img.shields.io/github/license/nobuddyorg/BikeBuddy)](LICENSE)
 
-**Stack:** GitHub Pages · Azure Functions (Node 22, Flex Consumption) · Cosmos DB Serverless · Blob Storage · Microsoft Entra External ID · Leaflet · OpenTofu.
-
 ## Quickstart
 
 All helper scripts run through a single entry point, `./buddy.sh <group> <command>`
@@ -43,6 +41,38 @@ Full docs live in [`docs/`](docs/README.md), organised by [Diátaxis](https://di
 
 Infrastructure details: [`infrastructure/README.md`](infrastructure/README.md). Contributor conventions: [`CLAUDE.md`](CLAUDE.md).
 
-## License
+## Technology map
 
-See [LICENSE](LICENSE).
+<p align="center">
+  <img src="https://api.iconify.design/logos:nodejs-icon.svg" height="56" alt="Node.js" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:javascript.svg" height="56" alt="JavaScript" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:microsoft-azure.svg" height="56" alt="Azure" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/devicon:cosmosdb.svg" height="56" alt="Cosmos DB" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/fluent-mdl2:blob-storage.svg?color=%230078D4" height="50" alt="Blob Storage" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:leaflet.svg" height="44" alt="Leaflet" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/simple-icons:opentofu.svg?color=%23844FBA" height="52" alt="OpenTofu" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:docker-icon.svg" height="48" alt="Docker" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:github-icon.svg" height="54" alt="GitHub Pages" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:github-actions.svg" height="54" alt="GitHub Actions" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:vitest.svg" height="54" alt="Vitest" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:playwright.svg" height="54" alt="Playwright" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/simple-icons:stryker.svg?color=%23E74C3C" height="52" alt="Stryker" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:eslint.svg" height="54" alt="ESLint" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:prettier.svg" height="48" alt="Prettier" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/simple-icons:precommit.svg?color=%23FAB040" height="50" alt="pre-commit" />
+</p>
