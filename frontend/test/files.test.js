@@ -39,12 +39,12 @@ describe('validateGpxUpload', () => {
     expect(validateGpxUpload(file('ride.gpx', '', 1000))).toBeNull();
   });
 
-  it('rejects the wrong extension', () => {
-    expect(validateGpxUpload(file('ride.txt'))).toMatch(/\.gpx/);
+  it('returns the i18n key for the wrong extension', () => {
+    expect(validateGpxUpload(file('ride.txt'))).toBe('errors.gpxType');
   });
 
-  it('rejects files over the size limit', () => {
-    expect(validateGpxUpload(file('ride.gpx', '', MAX_UPLOAD_BYTES + 1))).toMatch(/10 MB/);
+  it('returns the i18n key for files over the size limit', () => {
+    expect(validateGpxUpload(file('ride.gpx', '', MAX_UPLOAD_BYTES + 1))).toBe('errors.gpxSize');
   });
 });
 
@@ -53,8 +53,10 @@ describe('validateImageUpload', () => {
     expect(validateImageUpload(file('p.jpg', 'image/jpeg', 1000))).toBeNull();
   });
 
-  it('rejects non-images and oversized images', () => {
-    expect(validateImageUpload(file('p.gif', 'image/gif'))).toMatch(/JPEG or PNG/);
-    expect(validateImageUpload(file('p.png', 'image/png', 11 * 1024 * 1024))).toMatch(/10 MB/);
+  it('returns i18n keys for non-images and oversized images', () => {
+    expect(validateImageUpload(file('p.gif', 'image/gif'))).toBe('errors.imageType');
+    expect(validateImageUpload(file('p.png', 'image/png', 11 * 1024 * 1024))).toBe(
+      'errors.imageSize',
+    );
   });
 });

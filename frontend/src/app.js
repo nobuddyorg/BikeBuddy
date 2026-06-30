@@ -3,6 +3,9 @@
 import { formatDate, formatDistance, initials } from './lib/format.js';
 import { visibleTours } from './lib/tours.js';
 import { validateGpxUpload, validateImageUpload } from './lib/files.js';
+import * as i18n from './lib/i18n.js';
+
+const t = i18n.t;
 
 // Globals provided by classic <script>s loaded before this module: config.js
 // (BIKEBUDDY_CONFIG), the vendored MSAL bundle, and Leaflet + its heat plugin.
@@ -307,7 +310,7 @@ function renderNavAuth() {
   if (signedIn) {
     elBtnProfile.textContent = initials(state.user.name || state.user.email);
     elBtnProfile.classList.add('btn-avatar');
-    elBtnProfile.title = state.user.name || state.user.email || 'Account';
+    elBtnProfile.title = state.user.name || state.user.email || t('common.account');
   }
 }
 
@@ -363,7 +366,7 @@ async function loadTours() {
     state.tours = await res.json();
   } catch {
     state.tours = [];
-    toast('Couldn’t load your tours. Check your connection and try again.', 'error');
+    toast(t('toast.toursLoadError'), 'error');
   } finally {
     state.loadingTours = false;
   }
@@ -403,7 +406,10 @@ function createTourItem(tour) {
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
   li.append(
     textDiv('tour-item-name', tour.name),
-    textDiv('tour-item-meta', `${formatDate(tour.createdAt)} · ${formatDistance(tour.distance)}`),
+    textDiv(
+      'tour-item-meta',
+      `${formatDate(tour.createdAt, i18n.dateLocale())} · ${formatDistance(tour.distance)}`,
+    ),
   );
   li.addEventListener('click', () => selectTour(tour.id));
   return li;
@@ -412,7 +418,7 @@ function createTourItem(tour) {
 function createShowAllButton() {
   const btn = document.createElement('button');
   btn.className = 'show-all-btn';
-  btn.textContent = 'Show All Tours';
+  btn.textContent = t('tours.showAll');
   btn.addEventListener('click', () => {
     deselectTour();
     renderAllHeatmap();
@@ -437,7 +443,7 @@ function renderSidebar() {
 
   const visible = visibleTours(state.tours, state.sort, state.search);
   if (visible.length === 0) {
-    elTourList.appendChild(textDiv('tour-empty', 'No tours match your search.'));
+    elTourList.appendChild(textDiv('tour-empty', t('tours.noMatch')));
     return;
   }
   visible.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
@@ -611,7 +617,7 @@ async function submitEdit(e) {
       }),
     });
     if (!res.ok) {
-      elEditError.textContent = parseErrorMessage(await res.text(), 'Could not save changes.');
+      elEditError.textContent = parseErrorMessage(await res.text(), t('errors.saveChanges'));
       show(elEditError, true);
       return;
     }
@@ -621,7 +627,7 @@ async function submitEdit(e) {
     renderSidebar();
     renderDetailPanel(tour);
   } catch {
-    elEditError.textContent = 'Network error.';
+    elEditError.textContent = t('errors.network');
     show(elEditError, true);
   }
 }
@@ -629,7 +635,7 @@ async function submitEdit(e) {
 async function deleteSelectedTour() {
   const id = state.selectedTourId;
   if (!id) return;
-  if (!confirm('Delete this tour? This cannot be undone.')) return;
+  if (!confirm(t('confirm.deleteTour'))) return;
   try {
     const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('delete failed');
@@ -637,15 +643,15 @@ async function deleteSelectedTour() {
     deselectTour();
     renderSidebar();
     await renderAllHeatmap();
-    toast('Tour deleted.', 'success');
+    toast(t('toast.tourDeleted'), 'success');
   } catch {
-    toast('Could not delete the tour.', 'error');
+    toast(t('toast.tourDeleteError'), 'error');
   }
 }
 
 function renderDetailPanel(tour) {
   elDetailName.textContent = tour.name;
-  elDetailDate.textContent = formatDate(tour.createdAt);
+  elDetailDate.textContent = formatDate(tour.createdAt, i18n.dateLocale());
   elDetailDist.textContent = formatDistance(tour.distance);
   elDetailDesc.textContent = tour.description || '';
   resetImageSection();
@@ -678,7 +684,7 @@ function createImageTile(image) {
   const del = document.createElement('button');
   del.type = 'button';
   del.className = 'image-delete';
-  del.setAttribute('aria-label', 'Delete photo');
+  del.setAttribute('aria-label', t('detail.deletePhotoAria'));
   del.textContent = '✕';
   del.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -705,7 +711,7 @@ function closeLightbox() {
 }
 
 async function deleteImage(imageId, tileEl) {
-  if (!confirm('Delete this photo?')) return;
+  if (!confirm(t('confirm.deletePhoto'))) return;
   const tourId = state.selectedTourId;
   try {
     const res = await apiFetch(`/api/tours/${tourId}/images/${imageId}`, { method: 'DELETE' });
@@ -714,7 +720,7 @@ async function deleteImage(imageId, tileEl) {
     const tour = state.tours.find((t) => t.id === tourId);
     if (tour?.images) tour.images = tour.images.filter((i) => i.id !== imageId);
   } catch {
-    showImageError('Could not delete the photo.');
+    showImageError(t('toast.photoDeleteError'));
   }
 }
 
@@ -729,7 +735,7 @@ async function uploadImage(file) {
   if (!file || !tourId) return;
   const imageError = validateImageUpload(file);
   if (imageError) {
-    showImageError(imageError);
+    showImageError(t(imageError));
     return;
   }
 
@@ -754,10 +760,12 @@ async function uploadImage(file) {
 // ── Profile modal ─────────────────────────────────────────────────────────────
 
 function renderProfile() {
-  elProfileTitle.textContent = state.user.name || 'Your account';
+  elProfileTitle.textContent = state.user.name || t('profile.yourAccount');
   elProfileAvatar.textContent = initials(state.user.name || state.user.email);
   elProfileEmail.textContent = state.user.email || '—';
-  elProfileSince.textContent = state.user.createdAt ? formatDate(state.user.createdAt) : '—';
+  elProfileSince.textContent = state.user.createdAt
+    ? formatDate(state.user.createdAt, i18n.dateLocale())
+    : '—';
   elProfileNameInput.value = state.user.name || '';
 }
 
@@ -789,19 +797,16 @@ async function saveProfileName(e) {
       body: JSON.stringify({ name }),
     });
     if (!res.ok) {
-      elProfileNameError.textContent = parseErrorMessage(
-        await res.text(),
-        'Could not save your name.',
-      );
+      elProfileNameError.textContent = parseErrorMessage(await res.text(), t('errors.saveName'));
       show(elProfileNameError, true);
       return;
     }
     state.user = { ...state.user, ...(await res.json()) };
     renderProfile();
     renderNavAuth();
-    toast('Name updated.', 'success');
+    toast(t('toast.nameUpdated'), 'success');
   } catch {
-    elProfileNameError.textContent = 'Network error.';
+    elProfileNameError.textContent = t('errors.network');
     show(elProfileNameError, true);
   }
 }
@@ -817,29 +822,23 @@ async function downloadMyData() {
     a.download = 'bikebuddy-export.json';
     a.click();
     URL.revokeObjectURL(url);
-    toast('Your data export has been downloaded.', 'success');
+    toast(t('toast.exportDone'), 'success');
   } catch {
-    toast('Could not export your data.', 'error');
+    toast(t('toast.exportError'), 'error');
   }
 }
 
 // GDPR: permanently delete the account and all data, then sign out.
 async function deleteMyAccount() {
-  if (
-    !confirm(
-      'Permanently delete your account? Your tours and photos are removed immediately; ' +
-        'your sign-in is fully removed shortly after. This cannot be undone.',
-    )
-  )
-    return;
+  if (!confirm(t('confirm.deleteAccount'))) return;
   try {
     const res = await apiFetch('/api/account', { method: 'DELETE' });
     if (!res.ok) throw new Error('delete failed');
     closeProfile();
-    toast('Your data has been deleted. Your login will be fully removed shortly.', 'success');
+    toast(t('toast.accountDeleted'), 'success');
     await signOut();
   } catch {
-    toast('Could not delete your account. Please try again.', 'error');
+    toast(t('toast.accountDeleteError'), 'error');
   }
 }
 
@@ -878,7 +877,7 @@ function selectFile(file) {
   if (!file) return;
   const uploadError = validateGpxUpload(file);
   if (uploadError) {
-    showUploadError(uploadError);
+    showUploadError(t(uploadError));
     return;
   }
   selectedFile = file;
@@ -913,7 +912,7 @@ async function submitUpload(e) {
     closeUpload();
     await loadTours();
     selectTour(tourId); // success → jump to the new tour's heatmap
-    toast('Tour uploaded.', 'success');
+    toast(t('toast.tourUploaded'), 'success');
   } catch (err) {
     showUploadError(err.message);
     show(elUploadProgress, false);
@@ -1037,9 +1036,64 @@ elPinToggleInput.checked = state.showPins;
 elBtnMapExpand.addEventListener('click', () => {
   const expanded = elAppLayout.classList.toggle('map-expanded');
   elBtnMapExpand.setAttribute('aria-pressed', String(expanded));
-  elBtnMapExpand.title = expanded ? 'Restore panels' : 'Expand map';
+  elBtnMapExpand.title = expanded ? t('map.restoreTitle') : t('map.expandTitle');
   refreshMapSize();
 });
+
+// Language switcher: flag + code preview in the navbar, opening a searchable
+// list of flags. Selecting a language persists it and reloads (i18n.setLanguage).
+function setupLanguageSwitcher() {
+  const elBtnLang = $('btn-lang');
+  const elLangMenu = $('lang-menu');
+  const elLangSearch = $('lang-search');
+  const elLangList = $('lang-list');
+  const meta = i18n.getLocaleMeta();
+  elBtnLang.innerHTML = `<span class="lang-flag">${meta.flag}</span><span class="lang-code">${meta.short}</span>`;
+
+  for (const loc of i18n.SUPPORTED_LOCALES) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lang-option';
+    btn.setAttribute('role', 'option');
+    btn.dataset.code = loc.code;
+    btn.dataset.search = `${loc.label} ${loc.code} ${loc.short}`.toLowerCase();
+    btn.setAttribute('aria-selected', String(loc.code === i18n.getLocale()));
+    btn.innerHTML = `<span class="lang-flag">${loc.flag}</span><span>${loc.label}</span><span class="lang-code">${loc.short}</span>`;
+    btn.addEventListener('click', () => i18n.setLanguage(loc.code));
+    li.appendChild(btn);
+    elLangList.appendChild(li);
+  }
+
+  const closeMenu = () => {
+    show(elLangMenu, false);
+    elBtnLang.setAttribute('aria-expanded', 'false');
+  };
+  const openMenu = () => {
+    show(elLangMenu, true);
+    elBtnLang.setAttribute('aria-expanded', 'true');
+    elLangSearch.value = '';
+    elLangList.querySelectorAll('li').forEach((li) => show(li, true));
+    elLangSearch.focus();
+  };
+
+  elBtnLang.addEventListener('click', () => {
+    if (elLangMenu.classList.contains('hidden')) openMenu();
+    else closeMenu();
+  });
+  elLangSearch.addEventListener('input', () => {
+    const q = elLangSearch.value.trim().toLowerCase();
+    elLangList.querySelectorAll('.lang-option').forEach((opt) => {
+      show(opt.parentElement, opt.dataset.search.includes(q));
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (!$('lang-switcher').contains(e.target)) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !elLangMenu.classList.contains('hidden')) closeMenu();
+  });
+}
 
 elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
 wireModalClose(elHelpModal, $('btn-close-help'), () => closeModal(elHelpModal));
@@ -1061,4 +1115,8 @@ document.addEventListener('keydown', (e) => {
   if (open) trapFocus(e, open);
 });
 
-initAuth();
+(async () => {
+  await i18n.init(); // detect locale, load messages, translate the static markup
+  setupLanguageSwitcher();
+  initAuth();
+})();

@@ -109,4 +109,15 @@ buddyTest.describe('BikeBuddy static UI', () => {
       expect(overflows).toBe(false);
     },
   );
+
+  buddyTest('language switcher: search + select German translates the UI', async ({ on, page }) => {
+    // Default is English (CI browser is en-US).
+    await expect(on(page).main.locators.buttons.upload).toHaveText('Upload GPX');
+
+    await on(page).main.do.switchLanguage({ search: 'deu', pick: 'Deutsch' });
+
+    // Selecting persists the choice and reloads; the UI comes back in German.
+    await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
+    await expect(page.getByText('Meine Touren')).toBeVisible();
+  });
 });

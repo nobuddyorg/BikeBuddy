@@ -23,8 +23,9 @@ repos:
     rev: v1.47.2
     hooks:
       - id: typos
-        # Vendored third-party minified bundle — short variable names trip the spell checker.
-        exclude: ^frontend/src/vendor/
+        # Vendored minified bundle (short var names) + i18n locale files (German /
+        # Spanish words) trip the English spell checker.
+        exclude: ^frontend/src/(vendor|locales)/
 
   # zizmor: detects security vulnerabilities in GitHub Actions workflows
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
