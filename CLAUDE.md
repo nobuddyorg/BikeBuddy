@@ -83,6 +83,7 @@ npm run test:fullstack # full stack against a running local stack
 ## Architecture Decisions
 
 - **No framework for frontend.** Plain JS to keep the site static and avoid a build pipeline. Leaflet is loaded from CDN; **MSAL Browser is vendored** in `frontend/src/vendor/` (served locally, not CDN).
+- **i18n is a custom, dependency-free engine** (`frontend/src/lib/i18n.js`) — no library, to keep the site bundler-free. UI strings live in `frontend/src/locales/{en,de,es}.json` (flat dotted keys); `data-i18n*` attributes translate static markup and `t(key)` covers dynamic strings. Active locale = `localStorage` override → `navigator.language` → `en`. A unit test enforces key parity across locales.
 - **Node.js, not Python, for Functions.** Faster cold starts; better Azure SDK support for Cosmos DB and Blob Storage. Backend runs on **Flex Consumption** (scale-to-zero, ~€0 idle, no App Service VM quota).
 - **Cosmos DB partition key:** `users` → `/id`, `tours` → `/userId`. Never query cross-partition unless absolutely necessary.
 - **`heatmapData` is never returned in list endpoints** (`GET /api/tours`). Fetch it only in the detail endpoint to keep list payloads small.

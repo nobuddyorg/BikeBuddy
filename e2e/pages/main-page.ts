@@ -22,6 +22,7 @@ interface MainPage {
     deleteTour(): Promise<void>;
     showPins(visible: boolean): Promise<void>;
     tourNames(): Promise<string[]>;
+    switchLanguage(opts: { search: string; pick: string }): Promise<void>;
   };
   /** Raw locators. */
   locators: {
@@ -59,6 +60,12 @@ interface MainPage {
       toggle: Locator;
       toggleInput: Locator;
       markers: Locator;
+    };
+    lang: {
+      button: Locator;
+      menu: Locator;
+      search: Locator;
+      options: Locator;
     };
   };
 }
@@ -100,6 +107,12 @@ export function initMainPage(page: Page): MainPage {
       toggle: page.locator('#pin-toggle'),
       toggleInput: page.locator('#pin-toggle-input'),
       markers: page.locator('.photo-pin'),
+    },
+    lang: {
+      button: page.locator('#btn-lang'),
+      menu: page.locator('#lang-menu'),
+      search: page.locator('#lang-search'),
+      options: page.locator('.lang-option'),
     },
   };
 
@@ -149,6 +162,11 @@ export function initMainPage(page: Page): MainPage {
       else await locators.pins.toggleInput.uncheck();
     },
     tourNames: async () => locators.list.names.allTextContents(),
+    switchLanguage: async ({ search, pick }: { search: string; pick: string }) => {
+      await locators.lang.button.click();
+      await locators.lang.search.fill(search);
+      await locators.lang.options.filter({ hasText: pick }).click();
+    },
   };
 
   return Object.assign(() => root, { locators, do: interactions });
