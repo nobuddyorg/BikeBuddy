@@ -724,6 +724,70 @@ body {
   padding: 14px 12px;
 }
 
+.image-tile-pending,
+.image-tile-error {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  text-align: center;
+}
+
+.image-tile-error {
+  border: 1px solid var(--color-danger);
+}
+
+.image-progress-ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--color-primary) calc(var(--progress, 0) * 1%),
+    var(--color-border) 0
+  );
+}
+
+.image-tile-filename {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-tile-error-message {
+  font-size: 10px;
+  color: var(--color-danger);
+}
+
+.image-tile-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.image-tile-retry,
+.image-tile-dismiss {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.image-tile-dismiss:hover {
+  background: var(--color-danger);
+}
+
 .lightbox {
   position: fixed;
   inset: 0;

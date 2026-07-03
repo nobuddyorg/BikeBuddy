@@ -42,6 +42,8 @@
   "detail.edit": "Edit",
   "detail.deleteTour": "Delete Tour",
   "detail.deletePhotoAria": "Delete photo",
+  "detail.retryPhotoAria": "Retry upload",
+  "detail.dismissPhotoAria": "Remove",
 
   "help.title": "How to use BikeBuddy",
   "help.q1": "🧭 What is this?",
@@ -92,6 +94,7 @@
   "errors.gpxSize": "File exceeds the 10 MB limit.",
   "errors.imageType": "Only JPEG or PNG images are accepted.",
   "errors.imageSize": "Image exceeds the 10 MB limit.",
+  "errors.tooManyImages": "Select up to 20 photos at a time.",
   "errors.network": "Network error.",
   "errors.saveChanges": "Could not save changes.",
   "errors.saveName": "Could not save your name.",

@@ -4,7 +4,9 @@ import {
   isImageFile,
   validateGpxUpload,
   validateImageUpload,
+  validateImageBatch,
   MAX_UPLOAD_BYTES,
+  MAX_IMAGE_BATCH,
 } from '../src/lib/files.js';
 
 const file = (name, type = '', size = 1000) => ({ name, type, size });
@@ -58,5 +60,17 @@ describe('validateImageUpload', () => {
     expect(validateImageUpload(file('p.png', 'image/png', 11 * 1024 * 1024))).toBe(
       'errors.imageSize',
     );
+  });
+});
+
+describe('validateImageBatch', () => {
+  it('returns null at or under the cap', () => {
+    const files = Array.from({ length: MAX_IMAGE_BATCH }, (_, i) => file(`p${i}.jpg`));
+    expect(validateImageBatch(files)).toBeNull();
+  });
+
+  it('returns the i18n key over the cap', () => {
+    const files = Array.from({ length: MAX_IMAGE_BATCH + 1 }, (_, i) => file(`p${i}.jpg`));
+    expect(validateImageBatch(files)).toBe('errors.tooManyImages');
   });
 });
