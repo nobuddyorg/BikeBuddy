@@ -48,6 +48,11 @@ buddyTest.describe('photo pins', () => {
       await on(page).main.do.showPins(true);
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
+      // Zoom out several steps (#210): the zoomend listener must re-run
+      // grouping/fan-out without losing either marker.
+      await on(page).main.do.zoomOut(6);
+      await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+
       // Turn off → pins removed.
       await on(page).main.do.showPins(false);
       await expect(on(page).main.locators.pins.markers).toHaveCount(0);

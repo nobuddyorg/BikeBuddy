@@ -9,6 +9,7 @@ import {
   validateImageQuota,
 } from './lib/files.js';
 import { runWithConcurrency } from './lib/concurrency.js';
+import { groupByProximity, fanOffsets } from './lib/pinLayout.js';
 import * as i18n from './lib/i18n.js';
 
 const t = i18n.t;
@@ -499,7 +500,10 @@ async function renderAllHeatmap() {
   renderPins();
 }
 
-// ── Photo pins (#100) ─────────────────────────────────────────────────────────
+// ── Photo pins (#100, #210) ─────────────────────────────────────────────────
+
+const PIN_GROUP_THRESHOLD_PX = 24;
+const PIN_FAN_RADIUS_PX = 16;
 
 // Geotagged images across all loaded tours (lat/lon come from the detail fetch).
 function geotaggedImages() {
@@ -524,48 +528,41 @@ function clearPins() {
   }
 }
 
-// Group images that share (almost) the same spot so co-located pins can be
-// fanned out instead of stacking on top of each other (#126). ~4 decimals ≈ 11m.
-function groupByLocation(images) {
-  const groups = new Map();
-  for (const img of images) {
-    const key = `${img.lat.toFixed(4)},${img.lon.toFixed(4)}`;
-    (groups.get(key) || groups.set(key, []).get(key)).push(img);
-  }
-  return [...groups.values()];
-}
-
-// Small circular offsets (in degrees) so each pin in a co-located group is
-// individually visible and clickable. A single pin stays exactly on its spot.
-function fanOffsets(n) {
-  if (n <= 1) return [[0, 0]];
-  const r = 0.0002;
-  return Array.from({ length: n }, (_, i) => {
-    const angle = (2 * Math.PI * i) / n;
-    return [r * Math.cos(angle), r * Math.sin(angle)];
-  });
-}
-
-function makePinMarker(img, dLat, dLon) {
-  const marker = L.marker([img.lat + dLat, img.lon + dLon], { icon: photoPinIcon(img.url) });
+function makePinMarker(img, latlng) {
+  const marker = L.marker(latlng, { icon: photoPinIcon(img.url) });
   marker.on('click', () => openLightbox(img.url));
   return marker;
 }
 
 // The toggle is hidden unless some photo has coordinates; the layer is only
-// added when the toggle is on (default off, per #100).
+// added when the toggle is on (default off, per #100). Grouping/fanning
+// happens in screen-pixel space at the current zoom (#210), so pins that
+// visually overlap fan out, and separate/re-collapse live as the user zooms
+// (re-triggered by the zoomend listener below).
 function renderPins() {
   clearPins();
   const images = geotaggedImages();
   show(elPinToggle, images.length > 0);
   if (!state.showPins || images.length === 0) return;
 
-  const markers = groupByLocation(images).flatMap((group) => {
-    const offsets = fanOffsets(group.length);
-    return group.map((img, i) => makePinMarker(img, offsets[i][0], offsets[i][1]));
+  const zoom = map.getZoom();
+  const points = images.map((img) => {
+    const { x, y } = map.project([img.lat, img.lon], zoom);
+    return { x, y, img };
+  });
+
+  const markers = groupByProximity(points, PIN_GROUP_THRESHOLD_PX).flatMap((group) => {
+    const offsets = fanOffsets(group.length, PIN_FAN_RADIUS_PX);
+    return group.map((point, i) => {
+      const [dx, dy] = offsets[i];
+      const latlng = map.unproject([point.x + dx, point.y + dy], zoom);
+      return makePinMarker(point.img, latlng);
+    });
   });
   state.pinLayer = L.layerGroup(markers).addTo(map);
 }
+
+map.on('zoomend', renderPins);
 
 // ── Tour selection ────────────────────────────────────────────────────────────
 

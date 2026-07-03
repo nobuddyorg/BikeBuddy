@@ -24,6 +24,7 @@ interface MainPage {
     dismissImageError(): Promise<void>;
     deleteTour(): Promise<void>;
     showPins(visible: boolean): Promise<void>;
+    zoomOut(times: number): Promise<void>;
     tourNames(): Promise<string[]>;
     switchLanguage(opts: { search: string; pick: string }): Promise<void>;
   };
@@ -67,6 +68,9 @@ interface MainPage {
       toggle: Locator;
       toggleInput: Locator;
       markers: Locator;
+    };
+    mapControls: {
+      zoomOut: Locator;
     };
     lang: {
       button: Locator;
@@ -118,6 +122,9 @@ export function initMainPage(page: Page): MainPage {
       toggle: page.locator('#pin-toggle'),
       toggleInput: page.locator('#pin-toggle-input'),
       markers: page.locator('.photo-pin'),
+    },
+    mapControls: {
+      zoomOut: page.locator('.leaflet-control-zoom-out'),
     },
     lang: {
       button: page.locator('#btn-lang'),
@@ -174,6 +181,11 @@ export function initMainPage(page: Page): MainPage {
     showPins: async (visible: boolean) => {
       if (visible) await locators.pins.toggleInput.check();
       else await locators.pins.toggleInput.uncheck();
+    },
+    zoomOut: async (times: number) => {
+      for (let i = 0; i < times; i++) {
+        await locators.mapControls.zoomOut.click();
+      }
     },
     tourNames: async () => locators.list.names.allTextContents(),
     switchLanguage: async ({ search, pick }: { search: string; pick: string }) => {
