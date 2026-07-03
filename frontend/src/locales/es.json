@@ -95,6 +95,7 @@
   "errors.imageType": "Solo se aceptan imágenes JPEG o PNG.",
   "errors.imageSize": "La imagen supera el límite de 10 MB.",
   "errors.tooManyImages": "Selecciona un máximo de 20 fotos a la vez.",
+  "errors.tourImageLimit": "Esta ruta ya tiene el máximo de 20 fotos.",
   "errors.network": "Error de red.",
   "errors.saveChanges": "No se pudieron guardar los cambios.",
   "errors.saveName": "No se pudo guardar tu nombre.",

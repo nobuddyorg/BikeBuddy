@@ -6,6 +6,7 @@
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGE_BATCH = 20;
+export const MAX_TOUR_IMAGES = 20;
 
 export function isGpxFile(file) {
   return !!file && file.name.toLowerCase().endsWith('.gpx');
@@ -33,5 +34,11 @@ export function validateImageUpload(file) {
 // Returns an i18n message key, or null when the batch size is acceptable.
 export function validateImageBatch(files) {
   if (files.length > MAX_IMAGE_BATCH) return 'errors.tooManyImages';
+  return null;
+}
+
+// Returns an i18n message key, or null when there's room for another image.
+export function validateImageQuota(existingCount) {
+  if (existingCount >= MAX_TOUR_IMAGES) return 'errors.tourImageLimit';
   return null;
 }

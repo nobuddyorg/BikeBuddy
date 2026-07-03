@@ -214,6 +214,25 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(res.jsonBody.error).toBe('Tour not found');
   });
 
+  it('returns 400 when the tour already has 20 images', async () => {
+    const full = Array.from({ length: 20 }, (_, i) => ({ id: `img${i}`, blobName: `u1/${i}.jpg` }));
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: full } }));
+    const images = makeImagesContainer();
+    const parseFile = makeParseFile(JPEG);
+    const res = await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      parseFile,
+      noResize,
+    );
+    expect(res.status).toBe(400);
+    expect(res.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
+    expect(parseFile).not.toHaveBeenCalled();
+    expect(images.getBlockBlobClient).not.toHaveBeenCalled();
+  });
+
   it('returns 401 when auth fails', async () => {
     const failAuth = async () => null;
     const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));

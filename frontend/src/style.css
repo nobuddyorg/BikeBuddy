@@ -682,6 +682,7 @@ body {
 .image-tile {
   position: relative;
   margin: 0;
+  min-width: 0;
 }
 
 .image-thumb {

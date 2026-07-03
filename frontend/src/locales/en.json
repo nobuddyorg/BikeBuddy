@@ -95,6 +95,7 @@
   "errors.imageType": "Only JPEG or PNG images are accepted.",
   "errors.imageSize": "Image exceeds the 10 MB limit.",
   "errors.tooManyImages": "Select up to 20 photos at a time.",
+  "errors.tourImageLimit": "This tour already has the maximum of 20 photos.",
   "errors.network": "Network error.",
   "errors.saveChanges": "Could not save changes.",
   "errors.saveName": "Could not save your name.",
