@@ -1,7 +1,9 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { initUploadModal } from './upload-modal';
 
-type FileInput = string | { name: string; mimeType: string; buffer: Buffer };
+// Mirrors Locator.setInputFiles' own accepted type exactly (a single value,
+// or a homogeneous array of one variant — never a mixed array of both).
+type FileInputArg = Parameters<Locator['setInputFiles']>[0];
 
 interface MainPage {
   /** Points to self (the app shell). */
@@ -18,7 +20,8 @@ interface MainPage {
     sortBy(option: string): Promise<void>;
     selectTour(name: string): Promise<void>;
     uploadGpx(opts: { name: string; gpx: string; filename?: string }): Promise<void>;
-    addImage(file: FileInput): Promise<void>;
+    addImage(files: FileInputArg): Promise<void>;
+    dismissImageError(): Promise<void>;
     deleteTour(): Promise<void>;
     showPins(visible: boolean): Promise<void>;
     tourNames(): Promise<string[]>;
@@ -55,6 +58,10 @@ interface MainPage {
     image: {
       input: Locator;
       thumbs: Locator;
+      pendingTiles: Locator;
+      errorTiles: Locator;
+      retryButtons: Locator;
+      dismissButtons: Locator;
     };
     pins: {
       toggle: Locator;
@@ -102,6 +109,10 @@ export function initMainPage(page: Page): MainPage {
     image: {
       input: page.locator('#image-file'),
       thumbs: page.locator('#tour-image-grid .image-thumb'),
+      pendingTiles: page.locator('[data-testid="image-tile-pending"]'),
+      errorTiles: page.locator('[data-testid="image-tile-error"]'),
+      retryButtons: page.locator('[data-testid="image-tile-retry"]'),
+      dismissButtons: page.locator('[data-testid="image-tile-dismiss"]'),
     },
     pins: {
       toggle: page.locator('#pin-toggle'),
@@ -150,8 +161,11 @@ export function initMainPage(page: Page): MainPage {
       await upload.do.submit();
       await expect(locators.list.container).toContainText(name);
     },
-    addImage: async (file: FileInput) => {
-      await locators.image.input.setInputFiles(file);
+    addImage: async (files: FileInputArg) => {
+      await locators.image.input.setInputFiles(files);
+    },
+    dismissImageError: async () => {
+      await locators.image.dismissButtons.first().click();
     },
     deleteTour: async () => {
       page.once('dialog', (d) => d.accept());

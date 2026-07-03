@@ -2,7 +2,8 @@
 
 import { formatDate, formatDistance, initials } from './lib/format.js';
 import { visibleTours } from './lib/tours.js';
-import { validateGpxUpload, validateImageUpload } from './lib/files.js';
+import { validateGpxUpload, validateImageUpload, validateImageBatch } from './lib/files.js';
+import { runWithConcurrency } from './lib/concurrency.js';
 import * as i18n from './lib/i18n.js';
 
 const t = i18n.t;
@@ -93,8 +94,6 @@ const elBtnEditTour = $('btn-edit-tour');
 const elImageGrid = $('tour-image-grid');
 const elImageDropzone = $('image-dropzone');
 const elImageFile = $('image-file');
-const elImageProgress = $('image-progress');
-const elImageProgressBar = $('image-progress-bar');
 const elImageError = $('image-error');
 const elLightbox = $('lightbox');
 const elLightboxImg = $('lightbox-img');
@@ -663,9 +662,7 @@ function renderDetailPanel(tour) {
 
 function resetImageSection() {
   elImageGrid.innerHTML = '';
-  show(elImageProgress, false);
   show(elImageError, false);
-  elImageProgressBar.style.width = '0%';
   elImageDropzone.classList.remove('dragover');
 }
 
@@ -693,6 +690,78 @@ function createImageTile(image) {
 
   fig.append(img, del);
   return fig;
+}
+
+// A grid tile representing one in-flight upload: starts pending (progress
+// ring), can move to error (message + retry/dismiss) or done (swaps to the
+// same markup createImageTile produces).
+function createPendingImageTile(file) {
+  const fig = document.createElement('figure');
+  fig.className = 'image-tile image-tile-pending';
+  fig.dataset.testid = 'image-tile-pending';
+
+  const ring = document.createElement('div');
+  ring.className = 'image-progress-ring';
+  ring.style.setProperty('--progress', '0');
+
+  const name = document.createElement('p');
+  name.className = 'image-tile-filename';
+  name.textContent = file.name;
+
+  fig.append(ring, name);
+
+  const tile = {
+    el: fig,
+    onRetry: null,
+    setProgress(percent) {
+      ring.style.setProperty('--progress', String(percent));
+    },
+    reset() {
+      fig.className = 'image-tile image-tile-pending';
+      fig.dataset.testid = 'image-tile-pending';
+      fig.innerHTML = '';
+      ring.style.setProperty('--progress', '0');
+      fig.append(ring, name);
+    },
+    setError(message, retryable) {
+      fig.className = 'image-tile image-tile-error';
+      fig.dataset.testid = 'image-tile-error';
+      fig.innerHTML = '';
+
+      const msg = document.createElement('p');
+      msg.className = 'image-tile-error-message';
+      msg.textContent = message;
+
+      const actions = document.createElement('div');
+      actions.className = 'image-tile-actions';
+
+      if (retryable) {
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'image-tile-retry';
+        retry.dataset.testid = 'image-tile-retry';
+        retry.setAttribute('aria-label', t('detail.retryPhotoAria'));
+        retry.textContent = '↻';
+        retry.addEventListener('click', () => tile.onRetry && tile.onRetry());
+        actions.append(retry);
+      }
+
+      const dismiss = document.createElement('button');
+      dismiss.type = 'button';
+      dismiss.className = 'image-tile-dismiss';
+      dismiss.dataset.testid = 'image-tile-dismiss';
+      dismiss.setAttribute('aria-label', t('detail.dismissPhotoAria'));
+      dismiss.textContent = '✕';
+      dismiss.addEventListener('click', () => fig.remove());
+      actions.append(dismiss);
+
+      fig.append(msg, actions);
+    },
+    setDone(image) {
+      fig.replaceWith(createImageTile(image));
+    },
+  };
+  return tile;
 }
 
 function renderGallery(tour) {
@@ -729,32 +798,57 @@ function showImageError(message) {
   show(elImageError, true);
 }
 
-async function uploadImage(file) {
+// Uploads a batch of files with at most 3 in flight at once. Each file gets
+// its own placeholder tile in #tour-image-grid immediately; client-invalid
+// files never hit the network. Reuses the single-image endpoint, called once
+// per file — see docs/superpowers/specs/2026-07-03-multi-image-upload-design.md.
+async function uploadImages(files) {
   show(elImageError, false);
   const tourId = state.selectedTourId;
-  if (!file || !tourId) return;
-  const imageError = validateImageUpload(file);
-  if (imageError) {
-    showImageError(t(imageError));
+  if (!tourId || files.length === 0) return;
+
+  const batchError = validateImageBatch(files);
+  if (batchError) {
+    showImageError(t(batchError));
     return;
   }
 
   const token = await getAccessToken();
-  show(elImageProgress, true);
-  elImageProgressBar.style.width = '0%';
-  try {
-    const image = await xhrUpload(`${API_BASE}/api/tours/${tourId}/images`, file, token, (p) => {
-      elImageProgressBar.style.width = `${p}%`;
-    });
-    const tour = state.tours.find((t) => t.id === tourId);
-    if (tour) tour.images = [...(tour.images || []), image];
-    elImageGrid.appendChild(createImageTile(image));
-    renderPins(); // a newly uploaded geotagged photo may add a marker
-  } catch (err) {
-    showImageError(err.message);
-  } finally {
-    show(elImageProgress, false);
+  const jobs = [];
+  for (const file of files) {
+    const tile = createPendingImageTile(file);
+    elImageGrid.appendChild(tile.el);
+
+    const fileError = validateImageUpload(file);
+    if (fileError) {
+      tile.setError(t(fileError), false);
+      continue;
+    }
+    jobs.push({ file, tile });
   }
+
+  const uploadOne = async (job) => {
+    job.tile.reset();
+    try {
+      const image = await xhrUpload(
+        `${API_BASE}/api/tours/${tourId}/images`,
+        job.file,
+        token,
+        job.tile.setProgress,
+      );
+      const tour = state.tours.find((t) => t.id === tourId);
+      if (tour) tour.images = [...(tour.images || []), image];
+      job.tile.setDone(image);
+      renderPins(); // a newly uploaded geotagged photo may add a marker
+    } catch (err) {
+      job.tile.setError(err.message, true);
+    }
+  };
+  jobs.forEach((job) => {
+    job.tile.onRetry = () => uploadOne(job);
+  });
+
+  await runWithConcurrency(jobs, 3, uploadOne);
 }
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
@@ -923,10 +1017,12 @@ async function submitUpload(e) {
 // ── DOM wiring helpers ──────────────────────────────────────────────────────────
 
 // Wire a click / keyboard / drag-drop dropzone to a hidden file input.
-function wireDropzone(zone, input, onFile) {
+// onFiles receives an array of File — callers that only want one file
+// destructure the first element (see the GPX wireDropzone call site).
+function wireDropzone(zone, input, onFiles) {
   input.addEventListener('change', () => {
-    onFile(input.files[0]);
-    input.value = ''; // allow re-selecting the same file
+    onFiles(Array.from(input.files));
+    input.value = ''; // allow re-selecting the same file(s)
   });
   // The input is nested inside the zone; ignore the click it bubbles back up,
   // otherwise input.click() re-enters this handler and the browser blocks the dialog.
@@ -947,7 +1043,7 @@ function wireDropzone(zone, input, onFile) {
   zone.addEventListener('drop', (e) => {
     e.preventDefault();
     zone.classList.remove('dragover');
-    onFile(e.dataTransfer.files[0]);
+    onFiles(Array.from(e.dataTransfer.files));
   });
 }
 
@@ -1101,8 +1197,8 @@ wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
 wireModalClose(elEditModal, $('btn-close-edit'), closeEdit);
 wireModalClose(elUploadModal, $('btn-close-upload'), closeUpload);
 
-wireDropzone(elImageDropzone, elImageFile, uploadImage);
-wireDropzone(elDropzone, elUploadFile, selectFile);
+wireDropzone(elImageDropzone, elImageFile, uploadImages);
+wireDropzone(elDropzone, elUploadFile, ([file]) => selectFile(file));
 
 elLightbox.addEventListener('click', closeLightbox);
 document.addEventListener('keydown', (e) => {

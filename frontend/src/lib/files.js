@@ -5,6 +5,7 @@
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_IMAGE_BATCH = 20;
 
 export function isGpxFile(file) {
   return !!file && file.name.toLowerCase().endsWith('.gpx');
@@ -26,5 +27,11 @@ export function validateGpxUpload(file) {
 export function validateImageUpload(file) {
   if (!isImageFile(file)) return 'errors.imageType';
   if (file.size > MAX_IMAGE_BYTES) return 'errors.imageSize';
+  return null;
+}
+
+// Returns an i18n message key, or null when the batch size is acceptable.
+export function validateImageBatch(files) {
+  if (files.length > MAX_IMAGE_BATCH) return 'errors.tooManyImages';
   return null;
 }
