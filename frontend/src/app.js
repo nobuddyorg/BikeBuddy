@@ -2,7 +2,12 @@
 
 import { formatDate, formatDistance, initials } from './lib/format.js';
 import { visibleTours } from './lib/tours.js';
-import { validateGpxUpload, validateImageUpload, validateImageBatch } from './lib/files.js';
+import {
+  validateGpxUpload,
+  validateImageUpload,
+  validateImageBatch,
+  validateImageQuota,
+} from './lib/files.js';
 import { runWithConcurrency } from './lib/concurrency.js';
 import * as i18n from './lib/i18n.js';
 
@@ -814,16 +819,25 @@ async function uploadImages(files) {
   }
 
   const token = await getAccessToken();
+  const tour = state.tours.find((t) => t.id === tourId);
+  let imageCount = tour?.images?.length || 0;
   const jobs = [];
   for (const file of files) {
     const tile = createPendingImageTile(file);
     elImageGrid.appendChild(tile.el);
+
+    const quotaError = validateImageQuota(imageCount);
+    if (quotaError) {
+      tile.setError(t(quotaError), false);
+      continue;
+    }
 
     const fileError = validateImageUpload(file);
     if (fileError) {
       tile.setError(t(fileError), false);
       continue;
     }
+    imageCount++;
     jobs.push({ file, tile });
   }
 
@@ -836,7 +850,6 @@ async function uploadImages(files) {
         token,
         job.tile.setProgress,
       );
-      const tour = state.tours.find((t) => t.id === tourId);
       if (tour) tour.images = [...(tour.images || []), image];
       job.tile.setDone(image);
       renderPins(); // a newly uploaded geotagged photo may add a marker

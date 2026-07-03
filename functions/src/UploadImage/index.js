@@ -11,6 +11,8 @@ const { extractGps } = require('../lib/extractGps');
 const { uuidParamError, isImageContentType } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
+const MAX_TOUR_IMAGES = 20;
+
 // Validate by magic bytes (not Content-Type): JPEG = FF D8 FF, PNG = 89 50 4E 47.
 function isJpegOrPng(buffer) {
   if (buffer.length < 4) return false;
@@ -41,6 +43,10 @@ async function uploadImage(
   // Ownership: the tour must be in the caller's partition.
   const tour = await readItem(getToursContainer(), tourId, userId);
   if (!tour) return error(404, 'Tour not found');
+
+  if ((tour.images || []).length >= MAX_TOUR_IMAGES) {
+    return error(400, 'This tour already has the maximum of 20 photos.');
+  }
 
   let file;
   try {

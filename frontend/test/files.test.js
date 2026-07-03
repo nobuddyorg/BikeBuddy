@@ -5,8 +5,10 @@ import {
   validateGpxUpload,
   validateImageUpload,
   validateImageBatch,
+  validateImageQuota,
   MAX_UPLOAD_BYTES,
   MAX_IMAGE_BATCH,
+  MAX_TOUR_IMAGES,
 } from '../src/lib/files.js';
 
 const file = (name, type = '', size = 1000) => ({ name, type, size });
@@ -72,5 +74,16 @@ describe('validateImageBatch', () => {
   it('returns the i18n key over the cap', () => {
     const files = Array.from({ length: MAX_IMAGE_BATCH + 1 }, (_, i) => file(`p${i}.jpg`));
     expect(validateImageBatch(files)).toBe('errors.tooManyImages');
+  });
+});
+
+describe('validateImageQuota', () => {
+  it('returns null under the cap', () => {
+    expect(validateImageQuota(MAX_TOUR_IMAGES - 1)).toBeNull();
+  });
+
+  it('returns the i18n key at or over the cap', () => {
+    expect(validateImageQuota(MAX_TOUR_IMAGES)).toBe('errors.tourImageLimit');
+    expect(validateImageQuota(MAX_TOUR_IMAGES + 1)).toBe('errors.tourImageLimit');
   });
 });
