@@ -48,9 +48,15 @@ buddyTest.describe('photo pins', () => {
       await on(page).main.do.showPins(true);
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-      // Zoom out several steps (#210): the zoomend listener must re-run
-      // grouping/fan-out without losing either marker.
-      await on(page).main.do.zoomOut(6);
+      // Zoom out past the map's minimum (region-level cutoff, #236): pins
+      // hide entirely rather than clutter a world/country-level view with
+      // fanned-out photos from possibly unrelated locations.
+      await on(page).main.do.zoomOut(15);
+      await expect(on(page).main.locators.pins.markers).toHaveCount(0);
+
+      // Zoom back in past the cutoff (#210): the zoomend listener re-runs
+      // grouping/fan-out and both markers reappear.
+      await on(page).main.do.zoomIn(15);
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
       // Turn off → pins removed.
