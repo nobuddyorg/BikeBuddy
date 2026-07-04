@@ -186,15 +186,21 @@ export function initMainPage(page: Page): MainPage {
       else await locators.pins.toggleInput.uncheck();
     },
     // Leaflet ignores zoom-control clicks that land mid-animation, so each
-    // click waits out the ~250ms zoom transition before the next one.
+    // click waits out the ~250ms zoom transition before the next one. Once
+    // the map hits min/max zoom, Leaflet marks the button aria-disabled;
+    // Playwright's click() then waits forever for it to become "enabled"
+    // rather than no-op'ing, so stop early instead of requesting more clicks
+    // than the map can actually take.
     zoomOut: async (times: number) => {
       for (let i = 0; i < times; i++) {
+        if ((await locators.mapControls.zoomOut.getAttribute('aria-disabled')) === 'true') break;
         await locators.mapControls.zoomOut.click();
         await page.waitForTimeout(300);
       }
     },
     zoomIn: async (times: number) => {
       for (let i = 0; i < times; i++) {
+        if ((await locators.mapControls.zoomIn.getAttribute('aria-disabled')) === 'true') break;
         await locators.mapControls.zoomIn.click();
         await page.waitForTimeout(300);
       }
