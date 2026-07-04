@@ -31,7 +31,7 @@ export function visibleTours(tours, sort, search) {
   return tours.filter((t) => fuzzyMatch(search, t.name)).sort(sorter);
 }
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 10;
 
 // Slices `items` to one page, clamping `page` into [1, totalPages] so a stale
 // page number (after a search/sort change shrinks the result set) never
