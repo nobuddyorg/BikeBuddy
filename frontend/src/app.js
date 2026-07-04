@@ -1,7 +1,7 @@
 'use strict';
 
 import { formatDate, formatDistance, initials } from './lib/format.js';
-import { visibleTours } from './lib/tours.js';
+import { visibleTours, paginate, PAGE_SIZE } from './lib/tours.js';
 import {
   validateGpxUpload,
   validateImageUpload,
@@ -32,6 +32,7 @@ const state = {
   loadingTours: false,
   sort: 'date-desc',
   search: '',
+  page: 1,
 };
 
 // ── Map setup ─────────────────────────────────────────────────────────────────
@@ -94,6 +95,10 @@ const elTourLoading = $('tour-loading');
 const elTourControls = $('tour-controls');
 const elTourSearch = $('tour-search');
 const elTourSort = $('tour-sort');
+const elTourPager = $('tour-pager');
+const elTourPagerPrev = $('tour-pager-prev');
+const elTourPagerLabel = $('tour-pager-label');
+const elTourPagerNext = $('tour-pager-next');
 const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
 const elBtnMapExpand = $('btn-map-expand');
@@ -460,15 +465,27 @@ function renderSidebar() {
   elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
 
   elTourList.innerHTML = '';
-  if (!hasTours) return;
+  if (!hasTours) {
+    show(elTourPager, false);
+    return;
+  }
 
   const visible = visibleTours(state.tours, state.sort, state.search);
   if (visible.length === 0) {
     elTourList.appendChild(textDiv('tour-empty', t('tours.noMatch')));
+    show(elTourPager, false);
     return;
   }
-  visible.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
+
+  const { items, page, totalPages } = paginate(visible, state.page, PAGE_SIZE);
+  state.page = page;
+  items.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
   elTourList.appendChild(createShowAllButton());
+
+  show(elTourPager, totalPages > 1);
+  elTourPagerLabel.textContent = t('sidebar.pagerLabel', { page, totalPages });
+  elTourPagerPrev.disabled = page <= 1;
+  elTourPagerNext.disabled = page >= totalPages;
 }
 
 // ── Heatmap rendering ─────────────────────────────────────────────────────────
@@ -1171,10 +1188,20 @@ elUploadForm.addEventListener('submit', submitUpload);
 
 elTourSearch.addEventListener('input', () => {
   state.search = elTourSearch.value;
+  state.page = 1;
   renderSidebar();
 });
 elTourSort.addEventListener('change', () => {
   state.sort = elTourSort.value;
+  state.page = 1;
+  renderSidebar();
+});
+elTourPagerPrev.addEventListener('click', () => {
+  state.page -= 1;
+  renderSidebar();
+});
+elTourPagerNext.addEventListener('click', () => {
+  state.page += 1;
   renderSidebar();
 });
 elPinToggleInput.addEventListener('change', () => {

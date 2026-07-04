@@ -30,3 +30,19 @@ export function visibleTours(tours, sort, search) {
   const sorter = SORTERS[sort] || SORTERS['date-desc'];
   return tours.filter((t) => fuzzyMatch(search, t.name)).sort(sorter);
 }
+
+export const PAGE_SIZE = 20;
+
+// Slices `items` to one page, clamping `page` into [1, totalPages] so a stale
+// page number (after a search/sort change shrinks the result set) never
+// produces an out-of-range slice.
+export function paginate(items, page, pageSize) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const clamped = Math.min(Math.max(1, page), totalPages);
+  const start = (clamped - 1) * pageSize;
+  return {
+    items: items.slice(start, start + pageSize),
+    page: clamped,
+    totalPages,
+  };
+}

@@ -16,6 +16,9 @@
   "sidebar.sortAria": "Sort tours",
   "sidebar.noToursYet": "No tours yet.",
   "sidebar.uploadFirst": "Upload your first GPX",
+  "sidebar.pagerPrevAria": "Previous page",
+  "sidebar.pagerNextAria": "Next page",
+  "sidebar.pagerLabel": "Page {page} of {totalPages}",
 
   "sort.dateDesc": "Newest first",
   "sort.dateAsc": "Oldest first",

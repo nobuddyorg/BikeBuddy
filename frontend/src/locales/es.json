@@ -16,6 +16,9 @@
   "sidebar.sortAria": "Ordenar rutas",
   "sidebar.noToursYet": "Aún no hay rutas.",
   "sidebar.uploadFirst": "Sube tu primer GPX",
+  "sidebar.pagerPrevAria": "Página anterior",
+  "sidebar.pagerNextAria": "Página siguiente",
+  "sidebar.pagerLabel": "Página {page} de {totalPages}",
 
   "sort.dateDesc": "Más recientes primero",
   "sort.dateAsc": "Más antiguas primero",

@@ -16,6 +16,9 @@
   "sidebar.sortAria": "Touren sortieren",
   "sidebar.noToursYet": "Noch keine Touren.",
   "sidebar.uploadFirst": "Erste GPX-Datei hochladen",
+  "sidebar.pagerPrevAria": "Vorherige Seite",
+  "sidebar.pagerNextAria": "Nächste Seite",
+  "sidebar.pagerLabel": "Seite {page} von {totalPages}",
 
   "sort.dateDesc": "Neueste zuerst",
   "sort.dateAsc": "Älteste zuerst",

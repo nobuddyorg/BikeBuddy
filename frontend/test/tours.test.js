@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fuzzyMatch, visibleTours } from '../src/lib/tours.js';
+import { fuzzyMatch, visibleTours, paginate } from '../src/lib/tours.js';
 
 const tours = [
   { id: 'a', name: 'Alps Tour', createdAt: '2026-01-01T00:00:00Z', distance: 120 },
@@ -44,5 +44,48 @@ describe('visibleTours', () => {
     const copy = [...tours];
     visibleTours(tours, 'name-desc', '');
     expect(tours).toEqual(copy);
+  });
+});
+
+describe('paginate', () => {
+  const items = Array.from({ length: 25 }, (_, i) => ({ id: `t${i + 1}` }));
+
+  it('returns the first page by default page size', () => {
+    const result = paginate(items, 1, 20);
+    expect(result.items).toHaveLength(20);
+    expect(result.items[0].id).toBe('t1');
+    expect(result.page).toBe(1);
+    expect(result.totalPages).toBe(2);
+  });
+
+  it('returns the remainder on the last page', () => {
+    const result = paginate(items, 2, 20);
+    expect(result.items).toHaveLength(5);
+    expect(result.items[0].id).toBe('t21');
+    expect(result.page).toBe(2);
+  });
+
+  it('clamps a page beyond totalPages to the last page', () => {
+    const result = paginate(items, 99, 20);
+    expect(result.page).toBe(2);
+    expect(result.items).toHaveLength(5);
+  });
+
+  it('clamps a page below 1 to page 1', () => {
+    const result = paginate(items, 0, 20);
+    expect(result.page).toBe(1);
+    expect(result.items[0].id).toBe('t1');
+  });
+
+  it('reports a single page for an empty list', () => {
+    const result = paginate([], 1, 20);
+    expect(result.items).toEqual([]);
+    expect(result.totalPages).toBe(1);
+    expect(result.page).toBe(1);
+  });
+
+  it('reports a single page when everything fits on one page', () => {
+    const result = paginate(items.slice(0, 10), 1, 20);
+    expect(result.totalPages).toBe(1);
   });
 });
