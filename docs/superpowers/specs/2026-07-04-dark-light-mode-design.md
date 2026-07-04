@@ -28,7 +28,7 @@ The site is hardcoded to a single dark palette (`frontend/src/style.css` `:root`
 ```js
 const TILE_URLS = {
   light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_matter/{z}/{x}/{y}{r}.png',
+  dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',
 };
 
 function applyMapTheme(isDark) {
@@ -45,6 +45,6 @@ darkMediaQuery.addEventListener('change', (e) => applyMapTheme(e.matches));
 ## Testing plan
 
 - No new unit-testable pure logic (this is CSS + a one-line Leaflet call), so coverage is via Playwright:
-  - Extend `e2e/tests` (static UI, no backend needed) with a test that uses `page.emulateMedia({ colorScheme: 'dark' })` before navigating, then asserts a computed style (e.g. `body` background color) matches the dark palette and the active tile image `src` contains `dark_matter`.
+  - Extend `e2e/tests` (static UI, no backend needed) with a test that uses `page.emulateMedia({ colorScheme: 'dark' })` before navigating, then asserts a computed style (e.g. `body` background color) matches the dark palette and the active tile image `src` contains `dark_all`.
   - Same test with `colorScheme: 'light'`, asserting the light palette and `voyager` tiles.
   - A third case: start with `'light'`, navigate, then call `page.emulateMedia({ colorScheme: 'dark' })` again without reloading, and assert both the CSS and the tile layer update live.

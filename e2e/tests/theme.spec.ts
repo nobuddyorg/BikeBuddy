@@ -24,7 +24,7 @@ buddyTest.describe('system dark/light mode', () => {
       const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
       expect(bg).toBe('rgb(15, 17, 23)');
 
-      await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_matter/);
+      await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_all/);
     },
   );
 
@@ -37,6 +37,6 @@ buddyTest.describe('system dark/light mode', () => {
 
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(bg).toBe('rgb(15, 17, 23)');
-    await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_matter/);
+    await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_all/);
   });
 });

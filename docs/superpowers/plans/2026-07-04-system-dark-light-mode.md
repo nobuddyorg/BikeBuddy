@@ -13,7 +13,7 @@
 - No manual override toggle or persisted preference — purely follows `prefers-color-scheme` (per spec, system-only).
 - No change to heatmap gradient colors or the `rgba(0,0,0,...)` photo/tooltip overlay scrims — these are fixed-contrast overlays independent of site theme.
 - `--color-primary` (`#f97316`), `--color-primary-hover` (`#ea6c0a`), and `--color-danger` (`#ef4444`) keep the same values in both palettes.
-- Dark map tiles: `https://{s}.basemaps.cartocdn.com/rastertiles/dark_matter/{z}/{x}/{y}{r}.png`. Light map tiles (unchanged): `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`. Same `subdomains: 'abcd'`, `maxZoom: 19`, and attribution string for both.
+- Dark map tiles: `https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png`. Light map tiles (unchanged): `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`. Same `subdomains: 'abcd'`, `maxZoom: 19`, and attribution string for both.
 
 ---
 
@@ -144,7 +144,7 @@ const map = L.map('map', { center: [48.5, 10.5], zoom: 6 });
 
 const TILE_URLS = {
   light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_matter/{z}/{x}/{y}{r}.png',
+  dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',
 };
 
 const tileLayer = L.tileLayer(TILE_URLS.light, {
@@ -231,7 +231,7 @@ buddyTest.describe('system dark/light mode', () => {
       expect(bg).toBe('rgb(15, 17, 23)');
 
       const tileSrc = await page.locator('.leaflet-tile').first().getAttribute('src');
-      expect(tileSrc).toContain('dark_matter');
+      expect(tileSrc).toContain('dark_all');
     },
   );
 
@@ -244,7 +244,7 @@ buddyTest.describe('system dark/light mode', () => {
 
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(bg).toBe('rgb(15, 17, 23)');
-    await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_matter/);
+    await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_all/);
   });
 });
 ```

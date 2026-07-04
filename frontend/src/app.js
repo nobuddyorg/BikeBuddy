@@ -40,7 +40,7 @@ const map = L.map('map', { center: [48.5, 10.5], zoom: 6 });
 
 const TILE_URLS = {
   light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_matter/{z}/{x}/{y}{r}.png',
+  dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',
 };
 
 const tileLayer = L.tileLayer(TILE_URLS.light, {
