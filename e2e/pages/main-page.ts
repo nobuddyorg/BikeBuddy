@@ -24,6 +24,8 @@ interface MainPage {
     dismissImageError(): Promise<void>;
     deleteTour(): Promise<void>;
     showPins(visible: boolean): Promise<void>;
+    pagerPrev(): Promise<void>;
+    pagerNext(): Promise<void>;
     zoomOut(times: number): Promise<void>;
     zoomIn(times: number): Promise<void>;
     tourNames(): Promise<string[]>;
@@ -69,6 +71,12 @@ interface MainPage {
       toggle: Locator;
       toggleInput: Locator;
       markers: Locator;
+    };
+    pager: {
+      container: Locator;
+      label: Locator;
+      prev: Locator;
+      next: Locator;
     };
     mapControls: {
       zoomOut: Locator;
@@ -124,6 +132,12 @@ export function initMainPage(page: Page): MainPage {
       toggle: page.locator('#pin-toggle'),
       toggleInput: page.locator('#pin-toggle-input'),
       markers: page.locator('.photo-pin'),
+    },
+    pager: {
+      container: page.locator('#tour-pager'),
+      label: page.locator('#tour-pager-label'),
+      prev: page.locator('#tour-pager-prev'),
+      next: page.locator('#tour-pager-next'),
     },
     mapControls: {
       zoomOut: page.locator('.leaflet-control-zoom-out'),
@@ -185,6 +199,8 @@ export function initMainPage(page: Page): MainPage {
       if (visible) await locators.pins.toggleInput.check();
       else await locators.pins.toggleInput.uncheck();
     },
+    pagerPrev: async () => locators.pager.prev.click(),
+    pagerNext: async () => locators.pager.next.click(),
     // Leaflet ignores zoom-control clicks that land mid-animation, so each
     // click waits out the ~250ms zoom transition before the next one. Once
     // the map hits min/max zoom, Leaflet marks the button aria-disabled;
