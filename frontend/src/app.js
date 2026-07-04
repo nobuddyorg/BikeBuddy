@@ -522,11 +522,18 @@ function photoPinIcon(url) {
   });
 }
 
+// imageId → live L.Marker. Kept across renderPins() calls so a re-render
+// (e.g. on zoomend) repositions existing markers instead of destroying and
+// recreating their DOM (including the <img> inside each icon), which was
+// visibly flickering pins on every zoom step.
+const pinMarkers = new Map();
+
 function clearPins() {
   if (state.pinLayer) {
     map.removeLayer(state.pinLayer);
     state.pinLayer = null;
   }
+  pinMarkers.clear();
 }
 
 function makePinMarker(img, latlng) {
@@ -544,10 +551,12 @@ function makePinMarker(img, latlng) {
 // and clutter the fixed-radius fan, so pins are hidden entirely until the
 // user zooms in far enough for them to be individually meaningful (#236).
 function renderPins() {
-  clearPins();
   const images = geotaggedImages();
   show(elPinToggle, images.length > 0);
-  if (!state.showPins || images.length === 0 || map.getZoom() < PIN_MIN_ZOOM) return;
+  if (!state.showPins || images.length === 0 || map.getZoom() < PIN_MIN_ZOOM) {
+    clearPins();
+    return;
+  }
 
   const zoom = map.getZoom();
   const points = images.map((img) => {
@@ -555,15 +564,34 @@ function renderPins() {
     return { x, y, img };
   });
 
-  const markers = groupByProximity(points, PIN_GROUP_THRESHOLD_PX).flatMap((group) => {
+  const seen = new Set();
+  const added = [];
+  groupByProximity(points, PIN_GROUP_THRESHOLD_PX).forEach((group) => {
     const offsets = fanOffsets(group.length, PIN_FAN_RADIUS_PX);
-    return group.map((point, i) => {
+    group.forEach((point, i) => {
       const [dx, dy] = offsets[i];
       const latlng = map.unproject([point.x + dx, point.y + dy], zoom);
-      return makePinMarker(point.img, latlng);
+      seen.add(point.img.id);
+      const existing = pinMarkers.get(point.img.id);
+      if (existing) {
+        existing.setLatLng(latlng);
+      } else {
+        const marker = makePinMarker(point.img, latlng);
+        pinMarkers.set(point.img.id, marker);
+        added.push(marker);
+      }
     });
   });
-  state.pinLayer = L.layerGroup(markers).addTo(map);
+
+  // Drop markers for photos no longer present (deleted, or tour data reloaded).
+  for (const [id, marker] of pinMarkers) {
+    if (seen.has(id)) continue;
+    state.pinLayer?.removeLayer(marker);
+    pinMarkers.delete(id);
+  }
+
+  if (!state.pinLayer) state.pinLayer = L.layerGroup().addTo(map);
+  added.forEach((marker) => state.pinLayer.addLayer(marker));
 }
 
 map.on('zoomend', renderPins);
