@@ -38,12 +38,28 @@ const state = {
 
 const map = L.map('map', { center: [48.5, 10.5], zoom: 6 });
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+const TILE_URLS = {
+  light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_matter/{z}/{x}/{y}{r}.png',
+};
+
+const tileLayer = L.tileLayer(TILE_URLS.light, {
   attribution:
     '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   subdomains: 'abcd',
   maxZoom: 19,
 }).addTo(map);
+
+// Leaflet tile URLs are JS state (unlike the CSS palette, which the browser
+// switches natively via prefers-color-scheme) — mirror the OS setting here so
+// the basemap matches the rest of the UI, including live theme changes.
+function applyMapTheme(isDark) {
+  tileLayer.setUrl(isDark ? TILE_URLS.dark : TILE_URLS.light);
+}
+
+const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+applyMapTheme(darkMediaQuery.matches);
+darkMediaQuery.addEventListener('change', (e) => applyMapTheme(e.matches));
 
 // Leaflet caches the container size, so when the detail panel opens/closes (or
 // the window resizes) the map keeps its old width and leaves gray space. Recompute
