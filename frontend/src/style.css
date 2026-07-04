@@ -17,8 +17,8 @@
   --color-text-muted: #64748b;
   --color-danger: #ef4444;
   --navbar-height: 56px;
-  --sidebar-width: 280px;
   --detail-width: 320px;
+  --sidebar-width: var(--detail-width);
 }
 
 @media (prefers-color-scheme: dark) {
