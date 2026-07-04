@@ -25,6 +25,7 @@ interface MainPage {
     deleteTour(): Promise<void>;
     showPins(visible: boolean): Promise<void>;
     zoomOut(times: number): Promise<void>;
+    zoomIn(times: number): Promise<void>;
     tourNames(): Promise<string[]>;
     switchLanguage(opts: { search: string; pick: string }): Promise<void>;
   };
@@ -71,6 +72,7 @@ interface MainPage {
     };
     mapControls: {
       zoomOut: Locator;
+      zoomIn: Locator;
     };
     lang: {
       button: Locator;
@@ -125,6 +127,7 @@ export function initMainPage(page: Page): MainPage {
     },
     mapControls: {
       zoomOut: page.locator('.leaflet-control-zoom-out'),
+      zoomIn: page.locator('.leaflet-control-zoom-in'),
     },
     lang: {
       button: page.locator('#btn-lang'),
@@ -182,9 +185,18 @@ export function initMainPage(page: Page): MainPage {
       if (visible) await locators.pins.toggleInput.check();
       else await locators.pins.toggleInput.uncheck();
     },
+    // Leaflet ignores zoom-control clicks that land mid-animation, so each
+    // click waits out the ~250ms zoom transition before the next one.
     zoomOut: async (times: number) => {
       for (let i = 0; i < times; i++) {
         await locators.mapControls.zoomOut.click();
+        await page.waitForTimeout(300);
+      }
+    },
+    zoomIn: async (times: number) => {
+      for (let i = 0; i < times; i++) {
+        await locators.mapControls.zoomIn.click();
+        await page.waitForTimeout(300);
       }
     },
     tourNames: async () => locators.list.names.allTextContents(),

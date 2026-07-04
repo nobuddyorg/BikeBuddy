@@ -504,6 +504,7 @@ async function renderAllHeatmap() {
 
 const PIN_GROUP_THRESHOLD_PX = 24;
 const PIN_FAN_RADIUS_PX = 16;
+const PIN_MIN_ZOOM = 8;
 
 // Geotagged images across all loaded tours (lat/lon come from the detail fetch).
 function geotaggedImages() {
@@ -538,12 +539,15 @@ function makePinMarker(img, latlng) {
 // added when the toggle is on (default off, per #100). Grouping/fanning
 // happens in screen-pixel space at the current zoom (#210), so pins that
 // visually overlap fan out, and separate/re-collapse live as the user zooms
-// (re-triggered by the zoomend listener below).
+// (re-triggered by the zoomend listener below). Below PIN_MIN_ZOOM, unrelated
+// photos from different tours/regions can end up in the same proximity group
+// and clutter the fixed-radius fan, so pins are hidden entirely until the
+// user zooms in far enough for them to be individually meaningful (#236).
 function renderPins() {
   clearPins();
   const images = geotaggedImages();
   show(elPinToggle, images.length > 0);
-  if (!state.showPins || images.length === 0) return;
+  if (!state.showPins || images.length === 0 || map.getZoom() < PIN_MIN_ZOOM) return;
 
   const zoom = map.getZoom();
   const points = images.map((img) => {
