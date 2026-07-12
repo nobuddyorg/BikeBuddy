@@ -22,13 +22,13 @@
   "dependencies": {
     "@azure/cosmos": "^4.1.1",
     "@azure/functions": "^4.16.1",
-    "@azure/storage-blob": "^12.25.0",
+    "@azure/storage-blob": "^12.33.0",
     "busboy": "^1.6.0",
     "exif-reader": "^2.0.3",
     "fast-xml-parser": "^5.9.3",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^4.1.0",
-    "sharp": "^0.35.2",
+    "sharp": "^0.35.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -36,10 +36,10 @@
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@vitest/coverage-v8": "^4.1.9",
-    "eslint": "^10.5.0",
-    "eslint-plugin-n": "^18.1.0",
-    "globals": "^17.6.0",
-    "prettier": "^3.4.2",
+    "eslint": "^10.6.0",
+    "eslint-plugin-n": "^18.2.1",
+    "globals": "^17.7.0",
+    "prettier": "^3.9.4",
     "vitest": "^4.1.9"
   }
 }
