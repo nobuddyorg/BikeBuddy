@@ -20,7 +20,7 @@ repos:
 
   # Spell checking
   - repo: https://github.com/crate-ci/typos
-    rev: v1.47.2
+    rev: v1.48.0
     hooks:
       - id: typos
         # Vendored minified bundle (short var names) + i18n locale files (German /
