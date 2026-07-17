@@ -11,7 +11,7 @@ on the map. No Azure account needed — everything runs against local emulators.
 ## 1. Install the toolchain
 
 ```bash
-./buddy.sh local setup
+./buddy.sh development setup
 ```
 
 This interactively installs Node 22, Azure Functions Core Tools v4, Azurite,
