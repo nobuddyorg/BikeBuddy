@@ -32,11 +32,19 @@ eval "$(./buddy.sh completion)"
 
 ## Tests, lint, format
 
+Every gate job is reachable through `buddy.sh` (raw `npm`/`prek` still work too):
+
 ```bash
-cd functions && npm test            # Vitest unit tests
-cd e2e && npm test                  # Playwright (static UI)
-cd e2e && npm run test:fullstack    # Playwright against the real backend
-prek run --all-files                # all lint/format/security hooks
+./buddy.sh test all             # fast unit suites (Functions + frontend)
+./buddy.sh test unit            # Functions Vitest unit tests
+./buddy.sh test frontend        # frontend Vitest unit tests
+./buddy.sh test e2e             # Playwright static UI
+./buddy.sh test integration     # Functions HTTP tests   (needs Cosmos + Azurite)
+./buddy.sh test e2e-fullstack   # Playwright vs backend   (needs `development start-all`)
+./buddy.sh test mutation        # Stryker mutation tests
+
+./buddy.sh quality hooks        # all lint/format/security hooks (the CI `prek` gate)
+./buddy.sh quality format       # auto-format with Prettier
 ```
 
 CI gates: see the [CI / quality gates table in CLAUDE.md](../../CLAUDE.md#ci--quality-gates).
