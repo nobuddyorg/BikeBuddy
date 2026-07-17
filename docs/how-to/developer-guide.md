@@ -47,7 +47,7 @@ Every gate job is reachable through `buddy.sh` (raw `npm`/`prek` still work too)
 ./buddy.sh quality format       # auto-format with Prettier
 ```
 
-CI gates: see the [CI / quality gates table in CLAUDE.md](../../CLAUDE.md#ci--quality-gates).
+CI gates: see the [gate workflow](../../.github/workflows/gate.yml).
 
 ## Authentication & tokens
 

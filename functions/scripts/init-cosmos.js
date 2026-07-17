@@ -13,9 +13,9 @@ const connectionString =
   'AccountEndpoint=http://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw==';
 const databaseId = process.env.COSMOS_DATABASE || 'bikebuddy';
 
-// Partition keys match the production schema (see CLAUDE.md). The tours
-// container excludes the large, never-queried heatmapData and images arrays
-// from indexing to keep Serverless RU/storage costs down.
+// Partition keys match the production schema (see docs/reference/architecture.md).
+// The tours container excludes the large, never-queried heatmapData and images
+// arrays from indexing to keep Serverless RU/storage costs down.
 const containers = [
   { id: 'users', partitionKey: '/id' },
   { id: 'deletions', partitionKey: '/id' },

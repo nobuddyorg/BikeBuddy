@@ -15,8 +15,9 @@ deploys are covered in the [Developer guide](docs/how-to/developer-guide.md).
 - One ticket per commit; reference the issue number in the message.
 - Open a PR into `main` and wait for green CI before merging.
 
-Conventions, code style, and the CI quality gates are documented in
-[CLAUDE.md](CLAUDE.md).
+Code style is enforced by the pre-commit hooks (ESLint + Prettier); run them
+with `./buddy.sh quality hooks`. The full CI quality gates are defined in
+[`.github/workflows/gate.yml`](.github/workflows/gate.yml).
 
 ## Before you push
 
