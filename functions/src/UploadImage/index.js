@@ -3,13 +3,14 @@
 const { app } = require('@azure/functions');
 const { randomUUID } = require('crypto');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer, readItem } = require('../lib/db');
+const { toursContainer } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { resizeImage } = require('../lib/resizeImage');
 const { extractGps } = require('../lib/extractGps');
-const { uuidParamError, isImageContentType } = require('../lib/validation');
-const { unauthorized, error } = require('../lib/http');
+const { isImageContentType } = require('../lib/validation');
+const { loadOwnedTour } = require('../lib/ownedTour');
+const { error } = require('../lib/http');
 
 const MAX_TOUR_IMAGES = 20;
 
@@ -31,18 +32,12 @@ async function uploadImage(
   resize = resizeImage,
   readGps = extractGps,
 ) {
-  const user = await auth(request);
-  if (!user) return unauthorized();
+  const guard = await loadOwnedTour(request, auth, getToursContainer);
+  if (guard.response) return guard.response;
 
-  const tourId = request.params.tourId;
-  const badParam = uuidParamError({ tourId });
-  if (badParam) return badParam;
-
-  const { userId } = user;
-
-  // Ownership: the tour must be in the caller's partition.
-  const tour = await readItem(getToursContainer(), tourId, userId);
-  if (!tour) return error(404, 'Tour not found');
+  const { userId } = guard.user;
+  const { tour } = guard;
+  const { tourId } = request.params;
 
   if ((tour.images || []).length >= MAX_TOUR_IMAGES) {
     return error(400, 'This tour already has the maximum of 20 photos.');
