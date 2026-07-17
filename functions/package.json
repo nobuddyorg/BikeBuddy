@@ -41,5 +41,8 @@
     "globals": "^17.6.0",
     "prettier": "^3.4.2",
     "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "qs": "^6.15.2"
   }
 }
