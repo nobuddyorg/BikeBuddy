@@ -2,30 +2,25 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer, readItem } = require('../lib/db');
+const { toursContainer } = require('../lib/db');
 const { imagesContainer } = require('../lib/blobStorage');
-const { uuidParamError } = require('../lib/validation');
-const { unauthorized, error } = require('../lib/http');
+const { loadOwnedTour } = require('../lib/ownedTour');
+const { error } = require('../lib/http');
 
 // DELETE /api/tours/{tourId}/images/{imageId} — remove an image blob and its
-// entry from tour.images. Ownership via the userId partition key.
+// entry from tour.images.
 async function deleteImage(
   request,
   auth = authenticate,
   getToursContainer = toursContainer,
   getImagesContainer = imagesContainer,
 ) {
-  const user = await auth(request);
-  if (!user) return unauthorized();
-
   const { tourId, imageId } = request.params;
-  const badParam = uuidParamError({ tourId, imageId });
-  if (badParam) return badParam;
+  const guard = await loadOwnedTour(request, auth, getToursContainer, { imageId });
+  if (guard.response) return guard.response;
 
-  const { userId } = user;
-
-  const tour = await readItem(getToursContainer(), tourId, userId);
-  if (!tour) return error(404, 'Tour not found');
+  const { userId } = guard.user;
+  const { tour } = guard;
 
   const image = (tour.images || []).find((i) => i.id === imageId);
   if (!image) return error(404, 'Image not found');

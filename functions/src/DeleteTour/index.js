@@ -2,30 +2,22 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer, readItem } = require('../lib/db');
+const { toursContainer } = require('../lib/db');
 const { gpxContainer } = require('../lib/blobStorage');
-const { uuidParamError } = require('../lib/validation');
-const { unauthorized, error } = require('../lib/http');
+const { loadOwnedTour } = require('../lib/ownedTour');
 
 // DELETE /api/tours/{tourId} — removes the tour document and its GPX blob.
-// Reading/deleting with the userId partition key enforces ownership.
 async function deleteTour(
   request,
   auth = authenticate,
   getToursContainer = toursContainer,
   getGpxContainer = gpxContainer,
 ) {
-  const user = await auth(request);
-  if (!user) return unauthorized();
+  const guard = await loadOwnedTour(request, auth, getToursContainer);
+  if (guard.response) return guard.response;
 
-  const tourId = request.params.tourId;
-  const badParam = uuidParamError({ tourId });
-  if (badParam) return badParam;
-
-  const { userId } = user;
-
-  const tour = await readItem(getToursContainer(), tourId, userId);
-  if (!tour) return error(404, 'Tour not found');
+  const { userId } = guard.user;
+  const { tourId } = request.params;
 
   const container = await getGpxContainer();
   await container.getBlockBlobClient(`${userId}/${tourId}.gpx`).deleteIfExists();
