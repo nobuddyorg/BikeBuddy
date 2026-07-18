@@ -21,6 +21,16 @@ async function readItem(container, id, partitionKey) {
   }
 }
 
+// Run a single-partition query scoped to one user. The query must filter on the
+// @userId parameter; passing the same userId as the partition key is what keeps
+// a user's reads confined to their own data.
+async function queryUserItems(container, userId, query) {
+  const { resources } = await container.items
+    .query({ query, parameters: [{ name: '@userId', value: userId }] }, { partitionKey: userId })
+    .fetchAll();
+  return resources;
+}
+
 module.exports = {
   usersContainer: () => getClient().database(process.env.COSMOS_DATABASE).container('users'),
   toursContainer: () => getClient().database(process.env.COSMOS_DATABASE).container('tours'),
@@ -29,4 +39,5 @@ module.exports = {
   deletionsContainer: () =>
     getClient().database(process.env.COSMOS_DATABASE).container('deletions'),
   readItem,
+  queryUserItems,
 };

@@ -2,7 +2,7 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
+const { toursContainer, queryUserItems } = require('../lib/db');
 const { unauthorized } = require('../lib/http');
 
 // GET /api/tours — list the authenticated user's tours, newest first.
@@ -12,17 +12,12 @@ async function getTours(request, auth = authenticate, getContainer = toursContai
   const user = await auth(request);
   if (!user) return unauthorized();
 
-  const { resources } = await getContainer()
-    .items.query(
-      {
-        query:
-          'SELECT c.id, c.name, c.description, c.distance, c.createdAt ' +
-          'FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC',
-        parameters: [{ name: '@userId', value: user.userId }],
-      },
-      { partitionKey: user.userId },
-    )
-    .fetchAll();
+  const resources = await queryUserItems(
+    getContainer(),
+    user.userId,
+    'SELECT c.id, c.name, c.description, c.distance, c.createdAt ' +
+      'FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC',
+  );
 
   return { status: 200, jsonBody: resources };
 }
