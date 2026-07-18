@@ -44,13 +44,13 @@
   "detail.dropPhotos": "Arrastra o haz clic para añadir fotos (JPEG/PNG)",
   "detail.edit": "Editar",
   "detail.deleteTour": "Eliminar ruta",
-  "detail.deletePhotoAria": "Eliminar photo",
+  "detail.deletePhotoAria": "Eliminar foto",
   "detail.retryPhotoAria": "Reintentar subida",
   "detail.dismissPhotoAria": "Quitar",
 
   "help.title": "Cómo usar BikeBuddy",
   "help.q1": "🧭 ¿Qué es esto?",
-  "help.a1": "Sube tracks GPX de tus rutas —en bici o en moto— y velas como un mapa de calor interaction. Los colores más cálidos indican que pasaste por allí más a menudo.",
+  "help.a1": "Sube tracks GPX de tus rutas —en bici o en moto— y visualízalas como un mapa de calor interactivo. Los colores más cálidos indican que pasaste por allí más a menudo.",
   "help.q2": "🔑 Iniciar sesión",
   "help.a2": "Inicia sesión para subir rutas y guardarlas en tu cuenta.",
   "help.q3": "⬆️ Subir una ruta",
@@ -84,8 +84,8 @@
   "edit.description": "Descripción",
   "edit.save": "Guardar",
 
-  "lightbox.aria": "Photo",
-  "lightbox.imgAlt": "Photo de la ruta",
+  "lightbox.aria": "Foto",
+  "lightbox.imgAlt": "Foto de la ruta",
 
   "common.close": "Cerrar",
   "common.account": "Cuenta",
@@ -106,7 +106,7 @@
   "toast.toursLoadError": "No se pudieron cargar tus rutas. Comprueba tu conexión e inténtalo de nuevo.",
   "toast.tourDeleted": "Ruta eliminada.",
   "toast.tourDeleteError": "No se pudo eliminar la ruta.",
-  "toast.photoDeleteError": "No se pudo eliminar la photo.",
+  "toast.photoDeleteError": "No se pudo eliminar la foto.",
   "toast.nameUpdated": "Nombre actualizado.",
   "toast.exportDone": "Tu exportación de datos se ha descargado.",
   "toast.exportError": "No se pudieron exportar tus datos.",
@@ -115,6 +115,6 @@
   "toast.tourUploaded": "Ruta subida.",
 
   "confirm.deleteTour": "¿Eliminar esta ruta? Esta acción no se puede deshacer.",
-  "confirm.deletePhoto": "¿Eliminar esta photo?",
+  "confirm.deletePhoto": "¿Eliminar esta foto?",
   "confirm.deleteAccount": "¿Eliminar tu cuenta de forma permanente? Tus rutas y fotos se eliminan de inmediato; tu sesión se elimina por completo poco después. Esta acción no se puede deshacer."
 }
