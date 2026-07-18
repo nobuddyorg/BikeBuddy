@@ -156,7 +156,11 @@ export function initMainPage(page: Page): MainPage {
     openProfile: async () => locators.buttons.profile.click(),
     openHelp: async () => locators.buttons.help.click(),
     openEdit: async () => locators.buttons.editTour.click(),
-    logout: async () => locators.buttons.logout.click(),
+    // Sign Out now lives inside the profile modal — open it first.
+    logout: async () => {
+      await locators.buttons.profile.click();
+      await locators.buttons.logout.click();
+    },
     toggleSidebar: async () => locators.buttons.mapExpand.click(),
     search: async (query: string) => locators.search.fill(query),
     sortBy: async (option: string) => {
