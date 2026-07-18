@@ -2,7 +2,7 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { usersContainer, toursContainer, readItem } = require('../lib/db');
+const { usersContainer, toursContainer, readItem, queryUserItems } = require('../lib/db');
 const { unauthorized } = require('../lib/http');
 
 // GET /api/me/export — the caller's full data (user doc + all their tours) as a
@@ -18,15 +18,11 @@ async function exportData(
   const { userId } = user;
 
   const userDoc = await readItem(getUsers(), userId, userId);
-  const { resources: tours } = await getTours()
-    .items.query(
-      {
-        query: 'SELECT * FROM c WHERE c.userId = @userId',
-        parameters: [{ name: '@userId', value: userId }],
-      },
-      { partitionKey: userId },
-    )
-    .fetchAll();
+  const tours = await queryUserItems(
+    getTours(),
+    userId,
+    'SELECT * FROM c WHERE c.userId = @userId',
+  );
 
   return {
     status: 200,

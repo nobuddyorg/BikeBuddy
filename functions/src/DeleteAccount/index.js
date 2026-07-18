@@ -2,7 +2,13 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { usersContainer, toursContainer, deletionsContainer, readItem } = require('../lib/db');
+const {
+  usersContainer,
+  toursContainer,
+  deletionsContainer,
+  readItem,
+  queryUserItems,
+} = require('../lib/db');
 const { gpxContainer, imagesContainer } = require('../lib/blobStorage');
 const { unauthorized } = require('../lib/http');
 
@@ -37,15 +43,7 @@ async function deleteAccount(
 
   // Tours live in the user's partition — delete each.
   const toursC = getTours();
-  const { resources: tours } = await toursC.items
-    .query(
-      {
-        query: 'SELECT c.id FROM c WHERE c.userId = @userId',
-        parameters: [{ name: '@userId', value: userId }],
-      },
-      { partitionKey: userId },
-    )
-    .fetchAll();
+  const tours = await queryUserItems(toursC, userId, 'SELECT c.id FROM c WHERE c.userId = @userId');
   for (const tour of tours) {
     await toursC.item(tour.id, userId).delete();
   }
