@@ -1,7 +1,8 @@
 'use strict';
 
 const js = require('@eslint/js');
-const { default: pluginN } = require('eslint-plugin-n');
+// eslint-plugin-n exports the plugin directly (v18.2+ dropped the `.default` wrapper).
+const pluginN = require('eslint-plugin-n');
 const globals = require('globals');
 
 module.exports = [
