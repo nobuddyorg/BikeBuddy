@@ -8,6 +8,10 @@ export const SUPPORTED_LOCALES = [
   { code: 'en', label: 'English', flag: '🇬🇧', short: 'EN', dateLocale: 'en-GB' },
   { code: 'de', label: 'Deutsch', flag: '🇩🇪', short: 'DE', dateLocale: 'de-DE' },
   { code: 'es', label: 'Español', flag: '🇪🇸', short: 'ES', dateLocale: 'es-ES' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷', short: 'FR', dateLocale: 'fr-FR' },
+  { code: 'it', label: 'Italiano', flag: '🇮🇹', short: 'IT', dateLocale: 'it-IT' },
+  { code: 'nl', label: 'Nederlands', flag: '🇳🇱', short: 'NL', dateLocale: 'nl-NL' },
+  { code: 'pt', label: 'Português', flag: '🇵🇹', short: 'PT', dateLocale: 'pt-PT' },
 ];
 
 export const DEFAULT_LOCALE = 'en';

@@ -22,7 +22,7 @@ describe('normalizeLocale', () => {
   });
 
   it('returns null for unsupported or empty input', () => {
-    expect(normalizeLocale('fr')).toBeNull();
+    expect(normalizeLocale('ja')).toBeNull();
     expect(normalizeLocale('')).toBeNull();
     expect(normalizeLocale(undefined)).toBeNull();
   });
@@ -34,11 +34,11 @@ describe('pickLocale', () => {
   });
 
   it('falls back to the first matching browser language', () => {
-    expect(pickLocale({ stored: null, languages: ['fr-FR', 'de-DE', 'en'] })).toBe('de');
+    expect(pickLocale({ stored: null, languages: ['ja-JP', 'de-DE', 'en'] })).toBe('de');
   });
 
   it('falls back to en when nothing matches', () => {
-    expect(pickLocale({ stored: 'xx', languages: ['fr', 'it'] })).toBe('en');
+    expect(pickLocale({ stored: 'xx', languages: ['ja', 'ko'] })).toBe('en');
   });
 });
 
@@ -76,6 +76,6 @@ describe('locale files', () => {
 
   it('isSupported reflects SUPPORTED_LOCALES', () => {
     expect(isSupported('en')).toBe(true);
-    expect(isSupported('fr')).toBe(false);
+    expect(isSupported('ja')).toBe(false);
   });
 });
