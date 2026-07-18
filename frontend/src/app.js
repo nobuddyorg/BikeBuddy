@@ -99,6 +99,7 @@ const elTourPager = $('tour-pager');
 const elTourPagerPrev = $('tour-pager-prev');
 const elTourPagerLabel = $('tour-pager-label');
 const elTourPagerNext = $('tour-pager-next');
+const elBtnShowAll = $('btn-show-all');
 const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
 const elBtnMapExpand = $('btn-map-expand');
@@ -441,17 +442,6 @@ function createTourItem(tour) {
   return li;
 }
 
-function createShowAllButton() {
-  const btn = document.createElement('button');
-  btn.className = 'show-all-btn';
-  btn.textContent = t('tours.showAll');
-  btn.addEventListener('click', () => {
-    deselectTour();
-    renderAllHeatmap();
-  });
-  return btn;
-}
-
 function renderSidebar() {
   const signedIn = !!state.user;
   const loading = signedIn && state.loadingTours;
@@ -462,6 +452,7 @@ function renderSidebar() {
   show(elNoTours, signedIn && !loading && state.tours.length === 0);
   show(elTourControls, hasTours);
   show(elTourList, hasTours);
+  show(elBtnShowAll, hasTours);
   elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
 
   elTourList.innerHTML = '';
@@ -480,7 +471,6 @@ function renderSidebar() {
   const { items, page, totalPages } = paginate(visible, state.page, PAGE_SIZE);
   state.page = page;
   items.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
-  elTourList.appendChild(createShowAllButton());
 
   show(elTourPager, totalPages > 1);
   elTourPagerLabel.textContent = t('sidebar.pagerLabel', { page, totalPages });
@@ -1203,6 +1193,10 @@ elTourPagerPrev.addEventListener('click', () => {
 elTourPagerNext.addEventListener('click', () => {
   state.page += 1;
   renderSidebar();
+});
+elBtnShowAll.addEventListener('click', () => {
+  deselectTour();
+  renderAllHeatmap();
 });
 elPinToggleInput.addEventListener('change', () => {
   state.showPins = elPinToggleInput.checked;
