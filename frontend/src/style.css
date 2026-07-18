@@ -1021,6 +1021,20 @@ body {
   z-index: 1200;
 }
 
+/* The switcher sits mid-navbar, so the right-anchored dropdown overflows the
+   left edge on narrow screens. Pin it to the viewport instead. (This override
+   must live after the base rule above — media queries add no specificity, so
+   source order breaks the tie.) */
+@media (max-width: 768px) {
+  .lang-menu {
+    position: fixed;
+    top: var(--navbar-height);
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+}
+
 .lang-search {
   width: 100%;
   padding: 8px 10px;
