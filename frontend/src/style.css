@@ -963,10 +963,14 @@ body {
     width: 100%;
     max-height: none;
     border-left: none;
-    /* Below .navbar (1100) — the navbar's language dropdown is a descendant
-       of .navbar's stacking context, so it can never outrank a sibling that
-       sits above navbar's own z-index, regardless of the dropdown's own value. */
-    z-index: 700;
+    /* Must be above Leaflet's own controls (.leaflet-top/.leaflet-bottom,
+       z-index 1000 — #map has no stacking context of its own, so that value
+       competes directly here) or the map's +/- zoom buttons poke through.
+       Must stay below .navbar (1100): the navbar's language dropdown is a
+       descendant of .navbar's stacking context, so it can never outrank a
+       sibling that sits above navbar's own z-index, regardless of the
+       dropdown's own value. */
+    z-index: 1050;
   }
 
   .navbar {
