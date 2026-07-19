@@ -1,4 +1,4 @@
-# BikeBuddy 🧭
+# BikeBuddy
 
 BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any ride (cycling or motorcycling), visualize them as heatmaps, and attach photos.
 
