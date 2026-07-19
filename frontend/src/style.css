@@ -820,7 +820,9 @@ body {
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  /* Must outrank .navbar (1100) and the mobile .detail-panel (700) — an image
+     opened from tour details would otherwise paint behind them. */
+  z-index: 1700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -961,7 +963,10 @@ body {
     width: 100%;
     max-height: none;
     border-left: none;
-    z-index: 1500;
+    /* Below .navbar (1100) — the navbar's language dropdown is a descendant
+       of .navbar's stacking context, so it can never outrank a sibling that
+       sits above navbar's own z-index, regardless of the dropdown's own value. */
+    z-index: 700;
   }
 
   .navbar {
