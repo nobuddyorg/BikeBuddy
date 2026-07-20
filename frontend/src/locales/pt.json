@@ -19,6 +19,10 @@
   "sidebar.pagerPrevAria": "Página anterior",
   "sidebar.pagerNextAria": "Página seguinte",
   "sidebar.pagerLabel": "Página {page} de {totalPages}",
+  "sidebar.select": "Selecionar",
+  "sidebar.selectedCount": "{count} selecionados",
+  "sidebar.deleteSelected": "Eliminar",
+  "sidebar.cancelSelect": "Cancelar",
 
   "sort.dateDesc": "Mais recentes primeiro",
   "sort.dateAsc": "Mais antigos primeiro",

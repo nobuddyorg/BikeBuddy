@@ -116,6 +116,12 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 
+.sidebar-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .sidebar-header h2 {
   font-size: 15px;
   font-weight: 600;
@@ -198,10 +204,29 @@ body {
 }
 
 .tour-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border);
   cursor: pointer;
   transition: background 0.15s;
+}
+
+.tour-item-checkbox {
+  flex-shrink: 0;
+  /* Purely visual — the li's own click handler is the single source of
+     interaction (see createTourItem), avoiding a double-toggle between the
+     checkbox's native click and the row's click listener. */
+  pointer-events: none;
+  accent-color: var(--color-primary);
+}
+
+.tour-item-details {
+  /* min-width: 0 lets tour-item-name's text-overflow: ellipsis work inside
+     a flex item — without it, flex items refuse to shrink below content size. */
+  min-width: 0;
+  flex: 1;
 }
 
 .tour-item:hover {
@@ -243,6 +268,28 @@ body {
 
 .show-all-btn:hover {
   background: var(--color-surface-2);
+}
+
+.selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+}
+
+.selection-count {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.selection-bar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .empty-state {

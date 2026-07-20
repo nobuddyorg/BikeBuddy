@@ -94,8 +94,13 @@
       <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar-header">
-          <h2 data-i18n="sidebar.myTours">My Tours</h2>
-          <span id="tour-count" class="badge">0</span>
+          <div class="sidebar-header-title">
+            <h2 data-i18n="sidebar.myTours">My Tours</h2>
+            <span id="tour-count" class="badge">0</span>
+          </div>
+          <button id="btn-select-mode" class="btn btn-ghost hidden" data-i18n="sidebar.select">
+            Select
+          </button>
         </div>
 
         <div id="auth-prompt" class="auth-prompt">
@@ -127,6 +132,22 @@
             <option value="length-desc" data-i18n="sort.lengthDesc">Longest first</option>
             <option value="length-asc" data-i18n="sort.lengthAsc">Shortest first</option>
           </select>
+        </div>
+
+        <div id="selection-bar" class="selection-bar hidden">
+          <span id="selection-count" class="selection-count"></span>
+          <div class="selection-bar-actions">
+            <button
+              id="btn-delete-selected"
+              class="btn btn-danger"
+              data-i18n="sidebar.deleteSelected"
+            >
+              Delete
+            </button>
+            <button id="btn-cancel-select" class="btn btn-ghost" data-i18n="sidebar.cancelSelect">
+              Cancel
+            </button>
+          </div>
         </div>
 
         <ul id="tour-list" class="tour-list hidden"></ul>
