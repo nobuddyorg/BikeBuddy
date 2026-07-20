@@ -754,6 +754,54 @@ async function deleteSelectedTour() {
   }
 }
 
+async function deleteSelectedTours() {
+  if (state.selectedIds.size === 0) return;
+  if (!confirm(t('confirm.deleteTours'))) return;
+
+  const ids = [...state.selectedIds];
+  const succeeded = [];
+  const failed = [];
+
+  await runWithConcurrency(ids, 3, async (id) => {
+    try {
+      const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('delete failed');
+      succeeded.push(id);
+    } catch {
+      failed.push(id);
+    }
+  });
+
+  state.tours = state.tours.filter((tour) => !succeeded.includes(tour.id));
+  succeeded.forEach((id) => state.selectedIds.delete(id));
+  if (succeeded.includes(state.selectedTourId)) {
+    deselectTour();
+  }
+
+  if (failed.length === 0) {
+    state.selectMode = false;
+    toast(
+      succeeded.length === 1
+        ? t('toast.tourDeleted')
+        : t('toast.toursDeleted', { count: succeeded.length }),
+      'success',
+    );
+  } else if (succeeded.length === 0) {
+    toast(t('toast.tourDeleteError'), 'error');
+  } else {
+    toast(
+      t('toast.toursDeletedPartial', {
+        deleted: succeeded.length,
+        total: ids.length,
+      }),
+      'error',
+    );
+  }
+
+  renderSidebar();
+  await renderAllHeatmap();
+}
+
 function renderDetailPanel(tour) {
   elDetailName.textContent = tour.name;
   elDetailDate.textContent = formatDate(tour.createdAt, i18n.dateLocale());
@@ -1249,6 +1297,7 @@ elBtnShowAll.addEventListener('click', () => {
 });
 elBtnSelectMode.addEventListener('click', enterSelectMode);
 elBtnCancelSelect.addEventListener('click', exitSelectMode);
+elBtnDeleteSelected.addEventListener('click', deleteSelectedTours);
 elPinToggleInput.addEventListener('change', () => {
   state.showPins = elPinToggleInput.checked;
   renderPins();

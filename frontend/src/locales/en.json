@@ -110,6 +110,8 @@
   "toast.toursLoadError": "Couldn’t load your tours. Check your connection and try again.",
   "toast.tourDeleted": "Tour deleted.",
   "toast.tourDeleteError": "Could not delete the tour.",
+  "toast.toursDeleted": "{count} tours deleted.",
+  "toast.toursDeletedPartial": "{deleted} of {total} tours deleted.",
   "toast.photoDeleteError": "Could not delete the photo.",
   "toast.nameUpdated": "Name updated.",
   "toast.exportDone": "Your data export has been downloaded.",
@@ -119,6 +121,7 @@
   "toast.tourUploaded": "Tour uploaded.",
 
   "confirm.deleteTour": "Delete this tour? This cannot be undone.",
+  "confirm.deleteTours": "Delete the selected tours? This cannot be undone.",
   "confirm.deletePhoto": "Delete this photo?",
   "confirm.deleteAccount": "Permanently delete your account? Your tours and photos are removed immediately; your sign-in is fully removed shortly after. This cannot be undone."
 }

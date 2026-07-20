@@ -110,6 +110,8 @@
   "toast.toursLoadError": "Impossibile caricare i tuoi giri. Controlla la connessione e riprova.",
   "toast.tourDeleted": "Giro eliminato.",
   "toast.tourDeleteError": "Impossibile eliminare il giro.",
+  "toast.toursDeleted": "{count} giri eliminati.",
+  "toast.toursDeletedPartial": "{deleted} di {total} giri eliminati.",
   "toast.photoDeleteError": "Impossibile eliminare la foto.",
   "toast.nameUpdated": "Nome aggiornato.",
   "toast.exportDone": "L'esportazione dei tuoi dati è stata scaricata.",
@@ -119,6 +121,7 @@
   "toast.tourUploaded": "Giro caricato.",
 
   "confirm.deleteTour": "Eliminare questo giro? L'operazione non può essere annullata.",
+  "confirm.deleteTours": "Eliminare i giri selezionati? L'operazione non può essere annullata.",
   "confirm.deletePhoto": "Eliminare questa foto?",
   "confirm.deleteAccount": "Eliminare definitivamente il tuo account? I tuoi giri e le foto vengono rimossi immediatamente; il tuo accesso verrà rimosso completamente poco dopo. L'operazione non può essere annullata."
 }
