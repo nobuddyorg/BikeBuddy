@@ -481,6 +481,8 @@ function renderSidebar() {
   show(elBtnSelectMode, hasTours);
   show(elSelectionBar, hasTours && state.selectMode);
   elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
+  elSelectionCount.textContent = t('sidebar.selectedCount', { count: state.selectedIds.size });
+  elBtnDeleteSelected.disabled = state.selectedIds.size === 0;
 
   elTourList.innerHTML = '';
   if (!hasTours) {
@@ -503,11 +505,6 @@ function renderSidebar() {
   elTourPagerLabel.textContent = t('sidebar.pagerLabel', { page, totalPages });
   elTourPagerPrev.disabled = page <= 1;
   elTourPagerNext.disabled = page >= totalPages;
-
-  elSelectionCount.textContent = t('sidebar.selectedCount', {
-    count: state.selectedIds.size,
-  });
-  elBtnDeleteSelected.disabled = state.selectedIds.size === 0;
 }
 
 function toggleTourSelection(tourId) {
