@@ -23,6 +23,10 @@ interface MainPage {
     addImage(files: FileInputArg): Promise<void>;
     dismissImageError(): Promise<void>;
     deleteTour(): Promise<void>;
+    enterSelectMode(): Promise<void>;
+    toggleTourSelection(name: string): Promise<void>;
+    deleteSelected(): Promise<void>;
+    cancelSelect(): Promise<void>;
     showPins(visible: boolean): Promise<void>;
     pagerPrev(): Promise<void>;
     pagerNext(): Promise<void>;
@@ -46,12 +50,19 @@ interface MainPage {
       mapExpand: Locator;
       editTour: Locator;
       deleteTour: Locator;
+      selectMode: Locator;
+      deleteSelected: Locator;
+      cancelSelect: Locator;
     };
     list: {
       container: Locator;
       names: Locator;
       count: Locator;
       empty: Locator;
+    };
+    selection: {
+      bar: Locator;
+      count: Locator;
     };
     search: Locator;
     sort: Locator;
@@ -107,12 +118,19 @@ export function initMainPage(page: Page): MainPage {
       mapExpand: page.locator('#btn-map-expand'),
       editTour: page.locator('#btn-edit-tour'),
       deleteTour: page.locator('#btn-delete-tour'),
+      selectMode: page.locator('#btn-select-mode'),
+      deleteSelected: page.locator('#btn-delete-selected'),
+      cancelSelect: page.locator('#btn-cancel-select'),
     },
     list: {
       container: page.locator('#tour-list'),
       names: page.locator('#tour-list .tour-item-name'),
       count: page.locator('#tour-count'),
       empty: page.locator('#no-tours'),
+    },
+    selection: {
+      bar: page.locator('#selection-bar'),
+      count: page.locator('#selection-count'),
     },
     search: page.locator('#tour-search'),
     sort: page.locator('#tour-sort'),
@@ -199,6 +217,15 @@ export function initMainPage(page: Page): MainPage {
       page.once('dialog', (d) => d.accept());
       await locators.buttons.deleteTour.click();
     },
+    enterSelectMode: async () => locators.buttons.selectMode.click(),
+    toggleTourSelection: async (name: string) => {
+      await locators.list.container.locator('.tour-item', { hasText: name }).click();
+    },
+    deleteSelected: async () => {
+      page.once('dialog', (d) => d.accept());
+      await locators.buttons.deleteSelected.click();
+    },
+    cancelSelect: async () => locators.buttons.cancelSelect.click(),
     showPins: async (visible: boolean) => {
       if (visible) await locators.pins.toggleInput.check();
       else await locators.pins.toggleInput.uncheck();
