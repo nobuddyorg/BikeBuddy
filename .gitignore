@@ -63,6 +63,7 @@ functions/reports/mutation/
 # Claude Code
 .claude/
 CLAUDE.md
+.superpowers/
 
 # understand anything
 .understand-anything/
