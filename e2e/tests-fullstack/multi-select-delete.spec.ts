@@ -9,7 +9,7 @@ buddyTest.describe('multi-select bulk delete', () => {
     await clearUsers();
     await clearTours();
     const now = Date.now();
-    // 22 tours: PAGE_SIZE is 20, so this spans exactly 2 pages.
+    // 22 tours: PAGE_SIZE is 10, so this spans 3 pages (10/10/2).
     const docs = Array.from({ length: 22 }, (_, i) => ({
       id: `multiselect-tour-${i + 1}`,
       userId: 'local-dev-user',
@@ -32,10 +32,12 @@ buddyTest.describe('multi-select bulk delete', () => {
     // Page 1: sorted newest-first by default (date-desc). Tour 01 was created
     // with the most recent timestamp (i=0 → createdAt = now), so it's first
     // on page 1. Tour 22 has the oldest timestamp (i=21 → now - 21min), so
-    // it's the very last item overall — on page 2.
+    // it's the very last item overall — with PAGE_SIZE=10 and 22 tours,
+    // that's page 3 (pages are 01-10, 11-20, 21-22).
     await on(page).main.do.toggleTourSelection('MultiSelect Tour 01');
     await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
 
+    await on(page).main.do.pagerNext();
     await on(page).main.do.pagerNext();
     await on(page).main.do.toggleTourSelection('MultiSelect Tour 22');
     await expect(on(page).main.locators.selection.count).toHaveText('2 selected');
