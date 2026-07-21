@@ -48,6 +48,10 @@ Infrastructure details: [Infrastructure how-to](docs/how-to/infrastructure.md). 
   &nbsp;&nbsp;&nbsp;
   <img src="https://api.iconify.design/logos:javascript.svg?height=88" height="88" alt="JavaScript" />
   &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:typescript-icon.svg?height=88" height="88" alt="TypeScript" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/logos:zod.svg?height=76" height="76" alt="Zod" />
+  &nbsp;&nbsp;&nbsp;
   <img src="https://api.iconify.design/logos:microsoft-azure.svg?height=88" height="88" alt="Azure" />
   &nbsp;&nbsp;&nbsp;
   <img src="https://api.iconify.design/devicon:cosmosdb.svg?height=88" height="88" alt="Cosmos DB" />
@@ -64,11 +68,17 @@ Infrastructure details: [Infrastructure how-to](docs/how-to/infrastructure.md). 
   &nbsp;&nbsp;&nbsp;
   <img src="https://api.iconify.design/logos:github-actions.svg?height=82" height="82" alt="GitHub Actions" />
   &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/vscode-icons:file-type-codeql.svg?height=78" height="78" alt="CodeQL" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/vscode-icons:file-type-zizmor.svg?height=78" height="78" alt="zizmor" />
+  &nbsp;&nbsp;&nbsp;
   <img src="https://api.iconify.design/logos:vitest.svg?height=82" height="82" alt="Vitest" />
   &nbsp;&nbsp;&nbsp;
   <img src="https://api.iconify.design/logos:playwright.svg?height=82" height="82" alt="Playwright" />
   &nbsp;&nbsp;&nbsp;
   <img src="https://api.iconify.design/simple-icons:stryker.svg?height=82&color=%23E74C3C" height="82" alt="Stryker" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://api.iconify.design/simple-icons:codecov.svg?height=80&color=%23F01F7A" height="80" alt="Codecov" />
   &nbsp;&nbsp;&nbsp;
   <img src="https://api.iconify.design/logos:eslint.svg?height=82" height="82" alt="ESLint" />
   &nbsp;&nbsp;&nbsp;
