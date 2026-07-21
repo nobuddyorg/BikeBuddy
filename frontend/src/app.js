@@ -443,10 +443,39 @@ function textDiv(className, text) {
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
+// The ghost click a touch long-press leaves behind must be suppressed on
+// whatever tour-item ends up under the finger — but onLongPress() re-renders
+// the whole list mid-gesture (see enterSelectMode -> renderSidebar), which
+// destroys the <li> the press started on before the ghost click arrives. A
+// suppression flag scoped to that <li>'s own closure dies with it. elTourList
+// itself is never destroyed (renderSidebar only replaces its children), so a
+// single delegated listener here survives the rebuild. The timeout is a
+// safety net for the mouse case, where the browser sometimes suppresses the
+// click itself (no click ever arrives to consume the flag) — without it the
+// flag could stay stuck true and swallow an unrelated later click.
+let suppressNextTourClick = false;
+
+function suppressNextTourClickOnce() {
+  suppressNextTourClick = true;
+  setTimeout(() => {
+    suppressNextTourClick = false;
+  }, 400);
+}
+
+elTourList.addEventListener(
+  'click',
+  (e) => {
+    if (suppressNextTourClick) {
+      e.stopImmediatePropagation();
+      suppressNextTourClick = false;
+    }
+  },
+  true,
+);
+
 function bindLongPress(el, onLongPress) {
   let timer = null;
   let start = null;
-  let fired = false;
 
   const cancel = () => {
     clearTimeout(timer);
@@ -456,10 +485,9 @@ function bindLongPress(el, onLongPress) {
 
   el.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    fired = false;
     start = { x: e.clientX, y: e.clientY };
     timer = setTimeout(() => {
-      fired = true;
+      suppressNextTourClickOnce();
       onLongPress();
     }, LONG_PRESS_MS);
   });
@@ -474,21 +502,6 @@ function bindLongPress(el, onLongPress) {
   el.addEventListener('pointerup', cancel);
   el.addEventListener('pointercancel', cancel);
   el.addEventListener('pointerleave', cancel);
-
-  // Capture phase, so this runs before createTourItem's own bubble-phase
-  // click listener — stopImmediatePropagation there suppresses the ghost
-  // click the browser still fires after a long-press's pointerup, so a
-  // long-press never also triggers the normal tap behavior.
-  el.addEventListener(
-    'click',
-    (e) => {
-      if (fired) {
-        e.stopImmediatePropagation();
-        fired = false;
-      }
-    },
-    true,
-  );
 }
 
 function createTourItem(tour) {
