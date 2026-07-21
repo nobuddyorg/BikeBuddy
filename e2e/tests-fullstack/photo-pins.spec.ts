@@ -65,3 +65,93 @@ buddyTest.describe('photo pins', () => {
     },
   );
 });
+
+// #274: pins must be scoped to the selected tour — a single tour's markers
+// should never leak photos from other tours, and the toggle should only be
+// available when the current scope (selected tour, or all tours) actually
+// has a geotagged photo.
+const TID_A = '55555555-5555-4555-8555-555555555555';
+const IID_A = '66666666-6666-4666-8666-666666666666';
+const TID_B = '77777777-7777-4777-8777-777777777777';
+const IID_B = '88888888-8888-4888-8888-888888888888';
+const TID_C = '99999999-9999-4999-8999-999999999999';
+
+buddyTest.describe('photo pins scoped to selected tour', () => {
+  buddyTest.beforeEach(async () => {
+    await clearUsers();
+    await clearTours();
+    await toursContainer().items.create({
+      id: TID_A,
+      userId: 'local-dev-user',
+      name: 'Tour A',
+      distance: 5,
+      createdAt: new Date().toISOString(),
+      heatmapData: [
+        [48.1, 11.5],
+        [48.11, 11.51],
+      ],
+      images: [
+        { id: IID_A, blobName: `local-dev-user/${TID_A}/${IID_A}.jpg`, lat: 48.1, lon: 11.5 },
+      ],
+    });
+    await toursContainer().items.create({
+      id: TID_B,
+      userId: 'local-dev-user',
+      name: 'Tour B',
+      distance: 5,
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
+      heatmapData: [
+        [48.12, 11.55],
+        [48.13, 11.56],
+      ],
+      images: [
+        { id: IID_B, blobName: `local-dev-user/${TID_B}/${IID_B}.jpg`, lat: 48.12, lon: 11.55 },
+      ],
+    });
+    // No geotagged photos at all — proves the toggle hides for this tour
+    // even though other tours have pins.
+    await toursContainer().items.create({
+      id: TID_C,
+      userId: 'local-dev-user',
+      name: 'Tour C (no photos)',
+      distance: 5,
+      createdAt: new Date(Date.now() - 120_000).toISOString(),
+    });
+  });
+
+  buddyTest(
+    'shows only the selected tour’s pins, and reverts to all tours on close',
+    async ({ on, page }) => {
+      await page.goto('/');
+      await expect(on(page).main.locators.userMenu).toBeVisible();
+      await expect(on(page).main.locators.list.count).toHaveText('3');
+
+      // All tours (nothing selected yet): both A's and B's pins show.
+      await expect(on(page).main.locators.pins.toggle).toBeVisible();
+      await on(page).main.do.showPins(true);
+      await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+
+      // Select Tour A: only its own pin shows, not Tour B's.
+      await on(page).main.do.selectTour('Tour A');
+      await expect(on(page).main.locators.detail.name).toHaveText('Tour A');
+      await expect(on(page).main.locators.pins.markers).toHaveCount(1);
+
+      // Select Tour B: only its own pin shows.
+      await on(page).main.do.selectTour('Tour B');
+      await expect(on(page).main.locators.detail.name).toHaveText('Tour B');
+      await expect(on(page).main.locators.pins.markers).toHaveCount(1);
+
+      // Select Tour C (no geotagged photos): the toggle itself hides, since
+      // this tour has no pins to show at all — not just zero markers.
+      await on(page).main.do.selectTour('Tour C (no photos)');
+      await expect(on(page).main.locators.detail.name).toHaveText('Tour C (no photos)');
+      await expect(on(page).main.locators.pins.toggle).toBeHidden();
+
+      // Close the detail panel: back to "all tours" scope, both pins return.
+      await on(page).main.do.selectTour('Tour A');
+      await on(page).main.do.closeDetail();
+      await expect(on(page).main.locators.pins.toggle).toBeVisible();
+      await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+    },
+  );
+});

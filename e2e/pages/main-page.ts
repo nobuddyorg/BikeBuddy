@@ -19,6 +19,7 @@ interface MainPage {
     search(query: string): Promise<void>;
     sortBy(option: string): Promise<void>;
     selectTour(name: string): Promise<void>;
+    closeDetail(): Promise<void>;
     uploadGpx(opts: { name: string; gpx: string; filename?: string }): Promise<void>;
     addImage(files: FileInputArg): Promise<void>;
     dismissImageError(): Promise<void>;
@@ -50,6 +51,7 @@ interface MainPage {
       mapExpand: Locator;
       editTour: Locator;
       deleteTour: Locator;
+      closeDetail: Locator;
       selectMode: Locator;
       deleteSelected: Locator;
       cancelSelect: Locator;
@@ -118,6 +120,7 @@ export function initMainPage(page: Page): MainPage {
       mapExpand: page.locator('#btn-map-expand'),
       editTour: page.locator('#btn-edit-tour'),
       deleteTour: page.locator('#btn-delete-tour'),
+      closeDetail: page.locator('#btn-close-detail'),
       selectMode: page.locator('#btn-select-mode'),
       deleteSelected: page.locator('#btn-delete-selected'),
       cancelSelect: page.locator('#btn-cancel-select'),
@@ -187,6 +190,7 @@ export function initMainPage(page: Page): MainPage {
     selectTour: async (name: string) => {
       await locators.list.container.locator('.tour-item', { hasText: name }).click();
     },
+    closeDetail: async () => locators.buttons.closeDetail.click(),
     uploadGpx: async ({
       name,
       gpx,
