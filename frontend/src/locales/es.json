@@ -19,6 +19,10 @@
   "sidebar.pagerPrevAria": "Página anterior",
   "sidebar.pagerNextAria": "Página siguiente",
   "sidebar.pagerLabel": "Página {page} de {totalPages}",
+  "sidebar.select": "Seleccionar",
+  "sidebar.selectedCount": "{count} seleccionadas",
+  "sidebar.deleteSelected": "Eliminar",
+  "sidebar.cancelSelect": "Cancelar",
 
   "sort.dateDesc": "Más recientes primero",
   "sort.dateAsc": "Más antiguas primero",
@@ -106,6 +110,8 @@
   "toast.toursLoadError": "No se pudieron cargar tus rutas. Comprueba tu conexión e inténtalo de nuevo.",
   "toast.tourDeleted": "Ruta eliminada.",
   "toast.tourDeleteError": "No se pudo eliminar la ruta.",
+  "toast.toursDeleted": "{count} rutas eliminadas.",
+  "toast.toursDeletedPartial": "{deleted} de {total} rutas eliminadas.",
   "toast.photoDeleteError": "No se pudo eliminar la foto.",
   "toast.nameUpdated": "Nombre actualizado.",
   "toast.exportDone": "Tu exportación de datos se ha descargado.",
@@ -115,6 +121,7 @@
   "toast.tourUploaded": "Ruta subida.",
 
   "confirm.deleteTour": "¿Eliminar esta ruta? Esta acción no se puede deshacer.",
+  "confirm.deleteTours": "¿Eliminar las rutas seleccionadas? Esta acción no se puede deshacer.",
   "confirm.deletePhoto": "¿Eliminar esta foto?",
   "confirm.deleteAccount": "¿Eliminar tu cuenta de forma permanente? Tus rutas y fotos se eliminan de inmediato; tu sesión se elimina por completo poco después. Esta acción no se puede deshacer."
 }

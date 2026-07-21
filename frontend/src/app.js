@@ -33,6 +33,8 @@ const state = {
   sort: 'date-desc',
   search: '',
   page: 1,
+  selectMode: false,
+  selectedIds: new Set(),
 };
 
 // ── Map setup ─────────────────────────────────────────────────────────────────
@@ -100,6 +102,11 @@ const elTourPagerPrev = $('tour-pager-prev');
 const elTourPagerLabel = $('tour-pager-label');
 const elTourPagerNext = $('tour-pager-next');
 const elBtnShowAll = $('btn-show-all');
+const elBtnSelectMode = $('btn-select-mode');
+const elSelectionBar = $('selection-bar');
+const elSelectionCount = $('selection-count');
+const elBtnDeleteSelected = $('btn-delete-selected');
+const elBtnCancelSelect = $('btn-cancel-select');
 const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
 const elBtnMapExpand = $('btn-map-expand');
@@ -431,14 +438,32 @@ function textDiv(className, text) {
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
-  li.append(
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'tour-item-checkbox';
+  checkbox.checked = state.selectedIds.has(tour.id);
+  checkbox.setAttribute('aria-hidden', 'true');
+  show(checkbox, state.selectMode);
+
+  const details = document.createElement('div');
+  details.className = 'tour-item-details';
+  details.append(
     textDiv('tour-item-name', tour.name),
     textDiv(
       'tour-item-meta',
       `${formatDate(tour.createdAt, i18n.dateLocale())} · ${formatDistance(tour.distance)}`,
     ),
   );
-  li.addEventListener('click', () => selectTour(tour.id));
+
+  li.append(checkbox, details);
+  li.addEventListener('click', () => {
+    if (state.selectMode) {
+      toggleTourSelection(tour.id);
+    } else {
+      selectTour(tour.id);
+    }
+  });
   return li;
 }
 
@@ -453,7 +478,11 @@ function renderSidebar() {
   show(elTourControls, hasTours);
   show(elTourList, hasTours);
   show(elBtnShowAll, hasTours);
+  show(elBtnSelectMode, hasTours);
+  show(elSelectionBar, hasTours && state.selectMode);
   elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
+  elSelectionCount.textContent = t('sidebar.selectedCount', { count: state.selectedIds.size });
+  elBtnDeleteSelected.disabled = state.selectedIds.size === 0;
 
   elTourList.innerHTML = '';
   if (!hasTours) {
@@ -476,6 +505,26 @@ function renderSidebar() {
   elTourPagerLabel.textContent = t('sidebar.pagerLabel', { page, totalPages });
   elTourPagerPrev.disabled = page <= 1;
   elTourPagerNext.disabled = page >= totalPages;
+}
+
+function toggleTourSelection(tourId) {
+  if (state.selectedIds.has(tourId)) {
+    state.selectedIds.delete(tourId);
+  } else {
+    state.selectedIds.add(tourId);
+  }
+  renderSidebar();
+}
+
+function enterSelectMode() {
+  state.selectMode = true;
+  renderSidebar();
+}
+
+function exitSelectMode() {
+  state.selectMode = false;
+  state.selectedIds.clear();
+  renderSidebar();
 }
 
 // ── Heatmap rendering ─────────────────────────────────────────────────────────
@@ -703,6 +752,54 @@ async function deleteSelectedTour() {
   } catch {
     toast(t('toast.tourDeleteError'), 'error');
   }
+}
+
+async function deleteSelectedTours() {
+  if (state.selectedIds.size === 0) return;
+  if (!confirm(t('confirm.deleteTours'))) return;
+
+  const ids = [...state.selectedIds];
+  const succeeded = [];
+  const failed = [];
+
+  await runWithConcurrency(ids, 3, async (id) => {
+    try {
+      const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('delete failed');
+      succeeded.push(id);
+    } catch {
+      failed.push(id);
+    }
+  });
+
+  state.tours = state.tours.filter((tour) => !succeeded.includes(tour.id));
+  succeeded.forEach((id) => state.selectedIds.delete(id));
+  if (succeeded.includes(state.selectedTourId)) {
+    deselectTour();
+  }
+
+  if (failed.length === 0) {
+    state.selectMode = false;
+    toast(
+      succeeded.length === 1
+        ? t('toast.tourDeleted')
+        : t('toast.toursDeleted', { count: succeeded.length }),
+      'success',
+    );
+  } else if (succeeded.length === 0) {
+    toast(t('toast.tourDeleteError'), 'error');
+  } else {
+    toast(
+      t('toast.toursDeletedPartial', {
+        deleted: succeeded.length,
+        total: ids.length,
+      }),
+      'error',
+    );
+  }
+
+  renderSidebar();
+  await renderAllHeatmap();
 }
 
 function renderDetailPanel(tour) {
@@ -1198,6 +1295,9 @@ elBtnShowAll.addEventListener('click', () => {
   deselectTour();
   renderAllHeatmap();
 });
+elBtnSelectMode.addEventListener('click', enterSelectMode);
+elBtnCancelSelect.addEventListener('click', exitSelectMode);
+elBtnDeleteSelected.addEventListener('click', deleteSelectedTours);
 elPinToggleInput.addEventListener('change', () => {
   state.showPins = elPinToggleInput.checked;
   renderPins();

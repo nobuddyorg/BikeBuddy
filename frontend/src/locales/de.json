@@ -19,6 +19,10 @@
   "sidebar.pagerPrevAria": "Vorherige Seite",
   "sidebar.pagerNextAria": "Nächste Seite",
   "sidebar.pagerLabel": "Seite {page} von {totalPages}",
+  "sidebar.select": "Auswählen",
+  "sidebar.selectedCount": "{count} ausgewählt",
+  "sidebar.deleteSelected": "Löschen",
+  "sidebar.cancelSelect": "Abbrechen",
 
   "sort.dateDesc": "Neueste zuerst",
   "sort.dateAsc": "Älteste zuerst",
@@ -106,6 +110,8 @@
   "toast.toursLoadError": "Deine Touren konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
   "toast.tourDeleted": "Tour gelöscht.",
   "toast.tourDeleteError": "Tour konnte nicht gelöscht werden.",
+  "toast.toursDeleted": "{count} Touren gelöscht.",
+  "toast.toursDeletedPartial": "{deleted} von {total} Touren gelöscht.",
   "toast.photoDeleteError": "Foto konnte nicht gelöscht werden.",
   "toast.nameUpdated": "Name aktualisiert.",
   "toast.exportDone": "Dein Datenexport wurde heruntergeladen.",
@@ -115,6 +121,7 @@
   "toast.tourUploaded": "Tour hochgeladen.",
 
   "confirm.deleteTour": "Diese Tour löschen? Das kann nicht rückgängig gemacht werden.",
+  "confirm.deleteTours": "Ausgewählte Touren löschen? Das kann nicht rückgängig gemacht werden.",
   "confirm.deletePhoto": "Dieses Foto löschen?",
   "confirm.deleteAccount": "Konto endgültig löschen? Deine Touren und Fotos werden sofort entfernt; deine Anmeldung wird kurz danach vollständig entfernt. Das kann nicht rückgängig gemacht werden."
 }

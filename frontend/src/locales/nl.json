@@ -19,6 +19,10 @@
   "sidebar.pagerPrevAria": "Vorige pagina",
   "sidebar.pagerNextAria": "Volgende pagina",
   "sidebar.pagerLabel": "Pagina {page} van {totalPages}",
+  "sidebar.select": "Selecteren",
+  "sidebar.selectedCount": "{count} geselecteerd",
+  "sidebar.deleteSelected": "Verwijderen",
+  "sidebar.cancelSelect": "Annuleren",
 
   "sort.dateDesc": "Nieuwste eerst",
   "sort.dateAsc": "Oudste eerst",
@@ -106,6 +110,8 @@
   "toast.toursLoadError": "Je ritten konden niet worden geladen. Controleer je verbinding en probeer het opnieuw.",
   "toast.tourDeleted": "Rit verwijderd.",
   "toast.tourDeleteError": "Rit kon niet worden verwijderd.",
+  "toast.toursDeleted": "{count} ritten verwijderd.",
+  "toast.toursDeletedPartial": "{deleted} van {total} ritten verwijderd.",
   "toast.photoDeleteError": "Foto kon niet worden verwijderd.",
   "toast.nameUpdated": "Naam bijgewerkt.",
   "toast.exportDone": "Je gegevensexport is gedownload.",
@@ -115,6 +121,7 @@
   "toast.tourUploaded": "Rit geüpload.",
 
   "confirm.deleteTour": "Deze rit verwijderen? Dit kan niet ongedaan worden gemaakt.",
+  "confirm.deleteTours": "Geselecteerde ritten verwijderen? Dit kan niet ongedaan worden gemaakt.",
   "confirm.deletePhoto": "Deze foto verwijderen?",
   "confirm.deleteAccount": "Je account permanent verwijderen? Je ritten en foto's worden direct verwijderd; je inlog wordt kort daarna volledig verwijderd. Dit kan niet ongedaan worden gemaakt."
 }

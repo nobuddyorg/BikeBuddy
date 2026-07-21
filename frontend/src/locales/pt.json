@@ -19,6 +19,10 @@
   "sidebar.pagerPrevAria": "Página anterior",
   "sidebar.pagerNextAria": "Página seguinte",
   "sidebar.pagerLabel": "Página {page} de {totalPages}",
+  "sidebar.select": "Selecionar",
+  "sidebar.selectedCount": "{count} selecionados",
+  "sidebar.deleteSelected": "Eliminar",
+  "sidebar.cancelSelect": "Cancelar",
 
   "sort.dateDesc": "Mais recentes primeiro",
   "sort.dateAsc": "Mais antigos primeiro",
@@ -106,6 +110,8 @@
   "toast.toursLoadError": "Não foi possível carregar os teus percursos. Verifica a tua ligação e tenta novamente.",
   "toast.tourDeleted": "Percurso eliminado.",
   "toast.tourDeleteError": "Não foi possível eliminar o percurso.",
+  "toast.toursDeleted": "{count} percursos eliminados.",
+  "toast.toursDeletedPartial": "{deleted} de {total} percursos eliminados.",
   "toast.photoDeleteError": "Não foi possível eliminar a foto.",
   "toast.nameUpdated": "Nome atualizado.",
   "toast.exportDone": "A exportação dos teus dados foi transferida.",
@@ -115,6 +121,7 @@
   "toast.tourUploaded": "Percurso carregado.",
 
   "confirm.deleteTour": "Eliminar este percurso? Esta ação não pode ser revertida.",
+  "confirm.deleteTours": "Eliminar os percursos selecionados? Esta ação não pode ser revertida.",
   "confirm.deletePhoto": "Eliminar esta foto?",
   "confirm.deleteAccount": "Eliminar definitivamente a tua conta? Os teus percursos e fotos são removidos de imediato; o teu acesso será totalmente removido pouco depois. Esta ação não pode ser revertida."
 }
