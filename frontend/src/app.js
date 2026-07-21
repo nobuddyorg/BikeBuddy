@@ -578,9 +578,14 @@ const PIN_GROUP_THRESHOLD_PX = 24;
 const PIN_FAN_RADIUS_PX = 16;
 const PIN_MIN_ZOOM = 8;
 
-// Geotagged images across all loaded tours (lat/lon come from the detail fetch).
+// Geotagged images to pin: scoped to the selected tour when one is open, so a
+// single tour's pins never leak photos from other tours (#274); across all
+// loaded tours when viewing the full map (no tour selected).
 function geotaggedImages() {
-  return state.tours.flatMap((t) =>
+  const tours = state.selectedTourId
+    ? state.tours.filter((t) => t.id === state.selectedTourId)
+    : state.tours;
+  return tours.flatMap((t) =>
     (t.images || []).filter((img) => typeof img.lat === 'number' && typeof img.lon === 'number'),
   );
 }
@@ -690,6 +695,7 @@ function deselectTour() {
   show(elDetailPanel, false);
   refreshMapSize();
   renderSidebar();
+  renderPins();
 }
 
 function openEdit() {

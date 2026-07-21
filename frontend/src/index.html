@@ -189,19 +189,21 @@
       <!-- Map -->
       <main class="map-container">
         <div id="map"></div>
-        <button
-          id="btn-map-expand"
-          class="map-expand-btn"
-          data-i18n-aria-label="map.expandAria"
-          data-i18n-title="map.expandTitle"
-          aria-pressed="false"
-        >
-          ⛶
-        </button>
-        <label id="pin-toggle" class="pin-toggle hidden">
-          <input type="checkbox" id="pin-toggle-input" />
-          <span>📷 <span data-i18n="map.photoPins">Photo pins</span></span>
-        </label>
+        <div class="map-top-controls">
+          <label id="pin-toggle" class="pin-toggle hidden">
+            <input type="checkbox" id="pin-toggle-input" />
+            <span>📷 <span data-i18n="map.photoPins">Photo pins</span></span>
+          </label>
+          <button
+            id="btn-map-expand"
+            class="map-expand-btn"
+            data-i18n-aria-label="map.expandAria"
+            data-i18n-title="map.expandTitle"
+            aria-pressed="false"
+          >
+            ⛶
+          </button>
+        </div>
         <div id="map-empty" class="map-empty-overlay hidden">
           <div class="map-empty-card">
             <div class="map-empty-icon">🗺️</div>

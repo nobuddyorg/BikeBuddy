@@ -316,11 +316,17 @@ body {
   height: 100%;
 }
 
-.pin-toggle {
+.map-top-controls {
   position: absolute;
-  top: 56px;
+  top: 12px;
   right: 12px;
   z-index: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pin-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -938,10 +944,6 @@ body {
 }
 
 .map-expand-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 600;
   width: 34px;
   height: 34px;
   border: 1px solid var(--color-border);
