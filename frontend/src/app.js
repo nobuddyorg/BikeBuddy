@@ -435,6 +435,62 @@ function textDiv(className, text) {
   return div;
 }
 
+// Long-press (~500ms hold, cancelled by movement past a small tolerance)
+// enters select mode with the pressed tour already checked — mobile's only
+// entry point once the Select button is hidden there (#275). Wired
+// unconditionally: Pointer Events unify touch and mouse under one path, so
+// this also works as mouse click-and-hold on desktop, alongside its button.
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+
+function bindLongPress(el, onLongPress) {
+  let timer = null;
+  let start = null;
+  let fired = false;
+
+  const cancel = () => {
+    clearTimeout(timer);
+    timer = null;
+    start = null;
+  };
+
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    fired = false;
+    start = { x: e.clientX, y: e.clientY };
+    timer = setTimeout(() => {
+      fired = true;
+      onLongPress();
+    }, LONG_PRESS_MS);
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_TOLERANCE_PX) cancel();
+  });
+
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('pointerleave', cancel);
+
+  // Capture phase, so this runs before createTourItem's own bubble-phase
+  // click listener — stopImmediatePropagation there suppresses the ghost
+  // click the browser still fires after a long-press's pointerup, so a
+  // long-press never also triggers the normal tap behavior.
+  el.addEventListener(
+    'click',
+    (e) => {
+      if (fired) {
+        e.stopImmediatePropagation();
+        fired = false;
+      }
+    },
+    true,
+  );
+}
+
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
@@ -462,6 +518,12 @@ function createTourItem(tour) {
       toggleTourSelection(tour.id);
     } else {
       selectTour(tour.id);
+    }
+  });
+  bindLongPress(li, () => {
+    if (!state.selectMode) {
+      enterSelectMode();
+      toggleTourSelection(tour.id);
     }
   });
   return li;
