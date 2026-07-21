@@ -62,6 +62,7 @@ selectedIds: new Set(),
 
 - `sidebar.select` — "Select"
 - `sidebar.selectedCount` — "{count} selected"
+- `sidebar.deleteSelected` — "Delete"
 - `sidebar.cancelSelect` — "Cancel"
 - `confirm.deleteTours` — "Delete the selected tours? This cannot be undone."
 - `toast.toursDeleted` — "{count} tours deleted."
