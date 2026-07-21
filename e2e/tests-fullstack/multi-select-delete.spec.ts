@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
@@ -9,9 +10,12 @@ buddyTest.describe('multi-select bulk delete', () => {
     await clearUsers();
     await clearTours();
     const now = Date.now();
-    // 22 tours: PAGE_SIZE is 10, so this spans 3 pages (10/10/2).
+    // 22 tours: PAGE_SIZE is 10, so this spans 3 pages (10/10/2). ids must be
+    // real UUIDs — DELETE /api/tours/{tourId} validates the route param and
+    // 400s on anything else (functions/src/lib/validation.js), same as real
+    // tours always get via randomUUID() in UploadTour.
     const docs = Array.from({ length: 22 }, (_, i) => ({
-      id: `multiselect-tour-${i + 1}`,
+      id: randomUUID(),
       userId: 'local-dev-user',
       name: `MultiSelect Tour ${String(i + 1).padStart(2, '0')}`,
       distance: 10,
