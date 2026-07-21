@@ -452,7 +452,10 @@ const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 // single delegated listener here survives the rebuild. The timeout is a
 // safety net for the mouse case, where the browser sometimes suppresses the
 // click itself (no click ever arrives to consume the flag) — without it the
-// flag could stay stuck true and swallow an unrelated later click.
+// flag could stay stuck true and swallow an unrelated later click. This is
+// armed at release (pointerup), not when the long-press threshold fires —
+// arming it early would let an ordinary hold-then-release outlast the 400ms
+// window before the real ghost click ever arrives, unsuppressing it again.
 let suppressNextTourClick = false;
 
 function suppressNextTourClickOnce() {
@@ -476,6 +479,10 @@ elTourList.addEventListener(
 function bindLongPress(el, onLongPress) {
   let timer = null;
   let start = null;
+  // True only once onLongPress() has actually fired AND done something (it
+  // returns falsy as a no-op, e.g. when already in select mode) — gates
+  // whether release should suppress the trailing click at all.
+  let longPressActed = false;
 
   const cancel = () => {
     clearTimeout(timer);
@@ -485,10 +492,10 @@ function bindLongPress(el, onLongPress) {
 
   el.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
+    longPressActed = false;
     start = { x: e.clientX, y: e.clientY };
     timer = setTimeout(() => {
-      suppressNextTourClickOnce();
-      onLongPress();
+      longPressActed = !!onLongPress();
     }, LONG_PRESS_MS);
   });
 
@@ -499,7 +506,13 @@ function bindLongPress(el, onLongPress) {
     if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_TOLERANCE_PX) cancel();
   });
 
-  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointerup', () => {
+    cancel();
+    if (longPressActed) {
+      suppressNextTourClickOnce();
+      longPressActed = false;
+    }
+  });
   el.addEventListener('pointercancel', cancel);
   el.addEventListener('pointerleave', cancel);
 }
@@ -534,10 +547,10 @@ function createTourItem(tour) {
     }
   });
   bindLongPress(li, () => {
-    if (!state.selectMode) {
-      enterSelectMode();
-      toggleTourSelection(tour.id);
-    }
+    if (state.selectMode) return false;
+    enterSelectMode();
+    toggleTourSelection(tour.id);
+    return true;
   });
   return li;
 }
