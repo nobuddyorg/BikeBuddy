@@ -1002,9 +1002,34 @@ body {
     border-bottom: 1px solid var(--color-border);
   }
 
+  /* No spare row for a title/count/Select-button header on mobile (#275) —
+     select mode is entered by long-press instead (see bindLongPress in app.js). */
+  .sidebar-header {
+    display: none;
+  }
+
+  /* Search and sort share one row instead of stacking, to save a row (#275).
+     Sort stays a native <select> (no custom icon-menu) and just hugs its own
+     content next to the search box, which takes the rest of the row. */
+  .tour-controls {
+    flex-direction: row;
+  }
+
+  .tour-search {
+    flex: 1;
+  }
+
+  .tour-sort {
+    width: auto;
+  }
+
   .map-container {
     flex: 1;
-    min-height: 40vh;
+    /* Lowered from 40vh (#275): combined with the sidebar's 55vh cap, the old
+       95vh floor left almost no slack inside calc(100vh - navbar-height). The
+       map stays visible by default (not fully hidden) — only shrunk; the
+       existing fullscreen toggle still expands it fully. */
+    min-height: 20vh;
   }
 
   /* Detail panel takes over the whole area below the header, like the
