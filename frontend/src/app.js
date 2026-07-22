@@ -443,13 +443,18 @@ function textDiv(className, text) {
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
-// The ghost click a touch long-press leaves behind must be suppressed on
-// whatever tour-item ends up under the finger. elTourList itself is never
-// destroyed (renderSidebar only replaces its children), so a single
-// delegated listener here survives onLongPress()'s re-render. The timeout is
-// a safety net for the mouse case, where the browser sometimes suppresses
-// the click itself (no click ever arrives to consume the flag) — without it
-// the flag could stay stuck true and swallow an unrelated later click.
+// The ghost click a touch long-press leaves behind must be suppressed no
+// matter where it lands — onLongPress()'s re-render doesn't just rebuild
+// #tour-list, it also reveals the selection bar (a sibling, in normal flow,
+// not an overlay), which shifts every row down. For the topmost row that can
+// move the ghost click's fixed screen coordinates onto the selection bar
+// itself — even onto Cancel/Delete — so scoping the listener to any single
+// container isn't reliable. document is never destroyed and is an ancestor
+// of everything, so listening there catches the click regardless of what
+// shifted underneath it. The timeout is a safety net for the mouse case,
+// where the browser sometimes suppresses the click itself (no click ever
+// arrives to consume the flag) — without it the flag could stay stuck true
+// and swallow an unrelated later click.
 let suppressNextTourClick = false;
 
 function suppressNextTourClickOnce() {
@@ -459,7 +464,7 @@ function suppressNextTourClickOnce() {
   }, 400);
 }
 
-elTourList.addEventListener(
+document.addEventListener(
   'click',
   (e) => {
     if (suppressNextTourClick) {
