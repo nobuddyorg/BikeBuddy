@@ -30,6 +30,26 @@
     --color-text: #e2e8f0;
     --color-text-muted: #8892a4;
   }
+
+  /* Leaflet's own stylesheet (vendored via CDN, index.html) hardcodes its
+     zoom control buttons to a white background/black text with no theme
+     awareness — everything else in this app adapts via the --color-*
+     variables above, but Leaflet's classes never reference them (#286). */
+  .leaflet-bar a {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    border-bottom-color: var(--color-border);
+  }
+
+  .leaflet-bar a:hover,
+  .leaflet-bar a:focus {
+    background-color: var(--color-surface-2);
+  }
+
+  .leaflet-bar a.leaflet-disabled {
+    background-color: var(--color-surface);
+    color: var(--color-text-muted);
+  }
 }
 
 html,
