@@ -97,6 +97,9 @@ const elTourLoading = $('tour-loading');
 const elTourControls = $('tour-controls');
 const elTourSearch = $('tour-search');
 const elTourSort = $('tour-sort');
+const elSortMenu = $('sort-menu');
+const elBtnSortMenu = $('btn-sort-menu');
+const elSortMenuList = $('sort-menu-list');
 const elTourPager = $('tour-pager');
 const elTourPagerPrev = $('tour-pager-prev');
 const elTourPagerLabel = $('tour-pager-label');
@@ -111,6 +114,7 @@ const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
 const elBtnMapExpand = $('btn-map-expand');
 const elAppLayout = document.querySelector('.app-layout');
+const elSidebar = document.querySelector('.sidebar');
 const elAuthPrompt = $('auth-prompt');
 const elMapEmpty = $('map-empty');
 const elDetailPanel = $('detail-panel');
@@ -435,6 +439,100 @@ function textDiv(className, text) {
   return div;
 }
 
+// Long-press (~500ms hold, cancelled by movement past a small tolerance)
+// enters select mode with the pressed tour already checked — mobile's only
+// entry point once the Select button is hidden there (#275). Wired
+// unconditionally: Pointer Events unify touch and mouse under one path, so
+// this also works as mouse click-and-hold on desktop, alongside its button.
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+
+// The ghost click a touch long-press leaves behind must be suppressed no
+// matter where it lands — onLongPress()'s re-render doesn't just rebuild
+// #tour-list, it also reveals the selection bar (a sibling, in normal flow,
+// not an overlay), which shifts every row down. For the topmost row that can
+// move the ghost click's fixed screen coordinates onto the selection bar
+// itself — even onto Cancel/Delete — so scoping the listener to #tour-list
+// alone isn't reliable. elSidebar (<aside class="sidebar">) is the nearest
+// ancestor that's never destroyed and contains both #tour-list and
+// #selection-bar, so it catches the click wherever it lands within the
+// sidebar without reaching into the rest of the app (document would too,
+// which risks eating an unrelated click elsewhere if the ghost click never
+// arrives at all — see the timeout below). The timeout is a safety net for
+// exactly that case (the browser sometimes suppresses the click itself, no
+// click ever arrives to consume the flag) — without it the flag could stay
+// stuck true and swallow an unrelated later click within the sidebar.
+let suppressNextTourClick = false;
+
+function suppressNextTourClickOnce() {
+  suppressNextTourClick = true;
+  setTimeout(() => {
+    suppressNextTourClick = false;
+  }, 400);
+}
+
+elSidebar.addEventListener(
+  'click',
+  (e) => {
+    if (suppressNextTourClick) {
+      e.stopImmediatePropagation();
+      suppressNextTourClick = false;
+    }
+  },
+  true,
+);
+
+// onLongPress() is deliberately called from pointerup, not from the
+// setTimeout at the 500ms threshold. Calling it earlier — while the pointer
+// is still down — makes onLongPress()'s re-render (enterSelectMode ->
+// renderSidebar) destroy the <li> mid-gesture; browsers then retarget the
+// still-pending pointerup/click to whatever's newly there, not the original
+// element, which broke every attempt to key suppression off the original
+// <li> (confirmed live via Playwright/CDP touch dispatch). Deferring the
+// call to pointerup means the mutation only happens once this pointer's
+// event sequence has already fully reached us — nothing further is expected
+// on `el` for this gesture, so retargeting can't interfere.
+function bindLongPress(el, onLongPress) {
+  let timer = null;
+  let start = null;
+  let ready = false;
+
+  const cancel = () => {
+    clearTimeout(timer);
+    timer = null;
+    start = null;
+    ready = false;
+  };
+
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    ready = false;
+    start = { x: e.clientX, y: e.clientY };
+    timer = setTimeout(() => {
+      ready = true;
+    }, LONG_PRESS_MS);
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_TOLERANCE_PX) cancel();
+  });
+
+  el.addEventListener('pointerup', () => {
+    clearTimeout(timer);
+    timer = null;
+    start = null;
+    if (ready) {
+      ready = false;
+      if (onLongPress()) suppressNextTourClickOnce();
+    }
+  });
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('pointerleave', cancel);
+}
+
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
@@ -463,6 +561,12 @@ function createTourItem(tour) {
     } else {
       selectTour(tour.id);
     }
+  });
+  bindLongPress(li, () => {
+    if (state.selectMode) return false;
+    enterSelectMode();
+    toggleTourSelection(tour.id);
+    return true;
   });
   return li;
 }
@@ -1376,6 +1480,61 @@ function setupLanguageSwitcher() {
   });
 }
 
+// Mobile-only sort menu (#275): a compact icon button + popover list
+// replacing the native <select> there (desktop keeps the select unchanged).
+// Selecting an option writes elTourSort.value and dispatches its change
+// event, so the actual sort-applying logic lives in exactly one place.
+const SORT_OPTIONS = [
+  { value: 'date-desc', i18nKey: 'sort.dateDesc' },
+  { value: 'date-asc', i18nKey: 'sort.dateAsc' },
+  { value: 'name-asc', i18nKey: 'sort.nameAsc' },
+  { value: 'name-desc', i18nKey: 'sort.nameDesc' },
+  { value: 'length-desc', i18nKey: 'sort.lengthDesc' },
+  { value: 'length-asc', i18nKey: 'sort.lengthAsc' },
+];
+
+function setupSortMenu() {
+  for (const opt of SORT_OPTIONS) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sort-menu-option';
+    btn.setAttribute('role', 'option');
+    btn.dataset.value = opt.value;
+    btn.textContent = t(opt.i18nKey);
+    btn.addEventListener('click', () => {
+      elTourSort.value = opt.value;
+      elTourSort.dispatchEvent(new Event('change'));
+      closeMenu();
+    });
+    li.appendChild(btn);
+    elSortMenuList.appendChild(li);
+  }
+
+  const closeMenu = () => {
+    show(elSortMenuList, false);
+    elBtnSortMenu.setAttribute('aria-expanded', 'false');
+  };
+  const openMenu = () => {
+    elSortMenuList.querySelectorAll('.sort-menu-option').forEach((opt) => {
+      opt.setAttribute('aria-selected', String(opt.dataset.value === state.sort));
+    });
+    show(elSortMenuList, true);
+    elBtnSortMenu.setAttribute('aria-expanded', 'true');
+  };
+
+  elBtnSortMenu.addEventListener('click', () => {
+    if (elSortMenuList.classList.contains('hidden')) openMenu();
+    else closeMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if (!elSortMenu.contains(e.target)) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !elSortMenuList.classList.contains('hidden')) closeMenu();
+  });
+}
+
 elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
 wireModalClose(elHelpModal, $('btn-close-help'), () => closeModal(elHelpModal));
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
@@ -1399,5 +1558,6 @@ document.addEventListener('keydown', (e) => {
 (async () => {
   await i18n.init(); // detect locale, load messages, translate the static markup
   setupLanguageSwitcher();
+  setupSortMenu();
   initAuth();
 })();

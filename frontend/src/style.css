@@ -176,6 +176,63 @@ body {
   cursor: pointer;
 }
 
+/* Mobile-only replacement for .tour-sort (#275): an icon button + popover
+   list, since a native <select> has no compact "icon-only" collapsed state.
+   Hidden on desktop — the media query below swaps visibility with .tour-sort
+   there. Selecting an option writes elTourSort.value and dispatches its
+   change event, so sort application logic lives in exactly one place. */
+.sort-menu {
+  position: relative;
+  display: none;
+}
+
+.sort-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 16px;
+}
+
+.sort-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 200px;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  z-index: 1200;
+  list-style: none;
+  margin: 0;
+}
+
+.sort-menu-option {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sort-menu-option:hover {
+  background: var(--color-surface-2);
+}
+
+.sort-menu-option[aria-selected='true'] {
+  background: var(--color-surface-2);
+  font-weight: 600;
+}
+
 .tour-empty {
   padding: 16px;
   color: var(--color-text-muted);
@@ -1002,9 +1059,38 @@ body {
     border-bottom: 1px solid var(--color-border);
   }
 
+  /* No spare row for a title/count/Select-button header on mobile (#275) —
+     select mode is entered by long-press instead (see bindLongPress in app.js). */
+  .sidebar-header {
+    display: none;
+  }
+
+  /* Search and sort share one row instead of stacking, to save a row (#275).
+     The native <select> is swapped for a compact icon button + popover menu
+     (.sort-menu) — a native select has no "icon-only" collapsed state. */
+  .tour-controls {
+    flex-direction: row;
+  }
+
+  .tour-search {
+    flex: 1;
+  }
+
+  .tour-sort {
+    display: none;
+  }
+
+  .sort-menu {
+    display: block;
+  }
+
   .map-container {
     flex: 1;
-    min-height: 40vh;
+    /* Lowered from 40vh (#275): combined with the sidebar's 55vh cap, the old
+       95vh floor left almost no slack inside calc(100vh - navbar-height). The
+       map stays visible by default (not fully hidden) — only shrunk; the
+       existing fullscreen toggle still expands it fully. */
+    min-height: 20vh;
   }
 
   /* Detail panel takes over the whole area below the header, like the
