@@ -1104,6 +1104,17 @@ body {
     display: block;
   }
 
+  /* .sidebar clips overflow (see rule above) and is height-capped on mobile,
+     so the popover's own z-index can't rescue it once it extends past that
+     boundary — the clipped part reveals the map underneath (#294). Escape the
+     clipping ancestor the same way .lang-menu does; top/right are computed in
+     JS from the button's actual position (setupSortMenu in app.js) since,
+     unlike the navbar-anchored lang switcher, this row isn't always at a
+     fixed viewport offset. */
+  .sort-menu-list {
+    position: fixed;
+  }
+
   .map-container {
     flex: 1;
     /* Lowered from 40vh (#275): combined with the sidebar's 55vh cap, the old

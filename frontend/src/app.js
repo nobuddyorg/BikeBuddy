@@ -1519,6 +1519,12 @@ function setupSortMenu() {
     elSortMenuList.querySelectorAll('.sort-menu-option').forEach((opt) => {
       opt.setAttribute('aria-selected', String(opt.dataset.value === state.sort));
     });
+    // .sort-menu-list is `position: fixed` on mobile (#294) to escape the
+    // sidebar's clipping, so its offset must be computed from the button's
+    // actual viewport position rather than a CSS `top`/`right` relative to it.
+    const rect = elBtnSortMenu.getBoundingClientRect();
+    elSortMenuList.style.top = `${rect.bottom + 6}px`;
+    elSortMenuList.style.right = `${window.innerWidth - rect.right}px`;
     show(elSortMenuList, true);
     elBtnSortMenu.setAttribute('aria-expanded', 'true');
   };
