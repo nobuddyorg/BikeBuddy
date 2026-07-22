@@ -444,18 +444,12 @@ const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
 // The ghost click a touch long-press leaves behind must be suppressed on
-// whatever tour-item ends up under the finger — but onLongPress() re-renders
-// the whole list mid-gesture (see enterSelectMode -> renderSidebar), which
-// destroys the <li> the press started on before the ghost click arrives. A
-// suppression flag scoped to that <li>'s own closure dies with it. elTourList
-// itself is never destroyed (renderSidebar only replaces its children), so a
-// single delegated listener here survives the rebuild. The timeout is a
-// safety net for the mouse case, where the browser sometimes suppresses the
-// click itself (no click ever arrives to consume the flag) — without it the
-// flag could stay stuck true and swallow an unrelated later click. This is
-// armed at release (pointerup), not when the long-press threshold fires —
-// arming it early would let an ordinary hold-then-release outlast the 400ms
-// window before the real ghost click ever arrives, unsuppressing it again.
+// whatever tour-item ends up under the finger. elTourList itself is never
+// destroyed (renderSidebar only replaces its children), so a single
+// delegated listener here survives onLongPress()'s re-render. The timeout is
+// a safety net for the mouse case, where the browser sometimes suppresses
+// the click itself (no click ever arrives to consume the flag) — without it
+// the flag could stay stuck true and swallow an unrelated later click.
 let suppressNextTourClick = false;
 
 function suppressNextTourClickOnce() {
@@ -476,26 +470,34 @@ elTourList.addEventListener(
   true,
 );
 
+// onLongPress() is deliberately called from pointerup, not from the
+// setTimeout at the 500ms threshold. Calling it earlier — while the pointer
+// is still down — makes onLongPress()'s re-render (enterSelectMode ->
+// renderSidebar) destroy the <li> mid-gesture; browsers then retarget the
+// still-pending pointerup/click to whatever's newly there, not the original
+// element, which broke every attempt to key suppression off the original
+// <li> (confirmed live via Playwright/CDP touch dispatch). Deferring the
+// call to pointerup means the mutation only happens once this pointer's
+// event sequence has already fully reached us — nothing further is expected
+// on `el` for this gesture, so retargeting can't interfere.
 function bindLongPress(el, onLongPress) {
   let timer = null;
   let start = null;
-  // True only once onLongPress() has actually fired AND done something (it
-  // returns falsy as a no-op, e.g. when already in select mode) — gates
-  // whether release should suppress the trailing click at all.
-  let longPressActed = false;
+  let ready = false;
 
   const cancel = () => {
     clearTimeout(timer);
     timer = null;
     start = null;
+    ready = false;
   };
 
   el.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    longPressActed = false;
+    ready = false;
     start = { x: e.clientX, y: e.clientY };
     timer = setTimeout(() => {
-      longPressActed = !!onLongPress();
+      ready = true;
     }, LONG_PRESS_MS);
   });
 
@@ -507,10 +509,12 @@ function bindLongPress(el, onLongPress) {
   });
 
   el.addEventListener('pointerup', () => {
-    cancel();
-    if (longPressActed) {
-      suppressNextTourClickOnce();
-      longPressActed = false;
+    clearTimeout(timer);
+    timer = null;
+    start = null;
+    if (ready) {
+      ready = false;
+      if (onLongPress()) suppressNextTourClickOnce();
     }
   });
   el.addEventListener('pointercancel', cancel);
