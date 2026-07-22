@@ -111,6 +111,7 @@ const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
 const elBtnMapExpand = $('btn-map-expand');
 const elAppLayout = document.querySelector('.app-layout');
+const elSidebar = document.querySelector('.sidebar');
 const elAuthPrompt = $('auth-prompt');
 const elMapEmpty = $('map-empty');
 const elDetailPanel = $('detail-panel');
@@ -448,13 +449,16 @@ const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 // #tour-list, it also reveals the selection bar (a sibling, in normal flow,
 // not an overlay), which shifts every row down. For the topmost row that can
 // move the ghost click's fixed screen coordinates onto the selection bar
-// itself — even onto Cancel/Delete — so scoping the listener to any single
-// container isn't reliable. document is never destroyed and is an ancestor
-// of everything, so listening there catches the click regardless of what
-// shifted underneath it. The timeout is a safety net for the mouse case,
-// where the browser sometimes suppresses the click itself (no click ever
-// arrives to consume the flag) — without it the flag could stay stuck true
-// and swallow an unrelated later click.
+// itself — even onto Cancel/Delete — so scoping the listener to #tour-list
+// alone isn't reliable. elSidebar (<aside class="sidebar">) is the nearest
+// ancestor that's never destroyed and contains both #tour-list and
+// #selection-bar, so it catches the click wherever it lands within the
+// sidebar without reaching into the rest of the app (document would too,
+// which risks eating an unrelated click elsewhere if the ghost click never
+// arrives at all — see the timeout below). The timeout is a safety net for
+// exactly that case (the browser sometimes suppresses the click itself, no
+// click ever arrives to consume the flag) — without it the flag could stay
+// stuck true and swallow an unrelated later click within the sidebar.
 let suppressNextTourClick = false;
 
 function suppressNextTourClickOnce() {
@@ -464,7 +468,7 @@ function suppressNextTourClickOnce() {
   }, 400);
 }
 
-document.addEventListener(
+elSidebar.addEventListener(
   'click',
   (e) => {
     if (suppressNextTourClick) {
