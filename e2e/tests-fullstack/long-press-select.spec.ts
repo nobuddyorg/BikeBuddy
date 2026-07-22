@@ -13,6 +13,13 @@ import { clearUsers, clearTours, toursContainer } from './usersDb';
 // caught only by driving genuine touch events, not mouse simulation.
 
 buddyTest.describe('long-press to enter select mode', () => {
+  // Genuine touch dispatch (see longPressTour in main-page.ts) exercises the
+  // same code path as Playwright's own touchscreen API, which requires
+  // hasTouch — matching it here removes any doubt about whether Chromium's
+  // touch-to-pointer translation and ghost-click synthesis behave the same
+  // on a context never marked touch-capable.
+  buddyTest.use({ hasTouch: true });
+
   buddyTest.beforeEach(async () => {
     await clearUsers();
     await clearTours();

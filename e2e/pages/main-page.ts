@@ -208,6 +208,14 @@ export function initMainPage(page: Page): MainPage {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
       await page.waitForTimeout(700);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      // The trailing ghost click (and the app's suppression of it) is
+      // asynchronous and can arrive after touchEnd resolves. Playwright's
+      // web-first assertions succeed on the FIRST passing poll, not once the
+      // state has settled — without this wait, an assertion could pass
+      // before the ghost click has had a chance to wrongly fire, silently
+      // failing to exercise the exact race this helper exists to test.
+      // 500ms comfortably clears the app's 400ms suppression window.
+      await page.waitForTimeout(500);
     },
     closeDetail: async () => locators.buttons.closeDetail.click(),
     uploadGpx: async ({
