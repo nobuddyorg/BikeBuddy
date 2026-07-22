@@ -14,7 +14,7 @@ on the map. No Azure account needed — everything runs against local emulators.
 ./buddy.sh development setup
 ```
 
-This interactively installs Node 22, Azure Functions Core Tools v4, Azurite,
+This interactively installs Node 24, Azure Functions Core Tools v4, Azurite,
 the SWA CLI, OpenTofu, and `prek`, pulls the Cosmos emulator image, and copies
 the config templates. The defaults run in **no-auth mode** (`SKIP_AUTH=true`,
 `devMode`), so you can skip filling in any secrets for now.
