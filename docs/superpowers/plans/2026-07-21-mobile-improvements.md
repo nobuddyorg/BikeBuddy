@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Superseded:** Task 1's sort-control approach below (narrow the native `<select>` to `width: auto`) was superseded mid-implementation by an icon button + popover menu, after a user clarification of the original brainstorming decision. See `docs/superpowers/specs/2026-07-21-mobile-improvements-design.md` §2 for the design that was actually built, and the `fix(mobile): replace shrunk sort select with an icon button + menu (#275)` commit for the implementation. This plan is left as-written below for historical record of Task 1's original CSS-only scope (header hide, search/sort row, map shrink); only the sort-control piece changed.
+
 **Goal:** Recover mobile vertical space (drop the header row, combine search+sort into one row, shrink the map's floor) and replace the mobile Select button with a long-press gesture — all scoped to the existing `@media (max-width: 768px)` breakpoint; desktop stays untouched.
 
-**Architecture:** Three independent CSS overrides land inside the existing mobile media query in `frontend/src/style.css` (no JS or HTML changes). A new `bindLongPress(el, onLongPress)` helper in `frontend/src/app.js`, built on Pointer Events, is wired into `createTourItem()` alongside its existing click handler — it works identically for touch (mobile) and mouse (desktop), so no viewport branching is needed in JS; only the CSS hides the button on mobile.
+**Architecture:** Three independent CSS overrides land inside the existing mobile media query in `frontend/src/style.css` (no JS or HTML changes) — though the sort-control override was later revised to add a small JS/HTML popover component instead of a pure CSS resize; see the note above. A new `bindLongPress(el, onLongPress)` helper in `frontend/src/app.js`, built on Pointer Events, is wired into `createTourItem()` alongside its existing click handler — it works identically for touch (mobile) and mouse (desktop), so no viewport branching is needed in JS; only the CSS hides the button on mobile.
 
 **Tech Stack:** Same as the rest of the repo — plain ES modules, Vitest for unit tests (none needed here), Playwright for e2e (full-stack suite).
 
