@@ -16,7 +16,7 @@ On mobile, the sidebar is a scrollable strip capped at `55vh` above a map that's
 ## Non-goals
 
 - No changes to desktop layout, sizing, or the desktop `Select` button — it stays exactly as #272 shipped it.
-- No custom icon-triggered dropdown to replace the native tour-sort `<select>` — discussed and rejected as more complexity than the space saved justifies; the native select just shrinks to fit its content instead.
+- No changes to sort _behavior_ or its available options — the mobile icon menu (see §2) drives the same underlying `<select>` and change handler as desktop; only the input control changes.
 - No fully-hidden-by-default map — discussed and rejected; the map shrinks but stays visible, since making BikeBuddy's core feature invisible by default was judged not worth the extra space.
 - No keyboard equivalent for long-press. This mirrors an existing gap (tour rows have no keyboard interaction story today) rather than introducing a new regression, but is worth naming as a known limitation.
 
@@ -28,7 +28,7 @@ On mobile, the sidebar is a scrollable strip capped at `55vh` above a map that's
 
 ### 2. Search + sort share one row (mobile)
 
-`.tour-controls` switches from `flex-direction: column` to `row` under the mobile media query. `.tour-search` gets `flex: 1` so it takes the remaining space; `.tour-sort` gets `width: auto` (dropping its stretch) so the native `<select>` just hugs its own content next to the search box.
+`.tour-controls` switches from `flex-direction: column` to `row` under the mobile media query. `.tour-search` gets `flex: 1` so it takes the remaining space. The native `<select>` (`.tour-sort`) has no compact "icon-only" collapsed state, so on mobile it's hidden entirely and replaced by a small icon button (`#btn-sort-menu`) that opens a popover list of the same sort options — following the existing `#lang-switcher`/`#lang-menu` pattern already in the codebase (button + absolutely-positioned list, closes on outside click/Escape). Selecting an option writes the hidden `<select>`'s value and dispatches its `change` event, so the sort-applying logic still lives in exactly one place. Desktop is unaffected — it keeps showing the native `<select>`, with the new icon menu hidden there.
 
 ### 3. Map shrinks, doesn't hide (mobile)
 
@@ -40,7 +40,7 @@ A ~500ms hold on any `.tour-item`, cancelled if the pointer moves more than ~10p
 
 Implementation: a small `bindLongPress(el, onLongPress)` helper using Pointer Events (`pointerdown`/`pointermove`/`pointerup`/`pointercancel`/`pointerleave`), which unifies touch and mouse under one code path — so this works via touch on mobile and via mouse click-and-hold on desktop, with no viewport branching in JS at all. Desktop keeps the button visible (only hidden via the mobile media query per §1) _and_ gets long-press as a harmless bonus affordance; mobile loses the button and relies on long-press alone.
 
-The tricky part is suppressing the "ghost click" the browser still fires after a long-press's `pointerup` — handled with a capture-phase `click` listener that calls `e.stopImmediatePropagation()` when a long-press just fired, so the existing bubble-phase click handler (which does `selectTour`/`toggleTourSelection`) never runs for that gesture. This lives alongside `createTourItem()`, wired in without changing that function's existing click-handling logic.
+The tricky part is suppressing the "ghost click" the browser still fires after a long-press's `pointerup`. The state-mutating callback (`enterSelectMode()`/`toggleTourSelection()`) is deliberately invoked from `pointerup` itself, not from the 500ms timer — calling it earlier, while the pointer is still down, lets its re-render destroy the pressed `<li>` mid-gesture, and browsers then retarget the pending click to whatever's newly there instead of the original element. A capture-phase `click` listener, scoped to `<aside class="sidebar">` (the nearest ancestor that contains both `#tour-list` and `#selection-bar`, so it still catches the click even when the newly-revealed selection bar shifts rows and the ghost click lands on it instead — this happens for the topmost row), calls `e.stopImmediatePropagation()` for the trailing click, so the existing bubble-phase click handler never runs for that gesture. This lives alongside `createTourItem()`, wired in without changing that function's existing click-handling logic.
 
 No changes to the selection bar, checkboxes, `Cancel` button, or `deleteSelectedTours()` — #272's select-mode UI and bulk-delete flow are untouched; only how mobile _enters_ select mode changes.
 
