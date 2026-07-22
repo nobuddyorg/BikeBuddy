@@ -19,6 +19,7 @@ interface MainPage {
     search(query: string): Promise<void>;
     sortBy(option: string): Promise<void>;
     selectTour(name: string): Promise<void>;
+    longPressTour(name: string): Promise<void>;
     closeDetail(): Promise<void>;
     uploadGpx(opts: { name: string; gpx: string; filename?: string }): Promise<void>;
     addImage(files: FileInputArg): Promise<void>;
@@ -189,6 +190,24 @@ export function initMainPage(page: Page): MainPage {
     },
     selectTour: async (name: string) => {
       await locators.list.container.locator('.tour-item', { hasText: name }).click();
+    },
+    // Genuine touch dispatch (CDP), not Playwright's mouse API — the actual
+    // bug this covers (#275: a long-press's trailing "ghost click" un-doing
+    // its own select-mode entry) is touch-specific. A mouse-based
+    // press-and-hold never reproduces it: Chromium suppresses the
+    // compatibility click outright once the original element is removed
+    // mid-gesture, so a mouse simulation would pass even against a broken
+    // implementation.
+    longPressTour: async (name: string) => {
+      const row = locators.list.container.locator('.tour-item', { hasText: name });
+      const box = await row.boundingBox();
+      if (!box) throw new Error(`tour row "${name}" not found`);
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      await page.waitForTimeout(700);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     },
     closeDetail: async () => locators.buttons.closeDetail.click(),
     uploadGpx: async ({
