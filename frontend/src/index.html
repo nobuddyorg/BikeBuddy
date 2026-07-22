@@ -132,6 +132,20 @@
             <option value="length-desc" data-i18n="sort.lengthDesc">Longest first</option>
             <option value="length-asc" data-i18n="sort.lengthAsc">Shortest first</option>
           </select>
+          <div id="sort-menu" class="sort-menu">
+            <button
+              id="btn-sort-menu"
+              type="button"
+              class="btn btn-ghost sort-menu-btn"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              data-i18n-aria-label="sidebar.sortAria"
+              data-i18n-title="sidebar.sortAria"
+            >
+              ⇅
+            </button>
+            <ul id="sort-menu-list" class="sort-menu-list hidden" role="listbox"></ul>
+          </div>
         </div>
 
         <div id="selection-bar" class="selection-bar hidden">

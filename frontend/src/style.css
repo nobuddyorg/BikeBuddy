@@ -176,6 +176,63 @@ body {
   cursor: pointer;
 }
 
+/* Mobile-only replacement for .tour-sort (#275): an icon button + popover
+   list, since a native <select> has no compact "icon-only" collapsed state.
+   Hidden on desktop — the media query below swaps visibility with .tour-sort
+   there. Selecting an option writes elTourSort.value and dispatches its
+   change event, so sort application logic lives in exactly one place. */
+.sort-menu {
+  position: relative;
+  display: none;
+}
+
+.sort-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 16px;
+}
+
+.sort-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 200px;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  z-index: 1200;
+  list-style: none;
+  margin: 0;
+}
+
+.sort-menu-option {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sort-menu-option:hover {
+  background: var(--color-surface-2);
+}
+
+.sort-menu-option[aria-selected='true'] {
+  background: var(--color-surface-2);
+  font-weight: 600;
+}
+
 .tour-empty {
   padding: 16px;
   color: var(--color-text-muted);
@@ -1009,8 +1066,8 @@ body {
   }
 
   /* Search and sort share one row instead of stacking, to save a row (#275).
-     Sort stays a native <select> (no custom icon-menu) and just hugs its own
-     content next to the search box, which takes the rest of the row. */
+     The native <select> is swapped for a compact icon button + popover menu
+     (.sort-menu) — a native select has no "icon-only" collapsed state. */
   .tour-controls {
     flex-direction: row;
   }
@@ -1020,7 +1077,11 @@ body {
   }
 
   .tour-sort {
-    width: auto;
+    display: none;
+  }
+
+  .sort-menu {
+    display: block;
   }
 
   .map-container {

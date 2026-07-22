@@ -97,6 +97,9 @@ const elTourLoading = $('tour-loading');
 const elTourControls = $('tour-controls');
 const elTourSearch = $('tour-search');
 const elTourSort = $('tour-sort');
+const elSortMenu = $('sort-menu');
+const elBtnSortMenu = $('btn-sort-menu');
+const elSortMenuList = $('sort-menu-list');
 const elTourPager = $('tour-pager');
 const elTourPagerPrev = $('tour-pager-prev');
 const elTourPagerLabel = $('tour-pager-label');
@@ -1477,6 +1480,61 @@ function setupLanguageSwitcher() {
   });
 }
 
+// Mobile-only sort menu (#275): a compact icon button + popover list
+// replacing the native <select> there (desktop keeps the select unchanged).
+// Selecting an option writes elTourSort.value and dispatches its change
+// event, so the actual sort-applying logic lives in exactly one place.
+const SORT_OPTIONS = [
+  { value: 'date-desc', i18nKey: 'sort.dateDesc' },
+  { value: 'date-asc', i18nKey: 'sort.dateAsc' },
+  { value: 'name-asc', i18nKey: 'sort.nameAsc' },
+  { value: 'name-desc', i18nKey: 'sort.nameDesc' },
+  { value: 'length-desc', i18nKey: 'sort.lengthDesc' },
+  { value: 'length-asc', i18nKey: 'sort.lengthAsc' },
+];
+
+function setupSortMenu() {
+  for (const opt of SORT_OPTIONS) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sort-menu-option';
+    btn.setAttribute('role', 'option');
+    btn.dataset.value = opt.value;
+    btn.textContent = t(opt.i18nKey);
+    btn.addEventListener('click', () => {
+      elTourSort.value = opt.value;
+      elTourSort.dispatchEvent(new Event('change'));
+      closeMenu();
+    });
+    li.appendChild(btn);
+    elSortMenuList.appendChild(li);
+  }
+
+  const closeMenu = () => {
+    show(elSortMenuList, false);
+    elBtnSortMenu.setAttribute('aria-expanded', 'false');
+  };
+  const openMenu = () => {
+    elSortMenuList.querySelectorAll('.sort-menu-option').forEach((opt) => {
+      opt.setAttribute('aria-selected', String(opt.dataset.value === state.sort));
+    });
+    show(elSortMenuList, true);
+    elBtnSortMenu.setAttribute('aria-expanded', 'true');
+  };
+
+  elBtnSortMenu.addEventListener('click', () => {
+    if (elSortMenuList.classList.contains('hidden')) openMenu();
+    else closeMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if (!elSortMenu.contains(e.target)) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !elSortMenuList.classList.contains('hidden')) closeMenu();
+  });
+}
+
 elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
 wireModalClose(elHelpModal, $('btn-close-help'), () => closeModal(elHelpModal));
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
@@ -1500,5 +1558,6 @@ document.addEventListener('keydown', (e) => {
 (async () => {
   await i18n.init(); // detect locale, load messages, translate the static markup
   setupLanguageSwitcher();
+  setupSortMenu();
   initAuth();
 })();
