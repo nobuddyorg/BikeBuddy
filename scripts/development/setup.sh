@@ -20,7 +20,7 @@ echo "BikeBuddy setup starting…"
 
 steps=(
   "Install Homebrew?|/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-  "Install Node.js 22?|brew install node@22"
+  "Install Node.js 24?|brew install node@24"
   "Install Azure Functions Core Tools v4?|brew tap azure/functions && brew trust azure/functions && brew install azure-functions-core-tools@4"
   "Install Azurite (local blob/queue/table emulator)?|npm install -g azurite"
   "Install SWA CLI (local dev proxy)?|npm install -g @azure/static-web-apps-cli"

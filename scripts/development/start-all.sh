@@ -10,12 +10,12 @@ die() {
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FUNCTIONS_DIR="$REPO_ROOT/functions"
 
-# The Functions runtime supports Node 20/22 only.
-NODE22_BIN="$(brew --prefix node@22 2>/dev/null)/bin"
-[[ -d "$NODE22_BIN" ]] && export PATH="$NODE22_BIN:$PATH"
+# The Functions runtime supports Node 22/24 only.
+NODE24_BIN="$(brew --prefix node@24 2>/dev/null)/bin"
+[[ -d "$NODE24_BIN" ]] && export PATH="$NODE24_BIN:$PATH"
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-[[ "$NODE_MAJOR" == "22" || "$NODE_MAJOR" == "20" ]] ||
-  die "Azure Functions needs Node 20 or 22 (found $(node --version 2>/dev/null)). Install: brew install node@22"
+[[ "$NODE_MAJOR" == "24" || "$NODE_MAJOR" == "22" ]] ||
+  die "Azure Functions needs Node 22 or 24 (found $(node --version 2>/dev/null)). Install: brew install node@24"
 
 for cmd in node npm func swa docker; do
   command -v "$cmd" &>/dev/null || die "'$cmd' not found. Run './buddy.sh development setup' first."

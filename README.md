@@ -2,7 +2,7 @@
 
 BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any ride (cycling or motorcycling), visualize them as heatmaps, and attach photos.
 
-![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js)
+![Node.js](https://img.shields.io/badge/node-%3E%3D24-brightgreen?logo=node.js)
 ![Azure Functions](https://img.shields.io/badge/Azure%20Functions-v4-blue?logo=azure-functions)
 ![GitHub Pages](https://img.shields.io/badge/hosting-GitHub%20Pages-blue?logo=github)
 ![Azure](https://img.shields.io/badge/cloud-Azure-0078D4?logo=microsoftazure&logoColor=white)
