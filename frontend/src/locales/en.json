@@ -6,7 +6,6 @@
   "nav.signIn": "Sign In",
   "nav.signOut": "Sign Out",
   "nav.profileAria": "View profile",
-  "nav.langAria": "Change language",
 
   "sidebar.myTours": "My Tours",
   "sidebar.signInPrompt": "Sign in to see your tours.",
@@ -70,6 +69,8 @@
   "profile.displayName": "Display name",
   "profile.namePlaceholder": "Your name",
   "profile.saveName": "Save name",
+  "profile.language": "Language",
+  "profile.langAria": "Change language",
   "profile.exportData": "Export my data",
   "profile.deleteAccount": "Delete account",
   "profile.yourAccount": "Your account",
@@ -106,6 +107,7 @@
   "errors.network": "Network error.",
   "errors.saveChanges": "Could not save changes.",
   "errors.saveName": "Could not save your name.",
+  "errors.saveLanguage": "Could not save your language.",
 
   "toast.toursLoadError": "Couldn’t load your tours. Check your connection and try again.",
   "toast.tourDeleted": "Tour deleted.",

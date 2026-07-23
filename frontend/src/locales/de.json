@@ -6,7 +6,6 @@
   "nav.signIn": "Anmelden",
   "nav.signOut": "Abmelden",
   "nav.profileAria": "Profil ansehen",
-  "nav.langAria": "Sprache ändern",
 
   "sidebar.myTours": "Meine Touren",
   "sidebar.signInPrompt": "Melde dich an, um deine Touren zu sehen.",
@@ -70,6 +69,8 @@
   "profile.displayName": "Anzeigename",
   "profile.namePlaceholder": "Dein Name",
   "profile.saveName": "Namen speichern",
+  "profile.language": "Sprache",
+  "profile.langAria": "Sprache ändern",
   "profile.exportData": "Meine Daten exportieren",
   "profile.deleteAccount": "Konto löschen",
   "profile.yourAccount": "Dein Konto",
@@ -106,6 +107,7 @@
   "errors.network": "Netzwerkfehler.",
   "errors.saveChanges": "Änderungen konnten nicht gespeichert werden.",
   "errors.saveName": "Name konnte nicht gespeichert werden.",
+  "errors.saveLanguage": "Sprache konnte nicht gespeichert werden.",
 
   "toast.toursLoadError": "Deine Touren konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
   "toast.tourDeleted": "Tour gelöscht.",

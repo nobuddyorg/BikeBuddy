@@ -6,7 +6,6 @@
   "nav.signIn": "Inloggen",
   "nav.signOut": "Uitloggen",
   "nav.profileAria": "Profiel bekijken",
-  "nav.langAria": "Taal wijzigen",
 
   "sidebar.myTours": "Mijn ritten",
   "sidebar.signInPrompt": "Log in om je ritten te zien.",
@@ -70,6 +69,8 @@
   "profile.displayName": "Weergavenaam",
   "profile.namePlaceholder": "Je naam",
   "profile.saveName": "Naam opslaan",
+  "profile.language": "Taal",
+  "profile.langAria": "Taal wijzigen",
   "profile.exportData": "Mijn gegevens exporteren",
   "profile.deleteAccount": "Account verwijderen",
   "profile.yourAccount": "Je account",
@@ -106,6 +107,7 @@
   "errors.network": "Netwerkfout.",
   "errors.saveChanges": "Wijzigingen konden niet worden opgeslagen.",
   "errors.saveName": "Je naam kon niet worden opgeslagen.",
+  "errors.saveLanguage": "Je taal kon niet worden opgeslagen.",
 
   "toast.toursLoadError": "Je ritten konden niet worden geladen. Controleer je verbinding en probeer het opnieuw.",
   "toast.tourDeleted": "Rit verwijderd.",

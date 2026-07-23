@@ -6,7 +6,6 @@
   "nav.signIn": "Accedi",
   "nav.signOut": "Esci",
   "nav.profileAria": "Visualizza profilo",
-  "nav.langAria": "Cambia lingua",
 
   "sidebar.myTours": "I miei giri",
   "sidebar.signInPrompt": "Accedi per vedere i tuoi giri.",
@@ -70,6 +69,8 @@
   "profile.displayName": "Nome visualizzato",
   "profile.namePlaceholder": "Il tuo nome",
   "profile.saveName": "Salva nome",
+  "profile.language": "Lingua",
+  "profile.langAria": "Cambia lingua",
   "profile.exportData": "Esporta i miei dati",
   "profile.deleteAccount": "Elimina account",
   "profile.yourAccount": "Il tuo account",
@@ -106,6 +107,7 @@
   "errors.network": "Errore di rete.",
   "errors.saveChanges": "Impossibile salvare le modifiche.",
   "errors.saveName": "Impossibile salvare il tuo nome.",
+  "errors.saveLanguage": "Impossibile salvare la tua lingua.",
 
   "toast.toursLoadError": "Impossibile caricare i tuoi giri. Controlla la connessione e riprova.",
   "toast.tourDeleted": "Giro eliminato.",
