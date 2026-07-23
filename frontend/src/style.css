@@ -325,8 +325,8 @@ body {
 
 .tour-item-checkbox {
   flex-shrink: 0;
-  /* Purely visual — the li's own click handler is the single source of
-     interaction (see createTourItem), avoiding a double-toggle between the
+  /* Purely visual — the row content's own click handler is the single source
+     of interaction (see createTourItem), avoiding a double-toggle between the
      checkbox's native click and the row's click listener. */
   pointer-events: none;
   accent-color: var(--color-primary);
