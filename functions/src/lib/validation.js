@@ -27,6 +27,11 @@ function uuidParamError(params) {
   return null;
 }
 
+// Must stay in sync with frontend/src/lib/i18n.js's SUPPORTED_LOCALES codes —
+// separate deployables, no shared module, so this list is kept in step by hand.
+const SUPPORTED_LANGUAGE_CODES = ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt'];
+const languageSchema = z.enum(SUPPORTED_LANGUAGE_CODES);
+
 const isImageContentType = (mime) => mime === 'image/jpeg' || mime === 'image/png';
 
 module.exports = {
@@ -36,4 +41,6 @@ module.exports = {
   isUuid,
   uuidParamError,
   isImageContentType,
+  languageSchema,
+  SUPPORTED_LANGUAGE_CODES,
 };

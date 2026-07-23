@@ -27,7 +27,13 @@ async function getMe(request, auth = authenticate, getContainer = usersContainer
 
   return {
     status: 200,
-    jsonBody: { id: doc.id, name: doc.name, email: doc.email, createdAt: doc.createdAt },
+    jsonBody: {
+      id: doc.id,
+      name: doc.name,
+      email: doc.email,
+      createdAt: doc.createdAt,
+      language: doc.language,
+    },
   };
 }
 
