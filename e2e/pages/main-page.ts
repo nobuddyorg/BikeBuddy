@@ -20,6 +20,7 @@ interface MainPage {
     sortBy(option: string): Promise<void>;
     selectTour(name: string): Promise<void>;
     longPressTour(name: string): Promise<void>;
+    swipeTour(name: string, dx: number): Promise<void>;
     closeDetail(): Promise<void>;
     uploadGpx(opts: { name: string; gpx: string; filename?: string }): Promise<void>;
     addImage(files: FileInputArg): Promise<void>;
@@ -216,6 +217,32 @@ export function initMainPage(page: Page): MainPage {
       // failing to exercise the exact race this helper exists to test.
       // 500ms comfortably clears the app's 400ms suppression window.
       await page.waitForTimeout(500);
+    },
+    // Genuine touch dispatch (CDP), matching longPressTour above — the
+    // implementation (bindSwipeToDelete in app.js) reads real touch
+    // pointerType, so a mouse-drag simulation would never exercise it.
+    // Multiple intermediate touchMove events (not one big jump) mirror how
+    // a real finger delivers a drag.
+    swipeTour: async (name: string, dx: number) => {
+      const row = locators.list.container.locator('.tour-item', { hasText: name });
+      const box = await row.boundingBox();
+      if (!box) throw new Error(`tour row "${name}" not found`);
+      const startX = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x: startX, y }],
+      });
+      const steps = 5;
+      for (let i = 1; i <= steps; i++) {
+        await cdp.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{ x: startX + (dx * i) / steps, y }],
+        });
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.waitForTimeout(300);
     },
     closeDetail: async () => locators.buttons.closeDetail.click(),
     uploadGpx: async ({
