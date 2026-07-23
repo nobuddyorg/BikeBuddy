@@ -42,26 +42,6 @@
         <span class="navbar-title">BikeBuddy</span>
       </div>
       <div class="navbar-actions">
-        <div id="lang-switcher" class="lang-switcher">
-          <button
-            id="btn-lang"
-            class="btn btn-ghost lang-btn"
-            aria-haspopup="listbox"
-            aria-expanded="false"
-            data-i18n-aria-label="nav.langAria"
-          ></button>
-          <div id="lang-menu" class="lang-menu hidden" role="dialog" aria-label="Language">
-            <input
-              id="lang-search"
-              class="lang-search"
-              type="search"
-              autocomplete="off"
-              data-i18n-placeholder="lang.searchPlaceholder"
-              data-i18n-aria-label="lang.searchAria"
-            />
-            <ul id="lang-list" class="lang-list" role="listbox"></ul>
-          </div>
-        </div>
         <button
           id="btn-help"
           class="btn btn-ghost"
@@ -345,6 +325,29 @@
           <dt data-i18n="profile.memberSince">Member since</dt>
           <dd id="profile-since">—</dd>
         </dl>
+        <div class="field">
+          <span data-i18n="profile.language">Language</span>
+          <div id="lang-switcher" class="lang-switcher">
+            <button
+              id="btn-lang"
+              class="btn btn-ghost lang-btn"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              data-i18n-aria-label="profile.langAria"
+            ></button>
+            <div id="lang-menu" class="lang-menu hidden" role="dialog" aria-label="Language">
+              <input
+                id="lang-search"
+                class="lang-search"
+                type="search"
+                autocomplete="off"
+                data-i18n-placeholder="lang.searchPlaceholder"
+                data-i18n-aria-label="lang.searchAria"
+              />
+              <ul id="lang-list" class="lang-list" role="listbox"></ul>
+            </div>
+          </div>
+        </div>
         <form id="profile-name-form" class="upload-form">
           <label class="field">
             <span data-i18n="profile.displayName">Display name</span>
