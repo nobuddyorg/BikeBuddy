@@ -203,6 +203,16 @@ const SYNTHETIC_USER = {
   createdAt: new Date().toISOString(),
 };
 
+// Backend is the source of truth for language once logged in. If it disagrees
+// with the currently active locale, apply it (one reload). No migration the
+// other way: a user with nothing saved yet keeps whatever's currently active
+// until they explicitly pick one in settings (#290).
+function syncLanguageFromUser(user) {
+  if (user.language && user.language !== i18n.getLocale()) {
+    i18n.setLanguage(user.language);
+  }
+}
+
 async function devSignIn() {
   try {
     const res = await fetch(`${API_BASE}/api/me`);
@@ -213,6 +223,7 @@ async function devSignIn() {
   renderNavAuth();
   renderSidebar();
   loadTours();
+  syncLanguageFromUser(state.user);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -333,6 +344,7 @@ async function refreshUser() {
     if (!res.ok) return;
     state.user = { ...state.user, ...(await res.json()) };
     renderNavAuth();
+    syncLanguageFromUser(state.user);
   } catch {
     // network unavailable — keep token-derived values
   }
@@ -1251,6 +1263,26 @@ async function saveProfileName(e) {
   }
 }
 
+// Persist the chosen language to the user doc (PATCH /api/me) before applying
+// it, so it's still set next time the user signs in anywhere. i18n.setLanguage
+// writes localStorage and reloads, re-rendering every string.
+async function selectLanguage(code) {
+  try {
+    const res = await apiFetch('/api/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: code }),
+    });
+    if (!res.ok) {
+      toast(parseErrorMessage(await res.text(), t('errors.saveLanguage')), 'error');
+      return;
+    }
+    i18n.setLanguage(code);
+  } catch {
+    toast(t('errors.network'), 'error');
+  }
+}
+
 // GDPR: download all of the user's data as JSON.
 async function downloadMyData() {
   try {
@@ -1519,7 +1551,7 @@ function setupLanguageSwitcher() {
     btn.dataset.search = `${loc.label} ${loc.code} ${loc.short}`.toLowerCase();
     btn.setAttribute('aria-selected', String(loc.code === i18n.getLocale()));
     btn.innerHTML = `<span class="lang-flag">${loc.flag}</span><span>${loc.label}</span><span class="lang-code">${loc.short}</span>`;
-    btn.addEventListener('click', () => i18n.setLanguage(loc.code));
+    btn.addEventListener('click', () => selectLanguage(loc.code));
     li.appendChild(btn);
     elLangList.appendChild(li);
   }

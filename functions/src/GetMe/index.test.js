@@ -32,6 +32,16 @@ describe('GET /api/me', () => {
     expect(res.jsonBody).toEqual(STORED_USER);
   });
 
+  test('returns the language field when the stored doc has one', async () => {
+    const withLanguage = { ...STORED_USER, language: 'de' };
+    const container = makeContainer({
+      item: vi.fn().mockReturnValue({ read: async () => ({ resource: withLanguage }) }),
+    });
+    const res = await getMe(req, mockAuth, () => container);
+
+    expect(res.jsonBody.language).toBe('de');
+  });
+
   test('creates user document on first login (404 thrown)', async () => {
     const err = Object.assign(new Error('Not found'), { code: 404 });
     const container = makeContainer({

@@ -6,7 +6,6 @@
   "nav.signIn": "Iniciar sesión",
   "nav.signOut": "Cerrar sesión",
   "nav.profileAria": "Ver perfil",
-  "nav.langAria": "Cambiar idioma",
 
   "sidebar.myTours": "Mis rutas",
   "sidebar.signInPrompt": "Inicia sesión para ver tus rutas.",
@@ -70,6 +69,8 @@
   "profile.displayName": "Nombre visible",
   "profile.namePlaceholder": "Tu nombre",
   "profile.saveName": "Guardar nombre",
+  "profile.language": "Idioma",
+  "profile.langAria": "Cambiar idioma",
   "profile.exportData": "Exportar mis datos",
   "profile.deleteAccount": "Eliminar cuenta",
   "profile.yourAccount": "Tu cuenta",
@@ -106,6 +107,7 @@
   "errors.network": "Error de red.",
   "errors.saveChanges": "No se pudieron guardar los cambios.",
   "errors.saveName": "No se pudo guardar tu nombre.",
+  "errors.saveLanguage": "No se pudo guardar tu idioma.",
 
   "toast.toursLoadError": "No se pudieron cargar tus rutas. Comprueba tu conexión e inténtalo de nuevo.",
   "toast.tourDeleted": "Ruta eliminada.",

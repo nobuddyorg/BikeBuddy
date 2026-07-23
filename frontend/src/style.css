@@ -1171,19 +1171,12 @@ body {
     /* Must be above Leaflet's own controls (.leaflet-top/.leaflet-bottom,
        z-index 1000 — #map has no stacking context of its own, so that value
        competes directly here) or the map's +/- zoom buttons poke through.
-       Must stay below .navbar (1100): the navbar's language dropdown is a
-       descendant of .navbar's stacking context, so it can never outrank a
-       sibling that sits above navbar's own z-index, regardless of the
-       dropdown's own value. */
+       Must stay below .navbar (1100), which is fixed/always-visible. */
     z-index: 1050;
   }
 
   .navbar {
     padding: 0 12px;
-  }
-
-  .navbar-title {
-    display: none;
   }
 }
 
@@ -1225,28 +1218,15 @@ body {
 .lang-menu {
   position: absolute;
   top: calc(100% + 6px);
+  left: 0;
   right: 0;
-  width: 240px;
+  width: auto;
   padding: 8px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   z-index: 1200;
-}
-
-/* The switcher sits mid-navbar, so the right-anchored dropdown overflows the
-   left edge on narrow screens. Pin it to the viewport instead. (This override
-   must live after the base rule above — media queries add no specificity, so
-   source order breaks the tie.) */
-@media (max-width: 768px) {
-  .lang-menu {
-    position: fixed;
-    top: var(--navbar-height);
-    left: 8px;
-    right: 8px;
-    width: auto;
-  }
 }
 
 .lang-search {

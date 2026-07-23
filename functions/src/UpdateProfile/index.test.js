@@ -55,4 +55,40 @@ describe('PATCH /api/me', () => {
       expect.objectContaining({ id: 'u1', name: 'New User', email: 'ada@example.com' }),
     );
   });
+
+  it('updates the stored language and returns it, leaving name untouched', async () => {
+    const c = makeContainer({ id: 'u1', name: 'Ada', email: 'ada@example.com', createdAt: 'x' });
+    const res = await updateProfile(reqWith({ language: 'de' }), mockAuth, () => c.container);
+
+    expect(res.status).toBe(200);
+    expect(c.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u1', name: 'Ada', language: 'de' }),
+    );
+    expect(res.jsonBody.language).toBe('de');
+    expect(res.jsonBody.name).toBe('Ada');
+  });
+
+  it('rejects an unsupported language code', async () => {
+    const c = makeContainer();
+    const res = await updateProfile(reqWith({ language: 'xx' }), mockAuth, () => c.container);
+    expect(res.status).toBe(400);
+    expect(c.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a body with neither name nor language', async () => {
+    const c = makeContainer();
+    const res = await updateProfile(reqWith({}), mockAuth, () => c.container);
+    expect(res.status).toBe(400);
+    expect(c.upsert).not.toHaveBeenCalled();
+  });
+
+  it('creates the doc with a null name when only language is provided for a new user', async () => {
+    const c = makeContainer(undefined);
+    const res = await updateProfile(reqWith({ language: 'fr' }), mockAuth, () => c.container);
+
+    expect(res.status).toBe(200);
+    expect(c.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u1', name: null, email: 'ada@example.com', language: 'fr' }),
+    );
+  });
 });

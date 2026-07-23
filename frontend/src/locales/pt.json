@@ -6,7 +6,6 @@
   "nav.signIn": "Iniciar sessão",
   "nav.signOut": "Terminar sessão",
   "nav.profileAria": "Ver perfil",
-  "nav.langAria": "Mudar idioma",
 
   "sidebar.myTours": "Os meus percursos",
   "sidebar.signInPrompt": "Inicia sessão para ver os teus percursos.",
@@ -70,6 +69,8 @@
   "profile.displayName": "Nome apresentado",
   "profile.namePlaceholder": "O teu nome",
   "profile.saveName": "Guardar nome",
+  "profile.language": "Idioma",
+  "profile.langAria": "Mudar idioma",
   "profile.exportData": "Exportar os meus dados",
   "profile.deleteAccount": "Eliminar conta",
   "profile.yourAccount": "A tua conta",
@@ -106,6 +107,7 @@
   "errors.network": "Erro de rede.",
   "errors.saveChanges": "Não foi possível guardar as alterações.",
   "errors.saveName": "Não foi possível guardar o teu nome.",
+  "errors.saveLanguage": "Não foi possível guardar o teu idioma.",
 
   "toast.toursLoadError": "Não foi possível carregar os teus percursos. Verifica a tua ligação e tenta novamente.",
   "toast.tourDeleted": "Percurso eliminado.",

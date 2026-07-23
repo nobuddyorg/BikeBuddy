@@ -6,6 +6,8 @@ const {
   isUuid,
   uuidParamError,
   isImageContentType,
+  languageSchema,
+  SUPPORTED_LANGUAGE_CODES,
 } = require('./validation');
 
 const UUID = '11111111-1111-4111-8111-111111111111';
@@ -74,6 +76,19 @@ describe('validation helpers', () => {
       expect(isImageContentType('image/png')).toBe(true);
       expect(isImageContentType('text/plain')).toBe(false);
       expect(isImageContentType('image/gif')).toBe(false);
+    });
+  });
+
+  describe('languageSchema', () => {
+    it('accepts every supported language code', () => {
+      for (const code of SUPPORTED_LANGUAGE_CODES) {
+        expect(languageSchema.safeParse(code).success).toBe(true);
+      }
+    });
+
+    it('rejects an unsupported code', () => {
+      expect(languageSchema.safeParse('xx').success).toBe(false);
+      expect(languageSchema.safeParse('EN').success).toBe(false);
     });
   });
 });

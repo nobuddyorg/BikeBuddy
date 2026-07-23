@@ -4,10 +4,18 @@ const { app } = require('@azure/functions');
 const { z } = require('zod');
 const { authenticate } = require('../middleware/authMiddleware');
 const { usersContainer, readItem } = require('../lib/db');
-const { nameSchema } = require('../lib/validation');
+const { nameSchema, languageSchema } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
-const profileSchema = z.object({ name: nameSchema });
+// name and language are independently optional — a brand-new account has no
+// name yet (External ID self-service sign-up doesn't reliably collect one),
+// so a user must be able to save a language preference before ever setting
+// a display name. At least one of the two must be present.
+const profileSchema = z
+  .object({ name: nameSchema.optional(), language: languageSchema.optional() })
+  .refine((data) => data.name !== undefined || data.language !== undefined, {
+    message: 'A name or a language is required.',
+  });
 
 // PATCH /api/me — let the user set their display name (External ID self-service
 // sign-up doesn't reliably collect one, so BikeBuddy owns it). Stored on the
@@ -23,7 +31,9 @@ async function updateProfile(request, auth = authenticate, getContainer = usersC
     // invalid/empty JSON — fails validation below
   }
   const parsed = profileSchema.safeParse(body ?? {});
-  if (!parsed.success) return error(400, 'A name (1–200 characters) is required.');
+  if (!parsed.success) {
+    return error(400, 'A name (1–200 characters) or a supported language is required.');
+  }
 
   const { userId, userEmail } = user;
   const container = getContainer();
@@ -32,18 +42,24 @@ async function updateProfile(request, auth = authenticate, getContainer = usersC
   if (!doc) {
     doc = {
       id: userId,
-      name: parsed.data.name,
+      name: parsed.data.name ?? null,
       email: userEmail,
       createdAt: new Date().toISOString(),
     };
-  } else {
-    doc.name = parsed.data.name;
   }
+  if (parsed.data.name !== undefined) doc.name = parsed.data.name;
+  if (parsed.data.language !== undefined) doc.language = parsed.data.language;
   ({ resource: doc } = await container.items.upsert(doc));
 
   return {
     status: 200,
-    jsonBody: { id: doc.id, name: doc.name, email: doc.email, createdAt: doc.createdAt },
+    jsonBody: {
+      id: doc.id,
+      name: doc.name,
+      email: doc.email,
+      createdAt: doc.createdAt,
+      language: doc.language,
+    },
   };
 }
 
