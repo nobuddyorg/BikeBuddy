@@ -35,7 +35,6 @@ interface MainPage {
     zoomOut(times: number): Promise<void>;
     zoomIn(times: number): Promise<void>;
     tourNames(): Promise<string[]>;
-    switchLanguage(opts: { search: string; pick: string }): Promise<void>;
   };
   /** Raw locators. */
   locators: {
@@ -95,12 +94,6 @@ interface MainPage {
     mapControls: {
       zoomOut: Locator;
       zoomIn: Locator;
-    };
-    lang: {
-      button: Locator;
-      menu: Locator;
-      search: Locator;
-      options: Locator;
     };
   };
 }
@@ -164,12 +157,6 @@ export function initMainPage(page: Page): MainPage {
     mapControls: {
       zoomOut: page.locator('.leaflet-control-zoom-out'),
       zoomIn: page.locator('.leaflet-control-zoom-in'),
-    },
-    lang: {
-      button: page.locator('#btn-lang'),
-      menu: page.locator('#lang-menu'),
-      search: page.locator('#lang-search'),
-      options: page.locator('.lang-option'),
     },
   };
 
@@ -284,11 +271,6 @@ export function initMainPage(page: Page): MainPage {
       }
     },
     tourNames: async () => locators.list.names.allTextContents(),
-    switchLanguage: async ({ search, pick }: { search: string; pick: string }) => {
-      await locators.lang.button.click();
-      await locators.lang.search.fill(search);
-      await locators.lang.options.filter({ hasText: pick }).click();
-    },
   };
 
   return Object.assign(() => root, { locators, do: interactions });

@@ -14,6 +14,7 @@ export interface UserDoc {
   name: string | null;
   email: string | null;
   createdAt: string;
+  language?: string;
 }
 
 let client: CosmosClient | undefined;
