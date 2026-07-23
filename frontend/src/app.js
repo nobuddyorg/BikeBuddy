@@ -847,21 +847,24 @@ async function submitEdit(e) {
   }
 }
 
-async function deleteSelectedTour() {
-  const id = state.selectedTourId;
-  if (!id) return;
+async function deleteTourById(id) {
   if (!confirm(t('confirm.deleteTour'))) return;
   try {
     const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('delete failed');
     state.tours = state.tours.filter((t) => t.id !== id);
-    deselectTour();
+    if (id === state.selectedTourId) deselectTour();
     renderSidebar();
     await renderAllHeatmap();
     toast(t('toast.tourDeleted'), 'success');
   } catch {
     toast(t('toast.tourDeleteError'), 'error');
   }
+}
+
+async function deleteSelectedTour() {
+  if (!state.selectedTourId) return;
+  await deleteTourById(state.selectedTourId);
 }
 
 async function deleteSelectedTours() {
