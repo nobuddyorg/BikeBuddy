@@ -284,19 +284,49 @@ body {
 }
 
 .tour-item {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Revealed as .tour-item-content slides away during a swipe (#289) — sits
+   behind the row; overflow:hidden on .tour-item clips it to the row's own
+   bounds so it never spills over neighboring rows. */
+.tour-item-delete-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 20px;
+}
+
+/* The actual visible/interactive row. position:relative (stacked after
+   .tour-item-delete-bg in the DOM) makes it paint above the absolutely
+   positioned delete-bg layer at rest — an opaque background is required
+   for that, not just paint order, since it's what visually hides the red
+   layer until the user drags it aside. touch-action:pan-y leaves vertical
+   scrolling to the browser but lets bindSwipeToDelete's pointer handlers
+   own horizontal movement instead of the browser trying to pan there too. */
+.tour-item-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
   cursor: pointer;
   transition: background 0.15s;
+  touch-action: pan-y;
 }
 
 .tour-item-checkbox {
   flex-shrink: 0;
-  /* Purely visual — the li's own click handler is the single source of
-     interaction (see createTourItem), avoiding a double-toggle between the
+  /* Purely visual — the row content's own click handler is the single source
+     of interaction (see createTourItem), avoiding a double-toggle between the
      checkbox's native click and the row's click listener. */
   pointer-events: none;
   accent-color: var(--color-primary);
@@ -309,11 +339,11 @@ body {
   flex: 1;
 }
 
-.tour-item:hover {
+.tour-item-content:hover {
   background: var(--color-surface-2);
 }
 
-.tour-item.active {
+.tour-item.active .tour-item-content {
   background: var(--color-surface-2);
   border-left: 3px solid var(--color-primary);
   padding-left: 13px;
@@ -1113,6 +1143,12 @@ body {
      fixed viewport offset. */
   .sort-menu-list {
     position: fixed;
+  }
+
+  /* Delete/Cancel become icon-only in the cramped mobile selection bar (#289) — data-i18n-aria-label on each button (index.html) keeps them
+     accessible once .btn-label is hidden. */
+  .selection-bar-actions .btn-label {
+    display: none;
   }
 
   .map-container {

@@ -159,12 +159,18 @@
             <button
               id="btn-delete-selected"
               class="btn btn-danger"
-              data-i18n="sidebar.deleteSelected"
+              data-i18n-aria-label="sidebar.deleteSelected"
             >
-              Delete
+              <span class="btn-icon" aria-hidden="true">🗑</span>
+              <span class="btn-label" data-i18n="sidebar.deleteSelected">Delete</span>
             </button>
-            <button id="btn-cancel-select" class="btn btn-ghost" data-i18n="sidebar.cancelSelect">
-              Cancel
+            <button
+              id="btn-cancel-select"
+              class="btn btn-ghost"
+              data-i18n-aria-label="sidebar.cancelSelect"
+            >
+              <span class="btn-icon" aria-hidden="true">✕</span>
+              <span class="btn-label" data-i18n="sidebar.cancelSelect">Cancel</span>
             </button>
           </div>
         </div>
@@ -313,13 +319,13 @@
           <h3 data-i18n="help.q4">📋 Your tours</h3>
           <p data-i18n-html="help.a4">
             The sidebar lists your tours. Use the search box to filter and the dropdown to sort by
-            date, name, or length. Click a tour to focus it; <strong>Show All Tours</strong> brings
-            back the combined heatmap.
+            date, name, or length. Click a tour to focus it;
+            <strong>Show All Tours</strong> brings back the combined heatmap.
           </p>
           <h3 data-i18n="help.q5">📷 Photos &amp; pins</h3>
           <p data-i18n-html="help.a5">
-            Open a tour to add photos, edit, or delete it. Toggle <strong>Photo pins</strong> on the
-            map to show geotagged photos where they were taken.
+            Open a tour to add photos, edit, or delete it. Toggle
+            <strong>Photo pins</strong> on the map to show geotagged photos where they were taken.
           </p>
         </div>
       </div>

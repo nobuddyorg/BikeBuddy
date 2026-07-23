@@ -446,6 +446,7 @@ function textDiv(className, text) {
 // this also works as mouse click-and-hold on desktop, alongside its button.
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+const SWIPE_DELETE_THRESHOLD_PX = 72;
 
 // The ghost click a touch long-press leaves behind must be suppressed no
 // matter where it lands — onLongPress()'s re-render doesn't just rebuild
@@ -533,9 +534,76 @@ function bindLongPress(el, onLongPress) {
   el.addEventListener('pointerleave', cancel);
 }
 
+// Touch-only: mirrors bindLongPress's mobile-only role (#275). Live-
+// translates contentEl during the drag so .tour-item-delete-bg (its
+// sibling, behind it) is revealed proportionally to how far it's dragged.
+// Crossing SWIPE_DELETE_THRESHOLD_PX on release deletes; anything short of
+// that — including dragging back before releasing — just snaps back via
+// reset(), no separate "cancelled" state needed since release only ever
+// checks the final |dx| once.
+function bindSwipeToDelete(contentEl, tour) {
+  let start = null;
+  let dragging = false;
+
+  const reset = () => {
+    contentEl.style.transition = 'transform 0.2s';
+    contentEl.style.transform = 'translateX(0)';
+    start = null;
+    dragging = false;
+  };
+
+  contentEl.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch' || state.selectMode) return;
+    start = { x: e.clientX, y: e.clientY };
+    dragging = false;
+  });
+
+  contentEl.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (!dragging && Math.abs(dy) > Math.abs(dx)) {
+      start = null; // vertical scroll intent — let the browser handle it
+      return;
+    }
+    dragging = true;
+    contentEl.style.transition = 'none';
+    contentEl.style.transform = `translateX(${dx}px)`;
+  });
+
+  contentEl.addEventListener('pointerup', async (e) => {
+    if (!dragging) {
+      start = null;
+      return;
+    }
+    const dx = e.clientX - start.x;
+    reset();
+    if (Math.abs(dx) >= SWIPE_DELETE_THRESHOLD_PX) {
+      // Mirrors bindLongPress's own use of this: a drag this large risks a
+      // trailing ghost click landing on whatever row now occupies this
+      // screen position once the list re-renders without this tour.
+      suppressNextTourClickOnce();
+      await deleteTourById(tour.id);
+    }
+  });
+
+  contentEl.addEventListener('pointercancel', reset);
+  contentEl.addEventListener('pointerleave', () => {
+    if (dragging) reset();
+  });
+}
+
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
+
+  const deleteBg = document.createElement('div');
+  deleteBg.className = 'tour-item-delete-bg';
+  deleteBg.setAttribute('aria-hidden', 'true');
+  deleteBg.textContent = '🗑';
+
+  const content = document.createElement('div');
+  content.className = 'tour-item-content';
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -554,20 +622,23 @@ function createTourItem(tour) {
     ),
   );
 
-  li.append(checkbox, details);
-  li.addEventListener('click', () => {
+  content.append(checkbox, details);
+  content.addEventListener('click', () => {
     if (state.selectMode) {
       toggleTourSelection(tour.id);
     } else {
       selectTour(tour.id);
     }
   });
-  bindLongPress(li, () => {
+  bindLongPress(content, () => {
     if (state.selectMode) return false;
     enterSelectMode();
     toggleTourSelection(tour.id);
     return true;
   });
+  bindSwipeToDelete(content, tour);
+
+  li.append(deleteBg, content);
   return li;
 }
 
@@ -847,21 +918,24 @@ async function submitEdit(e) {
   }
 }
 
-async function deleteSelectedTour() {
-  const id = state.selectedTourId;
-  if (!id) return;
+async function deleteTourById(id) {
   if (!confirm(t('confirm.deleteTour'))) return;
   try {
     const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('delete failed');
     state.tours = state.tours.filter((t) => t.id !== id);
-    deselectTour();
+    if (id === state.selectedTourId) deselectTour();
     renderSidebar();
     await renderAllHeatmap();
     toast(t('toast.tourDeleted'), 'success');
   } catch {
     toast(t('toast.tourDeleteError'), 'error');
   }
+}
+
+async function deleteSelectedTour() {
+  if (!state.selectedTourId) return;
+  await deleteTourById(state.selectedTourId);
 }
 
 async function deleteSelectedTours() {
