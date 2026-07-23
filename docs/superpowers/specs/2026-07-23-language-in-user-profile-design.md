@@ -27,6 +27,9 @@ Language selection currently lives as a flag-dropdown in the navbar (`#lang-swit
 - `functions/src/lib/db.js` user doc gains an optional `language` field (string locale code, e.g. `"en"`, `"de"`). Cosmos is schemaless, so no migration step — absent means "not set yet."
 - `functions/src/GetMe/index.js`: include `language` in the response JSON (omitted/`undefined` if not set).
 - `functions/src/UpdateProfile/index.js`: extend `profileSchema` from `z.object({ name: nameSchema })` to `z.object({ name: nameSchema, language: languageSchema.optional() })`. `languageSchema` validates against the known supported locale codes — mirror the list already in `frontend/src/lib/i18n.js` as a small server-side constant (or validate as a 2-letter lowercase code against that same set). `name` stays required, unchanged; the frontend always sends the currently-known `name` alongside a language change so the existing contract for the name-save flow is untouched.
+
+  **Superseded by the implementation plan:** the plan made `name` independently optional (alongside `language`, with a refine requiring at least one) instead — a brand-new user has no display name yet (self-service sign-up doesn't collect one) and must still be able to save a language preference without the PATCH failing on an empty name. The frontend sends `{ language: code }` alone, not `{ name, language }`. See `docs/superpowers/plans/2026-07-23-language-in-user-profile.md` Task 1.
+
 - No new routes/files.
 
 ### Frontend flow

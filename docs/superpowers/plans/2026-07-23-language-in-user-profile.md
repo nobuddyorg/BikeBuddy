@@ -1094,10 +1094,12 @@ buddyTest.describe('language preference', () => {
 });
 ```
 
-- [ ] **Step 6: Type-check and lint the e2e project**
+- [ ] **Step 6: Type-check and format-check the e2e project**
 
-Run: `cd e2e && npx tsc --noEmit && npx eslint pages tests tests-fullstack`
-Expected: PASS, no type or lint errors.
+`e2e/` has no ESLint setup (no config, no devDependency) — its only static checks are `tsc` and Prettier.
+
+Run: `cd e2e && npx tsc --noEmit && npm run format:check`
+Expected: PASS, no type or formatting errors.
 
 - [ ] **Step 7: Run the static e2e suite (confirms the moved locators didn't break anything else there)**
 
