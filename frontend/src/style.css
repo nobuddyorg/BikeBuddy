@@ -1145,6 +1145,12 @@ body {
     position: fixed;
   }
 
+  /* Delete/Cancel become icon-only in the cramped mobile selection bar (#289) — data-i18n-aria-label on each button (index.html) keeps them
+     accessible once .btn-label is hidden. */
+  .selection-bar-actions .btn-label {
+    display: none;
+  }
+
   .map-container {
     flex: 1;
     /* Lowered from 40vh (#275): combined with the sidebar's 55vh cap, the old
