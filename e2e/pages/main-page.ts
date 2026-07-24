@@ -208,8 +208,10 @@ export function initMainPage(page: Page): MainPage {
       await page.waitForTimeout(500);
     },
     // Genuine touch dispatch (CDP), matching longPressTour above — the
-    // implementation (bindSwipeToDelete in app.js) reads real touch
+    // implementation (bindTourSwipe in app.js) reads real touch
     // pointerType, so a mouse-drag simulation would never exercise it.
+    // Positive dx swipes right (delete, #289); negative dx swipes left
+    // (edit, #306).
     // Multiple intermediate touchMove events (not one big jump) mirror how
     // a real finger delivers a drag.
     swipeTour: async (name: string, dx: number) => {
