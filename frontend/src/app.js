@@ -630,14 +630,26 @@ function highlightedNameNode(name, indices) {
   return div;
 }
 
+// Simple, black-only trash glyph (Material "delete", solid fill) — swapped
+// in for the previous white emoji so it reads clearly against the red
+// delete-bg regardless of platform emoji rendering.
+const TRASH_ICON_SVG =
+  '<svg class="tour-item-delete-icon" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path fill="#000" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>' +
+  '</svg>';
+
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
 
+  // Two icons (one per edge) rather than one centered icon: whichever
+  // direction the row is dragged, an icon is visible near that edge right
+  // away instead of only appearing once the drag has revealed the row's
+  // midpoint.
   const deleteBg = document.createElement('div');
   deleteBg.className = 'tour-item-delete-bg';
   deleteBg.setAttribute('aria-hidden', 'true');
-  deleteBg.textContent = '🗑';
+  deleteBg.innerHTML = TRASH_ICON_SVG + TRASH_ICON_SVG;
 
   const content = document.createElement('div');
   content.className = 'tour-item-content';
