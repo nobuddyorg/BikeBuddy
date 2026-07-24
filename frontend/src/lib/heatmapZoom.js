@@ -9,11 +9,11 @@
 // untouched (that's the zoom range where it already looks right); above it,
 // both grow to keep the tube solid, capped so it doesn't turn into a blob.
 const REFERENCE_ZOOM = 14;
-const MAX_SCALE = 4;
+const MAX_SCALE = 3;
 
 export function heatScaleForZoom(zoom) {
   if (zoom <= REFERENCE_ZOOM) return 1;
-  return Math.min(MAX_SCALE, 2 ** ((zoom - REFERENCE_ZOOM) / 2));
+  return Math.min(MAX_SCALE, 2 ** ((zoom - REFERENCE_ZOOM) / 1.5));
 }
 
 export function heatOptionsForZoom(zoom, baseOptions) {
