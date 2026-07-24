@@ -1678,10 +1678,20 @@ function setupLanguageSwitcher() {
     elBtnLang.setAttribute('aria-expanded', 'false');
   };
   const openMenu = () => {
+    const btnRect = elBtnLang.getBoundingClientRect();
     show(elLangMenu, true);
     elBtnLang.setAttribute('aria-expanded', 'true');
     elLangSearch.value = '';
     elLangList.querySelectorAll('li').forEach((li) => show(li, true));
+    // Centered under the modal card (not the much narrower .lang-switcher)
+    // so the popup doesn't hang off toward one edge — .lang-menu is
+    // `position: fixed`, so this must be computed from actual rects rather
+    // than a CSS anchor (mirrors setupSortMenu's approach below).
+    const modalRect = elBtnLang.closest('.modal').getBoundingClientRect();
+    const menuWidth = elLangMenu.offsetWidth;
+    const left = Math.max(16, modalRect.left + (modalRect.width - menuWidth) / 2);
+    elLangMenu.style.top = `${btnRect.bottom + 6}px`;
+    elLangMenu.style.left = `${left}px`;
     elLangSearch.focus();
   };
 
