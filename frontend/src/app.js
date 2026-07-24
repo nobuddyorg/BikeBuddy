@@ -769,8 +769,10 @@ async function renderSelectedToursHeatmap() {
     await renderAllHeatmap();
     return;
   }
+  const requested = [...state.selectedIds].sort().join(',');
   const tours = state.tours.filter((tour) => state.selectedIds.has(tour.id));
   await Promise.all(tours.map(ensureDetail));
+  if ([...state.selectedIds].sort().join(',') !== requested) return; // selection changed while loading
   const points = tours.flatMap((t) => toHeatPoints(t.heatmapData));
   renderHeatmap(points, 40);
   show(elMapEmpty, points.length === 0);
