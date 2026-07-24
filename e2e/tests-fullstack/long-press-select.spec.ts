@@ -3,9 +3,11 @@ import { clearUsers, clearTours, toursContainer } from './usersDb';
 
 // #275: long-press a tour row to enter select mode (mobile's replacement for
 // the Select button), without disturbing normal short-click behavior. Also
-// #308: on touch, a plain tap selects too (instead of opening the detail
-// panel) — the detail panel there is reached via swipe-left instead
-// (swipe-detail.spec.ts); a mouse click is unaffected either way.
+// #310: on touch, a plain tap only highlights the row (like a desktop
+// click) without opening the detail panel or entering select mode — the
+// detail panel is reached via swipe-left instead (swipe-detail.spec.ts),
+// and select mode via long-press only. A mouse click is unaffected either
+// way.
 //
 // The topmost-row case is deliberately the primary test here: entering
 // select mode reveals #selection-bar above the list, shifting every row
@@ -72,16 +74,45 @@ buddyTest.describe('long-press to enter select mode', () => {
   });
 
   buddyTest(
-    'a touch tap enters select mode instead of opening the detail panel (#308)',
+    'a touch tap only highlights the row — no select mode, no detail panel (#310)',
     async ({ on, page }) => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
       await on(page).main.do.tapTour('Long Press Tour A');
 
-      await expect(on(page).main.locators.selection.bar).toBeVisible();
-      await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
+      await expect(
+        on(page).main.locators.list.container.locator('.tour-item.active', {
+          hasText: 'Long Press Tour A',
+        }),
+      ).toBeVisible();
+      await expect(on(page).main.locators.selection.bar).toBeHidden();
       await expect(on(page).main.locators.detail.panel).toBeHidden();
+    },
+  );
+
+  buddyTest(
+    'tapping a different row closes an already-open detail panel (#310)',
+    async ({ on, page }) => {
+      await page.goto('/');
+      await expect(on(page).main.locators.userMenu).toBeVisible();
+
+      // Opens via swipe-left (mobile's own way in), not selectTour's mouse
+      // click — this context is touch-only.
+      await on(page).main.do.swipeTour('Long Press Tour B', -120);
+      await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour B');
+
+      await on(page).main.do.tapTour('Long Press Tour A');
+
+      // The panel must close rather than keep showing Tour B while Tour A
+      // is highlighted — that mismatch would point its Edit/Delete buttons
+      // at Tour A instead of the Tour B still visibly named in the panel.
+      await expect(on(page).main.locators.detail.panel).toBeHidden();
+      await expect(
+        on(page).main.locators.list.container.locator('.tour-item.active', {
+          hasText: 'Long Press Tour A',
+        }),
+      ).toBeVisible();
     },
   );
 

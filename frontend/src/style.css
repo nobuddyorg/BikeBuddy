@@ -95,8 +95,8 @@ body {
 }
 
 .navbar-logo {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   display: block;
   object-fit: contain;
 }
@@ -213,10 +213,10 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  font-size: 20px;
+  font-size: 28px;
 }
 
 .sort-menu-list {
@@ -1241,6 +1241,11 @@ body {
   align-items: center;
   gap: 0.35rem;
   font-weight: 600;
+  /* .btn's own 14px left padding (index.html) would otherwise push the flag
+     that much right of where "dev@localhost"/the join date start in the
+     dt/dd column above (#310) — this button is the only content in its
+     dd, so removing just this side is safe. */
+  padding-left: 0;
 }
 
 .lang-btn .lang-flag {
