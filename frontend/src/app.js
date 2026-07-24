@@ -701,6 +701,7 @@ function toggleTourSelection(tourId) {
     state.selectedIds.add(tourId);
   }
   renderSidebar();
+  renderSelectedToursHeatmap();
 }
 
 function enterSelectMode() {
@@ -712,6 +713,7 @@ function exitSelectMode() {
   state.selectMode = false;
   state.selectedIds.clear();
   renderSidebar();
+  renderAllHeatmap();
 }
 
 // ── Heatmap rendering ─────────────────────────────────────────────────────────
@@ -756,6 +758,22 @@ async function renderAllHeatmap() {
   const allPoints = state.tours.flatMap((t) => toHeatPoints(t.heatmapData));
   renderHeatmap(allPoints, 40);
   show(elMapEmpty, allPoints.length === 0);
+  renderPins();
+}
+
+// While in select mode, the map mirrors the checked set: 1 tour, 5 tours, or
+// all of them (#298). Falls back to the all-tours view when nothing is
+// checked, so the map never goes blank just because select mode is active.
+async function renderSelectedToursHeatmap() {
+  if (state.selectedIds.size === 0) {
+    await renderAllHeatmap();
+    return;
+  }
+  const tours = state.tours.filter((tour) => state.selectedIds.has(tour.id));
+  await Promise.all(tours.map(ensureDetail));
+  const points = tours.flatMap((t) => toHeatPoints(t.heatmapData));
+  renderHeatmap(points, 40);
+  show(elMapEmpty, points.length === 0);
   renderPins();
 }
 
