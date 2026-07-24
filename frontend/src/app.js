@@ -767,6 +767,7 @@ async function renderAllHeatmap() {
 async function renderSelectedToursHeatmap() {
   if (state.selectedIds.size === 0) {
     await renderAllHeatmap();
+    if (state.selectedIds.size !== 0) return renderSelectedToursHeatmap();
     return;
   }
   const requested = [...state.selectedIds].sort().join(',');
