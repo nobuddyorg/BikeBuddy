@@ -63,6 +63,7 @@ app.http('DeleteAccount', {
   methods: ['delete'],
   authLevel: 'anonymous',
   route: 'account',
+  /* v8 ignore next */
   handler: (request) => deleteAccount(request),
 });
 

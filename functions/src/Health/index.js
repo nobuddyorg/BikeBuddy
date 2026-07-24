@@ -13,6 +13,7 @@ app.http('Health', {
   methods: ['get'],
   authLevel: 'anonymous',
   route: 'health',
+  /* v8 ignore next */
   handler: () => health(),
 });
 

@@ -39,6 +39,7 @@ app.http('GetTour', {
   methods: ['get'],
   authLevel: 'anonymous',
   route: 'tours/{tourId}',
+  /* v8 ignore next */
   handler: (request) => getTour(request),
 });
 

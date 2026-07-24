@@ -66,6 +66,18 @@ describe('UploadTour', () => {
     expect(res.jsonBody.error).toBe('No file found');
   });
 
+  it('defaults to 500 when the parseFile error has no status', async () => {
+    const parseFile = vi.fn().mockRejectedValue(new Error('boom'));
+    const res = await uploadTour(
+      reqWith(),
+      mockAuth,
+      makeToursContainer,
+      makeGpxContainer(),
+      parseFile,
+    );
+    expect(res.status).toBe(500);
+  });
+
   it('returns 400 when file fails magic byte check', async () => {
     const parseFile = makeParseFile(Buffer.from('not xml at all'));
     const res = await uploadTour(

@@ -12,8 +12,8 @@ const TOURS = [{ id: 't1', userId: 'u1', name: 'Alps' }];
 
 const mockAuth = async () => ({ userId: 'u1' });
 
-function makeUsers() {
-  return { item: vi.fn().mockReturnValue({ read: async () => ({ resource: USER }) }) };
+function makeUsers(resource = USER) {
+  return { item: vi.fn().mockReturnValue({ read: async () => ({ resource }) }) };
 }
 function makeTours(resources = TOURS) {
   const fetchAll = vi.fn().mockResolvedValue({ resources });
@@ -46,5 +46,17 @@ describe('GET /api/me/export', () => {
     expect(spec.query).toMatch(/SELECT \* FROM c WHERE c\.userId = @userId/);
     expect(spec.parameters).toEqual([{ name: '@userId', value: 'u1' }]);
     expect(options).toEqual({ partitionKey: 'u1' });
+  });
+
+  it('exports user: null when the user doc does not exist yet', async () => {
+    const res = await exportData(
+      {},
+      mockAuth,
+      () => makeUsers(null),
+      () => makeTours().container,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.jsonBody.user).toBeNull();
   });
 });

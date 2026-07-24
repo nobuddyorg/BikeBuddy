@@ -41,6 +41,7 @@ app.http('GetMe', {
   methods: ['get'],
   authLevel: 'anonymous',
   route: 'me',
+  /* v8 ignore next */
   handler: (request) => getMe(request),
 });
 

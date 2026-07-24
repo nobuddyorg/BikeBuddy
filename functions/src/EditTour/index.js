@@ -42,6 +42,7 @@ app.http('EditTour', {
   methods: ['patch'],
   authLevel: 'anonymous',
   route: 'tours/{tourId}',
+  /* v8 ignore next */
   handler: (request) => editTour(request),
 });
 

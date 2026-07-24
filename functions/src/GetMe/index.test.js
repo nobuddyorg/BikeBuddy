@@ -91,6 +91,46 @@ describe('GET /api/me', () => {
     });
   });
 
+  test('backfills email only, keeping the stored name when the token has no name', async () => {
+    const stored = {
+      id: 'u1',
+      name: 'Stored Name',
+      email: 'old@example.com',
+      createdAt: STORED_USER.createdAt,
+    };
+    const container = makeContainer({
+      item: vi.fn().mockReturnValue({ read: async () => ({ resource: stored }) }),
+    });
+    const noNameAuth = async () => ({ userId: 'u1', userEmail: 'new@example.com', userName: null });
+    const res = await getMe(req, noNameAuth, () => container);
+
+    expect(container.items.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u1', name: 'Stored Name', email: 'new@example.com' }),
+    );
+    expect(res.jsonBody.name).toBe('Stored Name');
+    expect(res.jsonBody.email).toBe('new@example.com');
+  });
+
+  test('backfills name only, keeping the stored email when the token has no email', async () => {
+    const stored = {
+      id: 'u1',
+      name: 'Old Name',
+      email: 'stored@example.com',
+      createdAt: STORED_USER.createdAt,
+    };
+    const container = makeContainer({
+      item: vi.fn().mockReturnValue({ read: async () => ({ resource: stored }) }),
+    });
+    const noEmailAuth = async () => ({ userId: 'u1', userEmail: null, userName: 'New Name' });
+    const res = await getMe(req, noEmailAuth, () => container);
+
+    expect(container.items.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'u1', name: 'New Name', email: 'stored@example.com' }),
+    );
+    expect(res.jsonBody.name).toBe('New Name');
+    expect(res.jsonBody.email).toBe('stored@example.com');
+  });
+
   test('does not upsert when stored name/email already match the token', async () => {
     const container = makeContainer();
     await getMe(req, mockAuth, () => container);

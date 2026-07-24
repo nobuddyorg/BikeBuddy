@@ -94,6 +94,7 @@ app.http('UploadTour', {
   methods: ['post'],
   authLevel: 'anonymous',
   route: 'tours/upload',
+  /* v8 ignore next */
   handler: (request) => uploadTour(request),
 });
 

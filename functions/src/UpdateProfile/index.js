@@ -67,6 +67,7 @@ app.http('UpdateProfile', {
   methods: ['patch'],
   authLevel: 'anonymous',
   route: 'me',
+  /* v8 ignore next */
   handler: (request) => updateProfile(request),
 });
 

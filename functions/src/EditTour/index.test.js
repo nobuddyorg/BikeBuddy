@@ -50,6 +50,27 @@ describe('PATCH /api/tours/{tourId}', () => {
     expect(res.jsonBody.description).toBe('old');
   });
 
+  it('patches description only, leaving name untouched', async () => {
+    const c = makeContainer(async () => ({ resource: { ...TOUR } }));
+    const res = await editTour(
+      reqWith(TID, { description: 'new desc' }),
+      mockAuth,
+      () => c.container,
+    );
+
+    expect(res.jsonBody.name).toBe('Old name');
+    expect(res.jsonBody.description).toBe('new desc');
+  });
+
+  it('treats a null JSON body as no changes', async () => {
+    const c = makeContainer(async () => ({ resource: { ...TOUR } }));
+    const res = await editTour(reqWith(TID, null), mockAuth, () => c.container);
+
+    expect(res.status).toBe(200);
+    expect(res.jsonBody.name).toBe('Old name');
+    expect(res.jsonBody.description).toBe('old');
+  });
+
   it('ignores non-editable fields in the body', async () => {
     const c = makeContainer(async () => ({ resource: { ...TOUR } }));
     const res = await editTour(

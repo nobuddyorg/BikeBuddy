@@ -214,6 +214,20 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(res.jsonBody.error).toBe('Tour not found');
   });
 
+  it('accepts an upload when the tour has no images property at all', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: undefined } }));
+    const images = makeImagesContainer();
+    const res = await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      makeParseFile(JPEG),
+      noResize,
+    );
+    expect(res.status).toBe(201);
+  });
+
   it('returns 400 when the tour already has 20 images', async () => {
     const full = Array.from({ length: 20 }, (_, i) => ({ id: `img${i}`, blobName: `u1/${i}.jpg` }));
     const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: full } }));
@@ -231,6 +245,41 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(res.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
     expect(parseFile).not.toHaveBeenCalled();
     expect(images.getBlockBlobClient).not.toHaveBeenCalled();
+  });
+
+  it('returns the parseFile error status/message when parsing fails', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
+    const images = makeImagesContainer();
+    const parseFile = vi.fn().mockRejectedValue(
+      Object.assign(new Error('Bad multipart body'), {
+        status: 400,
+      }),
+    );
+    const res = await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      parseFile,
+      noResize,
+    );
+    expect(res.status).toBe(400);
+    expect(res.jsonBody.error).toBe('Bad multipart body');
+  });
+
+  it('defaults to 500 when the parseFile error has no status', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
+    const images = makeImagesContainer();
+    const parseFile = vi.fn().mockRejectedValue(new Error('boom'));
+    const res = await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      parseFile,
+      noResize,
+    );
+    expect(res.status).toBe(500);
   });
 
   it('returns 401 when auth fails', async () => {
