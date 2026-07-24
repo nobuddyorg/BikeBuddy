@@ -102,6 +102,17 @@ buddyTest.describe('long-press to enter select mode', () => {
       await on(page).main.do.swipeTour('Long Press Tour B', -120);
       await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour B');
 
+      // CI-only failure (Linux Chromium), confirmed via trace inspection: the
+      // tap right after this succeeded mechanically (bounding box resolved,
+      // both touch events dispatched, no console error) but its
+      // compatibility click never arrived — #detail-panel still showed Tour
+      // B, completely untouched, for the full 5s assertion retry window, so
+      // no amount of waiting *after* the tap helped. Chromium's gesture
+      // recognizer needs this settle time *before* starting a new touch
+      // sequence elsewhere, right after a raw-CDP-dispatched drag — nothing
+      // else in this suite chains two independent touch gestures back to
+      // back like this. tapTour's own trailing wait doesn't cover this gap.
+      await page.waitForTimeout(500);
       await on(page).main.do.tapTour('Long Press Tour A');
 
       // The panel must close rather than keep showing Tour B while Tour A
