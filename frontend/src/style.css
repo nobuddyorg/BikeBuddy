@@ -95,8 +95,8 @@ body {
 }
 
 .navbar-logo {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   display: block;
   object-fit: contain;
 }
@@ -213,10 +213,18 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   padding: 0;
-  font-size: 28px;
+}
+
+/* An inline SVG (rather than the ⇅ glyph it replaces) renders at exactly
+   this size regardless of font/platform glyph metrics, which is what made
+   the old text version look small no matter how far its font-size was
+   pushed up. */
+.sort-menu-btn svg {
+  width: 28px;
+  height: 28px;
 }
 
 .sort-menu-list {
@@ -647,6 +655,21 @@ body {
   background: transparent;
   color: var(--color-danger);
   border: 1px solid var(--color-danger);
+}
+
+/* .btn-icon holds either a plain glyph (Cancel's ✕) or an inline SVG
+   (Delete's trash can) — the SVG uses fill="currentColor" so it picks up
+   the button's own color (danger-red, white on hover) instead of an emoji's
+   fixed built-in colors. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -1228,11 +1251,9 @@ body {
 /* ── Language switcher ───────────────────────────── */
 
 .lang-switcher {
-  position: relative;
   /* Shrink to the button's own size (#308) — its parent is now a
      .profile-meta <dd> (a grid column, wide enough for "dev@localhost"),
-     and without this a plain block div fills that whole column, dragging
-     .lang-menu's right:0 anchor away from the button it belongs to. */
+     and without this a plain block div fills that whole column. */
   display: inline-block;
 }
 
@@ -1258,14 +1279,14 @@ body {
 }
 
 .lang-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  /* .lang-switcher (the positioning ancestor) is only as wide as .lang-btn
-     (#308) — anchor from the right edge and size to content instead of
-     also pinning left:0, which used to force this menu down to that
-     narrow width and clip every option's text. */
+  /* Fixed, with top/left computed in JS (openMenu in setupLanguageSwitcher)
+     from the button's position and centered under the profile modal card —
+     anchoring to .lang-switcher (only as wide as .lang-btn, #308) instead
+     pinned the menu to one edge, which read as randomly left-aligned rather
+     than centered on the modal it belongs to. */
+  position: fixed;
   min-width: 220px;
+  max-width: calc(100vw - 32px);
   padding: 8px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
