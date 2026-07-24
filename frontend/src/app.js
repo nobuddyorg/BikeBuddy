@@ -606,7 +606,13 @@ function bindTourSwipe(contentEl, tour) {
     }
     dragging = true;
     contentEl.style.transition = 'none';
-    contentEl.style.transform = `translateX(${dx}px)`;
+    // Clamped to half the row's width so the drag can never uncover more
+    // than its own bg — .tour-item-delete-bg / .tour-item-detail-bg each
+    // occupy one half, and past that point an overshot drag started
+    // revealing the other action's bg on the far edge.
+    const maxDx = contentEl.offsetWidth / 2;
+    const clampedDx = Math.max(-maxDx, Math.min(maxDx, dx));
+    contentEl.style.transform = `translateX(${clampedDx}px)`;
   });
 
   contentEl.addEventListener('pointerup', async (e) => {
