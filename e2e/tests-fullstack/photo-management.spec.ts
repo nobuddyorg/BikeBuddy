@@ -1,6 +1,7 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { clearUsers, clearTours } from './usersDb';
 
 // Full-stack: runs against the real backend (Functions + Cosmos emulator +
 // Azurite) behind the SWA proxy. devMode + SKIP_AUTH provide a local dev user.
@@ -8,6 +9,15 @@ import { dirname, resolve } from 'node:path';
 // Covers photo-management flows the other specs don't: deleting a single
 // photo, the lightbox, and retrying a failed upload — none of these were
 // previously exercised end-to-end (#292).
+
+// This tour's date now comes from the GPX's <time> (#317: previously always
+// "now"), which sorts it behind any freshly-seeded, same-day fixture tours
+// left over from an earlier spec (e.g. pagination.spec.ts's 25 tours) — so,
+// unlike before, this file must start from a clean slate itself.
+buddyTest.beforeEach(async () => {
+  await clearUsers();
+  await clearTours();
+});
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SAMPLE_JPG = resolve(here, '../fixtures/sample.jpg');
