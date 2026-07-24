@@ -29,6 +29,10 @@ buddyTest(
 
     const tourName = `Photo Delete ${Date.now()}`;
     await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+    // addImage() targets state.selectedTourId — wait for the detail panel so
+    // the upload isn't dropped by a still-pending selection (uploadGpx only
+    // waits for the tour to appear in the list, not for it to be selected).
+    await expect(on(page).main.locators.detail.name).toHaveText(tourName);
     await on(page).main.do.addImage(SAMPLE_JPG);
     await on(page).main.do.addImage(SAMPLE_JPG);
     await expect(on(page).main.locators.image.thumbs).toHaveCount(2);
@@ -44,6 +48,7 @@ buddyTest('opens and closes the lightbox for a photo', async ({ on, page }) => {
 
   const tourName = `Lightbox ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
   await on(page).main.do.addImage(SAMPLE_JPG);
   await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
 
@@ -62,6 +67,7 @@ buddyTest('retries a failed upload and it succeeds the second time', async ({ on
 
   const tourName = `Retry Upload ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
 
   // Fail only the first upload attempt (simulates a transient server error);
   // the retry click goes through the real backend and succeeds.

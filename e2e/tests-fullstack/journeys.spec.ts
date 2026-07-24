@@ -40,20 +40,27 @@ buddyTest.describe('user journeys', () => {
     await expect(on(page).main.locators.list.container).not.toContainText('Original Name');
   });
 
-  buddyTest('rejects an empty tour name and keeps the modal open', async ({ on, page }) => {
-    await page.goto('/');
-    await expect(on(page).main.locators.userMenu).toBeVisible();
-    await on(page).main.do.uploadGpx({ name: 'Keep Me', gpx: GPX });
+  buddyTest(
+    'rejects a whitespace-only tour name and keeps the modal open',
+    async ({ on, page }) => {
+      await page.goto('/');
+      await expect(on(page).main.locators.userMenu).toBeVisible();
+      await on(page).main.do.uploadGpx({ name: 'Keep Me', gpx: GPX });
 
-    await on(page).main.do.openEdit();
-    await expect(on(page).modal.edit()).toBeVisible();
-    await on(page).modal.edit.do.setName('');
-    await on(page).modal.edit.do.submit();
+      await on(page).main.do.openEdit();
+      await expect(on(page).modal.edit()).toBeVisible();
+      // '#edit-name' has the HTML `required` attribute, so a truly empty value
+      // never reaches submitEdit()'s fetch — the browser blocks the submit
+      // natively. Whitespace passes that check but still fails the backend's
+      // nameSchema (stripped to '' server-side), exercising the real 400 path.
+      await on(page).modal.edit.do.setName('   ');
+      await on(page).modal.edit.do.submit();
 
-    await expect(on(page).modal.edit()).toBeVisible();
-    await expect(on(page).modal.edit.locators.error).toBeVisible();
-    await expect(on(page).main.locators.detail.name).toHaveText('Keep Me');
-  });
+      await expect(on(page).modal.edit()).toBeVisible();
+      await expect(on(page).modal.edit.locators.error).toBeVisible();
+      await expect(on(page).main.locators.detail.name).toHaveText('Keep Me');
+    },
+  );
 
   buddyTest('edit display name updates the avatar initials and persists', async ({ on, page }) => {
     await page.goto('/');
