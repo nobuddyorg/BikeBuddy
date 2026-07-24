@@ -13,6 +13,7 @@ interface EditModal {
   locators: {
     name: Locator;
     description: Locator;
+    error: Locator;
     buttons: {
       submit: Locator;
     };
@@ -24,6 +25,7 @@ export function initEditModal(page: Page): EditModal {
   const locators = {
     name: page.locator('#edit-name'),
     description: page.locator('#edit-description'),
+    error: page.locator('#edit-error'),
     buttons: {
       submit: page.locator('#btn-submit-edit'),
     },

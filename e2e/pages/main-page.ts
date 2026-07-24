@@ -26,6 +26,10 @@ interface MainPage {
     uploadGpx(opts: { name: string; gpx: string; filename?: string }): Promise<void>;
     addImage(files: FileInputArg): Promise<void>;
     dismissImageError(): Promise<void>;
+    retryImage(): Promise<void>;
+    deleteImage(index?: number): Promise<void>;
+    openLightbox(index?: number): Promise<void>;
+    closeLightbox(): Promise<void>;
     deleteTour(): Promise<void>;
     enterSelectMode(): Promise<void>;
     toggleTourSelection(name: string): Promise<void>;
@@ -83,6 +87,11 @@ interface MainPage {
       errorTiles: Locator;
       retryButtons: Locator;
       dismissButtons: Locator;
+      deleteButtons: Locator;
+    };
+    lightbox: {
+      root: Locator;
+      img: Locator;
     };
     pins: {
       toggle: Locator;
@@ -148,6 +157,11 @@ export function initMainPage(page: Page): MainPage {
       errorTiles: page.locator('[data-testid="image-tile-error"]'),
       retryButtons: page.locator('[data-testid="image-tile-retry"]'),
       dismissButtons: page.locator('[data-testid="image-tile-dismiss"]'),
+      deleteButtons: page.locator('#tour-image-grid .image-delete'),
+    },
+    lightbox: {
+      root: page.locator('#lightbox'),
+      img: page.locator('#lightbox-img'),
     },
     pins: {
       toggle: page.locator('#pin-toggle'),
@@ -285,6 +299,19 @@ export function initMainPage(page: Page): MainPage {
     },
     dismissImageError: async () => {
       await locators.image.dismissButtons.first().click();
+    },
+    retryImage: async () => {
+      await locators.image.retryButtons.first().click();
+    },
+    deleteImage: async (index = 0) => {
+      page.once('dialog', (d) => d.accept());
+      await locators.image.deleteButtons.nth(index).click();
+    },
+    openLightbox: async (index = 0) => {
+      await locators.image.thumbs.nth(index).click();
+    },
+    closeLightbox: async () => {
+      await locators.lightbox.root.click();
     },
     deleteTour: async () => {
       page.once('dialog', (d) => d.accept());

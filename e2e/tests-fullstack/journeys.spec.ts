@@ -40,6 +40,21 @@ buddyTest.describe('user journeys', () => {
     await expect(on(page).main.locators.list.container).not.toContainText('Original Name');
   });
 
+  buddyTest('rejects an empty tour name and keeps the modal open', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    await on(page).main.do.uploadGpx({ name: 'Keep Me', gpx: GPX });
+
+    await on(page).main.do.openEdit();
+    await expect(on(page).modal.edit()).toBeVisible();
+    await on(page).modal.edit.do.setName('');
+    await on(page).modal.edit.do.submit();
+
+    await expect(on(page).modal.edit()).toBeVisible();
+    await expect(on(page).modal.edit.locators.error).toBeVisible();
+    await expect(on(page).main.locators.detail.name).toHaveText('Keep Me');
+  });
+
   buddyTest('edit display name updates the avatar initials and persists', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
@@ -57,6 +72,23 @@ buddyTest.describe('user journeys', () => {
     await on(page).main.do.openProfile();
     await expect(on(page).modal.profile.locators.nameInput).toHaveValue('Alpine Rider');
     await expect(on(page).modal.profile.locators.title).toHaveText('Alpine Rider');
+  });
+
+  buddyTest('rejects an empty profile name and keeps the previous one', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+
+    await on(page).main.do.openProfile();
+    await expect(on(page).modal.profile()).toBeVisible();
+    await on(page).modal.profile.do.setName('Valid Name');
+    await on(page).modal.profile.do.saveName();
+    await expect(on(page).main.locators.buttons.profile).toHaveText('VN');
+
+    await on(page).modal.profile.do.setName('');
+    await on(page).modal.profile.do.saveName();
+
+    await expect(on(page).modal.profile.locators.nameError).toBeVisible();
+    await expect(on(page).main.locators.buttons.profile).toHaveText('VN');
   });
 
   buddyTest('profile shows the provisioned email and a real join date', async ({ on, page }) => {
