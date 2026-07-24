@@ -18,6 +18,7 @@ interface MainPage {
     toggleSidebar(): Promise<void>;
     search(query: string): Promise<void>;
     sortBy(option: string): Promise<void>;
+    filterInView(on: boolean): Promise<void>;
     selectTour(name: string): Promise<void>;
     tapTour(name: string): Promise<void>;
     longPressTour(name: string): Promise<void>;
@@ -75,6 +76,10 @@ interface MainPage {
     };
     search: Locator;
     sort: Locator;
+    filterInView: {
+      toggle: Locator;
+      toggleInput: Locator;
+    };
     detail: {
       panel: Locator;
       name: Locator;
@@ -146,6 +151,10 @@ export function initMainPage(page: Page): MainPage {
     },
     search: page.locator('#tour-search'),
     sort: page.locator('#tour-sort'),
+    filterInView: {
+      toggle: page.locator('#filter-in-view-toggle'),
+      toggleInput: page.locator('#filter-in-view-input'),
+    },
     detail: {
       panel: page.locator('#detail-panel'),
       name: page.locator('#detail-name'),
@@ -196,6 +205,10 @@ export function initMainPage(page: Page): MainPage {
     search: async (query: string) => locators.search.fill(query),
     sortBy: async (option: string) => {
       await locators.sort.selectOption(option);
+    },
+    filterInView: async (on: boolean) => {
+      if (on) await locators.filterInView.toggleInput.check();
+      else await locators.filterInView.toggleInput.uncheck();
     },
     selectTour: async (name: string) => {
       await locators.list.container.locator('.tour-item', { hasText: name }).click();

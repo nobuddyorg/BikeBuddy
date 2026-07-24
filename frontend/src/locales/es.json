@@ -19,6 +19,7 @@
   "sidebar.pagerNextAria": "Página siguiente",
   "sidebar.pagerLabel": "Página {page} de {totalPages}",
   "sidebar.select": "Seleccionar",
+  "sidebar.filterInView": "En vista",
   "sidebar.selectedCount": "{count} seleccionadas",
   "sidebar.deleteSelected": "Eliminar",
   "sidebar.cancelSelect": "Cancelar",
@@ -38,7 +39,7 @@
   "map.emptyBody": "Sube un archivo GPX para ver tu ruta como un mapa de calor.",
 
   "tours.showAll": "Mostrar todas las rutas",
-  "tours.noMatch": "Ninguna ruta coincide con tu búsqueda.",
+  "tours.noMatch": "Ninguna ruta coincide con tus filtros.",
 
   "detail.date": "Fecha",
   "detail.distance": "Distancia",

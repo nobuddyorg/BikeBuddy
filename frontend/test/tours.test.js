@@ -3,6 +3,7 @@ import {
   fuzzyMatch,
   fuzzyMatchIndices,
   visibleTours,
+  toursInView,
   paginate,
   withUpdatedDate,
 } from '../src/lib/tours.js';
@@ -71,6 +72,47 @@ describe('visibleTours', () => {
     const copy = [...tours];
     visibleTours(tours, 'name-desc', '');
     expect(tours).toEqual(copy);
+  });
+});
+
+describe('toursInView', () => {
+  const BOUNDS = { south: 40, west: 5, north: 50, east: 15 };
+
+  it('keeps a tour with any point inside the bounds', () => {
+    const t = {
+      id: 'a',
+      heatmapData: [
+        [0, 0],
+        [45, 10],
+      ],
+    };
+    expect(toursInView([t], BOUNDS)).toEqual([t]);
+  });
+
+  it('drops a tour whose every point is outside the bounds', () => {
+    const t = {
+      id: 'a',
+      heatmapData: [
+        [0, 0],
+        [60, 20],
+      ],
+    };
+    expect(toursInView([t], BOUNDS)).toEqual([]);
+  });
+
+  it('counts a point exactly on the edge as in view (even partially on screen)', () => {
+    const t = { id: 'a', heatmapData: [[40, 15]] };
+    expect(toursInView([t], BOUNDS)).toEqual([t]);
+  });
+
+  it('treats a tour with no heatmapData yet as out of view', () => {
+    const t = { id: 'a' };
+    expect(toursInView([t], BOUNDS)).toEqual([]);
+  });
+
+  it('returns all tours unchanged when bounds is not given', () => {
+    const tours = [{ id: 'a', heatmapData: [[0, 0]] }];
+    expect(toursInView(tours, null)).toBe(tours);
   });
 });
 
