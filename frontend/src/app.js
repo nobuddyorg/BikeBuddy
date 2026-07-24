@@ -1,7 +1,7 @@
 'use strict';
 
 import { formatDate, formatDistance, initials } from './lib/format.js';
-import { visibleTours, paginate, PAGE_SIZE } from './lib/tours.js';
+import { visibleTours, paginate, PAGE_SIZE, fuzzyMatchIndices } from './lib/tours.js';
 import {
   validateGpxUpload,
   validateImageUpload,
@@ -605,6 +605,31 @@ function bindSwipeToDelete(contentEl, tour) {
   });
 }
 
+// Builds the tour-item-name div, wrapping runs of consecutive matched
+// indices in <mark>. Built with createElement/textContent only — tour
+// names are user-supplied and must never be interpreted as markup.
+function highlightedNameNode(name, indices) {
+  name = name || '';
+  const div = document.createElement('div');
+  div.className = 'tour-item-name';
+  const matched = new Set(indices);
+  let i = 0;
+  while (i < name.length) {
+    let j = i;
+    while (j < name.length && matched.has(j) === matched.has(i)) j++;
+    const run = name.slice(i, j);
+    if (matched.has(i)) {
+      const mark = document.createElement('mark');
+      mark.textContent = run;
+      div.appendChild(mark);
+    } else {
+      div.appendChild(document.createTextNode(run));
+    }
+    i = j;
+  }
+  return div;
+}
+
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
@@ -627,7 +652,7 @@ function createTourItem(tour) {
   const details = document.createElement('div');
   details.className = 'tour-item-details';
   details.append(
-    textDiv('tour-item-name', tour.name),
+    highlightedNameNode(tour.name, fuzzyMatchIndices(state.search, tour.name)),
     textDiv(
       'tour-item-meta',
       `${formatDate(tour.createdAt, i18n.dateLocale())} · ${formatDistance(tour.distance)}`,

@@ -356,6 +356,12 @@ body {
   text-overflow: ellipsis;
 }
 
+.tour-item-name mark {
+  background: none;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 .tour-item-meta {
   font-size: 12px;
   color: var(--color-text-muted);

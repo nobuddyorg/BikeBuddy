@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fuzzyMatch, visibleTours, paginate } from '../src/lib/tours.js';
+import { fuzzyMatch, fuzzyMatchIndices, visibleTours, paginate } from '../src/lib/tours.js';
 
 const tours = [
   { id: 'a', name: 'Alps Tour', createdAt: '2026-01-01T00:00:00Z', distance: 120 },
@@ -21,6 +21,27 @@ describe('fuzzyMatch', () => {
   it('treats an empty query as a match', () => {
     expect(fuzzyMatch('', 'anything')).toBe(true);
     expect(fuzzyMatch('   ', 'anything')).toBe(true);
+  });
+});
+
+describe('fuzzyMatchIndices', () => {
+  it('returns the matched character positions for an in-order subsequence', () => {
+    expect(fuzzyMatchIndices('alp', 'Alps Tour')).toEqual([0, 1, 2]);
+    expect(fuzzyMatchIndices('atr', 'Alps Tour')).toEqual([0, 5, 8]); // A..T..(ou)R
+  });
+
+  it('returns null when the query does not fully match', () => {
+    expect(fuzzyMatchIndices('xyz', 'Alps Tour')).toBeNull();
+    expect(fuzzyMatchIndices('rua', 'Alps Tour')).toBeNull();
+  });
+
+  it('returns an empty array for an empty or whitespace query', () => {
+    expect(fuzzyMatchIndices('', 'Alps Tour')).toEqual([]);
+    expect(fuzzyMatchIndices('   ', 'Alps Tour')).toEqual([]);
+  });
+
+  it('matches case-insensitively but indexes into the original text', () => {
+    expect(fuzzyMatchIndices('ALP', 'Alps Tour')).toEqual([0, 1, 2]);
   });
 });
 
