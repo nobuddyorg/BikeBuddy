@@ -48,7 +48,7 @@ describe('PATCH /api/me', () => {
   });
 
   it('creates the doc when it does not exist yet', async () => {
-    const c = makeContainer(undefined);
+    const c = makeContainer(null);
     const res = await updateProfile(reqWith({ name: 'New User' }), mockAuth, () => c.container);
     expect(res.status).toBe(200);
     expect(c.upsert).toHaveBeenCalledWith(
@@ -82,8 +82,15 @@ describe('PATCH /api/me', () => {
     expect(c.upsert).not.toHaveBeenCalled();
   });
 
+  it('treats a null JSON body as empty and rejects it', async () => {
+    const c = makeContainer();
+    const res = await updateProfile(reqWith(null), mockAuth, () => c.container);
+    expect(res.status).toBe(400);
+    expect(c.upsert).not.toHaveBeenCalled();
+  });
+
   it('creates the doc with a null name when only language is provided for a new user', async () => {
-    const c = makeContainer(undefined);
+    const c = makeContainer(null);
     const res = await updateProfile(reqWith({ language: 'fr' }), mockAuth, () => c.container);
 
     expect(res.status).toBe(200);

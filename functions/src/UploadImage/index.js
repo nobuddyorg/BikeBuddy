@@ -83,6 +83,7 @@ app.http('UploadImage', {
   methods: ['post'],
   authLevel: 'anonymous',
   route: 'tours/{tourId}/images',
+  /* v8 ignore next */
   handler: (request) => uploadImage(request),
 });
 

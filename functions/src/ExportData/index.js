@@ -35,6 +35,7 @@ app.http('ExportData', {
   methods: ['get'],
   authLevel: 'anonymous',
   route: 'me/export',
+  /* v8 ignore next */
   handler: (request) => exportData(request),
 });
 

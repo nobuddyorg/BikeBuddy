@@ -112,4 +112,14 @@ describe('extractGps', () => {
   it('returns null for a non-image buffer', async () => {
     expect(await extractGps(Buffer.from('not an image'))).toBeNull();
   });
+
+  it('returns null for an image with EXIF but no GPS block', async () => {
+    const buffer = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .jpeg()
+      .withExif({ IFD0: { Make: 'BikeBuddy' } })
+      .toBuffer();
+    expect(await extractGps(buffer)).toBeNull();
+  });
 });

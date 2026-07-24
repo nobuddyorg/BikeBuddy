@@ -96,6 +96,20 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     expect(tours.replace).not.toHaveBeenCalled();
   });
 
+  it('returns 404 when the tour has no images at all', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: undefined } }));
+    const images = makeImagesContainer();
+    const res = await deleteImage(
+      reqWith(TID, IMG1),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+    );
+
+    expect(res.status).toBe(404);
+    expect(images.deleteIfExists).not.toHaveBeenCalled();
+  });
+
   it('returns 401 when auth fails', async () => {
     const failAuth = async () => null;
     const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));

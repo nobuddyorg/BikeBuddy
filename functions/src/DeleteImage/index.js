@@ -38,6 +38,7 @@ app.http('DeleteImage', {
   methods: ['delete'],
   authLevel: 'anonymous',
   route: 'tours/{tourId}/images/{imageId}',
+  /* v8 ignore next */
   handler: (request) => deleteImage(request),
 });
 
