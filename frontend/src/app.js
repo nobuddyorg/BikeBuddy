@@ -609,6 +609,7 @@ function bindSwipeToDelete(contentEl, tour) {
 // indices in <mark>. Built with createElement/textContent only — tour
 // names are user-supplied and must never be interpreted as markup.
 function highlightedNameNode(name, indices) {
+  name = name || '';
   const div = document.createElement('div');
   div.className = 'tour-item-name';
   const matched = new Set(indices);
