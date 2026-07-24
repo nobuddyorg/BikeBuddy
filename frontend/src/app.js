@@ -458,7 +458,7 @@ function textDiv(className, text) {
 // this also works as mouse click-and-hold on desktop, alongside its button.
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
-const SWIPE_DELETE_THRESHOLD_PX = 72;
+const SWIPE_ACTION_THRESHOLD_PX = 72;
 
 // The ghost click a touch long-press leaves behind must be suppressed no
 // matter where it lands — onLongPress()'s re-render doesn't just rebuild
@@ -547,13 +547,14 @@ function bindLongPress(el, onLongPress) {
 }
 
 // Touch-only: mirrors bindLongPress's mobile-only role (#275). Live-
-// translates contentEl during the drag so .tour-item-delete-bg (its
-// sibling, behind it) is revealed proportionally to how far it's dragged.
-// Crossing SWIPE_DELETE_THRESHOLD_PX on release deletes; anything short of
-// that — including dragging back before releasing — just snaps back via
-// reset(), no separate "cancelled" state needed since release only ever
-// checks the final |dx| once.
-function bindSwipeToDelete(contentEl, tour) {
+// translates contentEl during the drag so whichever of .tour-item-delete-bg
+// / .tour-item-edit-bg (its siblings, behind it) corresponds to the drag
+// direction is revealed proportionally to how far it's dragged. Crossing
+// SWIPE_ACTION_THRESHOLD_PX on release deletes (swipe right, #289) or opens
+// the edit modal (swipe left, #306); anything short of that — including
+// dragging back before releasing — just snaps back via reset(), no separate
+// "cancelled" state needed since release only ever checks the final dx once.
+function bindTourSwipe(contentEl, tour) {
   let start = null;
   let dragging = false;
 
@@ -590,12 +591,15 @@ function bindSwipeToDelete(contentEl, tour) {
     }
     const dx = e.clientX - start.x;
     reset();
-    if (Math.abs(dx) >= SWIPE_DELETE_THRESHOLD_PX) {
+    if (dx >= SWIPE_ACTION_THRESHOLD_PX) {
       // Mirrors bindLongPress's own use of this: a drag this large risks a
       // trailing ghost click landing on whatever row now occupies this
       // screen position once the list re-renders without this tour.
       suppressNextTourClickOnce();
       await deleteTourById(tour.id);
+    } else if (dx <= -SWIPE_ACTION_THRESHOLD_PX) {
+      state.selectedTourId = tour.id;
+      openEdit();
     }
   });
 
@@ -638,18 +642,28 @@ const TRASH_ICON_SVG =
   '<path fill="#000" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>' +
   '</svg>';
 
+// Black pen glyph (Material "edit", solid fill) for the swipe-left action (#306).
+const EDIT_ICON_SVG =
+  '<svg class="tour-item-edit-icon" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path fill="#000" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>' +
+  '</svg>';
+
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
 
-  // Two icons (one per edge) rather than one centered icon: whichever
-  // direction the row is dragged, an icon is visible near that edge right
-  // away instead of only appearing once the drag has revealed the row's
-  // midpoint.
+  // Each bg only responds to its own drag direction (bindTourSwipe), so it
+  // only needs the one icon nearest the edge that direction reveals first —
+  // left for delete (swipe right), right for edit (swipe left, #306).
   const deleteBg = document.createElement('div');
   deleteBg.className = 'tour-item-delete-bg';
   deleteBg.setAttribute('aria-hidden', 'true');
-  deleteBg.innerHTML = TRASH_ICON_SVG + TRASH_ICON_SVG;
+  deleteBg.innerHTML = TRASH_ICON_SVG;
+
+  const editBg = document.createElement('div');
+  editBg.className = 'tour-item-edit-bg';
+  editBg.setAttribute('aria-hidden', 'true');
+  editBg.innerHTML = EDIT_ICON_SVG;
 
   const content = document.createElement('div');
   content.className = 'tour-item-content';
@@ -685,9 +699,9 @@ function createTourItem(tour) {
     toggleTourSelection(tour.id);
     return true;
   });
-  bindSwipeToDelete(content, tour);
+  bindTourSwipe(content, tour);
 
-  li.append(deleteBg, content);
+  li.append(deleteBg, editBg, content);
   return li;
 }
 
@@ -1589,15 +1603,18 @@ elBtnMapExpand.addEventListener('click', () => {
   refreshMapSize();
 });
 
-// Language switcher: flag + code preview in the navbar, opening a searchable
-// list of flags. Selecting a language persists it and reloads (i18n.setLanguage).
+// Language switcher: flag + full name preview in the profile modal, opening
+// a searchable list of flags. Selecting a language persists it and reloads
+// (i18n.setLanguage).
 function setupLanguageSwitcher() {
   const elBtnLang = $('btn-lang');
   const elLangMenu = $('lang-menu');
   const elLangSearch = $('lang-search');
   const elLangList = $('lang-list');
   const meta = i18n.getLocaleMeta();
-  elBtnLang.innerHTML = `<span class="lang-flag">${meta.flag}</span><span class="lang-code">${meta.short}</span>`;
+  // Full name, not the short code (#306) — there's room for it here, unlike
+  // a cramped navbar.
+  elBtnLang.innerHTML = `<span class="lang-flag">${meta.flag}</span><span class="lang-name">${meta.label}</span>`;
 
   for (const loc of i18n.SUPPORTED_LOCALES) {
     const li = document.createElement('li');

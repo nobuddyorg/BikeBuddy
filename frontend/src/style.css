@@ -18,7 +18,10 @@
   --color-danger: #ef4444;
   --navbar-height: 56px;
   --detail-width: 320px;
-  --sidebar-width: var(--detail-width);
+  /* Wider than --detail-width (#306): at 320px the selection bar's count
+     label ("1 ausgewählt" in German) plus the Delete/Cancel buttons wrap
+     onto two rows. */
+  --sidebar-width: 380px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -289,32 +292,44 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 
-/* Revealed as .tour-item-content slides away during a swipe (#289) — sits
-   behind the row; overflow:hidden on .tour-item clips it to the row's own
-   bounds so it never spills over neighboring rows. */
+/* Each half sits behind the row and is only revealed by its own drag
+   direction (bindTourSwipe): the left half by swiping right (delete, #289),
+   the right half by swiping left (edit, #306). overflow:hidden on
+   .tour-item clips both to the row's own bounds so neither spills over
+   neighboring rows. */
 .tour-item-delete-bg {
   position: absolute;
-  inset: 0;
+  inset: 0 50% 0 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
+  padding-left: 20px;
   background: var(--color-danger);
 }
 
-.tour-item-delete-icon {
+.tour-item-edit-bg {
+  position: absolute;
+  inset: 0 0 0 50%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 20px;
+  background: var(--color-primary);
+}
+
+.tour-item-delete-icon,
+.tour-item-edit-icon {
   width: 20px;
   height: 20px;
   flex: none;
 }
 
 /* The actual visible/interactive row. position:relative (stacked after
-   .tour-item-delete-bg in the DOM) makes it paint above the absolutely
-   positioned delete-bg layer at rest — an opaque background is required
-   for that, not just paint order, since it's what visually hides the red
-   layer until the user drags it aside. touch-action:pan-y leaves vertical
-   scrolling to the browser but lets bindSwipeToDelete's pointer handlers
-   own horizontal movement instead of the browser trying to pan there too. */
+   .tour-item-delete-bg/.tour-item-edit-bg in the DOM) makes it paint above
+   those absolutely positioned layers at rest — an opaque background is
+   required for that, not just paint order, since it's what visually hides
+   them until the user drags it aside. touch-action:pan-y leaves vertical
+   scrolling to the browser but lets bindTourSwipe's pointer handlers own
+   horizontal movement instead of the browser trying to pan there too. */
 .tour-item-content {
   position: relative;
   z-index: 1;
@@ -794,6 +809,15 @@ body {
   text-align: left;
 }
 
+/* Label + value side by side (#306) instead of stacked — for fields like
+   Language where the value is a compact control, not a full-width input. */
+.field-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .field input,
 .field textarea {
   background: var(--color-surface-2);
@@ -1228,17 +1252,20 @@ body {
   line-height: 1;
 }
 
-.lang-btn .lang-code {
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
+.lang-btn .lang-name {
+  font-size: 0.85rem;
 }
 
 .lang-menu {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
   right: 0;
-  width: auto;
+  /* .lang-switcher (the positioning ancestor) is only as wide as .lang-btn
+     now that it sits in a .field-row (#306), not stretched to the full
+     field width — anchor from the right edge and size to content instead
+     of also pinning left:0, which used to force this menu down to that
+     narrow width and clip every option's text. */
+  min-width: 220px;
   padding: 8px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);

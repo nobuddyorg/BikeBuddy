@@ -56,7 +56,7 @@ buddyTest.describe('swipe to delete a tour', () => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    // 30px is well under bindSwipeToDelete's 72px threshold — no dialog
+    // 30px is well under bindTourSwipe's 72px threshold — no dialog
     // should even appear, so nothing to accept/dismiss here.
     await on(page).main.do.swipeTour('Swipe Tour A', 30);
 
