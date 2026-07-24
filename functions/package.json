@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "check:coverage": "node scripts/check-coverage.js",
     "test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile.junit=reports/test-results.xml",
     "test:integration": "vitest run --config vitest.integration.config.js",
     "test:integration:ci": "vitest run --config vitest.integration.config.js --reporter=default --reporter=junit --outputFile.junit=reports/integration-results.xml",
