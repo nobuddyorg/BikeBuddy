@@ -11,6 +11,7 @@ const TOUR = {
   id: TID,
   userId: 'u1',
   name: 'Alps',
+  _etag: '"etag-v1"',
   images: [IMG, { id: IMG2, blobName: `u1/${TID}/${IMG2}.jpg` }],
 };
 
@@ -46,9 +47,66 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
 
     expect(images.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}/${IMG1}.jpg`);
     expect(images.deleteIfExists).toHaveBeenCalled();
-    const [doc] = tours.replace.mock.calls[0];
+    const [doc, options] = tours.replace.mock.calls[0];
     expect(doc.images.map((i) => i.id)).toEqual([IMG2]);
+    expect(options).toEqual({ accessCondition: { type: 'IfMatch', condition: TOUR._etag } });
     expect(res.status).toBe(204);
+  });
+
+  // .replace() overwrites the whole document, so without an ETag check two
+  // deletes racing on the same tour could silently clobber each other (same
+  // class of bug as UploadImage's — see index.js). A 412 means someone else's
+  // write landed first; re-read and retry against the fresh version.
+  it('retries against a fresh read after a 412 conflict, then succeeds', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ resource: { ...TOUR, images: [...TOUR.images] } })
+      .mockResolvedValueOnce({
+        resource: { ...TOUR, _etag: '"etag-v2"', images: [...TOUR.images] },
+      });
+    const replace = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error('conflict'), { code: 412 }))
+      .mockResolvedValueOnce({ resource: {} });
+    const item = vi.fn().mockReturnValue({ read, replace });
+    const tours = { container: { item } };
+    const images = makeImagesContainer();
+
+    const res = await deleteImage(
+      reqWith(TID, IMG1),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+    );
+
+    expect(res.status).toBe(204);
+    expect(replace).toHaveBeenCalledTimes(2);
+    expect(replace.mock.calls[0][1]).toEqual({
+      accessCondition: { type: 'IfMatch', condition: '"etag-v1"' },
+    });
+    expect(replace.mock.calls[1][1]).toEqual({
+      accessCondition: { type: 'IfMatch', condition: '"etag-v2"' },
+    });
+    // The blob delete isn't retried — only the document write races.
+    expect(images.deleteIfExists).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives up after repeated 412 conflicts', async () => {
+    const read = vi.fn().mockResolvedValue({ resource: { ...TOUR, images: [...TOUR.images] } });
+    const replace = vi.fn().mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
+    const item = vi.fn().mockReturnValue({ read, replace });
+    const tours = { container: { item } };
+    const images = makeImagesContainer();
+
+    await expect(
+      deleteImage(
+        reqWith(TID, IMG1),
+        mockAuth,
+        () => tours.container,
+        () => images.container,
+      ),
+    ).rejects.toThrow('conflict');
+    expect(replace).toHaveBeenCalledTimes(3);
   });
 
   it('returns 400 when an id is not a UUID', async () => {

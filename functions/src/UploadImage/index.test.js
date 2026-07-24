@@ -14,8 +14,9 @@ const mockAuth = async () => ({ userId: 'u1' });
 function makeToursContainer(readImpl) {
   const read = vi.fn(readImpl);
   const replace = vi.fn(async (doc) => ({ resource: doc }));
-  const item = vi.fn().mockReturnValue({ read, replace });
-  return { container: { item }, item, read, replace };
+  const patch = vi.fn(async () => ({}));
+  const item = vi.fn().mockReturnValue({ read, replace, patch });
+  return { container: { item }, item, read, replace, patch };
 }
 
 function makeImagesContainer() {
@@ -73,13 +74,20 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(images.blockBlob.uploadData).toHaveBeenCalledWith(JPEG, {
       blobHTTPHeaders: { blobContentType: 'image/jpeg' },
     });
-    const [doc] = tours.replace.mock.calls[0];
-    expect(doc.images).toHaveLength(1);
-    expect(doc.images[0].id).toBe(res.jsonBody.id);
-    expect(doc.images[0].blobName).toBe(`u1/${TID}/${res.jsonBody.id}.jpg`);
+    const [ops] = tours.patch.mock.calls[0];
+    expect(ops).toEqual([
+      {
+        op: 'add',
+        path: '/images/-',
+        value: { id: res.jsonBody.id, blobName: `u1/${TID}/${res.jsonBody.id}.jpg` },
+      },
+    ]);
   });
 
-  it('appends to existing images rather than replacing them', async () => {
+  // Appending via the atomic /images/- patch (rather than reading tour.images
+  // and writing the whole document back) is what prevents this upload from
+  // losing a concurrent request's image — see UploadImage/index.js.
+  it('appends via /images/- rather than reading and replacing the whole array', async () => {
     const existing = { id: 'img0', blobName: 'u1/old.jpg' };
     const tours = makeToursContainer(async () => ({
       resource: { ...TOUR, images: [existing] },
@@ -95,9 +103,9 @@ describe('POST /api/tours/{tourId}/images', () => {
       async () => null,
     );
 
-    const [doc] = tours.replace.mock.calls[0];
-    expect(doc.images).toHaveLength(2);
-    expect(doc.images[0]).toEqual(existing);
+    expect(tours.replace).not.toHaveBeenCalled();
+    const [ops] = tours.patch.mock.calls[0];
+    expect(ops).toEqual([{ op: 'add', path: '/images/-', value: expect.any(Object) }]);
   });
 
   it('stores and returns GPS coords when the image is geotagged', async () => {
@@ -116,8 +124,8 @@ describe('POST /api/tours/{tourId}/images', () => {
 
     expect(res.status).toBe(201);
     expect(res.jsonBody).toMatchObject({ lat: 48.137, lon: 11.575 });
-    const [doc] = tours.replace.mock.calls[0];
-    expect(doc.images[0]).toMatchObject({ lat: 48.137, lon: 11.575 });
+    const [ops] = tours.patch.mock.calls[0];
+    expect(ops[0].value).toMatchObject({ lat: 48.137, lon: 11.575 });
   });
 
   it('omits coords for an image without GPS', async () => {
@@ -134,8 +142,8 @@ describe('POST /api/tours/{tourId}/images', () => {
     );
 
     expect(res.jsonBody.lat).toBeUndefined();
-    const [doc] = tours.replace.mock.calls[0];
-    expect(doc.images[0].lat).toBeUndefined();
+    const [ops] = tours.patch.mock.calls[0];
+    expect(ops[0].value.lat).toBeUndefined();
   });
 
   it('accepts PNG by magic bytes', async () => {
@@ -166,7 +174,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(res.status).toBe(400);
     expect(res.jsonBody.error).toBe('Only JPEG or PNG images are accepted');
     expect(images.getBlockBlobClient).not.toHaveBeenCalled();
-    expect(tours.replace).not.toHaveBeenCalled();
+    expect(tours.patch).not.toHaveBeenCalled();
   });
 
   it('rejects a non-image content-type even with image magic bytes', async () => {
@@ -214,8 +222,11 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(res.jsonBody.error).toBe('Tour not found');
   });
 
-  it('accepts an upload when the tour has no images property at all', async () => {
+  it('falls back to creating the images array for a tour that predates the field', async () => {
     const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: undefined } }));
+    // Cosmos rejects an "add /images/-" patch when /images isn't an existing
+    // array — only tours from before the images field existed hit this.
+    tours.patch.mockRejectedValueOnce(Object.assign(new Error('Invalid patch'), { code: 400 }));
     const images = makeImagesContainer();
     const res = await uploadImage(
       reqWith(TID),
@@ -226,8 +237,34 @@ describe('POST /api/tours/{tourId}/images', () => {
       noResize,
     );
     expect(res.status).toBe(201);
-    const [doc] = tours.replace.mock.calls[0];
-    expect(doc.images).toEqual([{ id: res.jsonBody.id, blobName: expect.any(String) }]);
+    expect(tours.patch).toHaveBeenCalledTimes(2);
+    const [fallbackOps] = tours.patch.mock.calls[1];
+    expect(fallbackOps).toEqual([
+      {
+        op: 'add',
+        path: '/images',
+        value: [{ id: res.jsonBody.id, blobName: expect.any(String) }],
+      },
+    ]);
+  });
+
+  it('rethrows a non-400 error from the images/- patch without falling back', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
+    tours.patch.mockRejectedValueOnce(
+      Object.assign(new Error('service unavailable'), { code: 503 }),
+    );
+    const images = makeImagesContainer();
+    await expect(
+      uploadImage(
+        reqWith(TID),
+        mockAuth,
+        () => tours.container,
+        () => images.container,
+        makeParseFile(JPEG),
+        noResize,
+      ),
+    ).rejects.toThrow('service unavailable');
+    expect(tours.patch).toHaveBeenCalledTimes(1);
   });
 
   it('returns 400 when the tour already has 20 images', async () => {

@@ -2,10 +2,12 @@
 
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
+const { toursContainer, readItem } = require('../lib/db');
 const { imagesContainer } = require('../lib/blobStorage');
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { error } = require('../lib/http');
+
+const MAX_REPLACE_ATTEMPTS = 3;
 
 // DELETE /api/tours/{tourId}/images/{imageId} — remove an image blob and its
 // entry from tour.images.
@@ -20,7 +22,7 @@ async function deleteImage(
   if (guard.response) return guard.response;
 
   const { userId } = guard.user;
-  const { tour } = guard;
+  let tour = guard.tour;
 
   const image = (tour.images || []).find((i) => i.id === imageId);
   if (!image) return error(404, 'Image not found');
@@ -28,8 +30,27 @@ async function deleteImage(
   const container = await getImagesContainer();
   await container.getBlockBlobClient(image.blobName).deleteIfExists();
 
-  tour.images = tour.images.filter((i) => i.id !== imageId);
-  await getToursContainer().item(tourId, userId).replace(tour);
+  // .replace(tour) overwrites the whole document, so a concurrent request
+  // that read the tour before this one's write lands would otherwise clobber
+  // it (or vice versa) — e.g. deleting two photos from the same tour close
+  // together. Guard the write with the ETag read alongside tour and retry
+  // against a fresh read on conflict (#292-adjacent race, same class as the
+  // UploadImage one).
+  for (let attempt = 0; ; attempt++) {
+    const images = tour.images.filter((i) => i.id !== imageId);
+    try {
+      await getToursContainer()
+        .item(tourId, userId)
+        .replace(
+          { ...tour, images },
+          { accessCondition: { type: 'IfMatch', condition: tour._etag } },
+        );
+      break;
+    } catch (err) {
+      if (err.code !== 412 || attempt >= MAX_REPLACE_ATTEMPTS - 1) throw err;
+      tour = await readItem(getToursContainer(), tourId, userId);
+    }
+  }
 
   return { status: 204 };
 }
