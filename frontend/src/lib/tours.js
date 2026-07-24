@@ -14,15 +14,25 @@ export const SORTERS = {
 };
 
 // Subsequence match: every char of the query appears in order within the text.
-export function fuzzyMatch(query, text) {
+// Returns the matched indices into `text` (empty array for an empty query),
+// or null if the query does not fully match.
+export function fuzzyMatchIndices(query, text) {
   const q = query.trim().toLowerCase();
-  if (!q) return true;
+  if (!q) return [];
   const t = (text || '').toLowerCase();
+  const indices = [];
   let i = 0;
-  for (const ch of t) {
-    if (ch === q[i] && ++i === q.length) return true;
+  for (let pos = 0; pos < t.length && i < q.length; pos++) {
+    if (t[pos] === q[i]) {
+      indices.push(pos);
+      i++;
+    }
   }
-  return false;
+  return i === q.length ? indices : null;
+}
+
+export function fuzzyMatch(query, text) {
+  return fuzzyMatchIndices(query, text) !== null;
 }
 
 // Tours filtered by the search box and ordered by the chosen sort.
