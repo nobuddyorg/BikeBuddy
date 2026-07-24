@@ -548,11 +548,12 @@ function bindLongPress(el, onLongPress) {
 
 // Touch-only: mirrors bindLongPress's mobile-only role (#275). Live-
 // translates contentEl during the drag so whichever of .tour-item-delete-bg
-// / .tour-item-edit-bg (its siblings, behind it) corresponds to the drag
+// / .tour-item-detail-bg (its siblings, behind it) corresponds to the drag
 // direction is revealed proportionally to how far it's dragged. Crossing
 // SWIPE_ACTION_THRESHOLD_PX on release deletes (swipe right, #289) or opens
-// the edit modal (swipe left, #306); anything short of that — including
-// dragging back before releasing — just snaps back via reset(), no separate
+// the detail panel (swipe left, #308 — a tap alone no longer does this on
+// mobile, see createTourItem); anything short of that — including dragging
+// back before releasing — just snaps back via reset(), no separate
 // "cancelled" state needed since release only ever checks the final dx once.
 function bindTourSwipe(contentEl, tour) {
   let start = null;
@@ -598,8 +599,11 @@ function bindTourSwipe(contentEl, tour) {
       suppressNextTourClickOnce();
       await deleteTourById(tour.id);
     } else if (dx <= -SWIPE_ACTION_THRESHOLD_PX) {
-      state.selectedTourId = tour.id;
-      openEdit();
+      // Without this, a trailing ghost click would hit createTourItem's own
+      // click handler, which on touch now toggles selection (#308) — the
+      // opposite of what this swipe was for.
+      suppressNextTourClickOnce();
+      selectTour(tour.id);
     }
   });
 
@@ -642,10 +646,11 @@ const TRASH_ICON_SVG =
   '<path fill="#000" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>' +
   '</svg>';
 
-// Black pen glyph (Material "edit", solid fill) for the swipe-left action (#306).
-const EDIT_ICON_SVG =
-  '<svg class="tour-item-edit-icon" viewBox="0 0 24 24" aria-hidden="true">' +
-  '<path fill="#000" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>' +
+// Black eye glyph (Material "visibility", solid fill) for the swipe-left
+// view-details action (#308).
+const DETAIL_ICON_SVG =
+  '<svg class="tour-item-detail-icon" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path fill="#000" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>' +
   '</svg>';
 
 function createTourItem(tour) {
@@ -654,16 +659,16 @@ function createTourItem(tour) {
 
   // Each bg only responds to its own drag direction (bindTourSwipe), so it
   // only needs the one icon nearest the edge that direction reveals first —
-  // left for delete (swipe right), right for edit (swipe left, #306).
+  // left for delete (swipe right), right for view details (swipe left, #308).
   const deleteBg = document.createElement('div');
   deleteBg.className = 'tour-item-delete-bg';
   deleteBg.setAttribute('aria-hidden', 'true');
   deleteBg.innerHTML = TRASH_ICON_SVG;
 
-  const editBg = document.createElement('div');
-  editBg.className = 'tour-item-edit-bg';
-  editBg.setAttribute('aria-hidden', 'true');
-  editBg.innerHTML = EDIT_ICON_SVG;
+  const detailBg = document.createElement('div');
+  detailBg.className = 'tour-item-detail-bg';
+  detailBg.setAttribute('aria-hidden', 'true');
+  detailBg.innerHTML = DETAIL_ICON_SVG;
 
   const content = document.createElement('div');
   content.className = 'tour-item-content';
@@ -686,22 +691,32 @@ function createTourItem(tour) {
   );
 
   content.append(checkbox, details);
+  // The click event itself isn't reliably a PointerEvent across browsers,
+  // so a plain 'pointerdown' listener (like bindLongPress/bindTourSwipe use
+  // below) is what tells clicks apart by input type, not e.pointerType here.
+  let lastPointerType = null;
+  content.addEventListener('pointerdown', (e) => {
+    lastPointerType = e.pointerType;
+  });
   content.addEventListener('click', () => {
     if (state.selectMode) {
       toggleTourSelection(tour.id);
+    } else if (lastPointerType === 'touch') {
+      // Mobile: a tap selects rather than opening the detail panel — that's
+      // swipe-left's job now (#308). Desktop mouse clicks are unaffected.
+      enterSingleSelect(tour.id);
     } else {
       selectTour(tour.id);
     }
   });
   bindLongPress(content, () => {
     if (state.selectMode) return false;
-    enterSelectMode();
-    toggleTourSelection(tour.id);
+    enterSingleSelect(tour.id);
     return true;
   });
   bindTourSwipe(content, tour);
 
-  li.append(deleteBg, editBg, content);
+  li.append(deleteBg, detailBg, content);
   return li;
 }
 
@@ -758,6 +773,14 @@ function toggleTourSelection(tourId) {
 function enterSelectMode() {
   state.selectMode = true;
   renderSidebar();
+}
+
+// Enters select mode with exactly one tour pre-checked — shared by a mobile
+// tap and a long-press (#308), the two entry points now that a plain tap no
+// longer opens the detail panel there.
+function enterSingleSelect(tourId) {
+  enterSelectMode();
+  toggleTourSelection(tourId);
 }
 
 function exitSelectMode() {

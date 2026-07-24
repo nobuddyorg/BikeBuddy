@@ -1,10 +1,11 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
-// #306: swipe a tour row left (touch only) to open the edit modal for that
-// tour directly, mirroring swipe-delete.spec.ts's right-swipe delete.
+// #308: swipe a tour row left (touch only) to open the detail panel for that
+// tour directly, mirroring swipe-delete.spec.ts's right-swipe delete. A plain
+// tap no longer opens the detail panel on touch (see long-press-select.spec.ts).
 
-buddyTest.describe('swipe to edit a tour', () => {
+buddyTest.describe('swipe to view tour details', () => {
   buddyTest.use({ hasTouch: true });
 
   buddyTest.beforeEach(async () => {
@@ -27,19 +28,15 @@ buddyTest.describe('swipe to edit a tour', () => {
     });
   });
 
-  buddyTest('swiping left past the threshold opens edit for that tour', async ({ on, page }) => {
+  buddyTest('swiping left past the threshold opens details for that tour', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).main.locators.list.names).toHaveCount(2);
 
     await on(page).main.do.swipeTour('Swipe Tour B', -120);
 
-    await expect(on(page).modal.edit()).toBeVisible();
-    await expect(on(page).modal.edit.locators.name).toHaveValue('Swipe Tour B');
-
-    // Both tours must still be present — this is edit, not delete.
-    await on(page).modal.edit.do.submit();
-    await expect(on(page).main.locators.list.names).toHaveCount(2);
+    await expect(on(page).main.locators.detail.panel).toBeVisible();
+    await expect(on(page).main.locators.detail.name).toHaveText('Swipe Tour B');
   });
 
   buddyTest(
@@ -51,10 +48,10 @@ buddyTest.describe('swipe to edit a tour', () => {
       // 30px is well under bindTourSwipe's 72px threshold.
       await on(page).main.do.swipeTour('Swipe Tour A', -30);
 
-      await expect(on(page).modal.edit()).toBeHidden();
+      await expect(on(page).main.locators.detail.panel).toBeHidden();
       // The row must still open normally afterwards — snapping back shouldn't
       // leave it in a stuck or half-transformed state.
-      await on(page).main.do.selectTour('Swipe Tour A');
+      await on(page).main.do.swipeTour('Swipe Tour A', -120);
       await expect(on(page).main.locators.detail.name).toHaveText('Swipe Tour A');
     },
   );
@@ -68,7 +65,7 @@ buddyTest.describe('swipe to edit a tour', () => {
 
     await on(page).main.do.swipeTour('Swipe Tour A', -120);
 
-    await expect(on(page).modal.edit()).toBeHidden();
+    await expect(on(page).main.locators.detail.panel).toBeHidden();
     await expect(on(page).main.locators.selection.bar).toBeVisible();
   });
 });

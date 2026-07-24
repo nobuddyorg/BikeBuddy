@@ -19,6 +19,7 @@ interface MainPage {
     search(query: string): Promise<void>;
     sortBy(option: string): Promise<void>;
     selectTour(name: string): Promise<void>;
+    tapTour(name: string): Promise<void>;
     longPressTour(name: string): Promise<void>;
     swipeTour(name: string, dx: number): Promise<void>;
     closeDetail(): Promise<void>;
@@ -71,6 +72,7 @@ interface MainPage {
     search: Locator;
     sort: Locator;
     detail: {
+      panel: Locator;
       name: Locator;
       description: Locator;
     };
@@ -135,6 +137,7 @@ export function initMainPage(page: Page): MainPage {
     search: page.locator('#tour-search'),
     sort: page.locator('#tour-sort'),
     detail: {
+      panel: page.locator('#detail-panel'),
       name: page.locator('#detail-name'),
       description: page.locator('#detail-description'),
     },
@@ -181,6 +184,23 @@ export function initMainPage(page: Page): MainPage {
     selectTour: async (name: string) => {
       await locators.list.container.locator('.tour-item', { hasText: name }).click();
     },
+    // Genuine touch dispatch (CDP), not Playwright's mouse API — createTourItem
+    // (app.js) tells a tap from a mouse click by the pointerType of the
+    // preceding pointerdown, so a mouse-based click() would never exercise
+    // the touch branch this is meant to test (#308).
+    tapTour: async (name: string) => {
+      const row = locators.list.container.locator('.tour-item', { hasText: name });
+      const box = await row.boundingBox();
+      if (!box) throw new Error(`tour row "${name}" not found`);
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      // Mirrors longPressTour's own trailing wait below — the compatibility
+      // click Chromium synthesizes after a touch tap arrives asynchronously.
+      await page.waitForTimeout(300);
+    },
     // Genuine touch dispatch (CDP), not Playwright's mouse API — the actual
     // bug this covers (#275: a long-press's trailing "ghost click" un-doing
     // its own select-mode entry) is touch-specific. A mouse-based
@@ -211,7 +231,7 @@ export function initMainPage(page: Page): MainPage {
     // implementation (bindTourSwipe in app.js) reads real touch
     // pointerType, so a mouse-drag simulation would never exercise it.
     // Positive dx swipes right (delete, #289); negative dx swipes left
-    // (edit, #306).
+    // (opens the detail panel, #308).
     // Multiple intermediate touchMove events (not one big jump) mirror how
     // a real finger delivers a drag.
     swipeTour: async (name: string, dx: number) => {
