@@ -817,11 +817,11 @@ function enterSingleSelect(tourId) {
 }
 
 // Highlights a row the way desktop's click does (state.selectedTourId drives
-// createTourItem's 'active' class) without opening the detail panel — that's
-// swipe-left's job on mobile (#308/#310). Closes any already-open panel
-// first: leaving it open for a different tour while selectedTourId moves to
-// this one would point its Edit/Delete/image actions (which all read
-// state.selectedTourId) at the wrong tour.
+// createTourItem's 'active' class) and focuses the map on it, without opening
+// the detail panel — that's swipe-left's job on mobile (#308/#310). Closes
+// any already-open panel first: leaving it open for a different tour while
+// selectedTourId moves to this one would point its Edit/Delete/image actions
+// (which all read state.selectedTourId) at the wrong tour.
 //
 // The tourId === state.selectedTourId case is a deliberate no-op, not just
 // a redundant early return: it's also what keeps a swipe-left's own
@@ -832,6 +832,7 @@ function highlightTour(tourId) {
   deselectTour();
   state.selectedTourId = tourId;
   renderSidebar();
+  focusTourOnMap(tourId); // #331: a plain tap must focus the map like a click does
 }
 
 function exitSelectMode() {
@@ -1019,6 +1020,25 @@ map.on('zoomend', () => {
 
 // ── Tour selection ────────────────────────────────────────────────────────────
 
+// Loads full detail for the tour, then zooms/limits the map to just its
+// heatmap and scopes photo pins to it (geotaggedImages() already reads
+// state.selectedTourId). Shared by selectTour (desktop click / swipe-left,
+// which also opens the detail panel below) and highlightTour (mobile tap,
+// which must focus the map the same way but without opening the panel —
+// that's swipe-left's job, #308/#310) so a plain tap isn't left with a
+// stale full-map view (#331). Returns the tour once loaded, or null if the
+// selection moved on to something else while detail was loading.
+async function focusTourOnMap(tourId) {
+  const tour = state.tours.find((t) => t.id === tourId);
+  if (!tour) return null;
+  await ensureDetail(tour);
+  if (state.selectedTourId !== tourId) return null; // user switched while loading
+  show(elMapEmpty, false);
+  renderHeatmap(toHeatPoints(tour.heatmapData), 60);
+  renderPins();
+  return tour;
+}
+
 async function selectTour(tourId) {
   const tour = state.tours.find((t) => t.id === tourId);
   if (!tour) return;
@@ -1026,12 +1046,8 @@ async function selectTour(tourId) {
   state.selectedTourId = tourId;
   renderSidebar();
   renderDetailPanel(tour); // name/meta now; resets the image section
-  await ensureDetail(tour);
-  if (state.selectedTourId !== tourId) return; // user switched while loading
-  show(elMapEmpty, false);
-  renderHeatmap(toHeatPoints(tour.heatmapData), 60);
-  renderGallery(tour);
-  renderPins();
+  const loaded = await focusTourOnMap(tourId);
+  if (loaded) renderGallery(loaded);
 }
 
 function deselectTour() {

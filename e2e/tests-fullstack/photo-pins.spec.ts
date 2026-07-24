@@ -155,3 +155,65 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
     },
   );
 });
+
+// #331: a mobile tap must focus the map on the tapped tour the same way a
+// desktop click / swipe-left does — not just highlight the row. Pins are the
+// easiest observable proxy for "did the map actually focus": geotaggedImages()
+// scopes to state.selectedTourId, but before the fix that scoping never
+// re-rendered on a plain tap, so both tours' pins stayed visible.
+buddyTest.describe('mobile tap focuses the map, not just the row (#331)', () => {
+  buddyTest.use({ hasTouch: true });
+
+  buddyTest.beforeEach(async () => {
+    await clearUsers();
+    await clearTours();
+    await toursContainer().items.create({
+      id: TID_A,
+      userId: 'local-dev-user',
+      name: 'Tour A',
+      distance: 5,
+      createdAt: new Date().toISOString(),
+      heatmapData: [
+        [48.1, 11.5],
+        [48.11, 11.51],
+      ],
+      images: [
+        { id: IID_A, blobName: `local-dev-user/${TID_A}/${IID_A}.jpg`, lat: 48.1, lon: 11.5 },
+      ],
+    });
+    await toursContainer().items.create({
+      id: TID_B,
+      userId: 'local-dev-user',
+      name: 'Tour B',
+      distance: 5,
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
+      heatmapData: [
+        [48.12, 11.55],
+        [48.13, 11.56],
+      ],
+      images: [
+        { id: IID_B, blobName: `local-dev-user/${TID_B}/${IID_B}.jpg`, lat: 48.12, lon: 11.55 },
+      ],
+    });
+  });
+
+  buddyTest('tapping a row scopes pins to just that tour', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    await expect(on(page).main.locators.list.count).toHaveText('2');
+
+    // All tours (nothing tapped yet): both A's and B's pins show.
+    await expect(on(page).main.locators.pins.toggle).toBeVisible();
+    await on(page).main.do.showPins(true);
+    await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+
+    // Tap Tour A (not a click — the detail panel must stay closed, #310):
+    // only its own pin should remain.
+    await on(page).main.do.tapTour('Tour A');
+    await expect(on(page).main.locators.detail.panel).toBeHidden();
+    await expect(
+      on(page).main.locators.list.container.locator('.tour-item.active', { hasText: 'Tour A' }),
+    ).toBeVisible();
+    await expect(on(page).main.locators.pins.markers).toHaveCount(1);
+  });
+});
