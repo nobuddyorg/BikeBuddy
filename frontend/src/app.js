@@ -10,6 +10,7 @@ import {
 } from './lib/files.js';
 import { runWithConcurrency } from './lib/concurrency.js';
 import { groupByProximity, fanOffsets } from './lib/pinLayout.js';
+import { heatOptionsForZoom } from './lib/heatmapZoom.js';
 import * as i18n from './lib/i18n.js';
 
 const t = i18n.t;
@@ -841,7 +842,7 @@ function renderHeatmap(points, padding) {
   clearHeatmap();
   if (points.length === 0) return;
 
-  state.heatLayer = L.heatLayer(points, HEAT_OPTIONS).addTo(map);
+  state.heatLayer = L.heatLayer(points, heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS)).addTo(map);
   // latLngBounds reads [lat, lng] from each [lat, lng, intensity] point and ignores the rest.
   map.fitBounds(L.latLngBounds(points), { padding: [padding, padding] });
 }
@@ -973,6 +974,12 @@ function renderPins() {
 }
 
 map.on('zoomend', renderPins);
+
+// Leaflet.heat's blob radius/blur are fixed CSS pixels, so re-apply the
+// zoom-scaled values (#318) whenever the user zooms after the initial render.
+map.on('zoomend', () => {
+  state.heatLayer?.setOptions(heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS));
+});
 
 // ── Tour selection ────────────────────────────────────────────────────────────
 
