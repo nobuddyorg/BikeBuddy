@@ -599,10 +599,11 @@ function bindTourSwipe(contentEl, tour) {
       suppressNextTourClickOnce();
       await deleteTourById(tour.id);
     } else if (dx <= -SWIPE_ACTION_THRESHOLD_PX) {
-      // Without this, a trailing ghost click would hit createTourItem's own
-      // click handler, which on touch now toggles selection (#308) — the
-      // opposite of what this swipe was for.
-      suppressNextTourClickOnce();
+      // No suppressNextTourClickOnce() here, unlike the delete branch above:
+      // a trailing ghost click lands back on this same row (nothing shifted,
+      // unlike a delete), and highlightTour's own same-tour guard (#310)
+      // already makes that a no-op — a sidebar-wide 400ms blackout would
+      // otherwise also risk swallowing a genuinely new tap on another row.
       selectTour(tour.id);
     }
   });
@@ -702,9 +703,10 @@ function createTourItem(tour) {
     if (state.selectMode) {
       toggleTourSelection(tour.id);
     } else if (lastPointerType === 'touch') {
-      // Mobile: a tap selects rather than opening the detail panel — that's
-      // swipe-left's job now (#308). Desktop mouse clicks are unaffected.
-      enterSingleSelect(tour.id);
+      // Mobile: a tap highlights the row like desktop's click does, but
+      // without opening the detail panel — that's swipe-left's job (#308).
+      // Multi-select mode is entered only via long-press, not a tap (#310).
+      highlightTour(tour.id);
     } else {
       selectTour(tour.id);
     }
@@ -775,12 +777,29 @@ function enterSelectMode() {
   renderSidebar();
 }
 
-// Enters select mode with exactly one tour pre-checked — shared by a mobile
-// tap and a long-press (#308), the two entry points now that a plain tap no
-// longer opens the detail panel there.
+// Enters select mode with exactly one tour pre-checked — a long-press only
+// (#310); a plain tap highlights instead, via highlightTour below.
 function enterSingleSelect(tourId) {
   enterSelectMode();
   toggleTourSelection(tourId);
+}
+
+// Highlights a row the way desktop's click does (state.selectedTourId drives
+// createTourItem's 'active' class) without opening the detail panel — that's
+// swipe-left's job on mobile (#308/#310). Closes any already-open panel
+// first: leaving it open for a different tour while selectedTourId moves to
+// this one would point its Edit/Delete/image actions (which all read
+// state.selectedTourId) at the wrong tour.
+//
+// The tourId === state.selectedTourId case is a deliberate no-op, not just
+// a redundant early return: it's also what keeps a swipe-left's own
+// trailing ghost click (bindTourSwipe's selectTour(tour.id) already set
+// this same id) from closing the detail panel that swipe just opened.
+function highlightTour(tourId) {
+  if (state.selectedTourId === tourId) return;
+  deselectTour();
+  state.selectedTourId = tourId;
+  renderSidebar();
 }
 
 function exitSelectMode() {

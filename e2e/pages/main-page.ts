@@ -197,9 +197,13 @@ export function initMainPage(page: Page): MainPage {
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      // Mirrors longPressTour's own trailing wait below — the compatibility
-      // click Chromium synthesizes after a touch tap arrives asynchronously.
-      await page.waitForTimeout(300);
+      // 500ms, matching longPressTour's own trailing wait below, not the
+      // 300ms swipeTour uses — the compatibility click Chromium synthesizes
+      // after a touch tap arrives asynchronously, and CI's Linux Chromium
+      // was observed to need more margin here than local macOS runs (#310:
+      // a tap right after a swipe intermittently missed its target row on
+      // CI at 300ms).
+      await page.waitForTimeout(500);
     },
     // Genuine touch dispatch (CDP), not Playwright's mouse API — the actual
     // bug this covers (#275: a long-press's trailing "ghost click" un-doing
