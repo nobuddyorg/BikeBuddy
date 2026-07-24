@@ -294,7 +294,7 @@ body {
 
 /* Each half sits behind the row and is only revealed by its own drag
    direction (bindTourSwipe): the left half by swiping right (delete, #289),
-   the right half by swiping left (edit, #306). overflow:hidden on
+   the right half by swiping left (view details, #308). overflow:hidden on
    .tour-item clips both to the row's own bounds so neither spills over
    neighboring rows. */
 .tour-item-delete-bg {
@@ -306,7 +306,7 @@ body {
   background: var(--color-danger);
 }
 
-.tour-item-edit-bg {
+.tour-item-detail-bg {
   position: absolute;
   inset: 0 0 0 50%;
   display: flex;
@@ -317,14 +317,14 @@ body {
 }
 
 .tour-item-delete-icon,
-.tour-item-edit-icon {
+.tour-item-detail-icon {
   width: 20px;
   height: 20px;
   flex: none;
 }
 
 /* The actual visible/interactive row. position:relative (stacked after
-   .tour-item-delete-bg/.tour-item-edit-bg in the DOM) makes it paint above
+   .tour-item-delete-bg/.tour-item-detail-bg in the DOM) makes it paint above
    those absolutely positioned layers at rest — an opaque background is
    required for that, not just paint order, since it's what visually hides
    them until the user drags it aside. touch-action:pan-y leaves vertical
@@ -809,15 +809,6 @@ body {
   text-align: left;
 }
 
-/* Label + value side by side (#306) instead of stacked — for fields like
-   Language where the value is a compact control, not a full-width input. */
-.field-row {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .field input,
 .field textarea {
   background: var(--color-surface-2);
@@ -1238,6 +1229,11 @@ body {
 
 .lang-switcher {
   position: relative;
+  /* Shrink to the button's own size (#308) — its parent is now a
+     .profile-meta <dd> (a grid column, wide enough for "dev@localhost"),
+     and without this a plain block div fills that whole column, dragging
+     .lang-menu's right:0 anchor away from the button it belongs to. */
+  display: inline-block;
 }
 
 .lang-btn {
@@ -1261,9 +1257,8 @@ body {
   top: calc(100% + 6px);
   right: 0;
   /* .lang-switcher (the positioning ancestor) is only as wide as .lang-btn
-     now that it sits in a .field-row (#306), not stretched to the full
-     field width — anchor from the right edge and size to content instead
-     of also pinning left:0, which used to force this menu down to that
+     (#308) — anchor from the right edge and size to content instead of
+     also pinning left:0, which used to force this menu down to that
      narrow width and clip every option's text. */
   min-width: 220px;
   padding: 8px;
