@@ -8,13 +8,13 @@ describe('heatScaleForZoom', () => {
   });
 
   it('grows above the reference zoom', () => {
-    expect(heatScaleForZoom(16)).toBe(2);
-    expect(heatScaleForZoom(18)).toBe(4);
+    expect(heatScaleForZoom(15)).toBeCloseTo(1.587, 3);
+    expect(heatScaleForZoom(16)).toBeCloseTo(2.52, 2);
   });
 
   it('caps out instead of growing unbounded', () => {
-    expect(heatScaleForZoom(19)).toBe(4);
-    expect(heatScaleForZoom(24)).toBe(4);
+    expect(heatScaleForZoom(17)).toBe(3);
+    expect(heatScaleForZoom(24)).toBe(3);
   });
 });
 
@@ -26,7 +26,7 @@ describe('heatOptionsForZoom', () => {
   });
 
   it('scales radius and blur while preserving other options', () => {
-    expect(heatOptionsForZoom(16, base)).toEqual({ radius: 32, blur: 40, minOpacity: 0.45 });
+    expect(heatOptionsForZoom(17, base)).toEqual({ radius: 48, blur: 60, minOpacity: 0.45 });
   });
 
   it('does not mutate the base options object', () => {
