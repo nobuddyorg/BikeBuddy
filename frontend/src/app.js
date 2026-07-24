@@ -844,8 +844,8 @@ function exitSelectMode() {
 const HEAT_OPTIONS = {
   radius: 16,
   blur: 20,
-  minOpacity: 0.15,
-  max: 1.6,
+  minOpacity: 0.45,
+  max: 1.0,
   maxZoom: 17,
   gradient: { 0.0: '#3b82f6', 0.3: '#22d3ee', 0.55: '#f97316', 0.8: '#ef4444', 1.0: '#fde047' },
 };

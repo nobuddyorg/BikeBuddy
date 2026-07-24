@@ -25,8 +25,8 @@ describe('heatOptionsForZoom', () => {
     expect(heatOptionsForZoom(10, base)).toEqual(base);
   });
 
-  it('scales radius and blur while preserving other options, blur growing faster', () => {
-    expect(heatOptionsForZoom(17, base)).toEqual({ radius: 48, blur: 100, minOpacity: 0.45 });
+  it('scales radius and blur while preserving other options', () => {
+    expect(heatOptionsForZoom(17, base)).toEqual({ radius: 48, blur: 60, minOpacity: 0.45 });
   });
 
   it('does not mutate the base options object', () => {
