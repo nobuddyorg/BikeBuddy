@@ -3,6 +3,7 @@
 import { formatDate, formatDistance, initials } from './lib/format.js';
 import {
   visibleTours,
+  toursInView,
   paginate,
   PAGE_SIZE,
   fuzzyMatchIndices,
@@ -39,6 +40,7 @@ const state = {
   loadingTours: false,
   sort: 'date-desc',
   search: '',
+  filterInView: false,
   page: 1,
   selectMode: false,
   selectedIds: new Set(),
@@ -70,6 +72,18 @@ function applyMapTheme(isDark) {
 const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 applyMapTheme(darkMediaQuery.matches);
 darkMediaQuery.addEventListener('change', (e) => applyMapTheme(e.matches));
+
+// Plain-object snapshot of the current viewport, for the framework-free
+// toursInView() filter (#315).
+function mapBoundsPlain() {
+  const bounds = map.getBounds();
+  return {
+    south: bounds.getSouth(),
+    west: bounds.getWest(),
+    north: bounds.getNorth(),
+    east: bounds.getEast(),
+  };
+}
 
 // Leaflet caches the container size, so when the detail panel opens/closes (or
 // the window resizes) the map keeps its old width and leaves gray space. Recompute
@@ -107,6 +121,8 @@ const elTourSort = $('tour-sort');
 const elSortMenu = $('sort-menu');
 const elBtnSortMenu = $('btn-sort-menu');
 const elSortMenuList = $('sort-menu-list');
+const elFilterInViewToggle = $('filter-in-view-toggle');
+const elFilterInViewInput = $('filter-in-view-input');
 const elTourPager = $('tour-pager');
 const elTourPagerPrev = $('tour-pager-prev');
 const elTourPagerLabel = $('tour-pager-label');
@@ -739,6 +755,7 @@ function renderSidebar() {
   show(elAuthPrompt, !signedIn);
   show(elNoTours, signedIn && !loading && state.tours.length === 0);
   show(elTourControls, hasTours);
+  show(elFilterInViewToggle, hasTours);
   show(elTourList, hasTours);
   show(elBtnShowAll, hasTours);
   show(elBtnSelectMode, hasTours);
@@ -753,7 +770,8 @@ function renderSidebar() {
     return;
   }
 
-  const visible = visibleTours(state.tours, state.sort, state.search);
+  const scoped = state.filterInView ? toursInView(state.tours, mapBoundsPlain()) : state.tours;
+  const visible = visibleTours(scoped, state.sort, state.search);
   if (visible.length === 0) {
     elTourList.appendChild(textDiv('tour-empty', t('tours.noMatch')));
     show(elTourPager, false);
@@ -980,6 +998,11 @@ function renderPins() {
   added.forEach((marker) => state.pinLayer.addLayer(marker));
 }
 
+// 'moveend' fires after any view change (pan or zoom), so this one listener
+// keeps the "in view" tour list in sync without a separate zoom handler (#315).
+map.on('moveend', () => {
+  if (state.filterInView) renderSidebar();
+});
 map.on('zoomend', renderPins);
 
 // Leaflet.heat's blob radius/blur are fixed CSS pixels, so re-apply the
@@ -1633,6 +1656,13 @@ elTourSort.addEventListener('change', () => {
   state.page = 1;
   renderSidebar();
 });
+elFilterInViewInput.addEventListener('change', () => {
+  state.filterInView = elFilterInViewInput.checked;
+  state.page = 1;
+  renderSidebar();
+});
+// See elPinToggleInput below for why this sync is needed on reload.
+elFilterInViewInput.checked = state.filterInView;
 elTourPagerPrev.addEventListener('click', () => {
   state.page -= 1;
   renderSidebar();

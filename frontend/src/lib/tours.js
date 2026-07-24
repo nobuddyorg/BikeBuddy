@@ -41,6 +41,22 @@ export function visibleTours(tours, sort, search) {
   return tours.filter((t) => fuzzyMatch(search, t.name)).sort(sorter);
 }
 
+// Tours whose recorded track has at least one point inside the given map
+// bounds — "in view" means even partially on screen, not fully contained.
+// bounds is a plain {south, west, north, east} object (see mapBoundsPlain in
+// app.js) rather than a Leaflet LatLngBounds, so this stays framework-free.
+// A tour whose heatmapData hasn't been fetched yet (see ensureDetail) has no
+// points to test and is treated as out of view.
+export function toursInView(tours, bounds) {
+  if (!bounds) return tours;
+  const { south, west, north, east } = bounds;
+  return tours.filter((t) =>
+    (t.heatmapData || []).some(
+      ([lat, lon]) => lat >= south && lat <= north && lon >= west && lon <= east,
+    ),
+  );
+}
+
 // Combines a 'YYYY-MM-DD' input (from a <input type=date>) with the
 // time-of-day of an existing ISO timestamp, so correcting a tour's date
 // doesn't clobber the time it was recorded at.

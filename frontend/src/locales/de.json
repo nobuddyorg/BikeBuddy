@@ -19,6 +19,7 @@
   "sidebar.pagerNextAria": "Nächste Seite",
   "sidebar.pagerLabel": "Seite {page} von {totalPages}",
   "sidebar.select": "Auswählen",
+  "sidebar.filterInView": "Im Blick",
   "sidebar.selectedCount": "{count} ausgewählt",
   "sidebar.deleteSelected": "Löschen",
   "sidebar.cancelSelect": "Abbrechen",
@@ -38,7 +39,7 @@
   "map.emptyBody": "Lade eine GPX-Datei hoch, um deine Route als Heatmap zu sehen.",
 
   "tours.showAll": "Alle Touren anzeigen",
-  "tours.noMatch": "Keine Touren passen zu deiner Suche.",
+  "tours.noMatch": "Keine Touren entsprechen deinen Filtern.",
 
   "detail.date": "Datum",
   "detail.distance": "Distanz",

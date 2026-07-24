@@ -19,6 +19,7 @@
   "sidebar.pagerNextAria": "Volgende pagina",
   "sidebar.pagerLabel": "Pagina {page} van {totalPages}",
   "sidebar.select": "Selecteren",
+  "sidebar.filterInView": "In beeld",
   "sidebar.selectedCount": "{count} geselecteerd",
   "sidebar.deleteSelected": "Verwijderen",
   "sidebar.cancelSelect": "Annuleren",
@@ -38,7 +39,7 @@
   "map.emptyBody": "Upload een GPX-bestand om je route als heatmap te zien.",
 
   "tours.showAll": "Alle ritten tonen",
-  "tours.noMatch": "Geen ritten komen overeen met je zoekopdracht.",
+  "tours.noMatch": "Geen ritten komen overeen met je filters.",
 
   "detail.date": "Datum",
   "detail.distance": "Afstand",

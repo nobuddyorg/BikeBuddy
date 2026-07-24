@@ -19,6 +19,7 @@
   "sidebar.pagerNextAria": "Page suivante",
   "sidebar.pagerLabel": "Page {page} sur {totalPages}",
   "sidebar.select": "Sélectionner",
+  "sidebar.filterInView": "En vue",
   "sidebar.selectedCount": "{count} sélectionnées",
   "sidebar.deleteSelected": "Supprimer",
   "sidebar.cancelSelect": "Annuler",
@@ -38,7 +39,7 @@
   "map.emptyBody": "Importe un fichier GPX pour voir ton parcours sous forme de carte de chaleur.",
 
   "tours.showAll": "Afficher toutes les sorties",
-  "tours.noMatch": "Aucune sortie ne correspond à ta recherche.",
+  "tours.noMatch": "Aucune sortie ne correspond à tes filtres.",
 
   "detail.date": "Date",
   "detail.distance": "Distance",

@@ -19,6 +19,7 @@
   "sidebar.pagerNextAria": "Página seguinte",
   "sidebar.pagerLabel": "Página {page} de {totalPages}",
   "sidebar.select": "Selecionar",
+  "sidebar.filterInView": "À vista",
   "sidebar.selectedCount": "{count} selecionados",
   "sidebar.deleteSelected": "Eliminar",
   "sidebar.cancelSelect": "Cancelar",
@@ -38,7 +39,7 @@
   "map.emptyBody": "Carrega um ficheiro GPX para ver o teu percurso como um mapa de calor.",
 
   "tours.showAll": "Mostrar todos os percursos",
-  "tours.noMatch": "Nenhum percurso corresponde à tua pesquisa.",
+  "tours.noMatch": "Nenhum percurso corresponde aos teus filtros.",
 
   "detail.date": "Data",
   "detail.distance": "Distância",
