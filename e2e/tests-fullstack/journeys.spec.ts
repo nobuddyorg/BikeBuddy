@@ -41,6 +41,27 @@ buddyTest.describe('user journeys', () => {
   });
 
   buddyTest(
+    'edit a tour: correcting the date updates the detail panel (#317)',
+    async ({ on, page }) => {
+      await page.goto('/');
+      await expect(on(page).main.locators.userMenu).toBeVisible();
+      await on(page).main.do.uploadGpx({ name: 'Dated Tour', gpx: GPX });
+
+      // The GPX's <time> puts the tour on 1 May 2026.
+      await expect(on(page).main.locators.detail.date).toHaveText('1 May 2026');
+
+      await on(page).main.do.openEdit();
+      await expect(on(page).modal.edit()).toBeVisible();
+      await expect(on(page).modal.edit.locators.date).toHaveValue('2026-05-01');
+      await on(page).modal.edit.do.setDate('2026-06-15');
+      await on(page).modal.edit.do.submit();
+
+      await expect(on(page).modal.edit()).toBeHidden();
+      await expect(on(page).main.locators.detail.date).toHaveText('15 Jun 2026');
+    },
+  );
+
+  buddyTest(
     'rejects a whitespace-only tour name and keeps the modal open',
     async ({ on, page }) => {
       await page.goto('/');

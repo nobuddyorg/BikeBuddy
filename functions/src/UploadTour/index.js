@@ -67,7 +67,7 @@ async function uploadTour(
     heatmapData: parsed.heatmapData,
     images: [],
     distance: parsed.distanceKm,
-    createdAt: new Date().toISOString(),
+    createdAt: parsed.date ?? new Date().toISOString(),
   };
 
   // Blob upload and Cosmos DB create are independent — run in parallel.

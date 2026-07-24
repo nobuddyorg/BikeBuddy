@@ -47,6 +47,17 @@ describe('validation helpers', () => {
     it('allows omitting both fields', () => {
       expect(tourMetaSchema.safeParse({}).success).toBe(true);
     });
+
+    it('accepts a valid ISO datetime createdAt', () => {
+      const r = tourMetaSchema.safeParse({ createdAt: '2026-05-01T10:00:00.000Z' });
+      expect(r.success).toBe(true);
+      expect(r.data.createdAt).toBe('2026-05-01T10:00:00.000Z');
+    });
+
+    it('rejects a createdAt that is not a full ISO datetime', () => {
+      expect(tourMetaSchema.safeParse({ createdAt: '2026-05-01' }).success).toBe(false);
+      expect(tourMetaSchema.safeParse({ createdAt: 'not-a-date' }).success).toBe(false);
+    });
   });
 
   describe('isUuid', () => {

@@ -6,9 +6,10 @@ const { toursContainer, readItem } = require('../lib/db');
 const { tourMetaSchema, uuidParamError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
-// PATCH /api/tours/{tourId} — edit a tour's name/description. Only name and
-// description are editable; everything else (heatmapData, images, gpxFileUrl,
-// ...) is preserved by reading the existing doc and patching in place.
+// PATCH /api/tours/{tourId} — edit a tour's name/description/date. Only
+// name, description, and createdAt are editable; everything else
+// (heatmapData, images, gpxFileUrl, ...) is preserved by reading the existing
+// doc and patching in place.
 async function editTour(request, auth = authenticate, getContainer = toursContainer) {
   const user = await auth(request);
   if (!user) return unauthorized();
@@ -33,6 +34,7 @@ async function editTour(request, auth = authenticate, getContainer = toursContai
 
   if (parsed.data.name !== undefined) tour.name = parsed.data.name;
   if (parsed.data.description !== undefined) tour.description = parsed.data.description;
+  if (parsed.data.createdAt !== undefined) tour.createdAt = parsed.data.createdAt;
 
   const { resource: updated } = await container.item(tourId, user.userId).replace(tour);
   return { status: 200, jsonBody: updated };

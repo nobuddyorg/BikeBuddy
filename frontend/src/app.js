@@ -1,7 +1,13 @@
 'use strict';
 
 import { formatDate, formatDistance, initials } from './lib/format.js';
-import { visibleTours, paginate, PAGE_SIZE, fuzzyMatchIndices } from './lib/tours.js';
+import {
+  visibleTours,
+  paginate,
+  PAGE_SIZE,
+  fuzzyMatchIndices,
+  withUpdatedDate,
+} from './lib/tours.js';
 import {
   validateGpxUpload,
   validateImageUpload,
@@ -140,6 +146,7 @@ const elLightboxImg = $('lightbox-img');
 const elEditModal = $('edit-modal');
 const elEditForm = $('edit-form');
 const elEditName = $('edit-name');
+const elEditDate = $('edit-date');
 const elEditDescription = $('edit-description');
 const elEditError = $('edit-error');
 const elUserMenu = $('user-menu');
@@ -1010,6 +1017,7 @@ function openEdit() {
   const tour = state.tours.find((t) => t.id === state.selectedTourId);
   if (!tour) return;
   elEditName.value = tour.name || '';
+  elEditDate.value = tour.createdAt ? tour.createdAt.slice(0, 10) : '';
   elEditDescription.value = tour.description || '';
   show(elEditError, false);
   openModal(elEditModal);
@@ -1033,6 +1041,7 @@ async function submitEdit(e) {
       body: JSON.stringify({
         name: elEditName.value.trim(),
         description: elEditDescription.value.trim(),
+        createdAt: withUpdatedDate(tour.createdAt, elEditDate.value),
       }),
     });
     if (!res.ok) {
@@ -1041,7 +1050,11 @@ async function submitEdit(e) {
       return;
     }
     const updated = await res.json();
-    Object.assign(tour, { name: updated.name, description: updated.description });
+    Object.assign(tour, {
+      name: updated.name,
+      description: updated.description,
+      createdAt: updated.createdAt,
+    });
     closeEdit();
     renderSidebar();
     renderDetailPanel(tour);

@@ -41,6 +41,16 @@ export function visibleTours(tours, sort, search) {
   return tours.filter((t) => fuzzyMatch(search, t.name)).sort(sorter);
 }
 
+// Combines a 'YYYY-MM-DD' input (from a <input type=date>) with the
+// time-of-day of an existing ISO timestamp, so correcting a tour's date
+// doesn't clobber the time it was recorded at.
+export function withUpdatedDate(originalIso, dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const combined = new Date(originalIso);
+  combined.setUTCFullYear(y, m - 1, d);
+  return combined.toISOString();
+}
+
 export const PAGE_SIZE = 10;
 
 // Slices `items` to one page, clamping `page` into [1, totalPages] so a stale

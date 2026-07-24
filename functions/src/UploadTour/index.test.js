@@ -166,6 +166,42 @@ describe('UploadTour', () => {
     expect(res.jsonBody.name).toBe('Untitled Tour');
   });
 
+  it("uses the GPX's <time> metadata as the tour's createdAt", async () => {
+    const toursContainer = makeToursContainer();
+    const res = await uploadTour(
+      reqWith(),
+      mockAuth,
+      () => toursContainer,
+      makeGpxContainer(),
+      makeParseFile(),
+    );
+    expect(res.status).toBe(201);
+    const [doc] = toursContainer.items.create.mock.calls[0];
+    expect(doc.createdAt).toBe('2024-06-01T10:00:00.000Z');
+    expect(res.jsonBody.createdAt).toBe('2024-06-01T10:00:00.000Z');
+  });
+
+  it('falls back to the current time when the GPX has no <time> metadata', async () => {
+    const noTimeGpx = Buffer.from(
+      '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">' +
+        '<trk><trkseg><trkpt lat="48.1" lon="11.5"/></trkseg></trk></gpx>',
+      'utf8',
+    );
+    const toursContainer = makeToursContainer();
+    const before = Date.now();
+    await uploadTour(
+      reqWith(),
+      mockAuth,
+      () => toursContainer,
+      makeGpxContainer(),
+      makeParseFile(noTimeGpx),
+    );
+    const [doc] = toursContainer.items.create.mock.calls[0];
+    const createdAtMs = new Date(doc.createdAt).getTime();
+    expect(createdAtMs).toBeGreaterThanOrEqual(before);
+    expect(createdAtMs).toBeLessThanOrEqual(Date.now());
+  });
+
   it('uses query-string name over GPX name', async () => {
     const toursContainer = makeToursContainer();
     const res = await uploadTour(
