@@ -79,6 +79,7 @@ interface MainPage {
       panel: Locator;
       name: Locator;
       description: Locator;
+      date: Locator;
     };
     image: {
       input: Locator;
@@ -149,6 +150,7 @@ export function initMainPage(page: Page): MainPage {
       panel: page.locator('#detail-panel'),
       name: page.locator('#detail-name'),
       description: page.locator('#detail-description'),
+      date: page.locator('#detail-date'),
     },
     image: {
       input: page.locator('#image-file'),

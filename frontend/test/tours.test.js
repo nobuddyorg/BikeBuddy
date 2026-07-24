@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { fuzzyMatch, fuzzyMatchIndices, visibleTours, paginate } from '../src/lib/tours.js';
+import {
+  fuzzyMatch,
+  fuzzyMatchIndices,
+  visibleTours,
+  paginate,
+  withUpdatedDate,
+} from '../src/lib/tours.js';
 
 const tours = [
   { id: 'a', name: 'Alps Tour', createdAt: '2026-01-01T00:00:00Z', distance: 120 },
@@ -65,6 +71,20 @@ describe('visibleTours', () => {
     const copy = [...tours];
     visibleTours(tours, 'name-desc', '');
     expect(tours).toEqual(copy);
+  });
+});
+
+describe('withUpdatedDate', () => {
+  it('replaces the date but keeps the original time-of-day', () => {
+    expect(withUpdatedDate('2026-05-01T14:32:07.123Z', '2026-06-15')).toBe(
+      '2026-06-15T14:32:07.123Z',
+    );
+  });
+
+  it('handles a leap-day target date', () => {
+    expect(withUpdatedDate('2026-01-01T00:00:00.000Z', '2028-02-29')).toBe(
+      '2028-02-29T00:00:00.000Z',
+    );
   });
 });
 

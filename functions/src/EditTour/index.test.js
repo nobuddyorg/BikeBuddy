@@ -50,6 +50,33 @@ describe('PATCH /api/tours/{tourId}', () => {
     expect(res.jsonBody.description).toBe('old');
   });
 
+  it('patches the tour date (createdAt)', async () => {
+    const c = makeContainer(async () => ({
+      resource: { ...TOUR, createdAt: '2026-01-01T00:00:00.000Z' },
+    }));
+    const res = await editTour(
+      reqWith(TID, { createdAt: '2026-05-01T10:00:00.000Z' }),
+      mockAuth,
+      () => c.container,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.jsonBody.createdAt).toBe('2026-05-01T10:00:00.000Z');
+    expect(res.jsonBody.name).toBe('Old name');
+  });
+
+  it('returns 400 when createdAt is not a valid ISO datetime', async () => {
+    const c = makeContainer(async () => ({ resource: { ...TOUR } }));
+    const res = await editTour(
+      reqWith(TID, { createdAt: '2026-05-01' }),
+      mockAuth,
+      () => c.container,
+    );
+
+    expect(res.status).toBe(400);
+    expect(c.replace).not.toHaveBeenCalled();
+  });
+
   it('patches description only, leaving name untouched', async () => {
     const c = makeContainer(async () => ({ resource: { ...TOUR } }));
     const res = await editTour(

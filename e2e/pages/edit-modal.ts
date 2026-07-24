@@ -7,12 +7,14 @@ interface EditModal {
   do: {
     setName(name: string): Promise<void>;
     setDescription(description: string): Promise<void>;
+    setDate(date: string): Promise<void>;
     submit(): Promise<void>;
   };
   /** Raw locators. */
   locators: {
     name: Locator;
     description: Locator;
+    date: Locator;
     error: Locator;
     buttons: {
       submit: Locator;
@@ -25,6 +27,7 @@ export function initEditModal(page: Page): EditModal {
   const locators = {
     name: page.locator('#edit-name'),
     description: page.locator('#edit-description'),
+    date: page.locator('#edit-date'),
     error: page.locator('#edit-error'),
     buttons: {
       submit: page.locator('#btn-submit-edit'),
@@ -33,6 +36,7 @@ export function initEditModal(page: Page): EditModal {
   const interactions = {
     setName: async (name: string) => locators.name.fill(name),
     setDescription: async (description: string) => locators.description.fill(description),
+    setDate: async (date: string) => locators.date.fill(date),
     submit: async () => locators.buttons.submit.click(),
   };
   return Object.assign(() => root, { locators, do: interactions });

@@ -10,9 +10,11 @@ const nameSchema = z.string().transform(stripHtml).pipe(z.string().min(1).max(20
 const descriptionSchema = z.string().transform(stripHtml).pipe(z.string().max(2000));
 
 // name + description metadata for tour create (query) and edit (body).
+// createdAt is edit-only (the tour's date) — never accepted on create/upload.
 const tourMetaSchema = z.object({
   name: nameSchema.optional(),
   description: descriptionSchema.optional(),
+  createdAt: z.iso.datetime().optional(),
 });
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
