@@ -18,6 +18,7 @@ interface ProfileModal {
     email: Locator;
     since: Locator;
     nameInput: Locator;
+    nameError: Locator;
     lang: {
       button: Locator;
       menu: Locator;
@@ -40,6 +41,7 @@ export function initProfileModal(page: Page): ProfileModal {
     email: page.locator('#profile-email'),
     since: page.locator('#profile-since'),
     nameInput: page.locator('#profile-name-input'),
+    nameError: page.locator('#profile-name-error'),
     lang: {
       button: page.locator('#btn-lang'),
       menu: page.locator('#lang-menu'),
