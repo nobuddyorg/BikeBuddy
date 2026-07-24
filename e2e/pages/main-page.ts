@@ -40,6 +40,7 @@ interface MainPage {
   /** Raw locators. */
   locators: {
     map: Locator;
+    mapEmpty: Locator;
     userMenu: Locator;
     authPrompt: Locator;
     sidebar: Locator;
@@ -103,6 +104,7 @@ export function initMainPage(page: Page): MainPage {
   const root = page.locator('body');
   const locators = {
     map: page.locator('#map'),
+    mapEmpty: page.locator('#map-empty'),
     userMenu: page.locator('#user-menu'),
     authPrompt: page.locator('#auth-prompt'),
     sidebar: page.locator('.sidebar'),
