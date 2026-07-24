@@ -966,6 +966,14 @@ body {
   background: var(--color-danger);
 }
 
+/* Hover-to-reveal has no touch equivalent — a device that can't hover would
+   never see this button at all, with no way to delete a photo. */
+@media (hover: none) {
+  .image-delete {
+    opacity: 1;
+  }
+}
+
 .dropzone-sm {
   padding: 14px 12px;
 }

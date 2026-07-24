@@ -66,8 +66,21 @@ async function uploadImage(
   await blockBlob.uploadData(resized, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } });
 
   const image = { id: imageId, blobName, ...(gps && { lat: gps.lat, lon: gps.lon }) };
-  tour.images = [...(tour.images || []), image];
-  await getToursContainer().item(tourId, userId).replace(tour);
+  // A read-modify-write .replace(tour) here would lose images from concurrent
+  // uploads to the same tour (each request's in-memory tour.images snapshot is
+  // taken before the async parse/resize/GPS work, so the slower of two
+  // requests would overwrite the faster one's array). Append atomically
+  // instead — UploadTour always seeds images: [], so /images/- is valid for
+  // every tour this app creates.
+  const tourItem = getToursContainer().item(tourId, userId);
+  try {
+    await tourItem.patch([{ op: 'add', path: '/images/-', value: image }]);
+  } catch (err) {
+    // Only a tour predating the images field (never seeded with []) can hit
+    // this — "add" on a path that isn't an existing array creates it instead.
+    if (err.code !== 400) throw err;
+    await tourItem.patch([{ op: 'add', path: '/images', value: [image] }]);
+  }
 
   return {
     status: 201,
