@@ -210,10 +210,10 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .sort-menu-list {
@@ -297,10 +297,15 @@ body {
   inset: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 0 20px;
   background: var(--color-danger);
-  color: #fff;
-  font-size: 20px;
+}
+
+.tour-item-delete-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
 }
 
 /* The actual visible/interactive row. position:relative (stacked after
@@ -786,6 +791,7 @@ body {
   gap: 4px;
   font-size: 13px;
   color: var(--color-text-muted);
+  text-align: left;
 }
 
 .field input,
@@ -1183,6 +1189,12 @@ body {
 
   .navbar {
     padding: 0 12px;
+  }
+
+  /* Logo alone fits comfortably; logo + title pushed .navbar-actions'
+     buttons off-screen on narrow viewports (#301). */
+  .navbar-title {
+    display: none;
   }
 }
 
