@@ -92,6 +92,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     );
 
     expect(res.status).toBe(404);
+    expect(res.jsonBody.error).toBe('Image not found');
     expect(images.deleteIfExists).not.toHaveBeenCalled();
     expect(tours.replace).not.toHaveBeenCalled();
   });

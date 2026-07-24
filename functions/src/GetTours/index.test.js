@@ -32,6 +32,7 @@ describe('GET /api/tours', () => {
     const [spec, options] = query.mock.calls[0];
     expect(spec.parameters).toEqual([{ name: '@userId', value: 'u1' }]);
     expect(options).toEqual({ partitionKey: 'u1' });
+    expect(spec.query).toMatch(/SELECT c\.id, c\.name, c\.description, c\.distance, c\.createdAt/);
     expect(spec.query).not.toMatch(/heatmapData/);
     expect(spec.query).toMatch(/ORDER BY c\.createdAt DESC/);
   });

@@ -56,6 +56,12 @@ describe('validation helpers', () => {
       expect(isUuid('../../etc')).toBe(false);
       expect(isUuid(undefined)).toBe(false);
     });
+
+    it('rejects a non-string that would coerce to a matching pattern', () => {
+      // A single-element array stringifies to just its element — [UUID].toString()
+      // === UUID — so the regex alone can't tell them apart; the typeof check must.
+      expect(isUuid([UUID])).toBe(false);
+    });
   });
 
   describe('uuidParamError', () => {
