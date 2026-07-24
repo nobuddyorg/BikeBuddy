@@ -104,6 +104,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     const res = await editTour(reqWith(TID, { name: 'X' }), mockAuth, () => c.container);
 
     expect(res.status).toBe(404);
+    expect(res.jsonBody.error).toBe('Tour not found');
     expect(c.replace).not.toHaveBeenCalled();
   });
 

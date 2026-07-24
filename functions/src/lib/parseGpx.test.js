@@ -121,4 +121,26 @@ describe('parseGpx', () => {
     expect(result.distanceKm).toBe(0);
     expect(result.heatmapData).toEqual([]);
   });
+
+  it('handles a GPX file with no <trk> element at all', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"></gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.name).toBeNull();
+    expect(result.date).toBeNull();
+    expect(result.distanceKm).toBe(0);
+    expect(result.heatmapData).toEqual([]);
+  });
+
+  it('handles a <trk> with no <trkseg> child at all', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>Solo</name></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.name).toBe('Solo');
+    expect(result.date).toBeNull();
+    expect(result.distanceKm).toBe(0);
+    expect(result.heatmapData).toEqual([]);
+  });
 });

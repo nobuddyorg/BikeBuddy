@@ -226,6 +226,8 @@ describe('POST /api/tours/{tourId}/images', () => {
       noResize,
     );
     expect(res.status).toBe(201);
+    const [doc] = tours.replace.mock.calls[0];
+    expect(doc.images).toEqual([{ id: res.jsonBody.id, blobName: expect.any(String) }]);
   });
 
   it('returns 400 when the tour already has 20 images', async () => {

@@ -44,6 +44,9 @@ describe('PATCH /api/me', () => {
     const c = makeContainer();
     const res = await updateProfile(reqWith({ name: '   ' }), mockAuth, () => c.container);
     expect(res.status).toBe(400);
+    expect(res.jsonBody.error).toBe(
+      'A name (1–200 characters) or a supported language is required.',
+    );
     expect(c.upsert).not.toHaveBeenCalled();
   });
 
@@ -66,6 +69,15 @@ describe('PATCH /api/me', () => {
     );
     expect(res.jsonBody.language).toBe('de');
     expect(res.jsonBody.name).toBe('Ada');
+  });
+
+  it('updates only the name, leaving the stored language untouched', async () => {
+    const c = makeContainer({ id: 'u1', name: 'Old', email: 'ada@example.com', language: 'de' });
+    const res = await updateProfile(reqWith({ name: 'New Name' }), mockAuth, () => c.container);
+
+    expect(res.status).toBe(200);
+    expect(res.jsonBody.language).toBe('de');
+    expect(c.upsert).toHaveBeenCalledWith(expect.objectContaining({ language: 'de' }));
   });
 
   it('rejects an unsupported language code', async () => {

@@ -161,6 +161,9 @@ describe('UploadTour', () => {
       makeParseFile(gpxNoDecl),
     );
     expect(res.status).toBe(201);
+    // No query-string name and no <metadata>/<trk> name in the GPX itself —
+    // falls all the way through to the hardcoded default.
+    expect(res.jsonBody.name).toBe('Untitled Tour');
   });
 
   it('uses query-string name over GPX name', async () => {
