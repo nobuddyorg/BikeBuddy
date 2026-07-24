@@ -135,11 +135,6 @@
           </div>
         </div>
 
-        <label id="filter-in-view-toggle" class="filter-in-view-toggle hidden">
-          <input type="checkbox" id="filter-in-view-input" />
-          <span>📍 <span data-i18n="sidebar.filterInView">In view</span></span>
-        </label>
-
         <div id="selection-bar" class="selection-bar hidden">
           <span id="selection-count" class="selection-count"></span>
           <div class="selection-bar-actions">
@@ -208,9 +203,22 @@
       <main class="map-container">
         <div id="map"></div>
         <div class="map-top-controls">
-          <label id="pin-toggle" class="pin-toggle hidden">
+          <label
+            id="filter-in-view-toggle"
+            class="pin-toggle hidden"
+            data-i18n-aria-label="sidebar.filterInView"
+          >
+            <input type="checkbox" id="filter-in-view-input" />
+            <span
+              >📍
+              <span class="toggle-label-text" data-i18n="sidebar.filterInView">In view</span></span
+            >
+          </label>
+          <label id="pin-toggle" class="pin-toggle hidden" data-i18n-aria-label="map.photoPins">
             <input type="checkbox" id="pin-toggle-input" />
-            <span>📷 <span data-i18n="map.photoPins">Photo pins</span></span>
+            <span
+              >📷 <span class="toggle-label-text" data-i18n="map.photoPins">Photo pins</span></span
+            >
           </label>
           <button
             id="btn-map-expand"
