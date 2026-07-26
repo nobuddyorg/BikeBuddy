@@ -6,6 +6,7 @@ import {
   normalizeLocale,
   pickLocale,
   translate,
+  translateApiMessage,
   isSupported,
   SUPPORTED_LOCALES,
 } from '../src/lib/i18n.js';
@@ -59,6 +60,28 @@ describe('translate', () => {
   });
 });
 
+describe('translateApiMessage', () => {
+  const messages = { 'errors.tourName': 'Bitte gib einen Namen an.' };
+
+  it('localises an error key returned by the API', () => {
+    expect(translateApiMessage(messages, 'errors.tourName')).toBe('Bitte gib einen Namen an.');
+  });
+
+  it('passes prose from the API through untouched', () => {
+    expect(translateApiMessage(messages, 'Tour not found')).toBe('Tour not found');
+  });
+
+  it('falls back to English for a key the active locale is missing', () => {
+    expect(translateApiMessage({}, 'errors.tourDate', { 'errors.tourDate': 'Bad date.' })).toBe(
+      'Bad date.',
+    );
+  });
+
+  it('shows an unknown key rather than nothing', () => {
+    expect(translateApiMessage({}, 'errors.somethingNew')).toBe('errors.somethingNew');
+  });
+});
+
 describe('locale files', () => {
   const en = load('en');
   const others = SUPPORTED_LOCALES.map((l) => l.code).filter((c) => c !== 'en');
@@ -72,6 +95,20 @@ describe('locale files', () => {
       const values = Object.values(load(code));
       expect(values.every((v) => typeof v === 'string' && v.length > 0)).toBe(true);
     }
+  });
+
+  // The keys TOUR_META_ERROR_KEYS in functions/src/lib/validation.js sends as
+  // error bodies. Separate deployables, so nothing but this test ties them.
+  const API_ERROR_KEYS = [
+    'errors.tourName',
+    'errors.tourDescription',
+    'errors.tourDate',
+    'errors.tourInvalid',
+  ];
+
+  it.each(SUPPORTED_LOCALES.map((l) => l.code))('%s translates every API error key', (code) => {
+    const messages = load(code);
+    for (const key of API_ERROR_KEYS) expect(messages[key]).toBeTruthy();
   });
 
   it('isSupported reflects SUPPORTED_LOCALES', () => {

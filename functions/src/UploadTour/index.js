@@ -7,7 +7,7 @@ const { toursContainer } = require('../lib/db');
 const { gpxContainer } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { parseGpx } = require('../lib/parseGpx');
-const { tourMetaSchema } = require('../lib/validation');
+const { tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
 // GPX/XML files start with "<?xml" or "<gpx" (optionally preceded by a UTF-8 BOM).
@@ -34,7 +34,7 @@ async function uploadTour(
     name: request.query.get('name') ?? undefined,
     description: request.query.get('description') ?? undefined,
   });
-  if (!metaParsed.success) return error(400, metaParsed.error.issues[0].message);
+  if (!metaParsed.success) return tourMetaError(metaParsed.error);
 
   let file;
   try {

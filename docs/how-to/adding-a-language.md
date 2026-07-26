@@ -48,6 +48,11 @@ export const SUPPORTED_LOCALES = [
 | `short`      | Two-letter badge on the language button.          |
 | `dateLocale` | BCP-47 tag passed to `Intl` for formatting dates. |
 
+Some keys are also produced by the API: `TOUR_META_ERROR_KEYS` in
+`functions/src/lib/validation.js` answers a failed validation with a key rather
+than prose, which `tApi` then resolves. They are ordinary locale keys — the
+parity test below covers them like any other.
+
 ## 3. Verify
 
 The unit test enforces key parity and non-empty values across every locale in

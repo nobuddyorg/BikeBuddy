@@ -17,6 +17,23 @@ const tourMetaSchema = z.object({
   createdAt: z.iso.datetime().optional(),
 });
 
+// The frontend renders an error body verbatim, so these are i18n keys rather
+// than prose: Zod's own wording is English-only, describes the schema instead
+// of the fix, and changes with the library version (#359). Keys must exist in
+// frontend/src/locales/*.json.
+const TOUR_META_ERROR_KEYS = {
+  name: 'errors.tourName',
+  description: 'errors.tourDescription',
+  createdAt: 'errors.tourDate',
+};
+
+// 400 for a failed tourMetaSchema parse, naming the field that failed. A body
+// that isn't an object at all has no field path, hence the generic key.
+function tourMetaError(zodError) {
+  const field = zodError.issues[0]?.path?.[0];
+  return error(400, TOUR_META_ERROR_KEYS[field] ?? 'errors.tourInvalid');
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v) => typeof v === 'string' && UUID_RE.test(v);
 
@@ -40,6 +57,7 @@ module.exports = {
   stripHtml,
   nameSchema,
   tourMetaSchema,
+  tourMetaError,
   isUuid,
   uuidParamError,
   isImageContentType,

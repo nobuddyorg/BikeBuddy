@@ -3,7 +3,7 @@
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer, readItem } = require('../lib/db');
-const { tourMetaSchema, uuidParamError } = require('../lib/validation');
+const { tourMetaSchema, tourMetaError, uuidParamError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
 const EDITABLE_FIELDS = ['name', 'description', 'createdAt'];
@@ -35,7 +35,7 @@ async function editTour(request, auth = authenticate, getContainer = toursContai
     // empty/invalid JSON body — treated as no changes, validated below
   }
   const parsed = tourMetaSchema.safeParse(body ?? {});
-  if (!parsed.success) return error(400, parsed.error.issues[0].message);
+  if (!parsed.success) return tourMetaError(parsed.error);
 
   const container = getContainer();
 

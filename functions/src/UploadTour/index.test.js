@@ -146,6 +146,8 @@ describe('UploadTour', () => {
       makeParseFile(),
     );
     expect(res.status).toBe(400);
+    // A translatable key, not Zod's English (#359).
+    expect(res.jsonBody.error).toBe('errors.tourName');
   });
 
   it('accepts a file starting with <gpx (no XML declaration)', async () => {

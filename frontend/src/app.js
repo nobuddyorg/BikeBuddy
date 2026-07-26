@@ -23,6 +23,7 @@ import { heatOptionsForZoom } from './lib/heatmapZoom.js';
 import * as i18n from './lib/i18n.js';
 
 const t = i18n.t;
+const tApi = i18n.tApi;
 
 // Globals provided by classic <script>s loaded before this module: config.js
 // (BIKEBUDDY_CONFIG), the vendored MSAL bundle, and Leaflet + its heat plugin.
@@ -1074,7 +1075,7 @@ async function submitEdit(e) {
       }),
     });
     if (!res.ok) {
-      elEditError.textContent = parseErrorMessage(await res.text(), t('errors.saveChanges'));
+      elEditError.textContent = tApi(parseErrorMessage(await res.text(), t('errors.saveChanges')));
       show(elEditError, true);
       return;
     }
@@ -1560,7 +1561,7 @@ async function submitUpload(e) {
     selectTour(tourId); // success → jump to the new tour's heatmap
     toast(t('toast.tourUploaded'), 'success');
   } catch (err) {
-    showUploadError(err.message);
+    showUploadError(tApi(err.message));
     show(elUploadProgress, false);
     elBtnSubmitUpload.disabled = false;
   }
