@@ -55,9 +55,10 @@ async function uploadImage(
     return error(400, 'Only JPEG or PNG images are accepted');
   }
 
-  // Read GPS from the ORIGINAL buffer before resizing re-encodes and drops EXIF.
-  const gps = await readGps(file.buffer);
-  const resized = await resize(file.buffer);
+  // Both read the ORIGINAL buffer — the resize re-encodes and drops EXIF, so GPS
+  // can only come from the untouched bytes. The buffer is never mutated, so the
+  // two are safe to run concurrently.
+  const [gps, resized] = await Promise.all([readGps(file.buffer), resize(file.buffer)]);
 
   const imageId = randomUUID();
   const blobName = `${userId}/${tourId}/${imageId}.jpg`;
