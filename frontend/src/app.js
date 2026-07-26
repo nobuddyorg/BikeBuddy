@@ -1481,21 +1481,15 @@ async function downloadMyData() {
   }
 }
 
-async function downloadSelectedGpx() {
+// The signed URL's Content-Disposition (set by GetTour) carries the filename,
+// so a plain navigation-style download works without a same-origin fetch —
+// the blob is served directly from storage, a different origin than the app.
+function downloadSelectedGpx() {
   const tour = state.tours.find((t) => t.id === state.selectedTourId);
   if (!tour?.gpxFileUrl) return;
-  try {
-    const res = await fetch(tour.gpxFileUrl);
-    if (!res.ok) throw new Error('gpx download failed');
-    const url = URL.createObjectURL(await res.blob());
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(tour.name || 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch {
-    toast(t('toast.gpxDownloadError'), 'error');
-  }
+  const a = document.createElement('a');
+  a.href = tour.gpxFileUrl;
+  a.click();
 }
 
 // GDPR: permanently delete the account and all data, then sign out.

@@ -126,9 +126,7 @@
   "toast.photoDeleteError": "No se pudo eliminar la foto.",
   "toast.nameUpdated": "Nombre actualizado.",
   "toast.exportDone": "Tu exportación de datos se ha descargado.",
-  "toast.exportError": "No se pudieron exportar tus datos.",
-  "toast.gpxDownloadError": "No se pudo descargar el archivo GPX.",
-  "toast.accountDeleted": "Tus datos se han eliminado. Tu sesión se eliminará por completo en breve.",
+  "toast.exportError": "No se pudieron exportar tus datos.",  "toast.accountDeleted": "Tus datos se han eliminado. Tu sesión se eliminará por completo en breve.",
   "toast.accountDeleteError": "No se pudo eliminar tu cuenta. Inténtalo de nuevo.",
   "toast.tourUploaded": "Ruta subida.",
 

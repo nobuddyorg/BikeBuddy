@@ -36,8 +36,12 @@ async function getTour(
 
   if (tour.gpxFileUrl) {
     const container = await getGpxContainer();
+    const filename = `${(tour.name || 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
     tour.gpxFileUrl = await readSasUrl(
       container.getBlockBlobClient(`${tour.userId}/${tour.id}.gpx`),
+      {
+        contentDisposition: `attachment; filename="${filename}"`,
+      },
     );
   }
 

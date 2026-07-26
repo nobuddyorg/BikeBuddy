@@ -37,17 +37,21 @@ describe('GET /api/tours/{tourId}', () => {
     expect(res.jsonBody.heatmapData).toHaveLength(2);
   });
 
-  it('replaces gpxFileUrl with a signed, short-lived SAS URL', async () => {
+  it('replaces gpxFileUrl with a signed SAS URL carrying the download filename', async () => {
     const tour = { ...TOUR, gpxFileUrl: 'https://blob/gpx-files/u1/t1.gpx' };
     const { container } = makeContainer(async () => ({ resource: tour }));
-    const getBlockBlobClient = vi.fn((name) => ({
-      generateSasUrl: async () => `https://blob/${name}?sig=x`,
-    }));
+    const generateSasUrl = vi.fn(async () => `https://blob/u1/${TID}.gpx?sig=x`);
+    const getBlockBlobClient = vi.fn(() => ({ generateSasUrl }));
     const gpxContainer = () => Promise.resolve({ getBlockBlobClient });
 
     const res = await getTour(reqWith(TID), mockAuth, () => container, undefined, gpxContainer);
 
     expect(getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}.gpx`);
+    // TOUR.name is 'Alps' — the SAS carries a Content-Disposition so a plain
+    // <a href> download gets the right filename without a same-origin fetch.
+    expect(generateSasUrl).toHaveBeenCalledWith(
+      expect.objectContaining({ contentDisposition: 'attachment; filename="Alps.gpx"' }),
+    );
     expect(res.jsonBody.gpxFileUrl).toBe(`https://blob/u1/${TID}.gpx?sig=x`);
   });
 

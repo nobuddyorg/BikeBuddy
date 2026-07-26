@@ -53,7 +53,8 @@ buddyTest('download GPX from the detail panel', async ({ on, page }) => {
   const downloadPromise = page.waitForEvent('download');
   await on(page).main.do.downloadGpx();
   const download = await downloadPromise;
-  // Matches app.js's downloadSelectedGpx sanitization (spaces/punctuation → "_").
+  // Filename comes from the signed URL's Content-Disposition (set server-side
+  // in GetTour), which sanitizes the tour name the same way (spaces → "_").
   expect(download.suggestedFilename()).toBe(`${tourName.replace(/[^a-z0-9-_]+/gi, '_')}.gpx`);
 });
 
