@@ -30,7 +30,7 @@ docs were reviewed and are current — no changes needed there.
 `docs/how-to/user-guide.md` predates three shipped features. Add short
 sections for:
 
-- **Filter to what's on screen** — the "In view" sidebar checkbox.
+- **Filter to what's in view** — the "In view" toggle at the map's top right.
 - **Select and delete multiple tours** — the Select mode / multi-delete bar.
 - **Switch language** — the profile language switcher (also mention
   export-data/delete-account briefly, since they live in the same modal and
