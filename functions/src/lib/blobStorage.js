@@ -4,11 +4,14 @@ const { BlobServiceClient, BlobSASPermissions } = require('@azure/storage-blob')
 
 const SAS_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-// Short-lived read-only SAS URL so images are served without a public container.
-function readSasUrl(blockBlobClient) {
+// Short-lived read-only SAS URL so blobs are served without a public container.
+// contentDisposition (e.g. 'attachment; filename="x.gpx"') is signed into the
+// URL itself so a plain <a href> download works without a same-origin fetch.
+function readSasUrl(blockBlobClient, { contentDisposition } = {}) {
   return blockBlobClient.generateSasUrl({
     permissions: BlobSASPermissions.parse('r'),
     expiresOn: new Date(Date.now() + SAS_TTL_MS),
+    ...(contentDisposition && { contentDisposition }),
   });
 }
 

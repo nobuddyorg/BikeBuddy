@@ -47,6 +47,7 @@
   "detail.addPhotosAria": "Foto's toevoegen",
   "detail.dropPhotos": "Sleep of klik om foto's toe te voegen (JPEG/PNG)",
   "detail.edit": "Bewerken",
+  "detail.downloadGpx": "GPX downloaden",
   "detail.deleteTour": "Rit verwijderen",
   "detail.deletePhotoAria": "Foto verwijderen",
   "detail.retryPhotoAria": "Upload opnieuw proberen",
@@ -125,8 +126,7 @@
   "toast.photoDeleteError": "Foto kon niet worden verwijderd.",
   "toast.nameUpdated": "Naam bijgewerkt.",
   "toast.exportDone": "Je gegevensexport is gedownload.",
-  "toast.exportError": "Je gegevens konden niet worden geëxporteerd.",
-  "toast.accountDeleted": "Je gegevens zijn verwijderd. Je inlog wordt binnenkort volledig verwijderd.",
+  "toast.exportError": "Je gegevens konden niet worden geëxporteerd.",  "toast.accountDeleted": "Je gegevens zijn verwijderd. Je inlog wordt binnenkort volledig verwijderd.",
   "toast.accountDeleteError": "Je account kon niet worden verwijderd. Probeer het opnieuw.",
   "toast.tourUploaded": "Rit geüpload.",
 

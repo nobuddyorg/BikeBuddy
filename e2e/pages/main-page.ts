@@ -14,6 +14,7 @@ interface MainPage {
     openProfile(): Promise<void>;
     openHelp(): Promise<void>;
     openEdit(): Promise<void>;
+    downloadGpx(): Promise<void>;
     logout(): Promise<void>;
     toggleSidebar(): Promise<void>;
     search(query: string): Promise<void>;
@@ -58,6 +59,7 @@ interface MainPage {
       help: Locator;
       mapExpand: Locator;
       editTour: Locator;
+      downloadGpx: Locator;
       deleteTour: Locator;
       closeDetail: Locator;
       selectMode: Locator;
@@ -133,6 +135,7 @@ export function initMainPage(page: Page): MainPage {
       help: page.locator('#btn-help'),
       mapExpand: page.locator('#btn-map-expand'),
       editTour: page.locator('#btn-edit-tour'),
+      downloadGpx: page.locator('#btn-download-gpx'),
       deleteTour: page.locator('#btn-delete-tour'),
       closeDetail: page.locator('#btn-close-detail'),
       selectMode: page.locator('#btn-select-mode'),
@@ -196,6 +199,7 @@ export function initMainPage(page: Page): MainPage {
     openProfile: async () => locators.buttons.profile.click(),
     openHelp: async () => locators.buttons.help.click(),
     openEdit: async () => locators.buttons.editTour.click(),
+    downloadGpx: async () => locators.buttons.downloadGpx.click(),
     // Sign Out now lives inside the profile modal — open it first.
     logout: async () => {
       await locators.buttons.profile.click();

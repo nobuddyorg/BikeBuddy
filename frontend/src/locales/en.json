@@ -47,6 +47,7 @@
   "detail.addPhotosAria": "Add photos",
   "detail.dropPhotos": "Drop or click to add photos (JPEG/PNG)",
   "detail.edit": "Edit",
+  "detail.downloadGpx": "Download GPX",
   "detail.deleteTour": "Delete Tour",
   "detail.deletePhotoAria": "Delete photo",
   "detail.retryPhotoAria": "Retry upload",
@@ -125,8 +126,7 @@
   "toast.photoDeleteError": "Could not delete the photo.",
   "toast.nameUpdated": "Name updated.",
   "toast.exportDone": "Your data export has been downloaded.",
-  "toast.exportError": "Could not export your data.",
-  "toast.accountDeleted": "Your data has been deleted. Your login will be fully removed shortly.",
+  "toast.exportError": "Could not export your data.",  "toast.accountDeleted": "Your data has been deleted. Your login will be fully removed shortly.",
   "toast.accountDeleteError": "Could not delete your account. Please try again.",
   "toast.tourUploaded": "Tour uploaded.",
 
