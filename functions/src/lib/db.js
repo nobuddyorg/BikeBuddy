@@ -21,12 +21,23 @@ async function readItem(container, id, partitionKey) {
   }
 }
 
+// How much of a result set one round trip may materialise. fetchAll() still
+// drains every continuation, so this bounds the page, not the result: a user
+// with years of tours costs several bounded responses instead of one unbounded
+// one (#363). ORDER BY createdAt is served by the range index the containers
+// include via '/*' (heatmapData/images are the only exclusions), so paging
+// costs no extra sort.
+const MAX_ITEMS_PER_REQUEST = 100;
+
 // Run a single-partition query scoped to one user. The query must filter on the
 // @userId parameter; passing the same userId as the partition key is what keeps
 // a user's reads confined to their own data.
-async function queryUserItems(container, userId, query) {
+async function queryUserItems(container, userId, query, maxItemCount = MAX_ITEMS_PER_REQUEST) {
   const { resources } = await container.items
-    .query({ query, parameters: [{ name: '@userId', value: userId }] }, { partitionKey: userId })
+    .query(
+      { query, parameters: [{ name: '@userId', value: userId }] },
+      { partitionKey: userId, maxItemCount },
+    )
     .fetchAll();
   return resources;
 }
@@ -40,4 +51,5 @@ module.exports = {
     getClient().database(process.env.COSMOS_DATABASE).container('deletions'),
   readItem,
   queryUserItems,
+  MAX_ITEMS_PER_REQUEST,
 };
