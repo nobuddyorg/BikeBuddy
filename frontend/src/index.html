@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- GitHub Pages cannot set response headers, so the policy ships in the
+       document. A meta CSP cannot express frame-ancestors, HSTS or
+       Permissions-Policy — see docs/explanation/security.md. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.blob.core.windows.net http://127.0.0.1:10000; connect-src 'self' https://*.ciamlogin.com https://login.microsoftonline.com https://*.azurewebsites.net https://*.blob.core.windows.net http://127.0.0.1:10000; frame-src https://*.ciamlogin.com https://login.microsoftonline.com; font-src 'self'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>BikeBuddy</title>
     <meta
       name="description"
