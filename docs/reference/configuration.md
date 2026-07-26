@@ -13,7 +13,9 @@
 | `SKIP_AUTH`                | `"true"` skips JWT verification (local dev only)                      |
 
 Set by the deploy via `infrastructure/` Tofu variables; `SKIP_AUTH` is `false`
-automatically once `entra_client_id` is set.
+automatically once `entra_client_id` is set. Should both ever end up set at
+once, the API refuses the bypass and every request fails with a 500 rather than
+silently serving all callers as the shared local dev user.
 
 ## Frontend — `frontend/src/config.js` (generated)
 

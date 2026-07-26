@@ -52,9 +52,15 @@ const resolveEmail = (payload) =>
 const resolveName = (payload) => payload.name || payload.given_name || null;
 
 // Dev-only bypass: set SKIP_AUTH=true to skip JWT verification and use a
-// hardcoded local user. Never set this in production once auth is configured.
+// hardcoded local user. A configured Entra tenant is the signal that this is
+// not a dev environment, so the bypass is refused there — by throwing, not by
+// falling through to real auth, because a silent fallthrough would leave the
+// misconfiguration in place and unnoticed (#361).
 function skipAuthIfDev() {
   if (process.env.SKIP_AUTH !== 'true') return null;
+  if (process.env.ENTRA_CLIENT_ID || process.env.ENTRA_TENANT_ID) {
+    throw new Error('SKIP_AUTH must not be set when Entra auth is configured');
+  }
   return { userId: 'local-dev-user', userEmail: 'dev@localhost', userName: 'Local Dev' };
 }
 

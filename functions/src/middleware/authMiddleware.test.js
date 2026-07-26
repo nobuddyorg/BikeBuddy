@@ -175,12 +175,41 @@ describe('authenticate — SKIP_AUTH dev bypass', () => {
   });
 
   test('returns a hardcoded dev user without a token', async () => {
+    for (const key of Object.keys(TEST_ENV)) delete process.env[key];
+
     const user = await authenticate({ headers: new Map() });
     expect(user).toEqual({
       userId: 'local-dev-user',
       userEmail: 'dev@localhost',
       userName: 'Local Dev',
     });
+  });
+
+  // A deployment that has both real auth configured and the bypass switched on
+  // would otherwise serve every anonymous caller as the same shared user (#361).
+  test('refuses the bypass when a client id is configured', async () => {
+    delete process.env.ENTRA_TENANT_ID;
+
+    await expect(authenticate({ headers: new Map() })).rejects.toThrow(
+      'SKIP_AUTH must not be set when Entra auth is configured',
+    );
+  });
+
+  test('refuses the bypass when a tenant id is configured', async () => {
+    delete process.env.ENTRA_CLIENT_ID;
+
+    await expect(authenticate({ headers: new Map() })).rejects.toThrow(
+      'SKIP_AUTH must not be set when Entra auth is configured',
+    );
+  });
+
+  // Tofu always writes the Entra app settings, empty until the tenant exists —
+  // an empty value must stay a dev environment, not a refusal.
+  test('honours the bypass when the Entra settings are present but empty', async () => {
+    Object.assign(process.env, { ENTRA_CLIENT_ID: '', ENTRA_TENANT_ID: '' });
+
+    const user = await authenticate({ headers: new Map() });
+    expect(user.userId).toBe('local-dev-user');
   });
 });
 
