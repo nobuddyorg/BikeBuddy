@@ -121,6 +121,7 @@
   "toast.toursLoadError": "Je ritten konden niet worden geladen. Controleer je verbinding en probeer het opnieuw.",
   "toast.tourDeleted": "Rit verwijderd.",
   "toast.tourDeleteError": "Rit kon niet worden verwijderd.",
+  "toast.gpxDownloadError": "GPX-bestand kon niet worden gedownload.",
   "toast.toursDeleted": "{count} ritten verwijderd.",
   "toast.toursDeletedPartial": "{deleted} van {total} ritten verwijderd.",
   "toast.photoDeleteError": "Foto kon niet worden verwijderd.",

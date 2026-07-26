@@ -121,6 +121,7 @@
   "toast.toursLoadError": "Deine Touren konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
   "toast.tourDeleted": "Tour gelöscht.",
   "toast.tourDeleteError": "Tour konnte nicht gelöscht werden.",
+  "toast.gpxDownloadError": "GPX-Datei konnte nicht heruntergeladen werden.",
   "toast.toursDeleted": "{count} Touren gelöscht.",
   "toast.toursDeletedPartial": "{deleted} von {total} Touren gelöscht.",
   "toast.photoDeleteError": "Foto konnte nicht gelöscht werden.",

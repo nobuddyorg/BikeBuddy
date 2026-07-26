@@ -121,6 +121,7 @@
   "toast.toursLoadError": "No se pudieron cargar tus rutas. Comprueba tu conexión e inténtalo de nuevo.",
   "toast.tourDeleted": "Ruta eliminada.",
   "toast.tourDeleteError": "No se pudo eliminar la ruta.",
+  "toast.gpxDownloadError": "No se pudo descargar el archivo GPX.",
   "toast.toursDeleted": "{count} rutas eliminadas.",
   "toast.toursDeletedPartial": "{deleted} de {total} rutas eliminadas.",
   "toast.photoDeleteError": "No se pudo eliminar la foto.",

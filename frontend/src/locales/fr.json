@@ -121,6 +121,7 @@
   "toast.toursLoadError": "Impossible de charger tes sorties. Vérifie ta connexion et réessaie.",
   "toast.tourDeleted": "Sortie supprimée.",
   "toast.tourDeleteError": "Impossible de supprimer la sortie.",
+  "toast.gpxDownloadError": "Impossible de télécharger le fichier GPX.",
   "toast.toursDeleted": "{count} sorties supprimées.",
   "toast.toursDeletedPartial": "{deleted} sur {total} sorties supprimées.",
   "toast.photoDeleteError": "Impossible de supprimer la photo.",

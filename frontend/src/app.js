@@ -17,6 +17,7 @@ import {
 } from './lib/files.js';
 import { runWithConcurrency } from './lib/concurrency.js';
 import { ensureMapData } from './lib/mapData.js';
+import { isStale, markFetched } from './lib/sasCache.js';
 import { parseErrorMessage, xhrUpload } from './lib/upload.js';
 import { groupByProximity, fanOffsets } from './lib/pinLayout.js';
 import { heatOptionsForZoom } from './lib/heatmapZoom.js';
@@ -430,9 +431,10 @@ async function loadTours() {
 // Fetch + cache the detail fields (heatmapData, full images, gpxFileUrl) not
 // present in the list. The map alone gets by with the leaner /api/map payload
 // (see ensureMapData), so the flag — not the presence of heatmapData/images —
-// is what tells the two apart.
+// is what tells the two apart. The cache expires ahead of the signed URLs it
+// holds, so a tab left open past their lifetime refetches (#362).
 async function ensureDetail(tour) {
-  if (tour.detailLoaded) return;
+  if (tour.detailLoaded && !isStale(tour)) return;
   try {
     const res = await apiFetch(`/api/tours/${tour.id}`);
     if (res.ok) {
@@ -447,6 +449,7 @@ async function ensureDetail(tour) {
   tour.heatmapData = tour.heatmapData || [];
   tour.images = tour.images || [];
   tour.detailLoaded = true;
+  markFetched(tour);
 }
 
 // ── Sidebar rendering ─────────────────────────────────────────────────────────
@@ -1466,9 +1469,17 @@ async function downloadMyData() {
 // The signed URL's Content-Disposition (set by GetTour) carries the filename,
 // so a plain navigation-style download works without a same-origin fetch —
 // the blob is served directly from storage, a different origin than the app.
-function downloadSelectedGpx() {
+// That navigation reports nothing back, so an expired URL would hand the user
+// storage's XML error body named <tour>.gpx: refresh the tour first, and say
+// so rather than navigate when no usable URL comes back (#362).
+async function downloadSelectedGpx() {
   const tour = state.tours.find((t) => t.id === state.selectedTourId);
-  if (!tour?.gpxFileUrl) return;
+  if (!tour) return;
+  await ensureDetail(tour);
+  if (!tour.gpxFileUrl) {
+    toast(t('toast.gpxDownloadError'), 'error');
+    return;
+  }
   const a = document.createElement('a');
   a.href = tour.gpxFileUrl;
   a.click();

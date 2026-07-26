@@ -121,6 +121,7 @@
   "toast.toursLoadError": "Couldn’t load your tours. Check your connection and try again.",
   "toast.tourDeleted": "Tour deleted.",
   "toast.tourDeleteError": "Could not delete the tour.",
+  "toast.gpxDownloadError": "Could not download the GPX file.",
   "toast.toursDeleted": "{count} tours deleted.",
   "toast.toursDeletedPartial": "{deleted} of {total} tours deleted.",
   "toast.photoDeleteError": "Could not delete the photo.",
