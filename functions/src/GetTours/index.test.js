@@ -1,6 +1,7 @@
 'use strict';
 
 const { getTours } = require('./index');
+const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
 
 const TOURS = [
   { id: 't2', name: 'Newer', distance: 100, createdAt: '2026-02-01T00:00:00.000Z' },
@@ -31,7 +32,7 @@ describe('GET /api/tours', () => {
 
     const [spec, options] = query.mock.calls[0];
     expect(spec.parameters).toEqual([{ name: '@userId', value: 'u1' }]);
-    expect(options).toEqual({ partitionKey: 'u1' });
+    expect(options).toEqual({ partitionKey: 'u1', maxItemCount: MAX_ITEMS_PER_REQUEST });
     expect(spec.query).toMatch(/SELECT c\.id, c\.name, c\.description, c\.distance, c\.createdAt/);
     expect(spec.query).not.toMatch(/heatmapData/);
     expect(spec.query).toMatch(/ORDER BY c\.createdAt DESC/);

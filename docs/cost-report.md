@@ -62,6 +62,10 @@ Serverless bills per **Request Unit (RU)** consumed plus storage (~€0.25/GB/mo
   the cheapest query shape.
 - `heatmapData` is **not returned** in the list endpoint, keeping payloads (and
   RU) small.
+- Every user-scoped query runs with `maxItemCount` (`MAX_ITEMS_PER_REQUEST` in
+  `functions/src/lib/db.js`), so one round trip stays bounded however many
+  tours a user has accumulated. `ORDER BY c.createdAt` is served by the range
+  index the container includes via `/*`, so ordering costs no extra sort.
 
 At a few hundred tours and light traffic this is well under 1 €.
 

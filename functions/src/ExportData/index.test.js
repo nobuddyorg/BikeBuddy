@@ -1,6 +1,7 @@
 'use strict';
 
 const { exportData } = require('./index');
+const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
 
 const USER = {
   id: 'u1',
@@ -45,7 +46,7 @@ describe('GET /api/me/export', () => {
     const [spec, options] = tours.query.mock.calls[0];
     expect(spec.query).toMatch(/SELECT \* FROM c WHERE c\.userId = @userId/);
     expect(spec.parameters).toEqual([{ name: '@userId', value: 'u1' }]);
-    expect(options).toEqual({ partitionKey: 'u1' });
+    expect(options).toEqual({ partitionKey: 'u1', maxItemCount: MAX_ITEMS_PER_REQUEST });
   });
 
   it('exports user: null when the user doc does not exist yet', async () => {

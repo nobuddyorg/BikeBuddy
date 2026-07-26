@@ -1,6 +1,7 @@
 'use strict';
 
 const { getMapData } = require('./index');
+const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
 
 const TOURS = [
   {
@@ -82,7 +83,7 @@ describe('GET /api/map', () => {
 
     const [spec, options] = query.mock.calls[0];
     expect(spec.parameters).toEqual([{ name: '@userId', value: 'u1' }]);
-    expect(options).toEqual({ partitionKey: 'u1' });
+    expect(options).toEqual({ partitionKey: 'u1', maxItemCount: MAX_ITEMS_PER_REQUEST });
     expect(spec.query).toMatch(/SELECT c\.id, c\.heatmapData, c\.images/);
     expect(spec.query).not.toMatch(/c\.gpxFileUrl/);
   });

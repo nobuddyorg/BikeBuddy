@@ -1,6 +1,7 @@
 'use strict';
 
 const { deleteAccount } = require('./index');
+const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
 
 const UID = 'u1';
 const mockAuth = async () => ({ userId: UID });
@@ -91,7 +92,7 @@ describe('DELETE /api/me', () => {
     const [spec, options] = tours.query.mock.calls[0];
     expect(spec.query).toMatch(/SELECT c\.id FROM c WHERE c\.userId = @userId/);
     expect(spec.parameters).toEqual([{ name: '@userId', value: UID }]);
-    expect(options).toEqual({ partitionKey: UID });
+    expect(options).toEqual({ partitionKey: UID, maxItemCount: MAX_ITEMS_PER_REQUEST });
     expect(tours.del).toHaveBeenCalledTimes(2);
     expect(tours.item).toHaveBeenCalledWith('t1', UID);
     expect(gpx.listBlobsFlat).toHaveBeenCalledWith({ prefix: `${UID}/` });
