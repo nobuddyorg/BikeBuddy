@@ -1,6 +1,6 @@
 {
   "Exclude": [
-    "frontend/vendor/",
+    "frontend/src/vendor/",
     "\\.terraform/",
     "package-lock\\.json",
     "functions/coverage/",

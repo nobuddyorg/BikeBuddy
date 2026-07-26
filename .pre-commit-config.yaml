@@ -13,8 +13,13 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
       - id: end-of-file-fixer
+        # Vendored files must stay byte-identical to what upstream published,
+        # otherwise their checksums no longer verify.
+        exclude: ^frontend/src/vendor/
       - id: mixed-line-ending
+        exclude: ^frontend/src/vendor/
       - id: trailing-whitespace
+        exclude: ^frontend/src/vendor/
       - id: no-commit-to-branch
         args: ["--branch", "main"]
 

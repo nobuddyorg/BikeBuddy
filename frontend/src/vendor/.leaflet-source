@@ -1,0 +1,8 @@
+https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
+https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
+https://unpkg.com/leaflet@1.9.4/dist/images/{layers,layers-2x,marker-icon,marker-icon-2x,marker-shadow}.png
+https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js
+
+Verified against Leaflet's published SRI hashes for 1.9.4:
+  leaflet.js  sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=
+  leaflet.css sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=

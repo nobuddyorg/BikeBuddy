@@ -2,7 +2,7 @@
 
 ```text
 Browser (GitHub Pages, https://nobuddy.org/BikeBuddy/)
-  │  plain HTML/CSS/JS · Leaflet + Leaflet.heat · MSAL (vendored)
+  │  plain HTML/CSS/JS · Leaflet + Leaflet.heat + MSAL (all vendored)
   │  Authorization: Bearer <Entra access token>
   ▼
 Azure Functions (Node 24, Flex Consumption)   ── auth: Entra External ID (OIDC)
@@ -12,14 +12,14 @@ Azure Functions (Node 24, Flex Consumption)   ── auth: Entra External ID (OI
 
 ## Components
 
-| Component | Tech                                       | Notes                                                                   |
-| --------- | ------------------------------------------ | ----------------------------------------------------------------------- |
-| Frontend  | Static HTML/CSS/JS on GitHub Pages         | No bundler; Leaflet via CDN, MSAL vendored in `frontend/src/vendor/`.   |
-| API       | Azure Functions, Node 24, Flex Consumption | One folder per function in `functions/src/<Name>/`.                     |
-| Database  | Cosmos DB Serverless                       | `users` partitioned by `/id`, `tours` by `/userId`.                     |
-| Files     | Azure Blob Storage (LRS)                   | Images resized (≤2000px) with `sharp`; served via short-lived SAS URLs. |
-| Auth      | Microsoft Entra External ID                | OIDC; token validated in `authMiddleware.js`.                           |
-| Infra     | OpenTofu (`infrastructure/`)               | Remote azurerm state.                                                   |
+| Component | Tech                                       | Notes                                                                          |
+| --------- | ------------------------------------------ | ------------------------------------------------------------------------------ |
+| Frontend  | Static HTML/CSS/JS on GitHub Pages         | No bundler; Leaflet, Leaflet.heat and MSAL vendored in `frontend/src/vendor/`. |
+| API       | Azure Functions, Node 24, Flex Consumption | One folder per function in `functions/src/<Name>/`.                            |
+| Database  | Cosmos DB Serverless                       | `users` partitioned by `/id`, `tours` by `/userId`.                            |
+| Files     | Azure Blob Storage (LRS)                   | Images resized (≤2000px) with `sharp`; served via short-lived SAS URLs.        |
+| Auth      | Microsoft Entra External ID                | OIDC; token validated in `authMiddleware.js`.                                  |
+| Infra     | OpenTofu (`infrastructure/`)               | Remote azurerm state.                                                          |
 
 ## Functions (API)
 

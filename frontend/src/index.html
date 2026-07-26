@@ -8,7 +8,7 @@
        Permissions-Policy — see docs/explanation/security.md. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.blob.core.windows.net http://127.0.0.1:10000; connect-src 'self' https://*.ciamlogin.com https://login.microsoftonline.com https://*.azurewebsites.net https://*.blob.core.windows.net http://127.0.0.1:10000; frame-src https://*.ciamlogin.com https://login.microsoftonline.com; font-src 'self'"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.blob.core.windows.net http://127.0.0.1:10000; connect-src 'self' https://*.ciamlogin.com https://login.microsoftonline.com https://*.azurewebsites.net https://*.blob.core.windows.net http://127.0.0.1:10000; frame-src https://*.ciamlogin.com https://login.microsoftonline.com; font-src 'self'"
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>BikeBuddy</title>
@@ -29,11 +29,10 @@
     <meta property="og:url" content="https://nobuddy.org/BikeBuddy/" />
     <meta name="twitter:card" content="summary" />
 
-    <!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet.heat -->
-    <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <!-- Leaflet and Leaflet.heat, vendored — see vendor/.leaflet-source -->
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="vendor/leaflet-heat.js"></script>
     <!-- MSAL Browser (Microsoft Entra External ID auth). Vendored locally:
        loading cross-origin from a CDN was blocked by the browser (ORB) on GitHub Pages. -->
     <script src="vendor/msal-browser.min.js"></script>

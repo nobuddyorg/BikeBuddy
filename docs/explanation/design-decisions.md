@@ -5,9 +5,11 @@ The _why_ behind the architecture. For _what_, see [Architecture](../reference/a
 ## No frontend framework
 
 Plain HTML/CSS/JS keeps the site truly static (no build pipeline) and trivially
-hostable on GitHub Pages. Leaflet loads from a CDN; MSAL is **vendored** in
-`frontend/src/vendor/` because loading it cross-origin from a CDN was blocked by the
-browser (ORB) on GitHub Pages.
+hostable on GitHub Pages. Every third-party script is **vendored** in
+`frontend/src/vendor/`: MSAL because loading it cross-origin from a CDN was
+blocked by the browser (ORB) on GitHub Pages, Leaflet and Leaflet.heat because a
+CDN that serves altered bytes would execute in the app's origin, where the Entra
+access tokens live. Vendoring lets `script-src` stay at `'self'`.
 
 ## Node.js Functions on Flex Consumption
 
