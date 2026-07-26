@@ -16,6 +16,7 @@ import {
   validateImageQuota,
 } from './lib/files.js';
 import { runWithConcurrency } from './lib/concurrency.js';
+import { ensureMapData } from './lib/mapData.js';
 import { parseErrorMessage, xhrUpload } from './lib/upload.js';
 import { groupByProximity, fanOffsets } from './lib/pinLayout.js';
 import { heatOptionsForZoom } from './lib/heatmapZoom.js';
@@ -426,9 +427,12 @@ async function loadTours() {
   await renderAllHeatmap();
 }
 
-// Fetch + cache the detail fields (heatmapData, images) not present in the list.
+// Fetch + cache the detail fields (heatmapData, full images, gpxFileUrl) not
+// present in the list. The map alone gets by with the leaner /api/map payload
+// (see ensureMapData), so the flag — not the presence of heatmapData/images —
+// is what tells the two apart.
 async function ensureDetail(tour) {
-  if (tour.heatmapData && tour.images) return;
+  if (tour.detailLoaded) return;
   try {
     const res = await apiFetch(`/api/tours/${tour.id}`);
     if (res.ok) {
@@ -442,6 +446,7 @@ async function ensureDetail(tour) {
   }
   tour.heatmapData = tour.heatmapData || [];
   tour.images = tour.images || [];
+  tour.detailLoaded = true;
 }
 
 // ── Sidebar rendering ─────────────────────────────────────────────────────────
@@ -859,7 +864,7 @@ function renderHeatmap(points, padding) {
 }
 
 async function renderAllHeatmap() {
-  await Promise.all(state.tours.map(ensureDetail));
+  await ensureMapData(apiFetch, state.tours);
   const allPoints = state.tours.flatMap((t) => toHeatPoints(t.heatmapData));
   renderHeatmap(allPoints, 40);
   show(elMapEmpty, allPoints.length === 0);
@@ -877,7 +882,7 @@ async function renderSelectedToursHeatmap() {
   }
   const requested = [...state.selectedIds].sort().join(',');
   const tours = state.tours.filter((tour) => state.selectedIds.has(tour.id));
-  await Promise.all(tours.map(ensureDetail));
+  await ensureMapData(apiFetch, state.tours);
   if ([...state.selectedIds].sort().join(',') !== requested) return; // selection changed while loading
   const points = tours.flatMap((t) => toHeatPoints(t.heatmapData));
   renderHeatmap(points, 40);
