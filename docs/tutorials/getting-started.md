@@ -39,6 +39,8 @@ It brings everything up and opens the app at <http://localhost:4280>:
 3. It appears in the sidebar and as a heatmap on the map. Click it to focus, add
    photos, or edit it.
 
+![Upload modal with a tour name and a .gpx file ready to upload](../assets/screenshots/upload-tour.png)
+
 ## Next steps
 
 - Day-to-day usage → [User guide](../how-to/user-guide.md)
