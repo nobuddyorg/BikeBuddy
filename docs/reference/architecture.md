@@ -28,6 +28,7 @@ Azure Functions (Node 24, Flex Consumption)   ── auth: Entra External ID (OI
 | `GET /api/me`                             | GetMe — returns/creates the caller's user doc         |
 | `GET /api/tours`                          | GetTours — list (no `heatmapData`)                    |
 | `GET /api/tours/{id}`                     | GetTour — detail incl. `heatmapData` + image SAS URLs |
+| `GET /api/map`                            | GetMapData — all tours' points + geotagged photo pins |
 | `POST /api/tours/upload`                  | UploadTour — parse GPX, downsample, store             |
 | `PATCH /api/tours/{id}`                   | EditTour                                              |
 | `DELETE /api/tours/{id}`                  | DeleteTour                                            |

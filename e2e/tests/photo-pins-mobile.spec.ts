@@ -38,10 +38,11 @@ buddyTest.describe('photo pins (mobile)', () => {
   buddyTest.use({ viewport: { width: 390, height: 844 } });
 
   buddyTest.beforeEach(async ({ page }) => {
-    // GET /api/tours omits heatmapData/images (see GetTours); the detail fetch
-    // is what brings the geotagged images in.
-    const { id, name, description, distance, createdAt } = geotaggedTour;
+    // GET /api/tours omits heatmapData/images (see GetTours); GET /api/map is
+    // what brings the track and the geotagged images in for the map view.
+    const { id, name, description, distance, createdAt, heatmapData, images } = geotaggedTour;
     const listItem = { id, name, description, distance, createdAt };
+    const mapEntry = { id, heatmapData, images };
     await page.route('**/api/me', (route) =>
       route.fulfill(
         json({
@@ -52,6 +53,7 @@ buddyTest.describe('photo pins (mobile)', () => {
         }),
       ),
     );
+    await page.route('**/api/map', (route) => route.fulfill(json([mapEntry])));
     await page.route('**/api/tours/*', (route) => route.fulfill(json(geotaggedTour)));
     await page.route('**/api/tours', (route) => route.fulfill(json([listItem])));
   });

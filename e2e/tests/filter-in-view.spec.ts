@@ -51,6 +51,12 @@ const listItem = (t: typeof trackedTour) => ({
   createdAt: t.createdAt,
 });
 
+const mapEntry = (t: typeof trackedTour) => ({
+  id: t.id,
+  heatmapData: t.heatmapData,
+  images: t.images,
+});
+
 buddyTest.describe('filter tours in view (#315)', () => {
   buddyTest.beforeEach(async ({ page }) => {
     await page.route('**/api/me', (route) =>
@@ -62,6 +68,9 @@ buddyTest.describe('filter tours in view (#315)', () => {
           createdAt: '2026-01-01',
         }),
       ),
+    );
+    await page.route('**/api/map', (route) =>
+      route.fulfill(json([trackedTour, tracklessTour].map(mapEntry))),
     );
     await page.route(`**/api/tours/${TRACKED_ID}`, (route) => route.fulfill(json(trackedTour)));
     await page.route(`**/api/tours/${TRACKLESS_ID}`, (route) => route.fulfill(json(tracklessTour)));
