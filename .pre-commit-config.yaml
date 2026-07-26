@@ -31,7 +31,7 @@ repos:
 
   # zizmor: detects security vulnerabilities in GitHub Actions workflows
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.26.1
+    rev: v1.27.0
     hooks:
       - id: zizmor
         args: ["--fix"]
