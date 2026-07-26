@@ -40,6 +40,48 @@ describe('DELETE /api/tours/{tourId}', () => {
     expect(res.status).toBe(204);
   });
 
+  it('deletes the document before the blob (#354)', async () => {
+    const order = [];
+    const tours = makeToursContainer(async () => ({ resource: TOUR }));
+    tours.del.mockImplementation(async () => {
+      order.push('doc');
+      return {};
+    });
+    const gpx = makeGpxContainer();
+    gpx.deleteIfExists.mockImplementation(async () => {
+      order.push('blob');
+      return { succeeded: true };
+    });
+
+    await deleteTour(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => gpx.container,
+    );
+
+    // Blob-first would leave a live tour whose GPX download 404s if the
+    // document delete then failed; doc-first leaves only an orphaned blob.
+    expect(order).toEqual(['doc', 'blob']);
+  });
+
+  it('does not delete the blob when the document delete fails (#354)', async () => {
+    const tours = makeToursContainer(async () => ({ resource: TOUR }));
+    tours.del.mockRejectedValue(Object.assign(new Error('conflict'), { code: 409 }));
+    const gpx = makeGpxContainer();
+
+    await expect(
+      deleteTour(
+        reqWith(TID),
+        mockAuth,
+        () => tours.container,
+        () => gpx.container,
+      ),
+    ).rejects.toThrow('conflict');
+
+    expect(gpx.deleteIfExists).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when tourId is not a UUID', async () => {
     const tours = makeToursContainer(async () => ({ resource: TOUR }));
     const gpx = makeGpxContainer();

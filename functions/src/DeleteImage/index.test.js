@@ -53,6 +53,53 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     expect(res.status).toBe(204);
   });
 
+  it('removes the entry before deleting the blob (#354)', async () => {
+    const order = [];
+    const tours = makeToursContainer(async () => ({
+      resource: { ...TOUR, images: [...TOUR.images] },
+    }));
+    tours.replace.mockImplementation(async (doc) => {
+      order.push('doc');
+      return { resource: doc };
+    });
+    const images = makeImagesContainer();
+    images.deleteIfExists.mockImplementation(async () => {
+      order.push('blob');
+      return { succeeded: true };
+    });
+
+    await deleteImage(
+      reqWith(TID, IMG1),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+    );
+
+    // Blob-first would leave tour.images referencing a deleted blob — a
+    // permanently broken thumbnail — if the write below then failed.
+    expect(order).toEqual(['doc', 'blob']);
+  });
+
+  it('does not delete the blob when the entry removal fails (#354)', async () => {
+    const tours = makeToursContainer(async () => ({
+      resource: { ...TOUR, images: [...TOUR.images] },
+    }));
+    // Never resolves a 412 → the retry loop exhausts and rethrows.
+    tours.replace.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
+    const images = makeImagesContainer();
+
+    await expect(
+      deleteImage(
+        reqWith(TID, IMG1),
+        mockAuth,
+        () => tours.container,
+        () => images.container,
+      ),
+    ).rejects.toThrow('conflict');
+
+    expect(images.deleteIfExists).not.toHaveBeenCalled();
+  });
+
   // .replace() overwrites the whole document, so without an ETag check two
   // deletes racing on the same tour could silently clobber each other (same
   // class of bug as UploadImage's — see index.js). A 412 means someone else's
