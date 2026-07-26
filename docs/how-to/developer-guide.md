@@ -66,7 +66,9 @@ Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
 
 **Local no-auth mode:** set `SKIP_AUTH=true` (backend) + `devMode: true`
 (frontend) — the middleware returns a fixed dev user and the SPA skips MSAL.
-This is the default from the config templates. Never enable it in a deployed env.
+This is the default from the config templates. It cannot be combined with real
+auth: with any `ENTRA_TENANT_ID`/`ENTRA_CLIENT_ID` set, the middleware throws
+instead of honouring the bypass.
 
 To run against a **real** tenant locally, fill `ENTRA_*` in
 `functions/local.settings.json` and `entraSubdomain`/`entraClientId` in
