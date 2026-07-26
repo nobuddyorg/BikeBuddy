@@ -41,6 +41,10 @@ Full docs live in [`docs/`](docs/README.md), organised by [Diátaxis](https://di
 
 Infrastructure details: [Infrastructure how-to](docs/how-to/infrastructure.md). Contributor conventions: [Contributing guide](CONTRIBUTING.md).
 
+## Screenshot
+
+![BikeBuddy map view with a heatmap and tour sidebar](docs/assets/screenshots/map-overview.png)
+
 ## Technology map
 
 <p align="center">
