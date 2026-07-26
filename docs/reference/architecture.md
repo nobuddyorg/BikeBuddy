@@ -38,6 +38,10 @@ Azure Functions (Node 24, Flex Consumption)   ── auth: Entra External ID (OI
 ## Key data rules
 
 - `heatmapData` is excluded from list endpoints and from Cosmos indexing.
+- Responses are projected, never the raw stored document: Cosmos system
+  properties (`_rid`, `_self`, `_etag`, `_ts`) and `userId` stay server-side.
+  `ExportData` is the deliberate exception — a portability export is the whole
+  document by definition.
 - GPX > 5,000 trackpoints is downsampled before storing (keeps docs < 2 MB).
 - Image GPS (EXIF) is read from the original before resize strips it; stored as
   `lat`/`lon` on the image record and used for map pins.
