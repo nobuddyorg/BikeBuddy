@@ -32,6 +32,19 @@ function processPoints(points) {
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 
+// A <trkpt> with a missing or non-numeric lat/lon parses to NaN, and a single
+// one poisons the whole tour: it flows into the distance accumulator (stored as
+// `distance: null`, since JSON has no NaN) and reaches Leaflet's fitBounds as a
+// [null, null] pair, breaking the map for every tour. Drop such points instead.
+// Range bounds match the EXIF check in extractGps.js.
+const isValidPoint = ([lat, lon]) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lon) &&
+  lat >= -90 &&
+  lat <= 90 &&
+  lon >= -180 &&
+  lon <= 180;
+
 // fast-xml-parser yields a single object, an array, or undefined for a repeated
 // element; normalise to an array.
 const toArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
@@ -59,7 +72,9 @@ function parseGpx(gpxInput) {
 
   const allPoints = tracks.flatMap((trk) =>
     toArray(trk.trkseg).flatMap((seg) =>
-      toArray(seg.trkpt).map((pt) => [parseFloat(pt['@_lat']), parseFloat(pt['@_lon'])]),
+      toArray(seg.trkpt)
+        .map((pt) => [parseFloat(pt['@_lat']), parseFloat(pt['@_lon'])])
+        .filter(isValidPoint),
     ),
   );
 

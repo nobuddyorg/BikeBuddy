@@ -132,6 +132,80 @@ describe('parseGpx', () => {
     expect(result.heatmapData).toEqual([]);
   });
 
+  it('skips trackpoints with missing lat/lon without corrupting distance (#350)', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="48" lon="11"/>
+    <trkpt/>
+    <trkpt lat="49" lon="12"/>
+  </trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.heatmapData).toEqual([
+      [48, 11],
+      [49, 12],
+    ]);
+    // Same reference value as the two-point great-circle case above: the
+    // dropped point must not contribute to (or NaN out) the total.
+    expect(result.distanceKm).toBeCloseTo(133.3878, 2);
+  });
+
+  it('skips trackpoints with non-numeric lat/lon (#350)', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="48" lon="11"/>
+    <trkpt lat="not-a-number" lon="11"/>
+    <trkpt lat="48" lon=""/>
+  </trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.heatmapData).toEqual([[48, 11]]);
+    expect(result.distanceKm).toBe(0);
+  });
+
+  it('skips trackpoints with out-of-range coordinates (#350)', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="91" lon="11"/>
+    <trkpt lat="-91" lon="11"/>
+    <trkpt lat="48" lon="181"/>
+    <trkpt lat="48" lon="-181"/>
+    <trkpt lat="48" lon="11"/>
+  </trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.heatmapData).toEqual([[48, 11]]);
+    expect(result.distanceKm).toBe(0);
+  });
+
+  it('keeps coordinates exactly on the range boundaries (#350)', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="90" lon="180"/>
+    <trkpt lat="-90" lon="-180"/>
+  </trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.heatmapData).toEqual([
+      [90, 180],
+      [-90, -180],
+    ]);
+  });
+
+  it('returns zero distance and empty heatmap when every trackpoint is invalid (#350)', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg><trkpt/><trkpt lat="abc" lon="def"/></trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.distanceKm).toBe(0);
+    expect(result.heatmapData).toEqual([]);
+  });
+
   it('handles a <trk> with no <trkseg> child at all', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
