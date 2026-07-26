@@ -26,8 +26,7 @@ import * as i18n from './lib/i18n.js';
 const t = i18n.t;
 const tApi = i18n.tApi;
 
-// Globals provided by classic <script>s loaded before this module: config.js
-// (BIKEBUDDY_CONFIG), the vendored MSAL bundle, and Leaflet + its heat plugin.
+// Set by the classic <script>s in index.html, loaded before this module.
 const BIKEBUDDY_CONFIG = window.BIKEBUDDY_CONFIG || {};
 const msal = window.msal;
 const L = window.L;
@@ -66,14 +65,9 @@ const tileLayer = L.tileLayer(TILE_URLS.light, {
   maxZoom: 19,
 }).addTo(map);
 
-// Leaflet tile URLs are JS state (unlike the CSS palette, which the browser
-// switches natively via prefers-color-scheme) — mirror the OS setting here so
-// the basemap matches the rest of the UI, including live theme changes.
-//
-// CARTO's dark_all tiles are low-contrast by design (#342), so the dark tile
-// pane also gets a CSS filter (map-tiles-dark, see style.css) to lift roads,
-// labels and boundaries — the heat/track layer lives in its own pane and is
-// unaffected.
+// Tile URLs are JS state, so the CSS palette's prefers-color-scheme switch
+// doesn't reach them. CARTO's dark tiles are low-contrast by design, hence the
+// extra map-tiles-dark filter in style.css (#342).
 function applyMapTheme(isDark) {
   tileLayer.setUrl(isDark ? TILE_URLS.dark : TILE_URLS.light);
   tileLayer.getContainer()?.classList.toggle('map-tiles-dark', isDark);
@@ -83,8 +77,8 @@ const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 applyMapTheme(darkMediaQuery.matches);
 darkMediaQuery.addEventListener('change', (e) => applyMapTheme(e.matches));
 
-// Plain-object snapshot of the current viewport, for the framework-free
-// toursInView() filter (#315).
+// Plain object, not the Leaflet bounds, so toursInView stays testable without
+// Leaflet (#315).
 function mapBoundsPlain() {
   const bounds = map.getBounds();
   return {
@@ -95,9 +89,8 @@ function mapBoundsPlain() {
   };
 }
 
-// Leaflet caches the container size, so when the detail panel opens/closes (or
-// the window resizes) the map keeps its old width and leaves gray space. Recompute
-// after the layout has reflowed.
+// Leaflet caches the container size, so a panel opening or the window resizing
+// leaves gray space until it is recomputed after the reflow.
 function refreshMapSize() {
   requestAnimationFrame(() => map.invalidateSize());
 }
@@ -108,8 +101,6 @@ window.addEventListener('resize', refreshMapSize);
 const $ = (id) => document.getElementById(id);
 const show = (el, visible) => el.classList.toggle('hidden', !visible);
 
-// Non-blocking notification. type: 'info' | 'error' | 'success'. Click or wait
-// to dismiss. Used instead of alert() and for surfacing otherwise-silent errors.
 function toast(message, type = 'info', ms = 4000) {
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
@@ -215,22 +206,18 @@ const LOGIN_SCOPES = {
   ],
 };
 
-// Use the no-auth dev path when devMode is set OR External ID isn't configured
-// yet. Pairs with the backend's SKIP_AUTH so the app stays usable before — and
-// flips to real auth the moment — the tenant details are provided.
+// Pairs with the backend's SKIP_AUTH, so the app also works before a tenant is
+// configured and flips to real auth the moment one is.
 const USE_DEV_AUTH =
   BIKEBUDDY_CONFIG.devMode || !(BIKEBUDDY_CONFIG.entraSubdomain && BIKEBUDDY_CONFIG.entraClientId);
 
-// In dev mode there's no real session, so remember an explicit sign-out to keep
-// the user logged out across refreshes (real auth persists via MSAL's cache).
+// Dev mode has no session to clear, so an explicit sign-out is remembered here.
 const DEV_SIGNED_OUT_KEY = 'bb-dev-signed-out';
 
 // ── Dev mode (BIKEBUDDY_CONFIG.devMode = true) ────────────────────────────────
-// Skips MSAL. With the backend running (SKIP_AUTH=true), it calls the real
-// /api/me so login exercises the Functions API + Cosmos emulator. If the API
-// isn't reachable (e.g. frontend opened from file://), it falls back to a
-// synthetic user so the UI is still usable offline.
 
+// Fallback for when the backend isn't reachable at all (frontend opened from
+// file://); with it running, dev sign-in goes through the real /api/me.
 const SYNTHETIC_USER = {
   id: 'local-dev-user',
   name: 'Local Dev',
@@ -238,10 +225,8 @@ const SYNTHETIC_USER = {
   createdAt: new Date().toISOString(),
 };
 
-// Backend is the source of truth for language once logged in. If it disagrees
-// with the currently active locale, apply it (one reload). No migration the
-// other way: a user with nothing saved yet keeps whatever's currently active
-// until they explicitly pick one in settings (#290).
+// One-way on purpose: a user with no saved language keeps the active locale
+// until they pick one in settings, rather than having it written back (#290).
 function syncLanguageFromUser(user) {
   if (user.language && user.language !== i18n.getLocale()) {
     i18n.setLanguage(user.language);
@@ -281,15 +266,11 @@ async function initAuth() {
       knownAuthorities: [`${subdomain}.ciamlogin.com`],
       redirectUri: window.location.origin + window.location.pathname,
     },
-    // localStorage: keep the user signed in across tab close/reopen (token still
-    // expires normally; sign-out clears it). Supersedes the earlier sessionStorage
-    // choice (#146).
+    // localStorage, not sessionStorage: survives tab close/reopen (#146).
     cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false },
   });
   await msalClient.initialize();
 
-  // Restore a cached session after a refresh so the user isn't asked to sign in
-  // again (token is reacquired silently on the first API call).
   const account = msalClient.getAllAccounts()[0];
   if (account) {
     setUserFromAccount(account);
@@ -312,7 +293,7 @@ async function signIn() {
   try {
     onAuthSuccess(await msalClient.loginPopup(LOGIN_SCOPES));
   } catch {
-    // user cancelled popup or popup was blocked — no-op
+    // cancelled or blocked popup — no-op
   }
 }
 
@@ -360,8 +341,8 @@ function onAuthSuccess(result) {
   renderSignedIn();
 }
 
-// Render the signed-in UI synchronously (so the Sign In prompt never lingers
-// behind the tours request), then load tours and hydrate the canonical user.
+// Renders before awaiting anything, so the Sign In prompt never lingers behind
+// the tours request.
 function renderSignedIn() {
   state.loadingTours = true;
   renderNavAuth();
@@ -370,9 +351,8 @@ function renderSignedIn() {
   refreshUser();
 }
 
-// The user doc (id, name, email, createdAt) is the source of truth; token
-// claims can be missing right after sign-up (e.g. name), so merge it in once
-// loaded. Uses apiFetch → API_BASE (a relative URL would hit the Pages origin).
+// Token claims can be missing right after sign-up (name especially), so the
+// user doc is merged in once loaded.
 async function refreshUser() {
   try {
     const res = await apiFetch('/api/me');
@@ -390,8 +370,6 @@ function renderNavAuth() {
   show(elBtnLogin, !signedIn);
   show(elUserMenu, signedIn);
   elBtnUpload.disabled = !signedIn;
-  // Compact circular avatar (display-name initials, falling back to email)
-  // keeps the header small on mobile; the full name/email live in the modal.
   if (signedIn) {
     elBtnProfile.textContent = initials(state.user.name || state.user.email);
     elBtnProfile.classList.add('btn-avatar');
@@ -401,8 +379,6 @@ function renderNavAuth() {
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-// fetch wrapper that attaches the bearer token when one is available
-// (in devMode getAccessToken() returns null and the backend accepts the request).
 const API_BASE = BIKEBUDDY_CONFIG.apiBaseUrl || '';
 
 async function apiFetch(path, options = {}) {
@@ -429,11 +405,9 @@ async function loadTours() {
   await renderAllHeatmap();
 }
 
-// Fetch + cache the detail fields (heatmapData, full images, gpxFileUrl) not
-// present in the list. The map alone gets by with the leaner /api/map payload
-// (see ensureMapData), so the flag — not the presence of heatmapData/images —
-// is what tells the two apart. The cache expires ahead of the signed URLs it
-// holds, so a tab left open past their lifetime refetches (#362).
+// Keyed on the explicit flag rather than on heatmapData/images being present:
+// ensureMapData fills those in too, from the leaner /api/map payload. Expires
+// ahead of the signed URLs it holds, so a long-open tab refetches (#362).
 async function ensureDetail(tour) {
   if (tour.detailLoaded && !isStale(tour)) return;
   try {
@@ -445,7 +419,7 @@ async function ensureDetail(tour) {
       tour.gpxFileUrl = detail.gpxFileUrl;
     }
   } catch {
-    // network unavailable — fall back to empty so callers don't break
+    // offline — the fallbacks below keep callers working
   }
   tour.heatmapData = tour.heatmapData || [];
   tour.images = tour.images || [];
@@ -455,7 +429,7 @@ async function ensureDetail(tour) {
 
 // ── Sidebar rendering ─────────────────────────────────────────────────────────
 
-// textContent (not innerHTML) so user-supplied tour names can never inject markup.
+// textContent, never innerHTML: tour names are user-supplied.
 function textDiv(className, text) {
   const div = document.createElement('div');
   div.className = className;
@@ -463,30 +437,18 @@ function textDiv(className, text) {
   return div;
 }
 
-// Long-press (~500ms hold, cancelled by movement past a small tolerance)
-// enters select mode with the pressed tour already checked — mobile's only
-// entry point once the Select button is hidden there (#275). Wired
-// unconditionally: Pointer Events unify touch and mouse under one path, so
-// this also works as mouse click-and-hold on desktop, alongside its button.
+// Long-press is mobile's only way into select mode once the Select button is
+// hidden there (#275). Wired unconditionally — Pointer Events cover mouse
+// click-and-hold too, alongside the button.
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 const SWIPE_ACTION_THRESHOLD_PX = 72;
 
-// The ghost click a touch long-press leaves behind must be suppressed no
-// matter where it lands — onLongPress()'s re-render doesn't just rebuild
-// #tour-list, it also reveals the selection bar (a sibling, in normal flow,
-// not an overlay), which shifts every row down. For the topmost row that can
-// move the ghost click's fixed screen coordinates onto the selection bar
-// itself — even onto Cancel/Delete — so scoping the listener to #tour-list
-// alone isn't reliable. elSidebar (<aside class="sidebar">) is the nearest
-// ancestor that's never destroyed and contains both #tour-list and
-// #selection-bar, so it catches the click wherever it lands within the
-// sidebar without reaching into the rest of the app (document would too,
-// which risks eating an unrelated click elsewhere if the ghost click never
-// arrives at all — see the timeout below). The timeout is a safety net for
-// exactly that case (the browser sometimes suppresses the click itself, no
-// click ever arrives to consume the flag) — without it the flag could stay
-// stuck true and swallow an unrelated later click within the sidebar.
+// Revealing the selection bar shifts every row down, so a long-press's ghost
+// click can land anywhere in the sidebar — even on Cancel/Delete — not just on
+// #tour-list. elSidebar is the nearest ancestor that survives the re-render and
+// contains both. The timeout covers the browsers that suppress the ghost click
+// entirely, where nothing would otherwise clear the flag.
 let suppressNextTourClick = false;
 
 function suppressNextTourClickOnce() {
@@ -507,16 +469,10 @@ elSidebar.addEventListener(
   true,
 );
 
-// onLongPress() is deliberately called from pointerup, not from the
-// setTimeout at the 500ms threshold. Calling it earlier — while the pointer
-// is still down — makes onLongPress()'s re-render (enterSelectMode ->
-// renderSidebar) destroy the <li> mid-gesture; browsers then retarget the
-// still-pending pointerup/click to whatever's newly there, not the original
-// element, which broke every attempt to key suppression off the original
-// <li> (confirmed live via Playwright/CDP touch dispatch). Deferring the
-// call to pointerup means the mutation only happens once this pointer's
-// event sequence has already fully reached us — nothing further is expected
-// on `el` for this gesture, so retargeting can't interfere.
+// onLongPress fires from pointerup, not from the 500ms timer: firing it while
+// the pointer is still down lets its re-render destroy the <li> mid-gesture,
+// and the browser then retargets the pending pointerup/click to whatever has
+// taken its place.
 function bindLongPress(el, onLongPress) {
   let timer = null;
   let start = null;
@@ -558,15 +514,11 @@ function bindLongPress(el, onLongPress) {
   el.addEventListener('pointerleave', cancel);
 }
 
-// Touch-only: mirrors bindLongPress's mobile-only role (#275). Live-
-// translates contentEl during the drag so whichever of .tour-item-delete-bg
-// / .tour-item-detail-bg (its siblings, behind it) corresponds to the drag
-// direction is revealed proportionally to how far it's dragged. Crossing
-// SWIPE_ACTION_THRESHOLD_PX on release deletes (swipe right, #289) or opens
-// the detail panel (swipe left, #308 — a tap alone no longer does this on
-// mobile, see createTourItem); anything short of that — including dragging
-// back before releasing — just snaps back via reset(), no separate
-// "cancelled" state needed since release only ever checks the final dx once.
+// Touch-only, like bindLongPress (#275). Dragging contentEl uncovers whichever
+// of its two sibling backgrounds the direction points at; past
+// SWIPE_ACTION_THRESHOLD_PX on release, right deletes (#289) and left opens the
+// detail panel (#308). Anything less snaps back — release only ever looks at
+// the final dx, so a drag-back needs no cancelled state of its own.
 function bindTourSwipe(contentEl, tour) {
   let start = null;
   let dragging = false;
@@ -594,10 +546,8 @@ function bindTourSwipe(contentEl, tour) {
     }
     dragging = true;
     contentEl.style.transition = 'none';
-    // Clamped to half the row's width so the drag can never uncover more
-    // than its own bg — .tour-item-delete-bg / .tour-item-detail-bg each
-    // occupy one half, and past that point an overshot drag started
-    // revealing the other action's bg on the far edge.
+    // Half the row's width: each background occupies one half, and an overshoot
+    // past that starts revealing the other action's on the far edge.
     const maxDx = contentEl.offsetWidth / 2;
     const clampedDx = Math.max(-maxDx, Math.min(maxDx, dx));
     contentEl.style.transform = `translateX(${clampedDx}px)`;
@@ -611,17 +561,13 @@ function bindTourSwipe(contentEl, tour) {
     const dx = e.clientX - start.x;
     reset();
     if (dx >= SWIPE_ACTION_THRESHOLD_PX) {
-      // Mirrors bindLongPress's own use of this: a drag this large risks a
-      // trailing ghost click landing on whatever row now occupies this
-      // screen position once the list re-renders without this tour.
+      // Once the list re-renders without this tour, a trailing ghost click
+      // would land on whatever row took its place.
       suppressNextTourClickOnce();
       await deleteTourById(tour.id);
     } else if (dx <= -SWIPE_ACTION_THRESHOLD_PX) {
-      // No suppressNextTourClickOnce() here, unlike the delete branch above:
-      // a trailing ghost click lands back on this same row (nothing shifted,
-      // unlike a delete), and highlightTour's own same-tour guard (#310)
-      // already makes that a no-op — a sidebar-wide 400ms blackout would
-      // otherwise also risk swallowing a genuinely new tap on another row.
+      // No suppression needed here: nothing shifts, so the ghost click lands
+      // back on this row, where highlightTour's same-tour guard eats it (#310).
       selectTour(tour.id);
     }
   });
@@ -632,9 +578,8 @@ function bindTourSwipe(contentEl, tour) {
   });
 }
 
-// Builds the tour-item-name div, wrapping runs of consecutive matched
-// indices in <mark>. Built with createElement/textContent only — tour
-// names are user-supplied and must never be interpreted as markup.
+// Wraps runs of matched indices in <mark>, via createElement/textContent only —
+// tour names are user-supplied.
 function highlightedNameNode(name, indices) {
   name = name || '';
   const div = document.createElement('div');
@@ -657,16 +602,13 @@ function highlightedNameNode(name, indices) {
   return div;
 }
 
-// Simple, black-only trash glyph (Material "delete", solid fill) — swapped
-// in for the previous white emoji so it reads clearly against the red
-// delete-bg regardless of platform emoji rendering.
+// Glyphs rather than emoji: these sit on coloured backgrounds and had to read
+// the same regardless of platform emoji rendering.
 const TRASH_ICON_SVG =
   '<svg class="tour-item-delete-icon" viewBox="0 0 24 24" aria-hidden="true">' +
   '<path fill="#000" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>' +
   '</svg>';
 
-// Black eye glyph (Material "visibility", solid fill) for the swipe-left
-// view-details action (#308).
 const DETAIL_ICON_SVG =
   '<svg class="tour-item-detail-icon" viewBox="0 0 24 24" aria-hidden="true">' +
   '<path fill="#000" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>' +
@@ -676,9 +618,6 @@ function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
 
-  // Each bg only responds to its own drag direction (bindTourSwipe), so it
-  // only needs the one icon nearest the edge that direction reveals first —
-  // left for delete (swipe right), right for view details (swipe left, #308).
   const deleteBg = document.createElement('div');
   deleteBg.className = 'tour-item-delete-bg';
   deleteBg.setAttribute('aria-hidden', 'true');
@@ -710,9 +649,8 @@ function createTourItem(tour) {
   );
 
   content.append(checkbox, details);
-  // The click event itself isn't reliably a PointerEvent across browsers,
-  // so a plain 'pointerdown' listener (like bindLongPress/bindTourSwipe use
-  // below) is what tells clicks apart by input type, not e.pointerType here.
+  // A click event isn't reliably a PointerEvent across browsers, so the input
+  // type has to come from the preceding pointerdown.
   let lastPointerType = null;
   content.addEventListener('pointerdown', (e) => {
     lastPointerType = e.pointerType;
@@ -721,9 +659,8 @@ function createTourItem(tour) {
     if (state.selectMode) {
       toggleTourSelection(tour.id);
     } else if (lastPointerType === 'touch') {
-      // Mobile: a tap highlights the row like desktop's click does, but
-      // without opening the detail panel — that's swipe-left's job (#308).
-      // Multi-select mode is entered only via long-press, not a tap (#310).
+      // On touch the panel is swipe-left's job (#308) and select mode is
+      // long-press's (#310), so a tap only highlights.
       highlightTour(tour.id);
     } else {
       selectTour(tour.id);
@@ -797,24 +734,19 @@ function enterSelectMode() {
   renderSidebar();
 }
 
-// Enters select mode with exactly one tour pre-checked — a long-press only
-// (#310); a plain tap highlights instead, via highlightTour below.
+// Long-press only (#310) — a plain tap highlights instead.
 function enterSingleSelect(tourId) {
   enterSelectMode();
   toggleTourSelection(tourId);
 }
 
-// Highlights a row the way desktop's click does (state.selectedTourId drives
-// createTourItem's 'active' class) and focuses the map on it, without opening
-// the detail panel — that's swipe-left's job on mobile (#308/#310). Closes
-// any already-open panel first: leaving it open for a different tour while
-// selectedTourId moves to this one would point its Edit/Delete/image actions
-// (which all read state.selectedTourId) at the wrong tour.
+// A tap's half of what a desktop click does: select and focus the map, but
+// leave the panel to swipe-left (#308/#310). Any panel already open belongs to
+// another tour, and its actions all read selectedTourId, so it has to close.
 //
-// The tourId === state.selectedTourId case is a deliberate no-op, not just
-// a redundant early return: it's also what keeps a swipe-left's own
-// trailing ghost click (bindTourSwipe's selectTour(tour.id) already set
-// this same id) from closing the detail panel that swipe just opened.
+// The same-tour early return is load-bearing, not just an optimisation: it is
+// what stops a swipe-left's own trailing ghost click from closing the panel
+// that swipe just opened.
 function highlightTour(tourId) {
   if (state.selectedTourId === tourId) return;
   closeDetailPanel();
@@ -832,10 +764,8 @@ function exitSelectMode() {
 
 // ── Heatmap rendering ─────────────────────────────────────────────────────────
 
-// Tuning: previously max(0.4) < per-point intensity(0.6), so even a single pass
-// saturated to the hottest colour. With max=1.0 and a lower per-point intensity
-// a single pass sits at the cool end and only overlapping passes heat up — the
-// dynamic-range "stretch" is preserved. minOpacity keeps sparse segments visible.
+// max must stay above the per-point intensity in toHeatPoints, or a single pass
+// already saturates to the hottest colour and repeat passes stop standing out.
 const HEAT_OPTIONS = {
   radius: 16,
   blur: 20,
@@ -852,18 +782,14 @@ function clearHeatmap() {
   }
 }
 
-// heatmapData from the API is [[lat, lon], ...]; add a fixed intensity so the
-// gradient renders consistently with HEAT_OPTIONS.max.
+// The API sends [[lat, lon], ...]; leaflet.heat wants a third intensity value.
 const toHeatPoints = (heatmapData) => (heatmapData || []).map(([lat, lon]) => [lat, lon, 0.4]);
 
-// Replaces the current heat layer with one for the given points and fits the view
-// to them. Passing no points just clears the layer.
 function renderHeatmap(points, padding) {
   clearHeatmap();
   if (points.length === 0) return;
 
   state.heatLayer = L.heatLayer(points, heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS)).addTo(map);
-  // latLngBounds reads [lat, lng] from each [lat, lng, intensity] point and ignores the rest.
   map.fitBounds(L.latLngBounds(points), { padding: [padding, padding] });
 }
 
@@ -875,9 +801,8 @@ async function renderAllHeatmap() {
   renderPins();
 }
 
-// While in select mode, the map mirrors the checked set: 1 tour, 5 tours, or
-// all of them (#298). Falls back to the all-tours view when nothing is
-// checked, so the map never goes blank just because select mode is active.
+// Mirrors the checked set while in select mode (#298), falling back to all
+// tours when nothing is checked so the map never goes blank.
 async function renderSelectedToursHeatmap() {
   if (state.selectedIds.size === 0) {
     await renderAllHeatmap();
@@ -900,9 +825,8 @@ const PIN_GROUP_THRESHOLD_PX = 24;
 const PIN_FAN_RADIUS_PX = 16;
 const PIN_MIN_ZOOM = 8;
 
-// Geotagged images to pin: scoped to the selected tour when one is open, so a
-// single tour's pins never leak photos from other tours (#274); across all
-// loaded tours when viewing the full map (no tour selected).
+// Scoped to the selected tour so its pins never leak in photos from others
+// (#274), and across every loaded tour on the full map.
 function geotaggedImages() {
   const tours = state.selectedTourId
     ? state.tours.filter((t) => t.id === state.selectedTourId)
@@ -912,12 +836,9 @@ function geotaggedImages() {
   );
 }
 
-// L.divIcon takes an element as well as a string, and the element form is what
-// this needs: assigning img.src is a property write, never parsed as markup,
-// whereas the string form went through innerHTML. Today's URLs are signed blob
-// URLs built from server-generated names, so nothing hostile can reach it — but
-// that safety lives in backend blob naming, three modules away, and this is the
-// last data-carrying innerHTML sink in the app (#367).
+// L.divIcon's element form, not its string form: img.src is a property write
+// rather than parsed markup. The URLs are safe today, but only because of how
+// the backend names blobs — three modules away from here (#367).
 function photoPinIcon(url) {
   const img = document.createElement('img');
   img.src = url;
@@ -930,10 +851,8 @@ function photoPinIcon(url) {
   });
 }
 
-// imageId → live L.Marker. Kept across renderPins() calls so a re-render
-// (e.g. on zoomend) repositions existing markers instead of destroying and
-// recreating their DOM (including the <img> inside each icon), which was
-// visibly flickering pins on every zoom step.
+// Kept across renderPins() calls so a re-render repositions markers instead of
+// recreating their DOM, which flickered the pin images on every zoom step.
 const pinMarkers = new Map();
 
 function clearPins() {
@@ -950,14 +869,10 @@ function makePinMarker(img, latlng) {
   return marker;
 }
 
-// The toggle is hidden unless some photo has coordinates; the layer is only
-// added when the toggle is on (default off, per #100). Grouping/fanning
-// happens in screen-pixel space at the current zoom (#210), so pins that
-// visually overlap fan out, and separate/re-collapse live as the user zooms
-// (re-triggered by the zoomend listener below). Below PIN_MIN_ZOOM, unrelated
-// photos from different tours/regions can end up in the same proximity group
-// and clutter the fixed-radius fan, so pins are hidden entirely until the
-// user zooms in far enough for them to be individually meaningful (#236).
+// Grouping and fanning work in screen pixels at the current zoom (#210), so
+// overlapping pins separate and re-collapse live as the user zooms. Below
+// PIN_MIN_ZOOM photos from unrelated tours fall into the same group and clutter
+// the fan, so pins are hidden entirely down there (#236).
 function renderPins() {
   const images = geotaggedImages();
   show(elPinToggle, images.length > 0);
@@ -1002,29 +917,24 @@ function renderPins() {
   added.forEach((marker) => state.pinLayer.addLayer(marker));
 }
 
-// 'moveend' fires after any view change (pan or zoom), so this one listener
-// keeps the "in view" tour list in sync without a separate zoom handler (#315).
+// 'moveend' covers pan and zoom both, so the in-view list needs no second
+// listener (#315).
 map.on('moveend', () => {
   if (state.filterInView) renderSidebar();
 });
 map.on('zoomend', renderPins);
 
-// Leaflet.heat's blob radius/blur are fixed CSS pixels, so re-apply the
-// zoom-scaled values (#318) whenever the user zooms after the initial render.
+// leaflet.heat's radius/blur are fixed CSS pixels, so they need rescaling on
+// every zoom (#318).
 map.on('zoomend', () => {
   state.heatLayer?.setOptions(heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS));
 });
 
 // ── Tour selection ────────────────────────────────────────────────────────────
 
-// Loads full detail for the tour, then zooms/limits the map to just its
-// heatmap and scopes photo pins to it (geotaggedImages() already reads
-// state.selectedTourId). Shared by selectTour (desktop click / swipe-left,
-// which also opens the detail panel below) and highlightTour (mobile tap,
-// which must focus the map the same way but without opening the panel —
-// that's swipe-left's job, #308/#310) so a plain tap isn't left with a
-// stale full-map view (#331). Returns the tour once loaded, or null if the
-// selection moved on to something else while detail was loading.
+// The map half of selecting a tour, shared by selectTour and highlightTour so
+// a plain tap isn't left on a stale full-map view (#331). Returns null if the
+// selection moved on while detail was loading.
 async function focusTourOnMap(tourId) {
   const tour = state.tours.find((t) => t.id === tourId);
   if (!tour) return null;
@@ -1047,19 +957,15 @@ async function selectTour(tourId) {
   if (loaded) renderGallery(loaded);
 }
 
-// Closes the panel and leaves the tour selected: the map keeps its heatmap, the
-// pins stay scoped to it and its row stays active. The map is always showing
-// either one tour with its own photos or every tour with all of them, never a
-// mix of the two (#378) — leaving "Show All Tours" as the way back to all.
+// The panel closes, the selection outlives it: the map is always showing one
+// tour with its own photos or every tour with all of them, never a mix (#378).
 function closeDetailPanel() {
   show(elDetailPanel, false);
   refreshMapSize();
 }
 
-// Drops the selection itself, for when the selected tour is gone or the user
-// asked for the all-tours view. Every caller renders the all-tours heatmap
-// after, which is what keeps the map from being left on a tour that is no
-// longer selected.
+// Ends the selection itself. Every caller renders the all-tours heatmap after,
+// which is what keeps the map off a tour that is no longer selected.
 function deselectTour() {
   state.selectedTourId = null;
   closeDetailPanel();
@@ -1204,7 +1110,6 @@ function resetImageSection() {
   elImageDropzone.classList.remove('dragover');
 }
 
-// A thumbnail with a click-to-open lightbox and a delete overlay button.
 function createImageTile(image) {
   const fig = document.createElement('figure');
   fig.className = 'image-tile';
@@ -1230,9 +1135,8 @@ function createImageTile(image) {
   return fig;
 }
 
-// A grid tile representing one in-flight upload: starts pending (progress
-// ring), can move to error (message + retry/dismiss) or done (swaps to the
-// same markup createImageTile produces).
+// One in-flight upload: pending (progress ring) → error (retry/dismiss) or done
+// (swapped for the markup createImageTile produces).
 function createPendingImageTile(file) {
   const fig = document.createElement('figure');
   fig.className = 'image-tile image-tile-pending';
@@ -1336,10 +1240,8 @@ function showImageError(message) {
   show(elImageError, true);
 }
 
-// Uploads a batch of files with at most 3 in flight at once. Each file gets
-// its own placeholder tile in #tour-image-grid immediately; client-invalid
-// files never hit the network. Reuses the single-image endpoint, called once
-// per file — see docs/superpowers/specs/2026-07-03-multi-image-upload-design.md.
+// One request per file against the single-image endpoint, 3 in flight at once —
+// see docs/superpowers/specs/2026-07-03-multi-image-upload-design.md.
 async function uploadImages(files) {
   show(elImageError, false);
   const tourId = state.selectedTourId;
@@ -1414,7 +1316,7 @@ async function openProfile() {
   renderProfile();
   openModal(elProfileModal);
 
-  // Join date lives on the user doc; hydrate if the login session lacked it.
+  // Join date lives on the user doc, which the login session may not have.
   if (!state.user.createdAt) {
     await refreshUser();
     renderProfile();
@@ -1425,7 +1327,6 @@ function closeProfile() {
   closeModal(elProfileModal);
 }
 
-// Save an edited display name to the user doc (PATCH /api/me).
 async function saveProfileName(e) {
   e.preventDefault();
   const name = elProfileNameInput.value.trim();
@@ -1451,9 +1352,8 @@ async function saveProfileName(e) {
   }
 }
 
-// Persist the chosen language to the user doc (PATCH /api/me) before applying
-// it, so it's still set next time the user signs in anywhere. i18n.setLanguage
-// writes localStorage and reloads, re-rendering every string.
+// Persisted before it is applied: i18n.setLanguage reloads the page, so
+// anything after it never runs.
 async function selectLanguage(code) {
   try {
     const res = await apiFetch('/api/me', {
@@ -1471,7 +1371,7 @@ async function selectLanguage(code) {
   }
 }
 
-// GDPR: download all of the user's data as JSON.
+// GDPR data export.
 async function downloadMyData() {
   try {
     const res = await apiFetch('/api/me/export');
@@ -1488,12 +1388,10 @@ async function downloadMyData() {
   }
 }
 
-// The signed URL's Content-Disposition (set by GetTour) carries the filename,
-// so a plain navigation-style download works without a same-origin fetch —
-// the blob is served directly from storage, a different origin than the app.
-// That navigation reports nothing back, so an expired URL would hand the user
-// storage's XML error body named <tour>.gpx: refresh the tour first, and say
-// so rather than navigate when no usable URL comes back (#362).
+// A navigation, not a fetch: the blob is cross-origin and its filename comes
+// from the signed URL's Content-Disposition. Navigations report nothing back,
+// so an expired URL would download storage's XML error as <tour>.gpx — hence
+// the refresh first, and the refusal to navigate without a usable URL (#362).
 async function downloadSelectedGpx() {
   const tour = state.tours.find((t) => t.id === state.selectedTourId);
   if (!tour) return;
@@ -1507,7 +1405,7 @@ async function downloadSelectedGpx() {
   a.click();
 }
 
-// GDPR: permanently delete the account and all data, then sign out.
+// GDPR erasure.
 async function deleteMyAccount() {
   if (!confirm(t('confirm.deleteAccount'))) return;
   try {
@@ -1601,16 +1499,14 @@ async function submitUpload(e) {
 
 // ── DOM wiring helpers ──────────────────────────────────────────────────────────
 
-// Wire a click / keyboard / drag-drop dropzone to a hidden file input.
-// onFiles receives an array of File — callers that only want one file
-// destructure the first element (see the GPX wireDropzone call site).
+// onFiles always receives an array; single-file callers destructure the first.
 function wireDropzone(zone, input, onFiles) {
   input.addEventListener('change', () => {
     onFiles(Array.from(input.files));
     input.value = ''; // allow re-selecting the same file(s)
   });
-  // The input is nested inside the zone; ignore the click it bubbles back up,
-  // otherwise input.click() re-enters this handler and the browser blocks the dialog.
+  // The input is nested inside the zone, so its bubbled click would re-enter
+  // this handler and the browser would block the dialog as programmatic.
   zone.addEventListener('click', (e) => {
     if (e.target !== input) input.click();
   });
@@ -1638,7 +1534,6 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 let modalReturnFocus = null;
 
-// Open a modal accessibly: remember focus, reveal it, move focus inside.
 function openModal(modal) {
   modalReturnFocus = document.activeElement;
   show(modal, true);
@@ -1646,7 +1541,6 @@ function openModal(modal) {
   (focusables[focusables.length > 1 ? 1 : 0] || modal).focus();
 }
 
-// Close a modal and restore focus to whatever opened it.
 function closeModal(modal) {
   show(modal, false);
   if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
@@ -1655,7 +1549,6 @@ function closeModal(modal) {
 
 const openModalEl = () => document.querySelector('.modal-overlay:not(.hidden)');
 
-// Keep Tab focus inside the open modal.
 function trapFocus(e, modal) {
   if (e.key !== 'Tab') return;
   const f = [...modal.querySelectorAll(FOCUSABLE)].filter((el) => el.offsetParent !== null);
@@ -1671,7 +1564,6 @@ function trapFocus(e, modal) {
   }
 }
 
-// Close a modal via its close button or a click on the backdrop.
 function wireModalClose(modal, closeBtn, closeFn) {
   closeBtn.addEventListener('click', closeFn);
   modal.addEventListener('click', (e) => {
@@ -1712,7 +1604,7 @@ elFilterInViewInput.addEventListener('change', () => {
   state.page = 1;
   renderSidebar();
 });
-// See elPinToggleInput below for why this sync is needed on reload.
+// Same reload quirk as elPinToggleInput below.
 elFilterInViewInput.checked = state.filterInView;
 elTourPagerPrev.addEventListener('click', () => {
   state.page -= 1;
@@ -1734,11 +1626,11 @@ elPinToggleInput.addEventListener('change', () => {
   renderPins();
 });
 
-// The browser may restore the checkbox's checked state on reload while JS state
-// resets to false — sync them so pins render without an off/on dance (#145).
+// The browser restores the checkbox on reload while JS state resets to false,
+// so without this the pins need an off/on toggle to reappear (#145).
 elPinToggleInput.checked = state.showPins;
 
-// Expand the map to (near) full screen by collapsing the side panels (#143).
+// Expand the map by collapsing the side panels (#143).
 elBtnMapExpand.addEventListener('click', () => {
   const expanded = elAppLayout.classList.toggle('map-expanded');
   elBtnMapExpand.setAttribute('aria-pressed', String(expanded));
@@ -1746,17 +1638,13 @@ elBtnMapExpand.addEventListener('click', () => {
   refreshMapSize();
 });
 
-// Language switcher: flag + full name preview in the profile modal, opening
-// a searchable list of flags. Selecting a language persists it and reloads
-// (i18n.setLanguage).
 function setupLanguageSwitcher() {
   const elBtnLang = $('btn-lang');
   const elLangMenu = $('lang-menu');
   const elLangSearch = $('lang-search');
   const elLangList = $('lang-list');
   const meta = i18n.getLocaleMeta();
-  // Full name, not the short code (#306) — there's room for it here, unlike
-  // a cramped navbar.
+  // Full name, not the short code: there is room for it here (#306).
   elBtnLang.innerHTML = `<span class="lang-flag">${meta.flag}</span><span class="lang-name">${meta.label}</span>`;
 
   for (const loc of i18n.SUPPORTED_LOCALES) {
@@ -1784,10 +1672,9 @@ function setupLanguageSwitcher() {
     elBtnLang.setAttribute('aria-expanded', 'true');
     elLangSearch.value = '';
     elLangList.querySelectorAll('li').forEach((li) => show(li, true));
-    // Centered under the modal card (not the much narrower .lang-switcher)
-    // so the popup doesn't hang off toward one edge — .lang-menu is
-    // `position: fixed`, so this must be computed from actual rects rather
-    // than a CSS anchor (mirrors setupSortMenu's approach below).
+    // .lang-menu is `position: fixed`, so it can't be anchored in CSS. Centred
+    // on the modal card rather than the narrow switcher, or it hangs off one
+    // edge (setupSortMenu does the same below).
     const modalRect = elBtnLang.closest('.modal').getBoundingClientRect();
     const menuWidth = elLangMenu.offsetWidth;
     const left = Math.max(16, modalRect.left + (modalRect.width - menuWidth) / 2);
@@ -1814,10 +1701,9 @@ function setupLanguageSwitcher() {
   });
 }
 
-// Mobile-only sort menu (#275): a compact icon button + popover list
-// replacing the native <select> there (desktop keeps the select unchanged).
-// Selecting an option writes elTourSort.value and dispatches its change
-// event, so the actual sort-applying logic lives in exactly one place.
+// Mobile's replacement for the native <select> (#275). Selecting an option
+// writes elTourSort.value and dispatches its change event, so the sorting logic
+// stays in one place.
 const SORT_OPTIONS = [
   { value: 'date-desc', i18nKey: 'sort.dateDesc' },
   { value: 'date-asc', i18nKey: 'sort.dateAsc' },
@@ -1853,9 +1739,8 @@ function setupSortMenu() {
     elSortMenuList.querySelectorAll('.sort-menu-option').forEach((opt) => {
       opt.setAttribute('aria-selected', String(opt.dataset.value === state.sort));
     });
-    // .sort-menu-list is `position: fixed` on mobile (#294) to escape the
-    // sidebar's clipping, so its offset must be computed from the button's
-    // actual viewport position rather than a CSS `top`/`right` relative to it.
+    // `position: fixed` to escape the sidebar's clipping (#294), so the offset
+    // has to come from the button's actual viewport rect.
     const rect = elBtnSortMenu.getBoundingClientRect();
     elSortMenuList.style.top = `${rect.bottom + 6}px`;
     elSortMenuList.style.right = `${window.innerWidth - rect.right}px`;
