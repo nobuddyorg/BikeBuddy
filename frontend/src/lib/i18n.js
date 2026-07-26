@@ -49,6 +49,15 @@ export function translate(messages, key, params = {}, fallback = {}) {
   );
 }
 
+// The API answers validation failures with an i18n key rather than prose, so
+// its wording is localised here rather than in the backend (#359). Everything
+// else it returns is already a sentence and is passed through untouched — an
+// unknown key resolves to itself, which is exactly that case.
+export function translateApiMessage(messages, message, fallback = {}) {
+  const translated = translate(messages, message, {}, fallback);
+  return translated === message ? message : translated;
+}
+
 // ── Browser runtime ──────────────────────────────────────────────────────────
 
 let messages = {};
@@ -69,6 +78,10 @@ export function dateLocale() {
 
 export function t(key, params) {
   return translate(messages, key, params, fallbackMessages);
+}
+
+export function tApi(message) {
+  return translateApiMessage(messages, message, fallbackMessages);
 }
 
 async function loadMessages(code) {

@@ -3,6 +3,7 @@
 const {
   stripHtml,
   tourMetaSchema,
+  tourMetaError,
   isUuid,
   uuidParamError,
   isImageContentType,
@@ -84,6 +85,35 @@ describe('validation helpers', () => {
       const res = uuidParamError({ tourId: 'bad' });
       expect(res.status).toBe(400);
       expect(res.jsonBody.error).toContain('tourId');
+    });
+  });
+
+  // The client renders these verbatim, so they must be i18n keys and never
+  // Zod's own English, schema-shaped wording (#359).
+  describe('tourMetaError', () => {
+    const keyFor = (input) => tourMetaError(tourMetaSchema.safeParse(input).error).jsonBody.error;
+
+    it('names the field that failed', () => {
+      expect(keyFor({ name: '' })).toBe('errors.tourName');
+      expect(keyFor({ description: 'd'.repeat(2001) })).toBe('errors.tourDescription');
+      expect(keyFor({ createdAt: 'not-a-date' })).toBe('errors.tourDate');
+    });
+
+    it('falls back to a generic key when the body has no field path', () => {
+      expect(keyFor('not-an-object')).toBe('errors.tourInvalid');
+    });
+
+    it('answers 400 and leaks no Zod wording', () => {
+      const res = tourMetaError(tourMetaSchema.safeParse({ name: '' }).error);
+
+      expect(res.status).toBe(400);
+      expect(res.jsonBody.error).not.toMatch(/expected|characters|Too small/i);
+    });
+
+    // stripHtml turns "<<>>" into "", so the user typed four characters and is
+    // told the name is required — the message has to explain the rule itself.
+    it('reports a name stripped down to nothing as a name problem', () => {
+      expect(keyFor({ name: '<<>>' })).toBe('errors.tourName');
     });
   });
 

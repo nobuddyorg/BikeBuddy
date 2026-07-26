@@ -160,6 +160,8 @@ describe('PATCH /api/tours/{tourId}', () => {
     const res = await editTour(reqWith(TID, { name: '' }), mockAuth, () => c.container);
 
     expect(res.status).toBe(400);
+    // A translatable key, not Zod's English (#359).
+    expect(res.jsonBody.error).toBe('errors.tourName');
     expect(c.patch).not.toHaveBeenCalled();
   });
 
