@@ -129,28 +129,54 @@ describe('parseMultipart', () => {
       },
     });
 
-    await expect(parseMultipart(req)).rejects.toThrow('connection reset');
+    // The transport failed, not the server — a 500 here would blame BikeBuddy
+    // for a connection the client dropped (#383).
+    await expect(parseMultipart(req)).rejects.toMatchObject({
+      status: 400,
+      message: 'Invalid multipart request',
+    });
   });
 
   // A connection dropped mid-upload: busboy surfaces it on the file stream
   // once a file part has started, and on itself when it has not. Both must
-  // settle the promise — an unsettled one leaves the request hanging.
-  it('rejects when the request ends mid-file', async () => {
+  // settle the promise — an unsettled one leaves the request hanging — and
+  // both are broken request syntax, so 400 rather than 500 (#383).
+  it('rejects a request that ends mid-file as a client error', async () => {
     const truncated = Buffer.from(
       `--${BOUNDARY}\r\n` +
         `Content-Disposition: form-data; name="file"; filename="tour.gpx"\r\n` +
         `Content-Type: application/gpx+xml\r\n\r\n<gpx`,
     );
 
-    await expect(parseMultipart(makeRequest(truncated))).rejects.toThrow('Unexpected end of form');
+    await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({
+      status: 400,
+      message: 'Invalid multipart request',
+    });
   });
 
-  it('rejects when the request ends inside the part headers', async () => {
+  it('rejects a request that ends inside the part headers as a client error', async () => {
     const truncated = Buffer.from(
       `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="tour.gpx"\r\n`,
     );
 
-    await expect(parseMultipart(makeRequest(truncated))).rejects.toThrow('Unexpected end of form');
+    await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({
+      status: 400,
+      message: 'Invalid multipart request',
+    });
+  });
+
+  // busboy's own wording is English-only and moves with the library, so it is
+  // logged for diagnosis instead of being handed to the uploader (#383).
+  it('logs the underlying parser error without returning it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const truncated = Buffer.from(
+      `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="tour.gpx"\r\n`,
+    );
+
+    await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({ status: 400 });
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Unexpected end of form'));
+    warn.mockRestore();
   });
 
   it('reassembles a file split across many small chunks', async () => {

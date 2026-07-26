@@ -62,6 +62,16 @@ async function parseMultipart(request) {
       fn(val);
     }
 
+    // A body that stops mid-stream — a cancelled upload, a dropped mobile
+    // connection, a hand-rolled request — is malformed request syntax, not a
+    // server fault, and must not be answered with a 500 (#383). The original is
+    // logged rather than returned: busboy's wording is English-only, changes
+    // with the library, and says nothing the uploader can act on.
+    const rejectMalformed = (err) => {
+      console.warn(`upload: malformed multipart (${err.name}: ${err.message})`);
+      settle(reject, badRequest('Invalid multipart request'));
+    };
+
     busboy.on('file', (fieldname, fileStream, info) => {
       const { filename, mimeType } = info;
       const chunks = [];
@@ -73,10 +83,10 @@ async function parseMultipart(request) {
       fileStream.on('end', () => {
         settle(resolve, { filename, mimeType, buffer: Buffer.concat(chunks) });
       });
-      fileStream.on('error', (err) => settle(reject, err));
+      fileStream.on('error', rejectMalformed);
     });
 
-    busboy.on('error', (err) => settle(reject, err));
+    busboy.on('error', rejectMalformed);
     busboy.on('finish', () => settle(reject, badRequest('No file field found in request')));
 
     // body is null for a bodyless request; Readable.fromWeb would throw a bare
@@ -84,7 +94,7 @@ async function parseMultipart(request) {
     if (!request.body) return settle(reject, badRequest('No file field found in request'));
 
     const body = Readable.fromWeb(request.body);
-    body.on('error', (err) => settle(reject, err));
+    body.on('error', rejectMalformed);
     body.pipe(busboy);
   });
 }
