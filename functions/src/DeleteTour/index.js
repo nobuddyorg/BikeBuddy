@@ -19,9 +19,14 @@ async function deleteTour(
   const { userId } = guard.user;
   const { tourId } = request.params;
 
+  // Document first: if the blob delete fails afterwards the leftover is an
+  // orphaned GPX (invisible, and already reaped by DeleteAccount's
+  // deleteBlobsByPrefix), whereas the reverse order would leave a live tour
+  // whose download 404s. deleteIfExists() is idempotent, so a retry is safe.
+  await getToursContainer().item(tourId, userId).delete();
+
   const container = await getGpxContainer();
   await container.getBlockBlobClient(`${userId}/${tourId}.gpx`).deleteIfExists();
-  await getToursContainer().item(tourId, userId).delete();
 
   return { status: 204 };
 }

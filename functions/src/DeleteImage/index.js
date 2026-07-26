@@ -27,9 +27,14 @@ async function deleteImage(
   const image = (tour.images || []).find((i) => i.id === imageId);
   if (!image) return error(404, 'Image not found');
 
-  const container = await getImagesContainer();
-  await container.getBlockBlobClient(image.blobName).deleteIfExists();
-
+  // Drop the entry before the blob, not after: if the write below fails (the
+  // retry loop exhausting, or Cosmos erroring), a blob that is already gone
+  // leaves tour.images pointing at nothing — a permanently broken thumbnail
+  // with no recovery path, since a retry finds the entry still present. The
+  // reverse leftover is an orphaned blob: invisible, and already reaped
+  // wholesale by DeleteAccount's deleteBlobsByPrefix. deleteIfExists() is
+  // idempotent, so retrying the whole request after a partial failure is safe.
+  //
   // .replace(tour) overwrites the whole document, so a concurrent request
   // that read the tour before this one's write lands would otherwise clobber
   // it (or vice versa) — e.g. deleting two photos from the same tour close
@@ -51,6 +56,9 @@ async function deleteImage(
       tour = await readItem(getToursContainer(), tourId, userId);
     }
   }
+
+  const container = await getImagesContainer();
+  await container.getBlockBlobClient(image.blobName).deleteIfExists();
 
   return { status: 204 };
 }
