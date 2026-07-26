@@ -528,16 +528,13 @@ The tour appears in the sidebar and on the map; the view jumps to its heatmap.
 - **Search**: type in the sidebar search box — fuzzy matching on the tour name.
 - **Sort**: use the dropdown — by date, name, or length, ascending or descending.
 
-## Filter to what's in view
-
-Toggle **In view** in the sidebar to show only the tours visible on the current
-map — useful once you have tours from many different places and want the list to
-match what you're looking at.
-
 ## Read the map
 
 - The heatmap shows where you've ridden; warmer colours = more passes.
 - Click a tour to focus it; **Show All Tours** restores the combined heatmap.
+- Toggle **In view** (top right of the map) to show only the tours visible in
+  the current map view — useful once you have tours from many different places
+  and want the sidebar list to match what you're looking at.
 
 ## Photos
 
@@ -549,8 +546,9 @@ match what you're looking at.
 
 ## Photo pins
 
-Toggle **Photo pins** (top right of the map) to show geotagged photos where they
-were taken. Photos taken at the same spot fan out so each is clickable. Default off.
+Toggle **Photo pins** (top right of the map, next to **In view**) to show
+geotagged photos where they were taken. Photos taken at the same spot fan out
+so each is clickable. Default off.
 
 ## Edit or delete a tour
 
