@@ -55,6 +55,20 @@ describe('GET /api/tours/{tourId}', () => {
     expect(res.jsonBody.gpxFileUrl).toBe(`https://blob/u1/${TID}.gpx?sig=x`);
   });
 
+  it('falls back to "tour" as the download filename when the tour has no name', async () => {
+    const tour = { ...TOUR, name: undefined, gpxFileUrl: 'https://blob/gpx-files/u1/t1.gpx' };
+    const { container } = makeContainer(async () => ({ resource: tour }));
+    const generateSasUrl = vi.fn(async () => `https://blob/u1/${TID}.gpx?sig=x`);
+    const getBlockBlobClient = vi.fn(() => ({ generateSasUrl }));
+    const gpxContainer = () => Promise.resolve({ getBlockBlobClient });
+
+    await getTour(reqWith(TID), mockAuth, () => container, undefined, gpxContainer);
+
+    expect(generateSasUrl).toHaveBeenCalledWith(
+      expect.objectContaining({ contentDisposition: 'attachment; filename="tour.gpx"' }),
+    );
+  });
+
   it('returns images as { id, url }, including lat/lon only when geotagged', async () => {
     const tour = {
       ...TOUR,
