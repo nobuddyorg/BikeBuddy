@@ -817,7 +817,7 @@ function enterSingleSelect(tourId) {
 // this same id) from closing the detail panel that swipe just opened.
 function highlightTour(tourId) {
   if (state.selectedTourId === tourId) return;
-  deselectTour();
+  closeDetailPanel();
   state.selectedTourId = tourId;
   renderSidebar();
   focusTourOnMap(tourId); // #331: a plain tap must focus the map like a click does
@@ -1047,10 +1047,22 @@ async function selectTour(tourId) {
   if (loaded) renderGallery(loaded);
 }
 
-function deselectTour() {
-  state.selectedTourId = null;
+// Closes the panel and leaves the tour selected: the map keeps its heatmap, the
+// pins stay scoped to it and its row stays active. The map is always showing
+// either one tour with its own photos or every tour with all of them, never a
+// mix of the two (#378) — leaving "Show All Tours" as the way back to all.
+function closeDetailPanel() {
   show(elDetailPanel, false);
   refreshMapSize();
+}
+
+// Drops the selection itself, for when the selected tour is gone or the user
+// asked for the all-tours view. Every caller renders the all-tours heatmap
+// after, which is what keeps the map from being left on a tour that is no
+// longer selected.
+function deselectTour() {
+  state.selectedTourId = null;
+  closeDetailPanel();
   renderSidebar();
   renderPins();
 }
@@ -1676,7 +1688,7 @@ elBtnProfile.addEventListener('click', openProfile);
 elProfileNameForm.addEventListener('submit', saveProfileName);
 elBtnExportData.addEventListener('click', downloadMyData);
 elBtnDeleteAccount.addEventListener('click', deleteMyAccount);
-elBtnCloseDetail.addEventListener('click', deselectTour);
+elBtnCloseDetail.addEventListener('click', closeDetailPanel);
 elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
 elBtnEditTour.addEventListener('click', openEdit);
 elBtnDownloadGpx.addEventListener('click', downloadSelectedGpx);
