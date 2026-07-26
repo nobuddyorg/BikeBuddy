@@ -40,6 +40,23 @@ buddyTest('tour lifecycle: upload → list → detail → image → delete', asy
   await expect(on(page).main.locators.list.container).not.toContainText(tourName);
 });
 
+// #338: a "Download GPX" button in the detail panel re-downloads the file
+// that was originally uploaded, via a signed blob URL from GET /api/tours/{id}.
+buddyTest('download GPX from the detail panel', async ({ on, page }) => {
+  await page.goto('/');
+  await expect(on(page).main.locators.userMenu).toBeVisible();
+
+  const tourName = `CI E2E GPX Download ${Date.now()}`;
+  await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+
+  const downloadPromise = page.waitForEvent('download');
+  await on(page).main.do.downloadGpx();
+  const download = await downloadPromise;
+  // Matches app.js's downloadSelectedGpx sanitization (spaces/punctuation → "_").
+  expect(download.suggestedFilename()).toBe(`${tourName.replace(/[^a-z0-9-_]+/gi, '_')}.gpx`);
+});
+
 buddyTest('multi-image upload: per-file success and error handling', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();

@@ -153,6 +153,7 @@ const elBtnUploadSidebar = $('btn-upload-sidebar');
 const elBtnCloseDetail = $('btn-close-detail');
 const elBtnDeleteTour = $('btn-delete-tour');
 const elBtnEditTour = $('btn-edit-tour');
+const elBtnDownloadGpx = $('btn-download-gpx');
 const elImageGrid = $('tour-image-grid');
 const elImageDropzone = $('image-dropzone');
 const elImageFile = $('image-file');
@@ -457,6 +458,7 @@ async function ensureDetail(tour) {
       const detail = await res.json();
       tour.heatmapData = detail.heatmapData || [];
       tour.images = detail.images || [];
+      tour.gpxFileUrl = detail.gpxFileUrl;
     }
   } catch {
     // network unavailable — fall back to empty so callers don't break
@@ -1479,6 +1481,23 @@ async function downloadMyData() {
   }
 }
 
+async function downloadSelectedGpx() {
+  const tour = state.tours.find((t) => t.id === state.selectedTourId);
+  if (!tour?.gpxFileUrl) return;
+  try {
+    const res = await fetch(tour.gpxFileUrl);
+    if (!res.ok) throw new Error('gpx download failed');
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(tour.name || 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast(t('toast.gpxDownloadError'), 'error');
+  }
+}
+
 // GDPR: permanently delete the account and all data, then sign out.
 async function deleteMyAccount() {
   if (!confirm(t('confirm.deleteAccount'))) return;
@@ -1663,6 +1682,7 @@ elBtnDeleteAccount.addEventListener('click', deleteMyAccount);
 elBtnCloseDetail.addEventListener('click', deselectTour);
 elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
 elBtnEditTour.addEventListener('click', openEdit);
+elBtnDownloadGpx.addEventListener('click', downloadSelectedGpx);
 elBtnUpload.addEventListener('click', openUpload);
 elBtnUploadSidebar.addEventListener('click', openUpload);
 elEditForm.addEventListener('submit', submitEdit);

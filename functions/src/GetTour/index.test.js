@@ -37,6 +37,20 @@ describe('GET /api/tours/{tourId}', () => {
     expect(res.jsonBody.heatmapData).toHaveLength(2);
   });
 
+  it('replaces gpxFileUrl with a signed, short-lived SAS URL', async () => {
+    const tour = { ...TOUR, gpxFileUrl: 'https://blob/gpx-files/u1/t1.gpx' };
+    const { container } = makeContainer(async () => ({ resource: tour }));
+    const getBlockBlobClient = vi.fn((name) => ({
+      generateSasUrl: async () => `https://blob/${name}?sig=x`,
+    }));
+    const gpxContainer = () => Promise.resolve({ getBlockBlobClient });
+
+    const res = await getTour(reqWith(TID), mockAuth, () => container, undefined, gpxContainer);
+
+    expect(getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}.gpx`);
+    expect(res.jsonBody.gpxFileUrl).toBe(`https://blob/u1/${TID}.gpx?sig=x`);
+  });
+
   it('returns images as { id, url }, including lat/lon only when geotagged', async () => {
     const tour = {
       ...TOUR,
