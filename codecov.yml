@@ -2,7 +2,6 @@ ignore:
   # Infrastructure files exercised by Azurite integration tests, not unit tests.
   - "functions/src/lib/db.js"
   - "functions/src/lib/blobStorage.js"
-  - "functions/src/lib/parseMultipart.js"
 
 coverage:
   status:

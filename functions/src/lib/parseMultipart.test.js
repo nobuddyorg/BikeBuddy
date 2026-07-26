@@ -132,6 +132,27 @@ describe('parseMultipart', () => {
     await expect(parseMultipart(req)).rejects.toThrow('connection reset');
   });
 
+  // A connection dropped mid-upload: busboy surfaces it on the file stream
+  // once a file part has started, and on itself when it has not. Both must
+  // settle the promise — an unsettled one leaves the request hanging.
+  it('rejects when the request ends mid-file', async () => {
+    const truncated = Buffer.from(
+      `--${BOUNDARY}\r\n` +
+        `Content-Disposition: form-data; name="file"; filename="tour.gpx"\r\n` +
+        `Content-Type: application/gpx+xml\r\n\r\n<gpx`,
+    );
+
+    await expect(parseMultipart(makeRequest(truncated))).rejects.toThrow('Unexpected end of form');
+  });
+
+  it('rejects when the request ends inside the part headers', async () => {
+    const truncated = Buffer.from(
+      `--${BOUNDARY}\r\nContent-Disposition: form-data; name="file"; filename="tour.gpx"\r\n`,
+    );
+
+    await expect(parseMultipart(makeRequest(truncated))).rejects.toThrow('Unexpected end of form');
+  });
+
   it('reassembles a file split across many small chunks', async () => {
     const content = 'x'.repeat(50_000);
     const file = await parseMultipart(makeRequest(multipartBody(content), { chunkSize: 64 }));
