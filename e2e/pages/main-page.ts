@@ -25,6 +25,7 @@ interface MainPage {
     longPressTour(name: string): Promise<void>;
     swipeTour(name: string, dx: number): Promise<void>;
     closeDetail(): Promise<void>;
+    showAllTours(): Promise<void>;
     uploadGpx(opts: { name: string; gpx: string; filename?: string }): Promise<void>;
     addImage(files: FileInputArg): Promise<void>;
     dismissImageError(): Promise<void>;
@@ -62,6 +63,7 @@ interface MainPage {
       downloadGpx: Locator;
       deleteTour: Locator;
       closeDetail: Locator;
+      showAll: Locator;
       selectMode: Locator;
       deleteSelected: Locator;
       cancelSelect: Locator;
@@ -69,6 +71,7 @@ interface MainPage {
     list: {
       container: Locator;
       names: Locator;
+      active: Locator;
       count: Locator;
       empty: Locator;
     };
@@ -138,6 +141,7 @@ export function initMainPage(page: Page): MainPage {
       downloadGpx: page.locator('#btn-download-gpx'),
       deleteTour: page.locator('#btn-delete-tour'),
       closeDetail: page.locator('#btn-close-detail'),
+      showAll: page.locator('#btn-show-all'),
       selectMode: page.locator('#btn-select-mode'),
       deleteSelected: page.locator('#btn-delete-selected'),
       cancelSelect: page.locator('#btn-cancel-select'),
@@ -145,6 +149,7 @@ export function initMainPage(page: Page): MainPage {
     list: {
       container: page.locator('#tour-list'),
       names: page.locator('#tour-list .tour-item-name'),
+      active: page.locator('#tour-list .tour-item.active'),
       count: page.locator('#tour-count'),
       empty: page.locator('#no-tours'),
     },
@@ -293,6 +298,7 @@ export function initMainPage(page: Page): MainPage {
       await page.waitForTimeout(300);
     },
     closeDetail: async () => locators.buttons.closeDetail.click(),
+    showAllTours: async () => locators.buttons.showAll.click(),
     uploadGpx: async ({
       name,
       gpx,

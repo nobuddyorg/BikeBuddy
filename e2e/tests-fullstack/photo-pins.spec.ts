@@ -120,7 +120,7 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
   });
 
   buddyTest(
-    'shows only the selected tour’s pins, and reverts to all tours on close',
+    'shows only the selected tour’s pins, and widens again on Show All',
     async ({ on, page }) => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
@@ -147,10 +147,14 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
       await expect(on(page).main.locators.detail.name).toHaveText('Tour C (no photos)');
       await expect(on(page).main.locators.pins.toggle).toBeHidden();
 
-      // Close the detail panel: back to "all tours" scope, both pins return.
+      // Closing the panel leaves the tour selected, so its pins stay scoped to
+      // it; "Show All Tours" is what goes back to every tour's (#378).
       await on(page).main.do.selectTour('Tour A');
       await on(page).main.do.closeDetail();
       await expect(on(page).main.locators.pins.toggle).toBeVisible();
+      await expect(on(page).main.locators.pins.markers).toHaveCount(1);
+
+      await on(page).main.do.showAllTours();
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
     },
   );
