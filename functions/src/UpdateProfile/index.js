@@ -7,19 +7,16 @@ const { usersContainer, readItem } = require('../lib/db');
 const { nameSchema, languageSchema } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
-// name and language are independently optional — a brand-new account has no
-// name yet (External ID self-service sign-up doesn't reliably collect one),
-// so a user must be able to save a language preference before ever setting
-// a display name. At least one of the two must be present.
+// Independently optional: a brand-new account has no name yet, so a language
+// preference must be savable before one is ever set. One of the two is required.
 const profileSchema = z
   .object({ name: nameSchema.optional(), language: languageSchema.optional() })
   .refine((data) => data.name !== undefined || data.language !== undefined, {
     message: 'A name or a language is required.',
   });
 
-// PATCH /api/me — let the user set their display name (External ID self-service
-// sign-up doesn't reliably collect one, so BikeBuddy owns it). Stored on the
-// user doc; created on the fly if the doc doesn't exist yet.
+// PATCH /api/me — External ID's self-service sign-up doesn't reliably collect a
+// display name, so BikeBuddy owns it. The user doc is created here if missing.
 async function updateProfile(request, auth = authenticate, getContainer = usersContainer) {
   const user = await auth(request);
   if (!user) return unauthorized();

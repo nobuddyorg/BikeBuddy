@@ -7,10 +7,9 @@ const { imagesContainer, gpxContainer, readSasUrl } = require('../lib/blobStorag
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { toTourResponse } = require('../lib/tourResponse');
 
-// GET /api/tours/{tourId} — full tour document including heatmapData. Stored
-// images { id, blobName } are returned as { id, url } with a short-lived read
-// SAS URL so the private container can be served directly. gpxFileUrl (a bare
-// blob URL, not directly downloadable) is likewise replaced with a signed URL.
+// GET /api/tours/{tourId} — the full document, with every stored blobName
+// swapped for a short-lived signed URL so the private container can be read
+// directly by the browser.
 async function getTour(
   request,
   auth = authenticate,

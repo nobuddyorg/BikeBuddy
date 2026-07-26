@@ -1,8 +1,7 @@
 'use strict';
 
-// Lightweight, dependency-free i18n for the bundler-free frontend.
-// Pure helpers (normalizeLocale / pickLocale / translate) are unit-tested; the
-// runtime (init / applyI18n / setLanguage) is browser glue covered by e2e.
+// Dependency-free i18n. The pure helpers are unit-tested; the browser runtime
+// below is covered by e2e.
 
 export const SUPPORTED_LOCALES = [
   { code: 'en', label: 'English', flag: '🇬🇧', short: 'EN', dateLocale: 'en-GB' },
@@ -28,8 +27,7 @@ export function normalizeLocale(raw) {
   return isSupported(base) ? base : null;
 }
 
-// Active locale: explicit stored override → first matching browser language →
-// fallback. Pure so it can be unit-tested without a browser.
+// Stored override → first matching browser language → fallback.
 export function pickLocale({ stored, languages = [], fallback = DEFAULT_LOCALE } = {}) {
   const fromStore = normalizeLocale(stored);
   if (fromStore) return fromStore;
@@ -40,8 +38,7 @@ export function pickLocale({ stored, languages = [], fallback = DEFAULT_LOCALE }
   return fallback;
 }
 
-// Resolve a key against messages (then the English fallback, then the key
-// itself) and interpolate {placeholders}.
+// Falls back to English, then to the key itself.
 export function translate(messages, key, params = {}, fallback = {}) {
   const raw = messages?.[key] ?? fallback?.[key] ?? key;
   return String(raw).replace(/\{(\w+)\}/g, (whole, name) =>
@@ -50,9 +47,8 @@ export function translate(messages, key, params = {}, fallback = {}) {
 }
 
 // The API answers validation failures with an i18n key rather than prose, so
-// its wording is localised here rather than in the backend (#359). Everything
-// else it returns is already a sentence and is passed through untouched — an
-// unknown key resolves to itself, which is exactly that case.
+// the wording lives here (#359). Anything else it sends is already a sentence,
+// and an unknown key resolving to itself passes it through unchanged.
 export function translateApiMessage(messages, message, fallback = {}) {
   const translated = translate(messages, message, {}, fallback);
   return translated === message ? message : translated;
@@ -90,8 +86,7 @@ async function loadMessages(code) {
   return res.json();
 }
 
-// Detect the locale, load its messages (+ English as a graceful fallback) and
-// apply translations to the static markup.
+// English is always loaded too, as the per-key fallback.
 export async function init() {
   let stored = null;
   try {
@@ -116,7 +111,7 @@ export async function init() {
   applyI18n(document);
 }
 
-// Persist the choice and reload so every string (static + dynamic) re-renders.
+// Reloads, so every string re-renders — dynamic ones included.
 export function setLanguage(code) {
   if (!isSupported(code)) return;
   try {
@@ -127,15 +122,12 @@ export function setLanguage(code) {
   location.reload();
 }
 
-// Attributes translated by data-i18n-<attr>. Adding one is a word here rather
-// than a copied block; read via getAttribute so the kebab name is written once
-// instead of also as its camelCase dataset spelling (#365).
+// Read via getAttribute rather than dataset, so each name is written once here
+// instead of also in its camelCase spelling (#365).
 export const I18N_ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
 
-// Apply translations to all [data-i18n*] elements under root. The two content
-// sinks stay written out: they are assignments rather than setAttribute calls,
-// and folding them in would bury the fact that data-i18n-html is the one that
-// interprets markup.
+// The two content sinks stay written out rather than joining the table above:
+// folding them in would bury which of the two interprets markup.
 export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n);

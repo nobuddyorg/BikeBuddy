@@ -4,10 +4,9 @@ const { unauthorized, error } = require('./http');
 const { readItem } = require('./db');
 const { uuidParamError } = require('./validation');
 
-// Shared preamble for tour-scoped endpoints: authenticate, validate the route
-// UUIDs, then load the tour from the caller's partition — reading by userId is
-// what enforces ownership (another user's tour simply isn't found → 404).
-// Returns { user, tour } on success, or { response } to return immediately.
+// Shared preamble for tour-scoped endpoints. Reading from the caller's partition
+// is what enforces ownership: another user's tour simply isn't found. Returns
+// { user, tour }, or { response } to return immediately.
 async function loadOwnedTour(request, auth, toursContainer, extraParams = {}) {
   const user = await auth(request);
   if (!user) return { response: unauthorized() };

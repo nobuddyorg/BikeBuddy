@@ -27,20 +27,14 @@ async function deleteImage(
   const image = (tour.images || []).find((i) => i.id === imageId);
   if (!image) return error(404, 'Image not found');
 
-  // Drop the entry before the blob, not after: if the write below fails (the
-  // retry loop exhausting, or Cosmos erroring), a blob that is already gone
-  // leaves tour.images pointing at nothing — a permanently broken thumbnail
-  // with no recovery path, since a retry finds the entry still present. The
-  // reverse leftover is an orphaned blob: invisible, and already reaped
-  // wholesale by DeleteAccount's deleteBlobsByPrefix. deleteIfExists() is
-  // idempotent, so retrying the whole request after a partial failure is safe.
+  // Entry first, blob second. The leftover from failing here is an orphaned
+  // blob: invisible, cheap, and reaped wholesale by DeleteAccount. The reverse
+  // order leaves tour.images pointing at nothing — a broken thumbnail a retry
+  // can't fix, because it finds the entry still present.
   //
-  // .replace(tour) overwrites the whole document, so a concurrent request
-  // that read the tour before this one's write lands would otherwise clobber
-  // it (or vice versa) — e.g. deleting two photos from the same tour close
-  // together. Guard the write with the ETag read alongside tour and retry
-  // against a fresh read on conflict (#292-adjacent race, same class as the
-  // UploadImage one).
+  // .replace(tour) rewrites the whole document, so two photo deletions close
+  // together would clobber each other. The ETag read alongside the tour guards
+  // the write, and a conflict retries against a fresh read.
   for (let attempt = 0; ; attempt++) {
     const images = tour.images.filter((i) => i.id !== imageId);
     try {

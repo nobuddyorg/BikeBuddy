@@ -10,7 +10,7 @@ const { parseGpx } = require('../lib/parseGpx');
 const { tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
-// GPX/XML files start with "<?xml" or "<gpx" (optionally preceded by a UTF-8 BOM).
+// "<?xml" or "<gpx", optionally behind a UTF-8 BOM.
 function isXmlMagic(buffer) {
   const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
   const start = buffer.slice(0, 3).equals(BOM) ? buffer.slice(3) : buffer;
@@ -70,15 +70,12 @@ async function uploadTour(
     createdAt: parsed.date ?? new Date().toISOString(),
   };
 
-  // Sequential, not Promise.all: the two writes are independent in that neither
-  // needs the other's result, but they are not independent in consistency, and
-  // Promise.all rejects on the first failure while the other write completes
-  // anyway. Both partial states were reachable, and they are not equally bad —
-  // a tour document referencing a GPX blob that was never written is visible in
-  // the list and fails at download time, whereas an orphaned blob is invisible
-  // and costs a few KB. So write the blob first and roll it back if the Cosmos
-  // create fails, leaving only the recoverable state. The client still sees a
-  // 500 either way, but a retry can no longer accumulate orphaned blobs.
+  // Sequential, not Promise.all: neither write needs the other's result, but
+  // Promise.all rejects on the first failure while the other lands anyway, and
+  // the two partial states are not equally bad. A tour pointing at a blob that
+  // was never written shows up in the list and fails at download; an orphaned
+  // blob is invisible and costs a few KB. Blob first, rolled back if the Cosmos
+  // create fails, leaves only the recoverable one.
   await blockBlob.uploadData(file.buffer, {
     blobHTTPHeaders: { blobContentType: 'application/gpx+xml' },
   });

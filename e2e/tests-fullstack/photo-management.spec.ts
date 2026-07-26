@@ -3,17 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { clearUsers, clearTours } from './usersDb';
 
-// Full-stack: runs against the real backend (Functions + Cosmos emulator +
-// Azurite) behind the SWA proxy. devMode + SKIP_AUTH provide a local dev user.
-//
-// Covers photo-management flows the other specs don't: deleting a single
-// photo, the lightbox, and retrying a failed upload — none of these were
-// previously exercised end-to-end (#292).
+// Deleting a single photo, the lightbox, and retrying a failed upload (#292).
 
-// This tour's date now comes from the GPX's <time> (#317: previously always
-// "now"), which sorts it behind any freshly-seeded, same-day fixture tours
-// left over from an earlier spec (e.g. pagination.spec.ts's 25 tours) — so,
-// unlike before, this file must start from a clean slate itself.
+// Needs a clean slate: the tour's date comes from the GPX's <time> (#317), which
+// sorts it behind same-day fixture tours another spec may have left behind.
 buddyTest.beforeEach(async () => {
   await clearUsers();
   await clearTours();
@@ -39,9 +32,8 @@ buddyTest(
 
     const tourName = `Photo Delete ${Date.now()}`;
     await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-    // addImage() targets state.selectedTourId — wait for the detail panel so
-    // the upload isn't dropped by a still-pending selection (uploadGpx only
-    // waits for the tour to appear in the list, not for it to be selected).
+    // addImage() targets state.selectedTourId, and uploadGpx only waits for the
+    // tour to reach the list, not to be selected.
     await expect(on(page).main.locators.detail.name).toHaveText(tourName);
     await on(page).main.do.addImage(SAMPLE_JPG);
     await on(page).main.do.addImage(SAMPLE_JPG);
@@ -79,8 +71,7 @@ buddyTest('retries a failed upload and it succeeds the second time', async ({ on
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
   await expect(on(page).main.locators.detail.name).toHaveText(tourName);
 
-  // Fail only the first upload attempt (simulates a transient server error);
-  // the retry click goes through the real backend and succeeds.
+  // Only the first attempt fails; the retry goes to the real backend.
   let attempt = 0;
   await page.route('**/api/tours/*/images', async (route) => {
     attempt++;

@@ -1,10 +1,7 @@
 'use strict';
 
-// Runs `worker` over `items` with at most `limit` calls in flight at once.
-// Each worker call's own success/failure is independent of the others — a
-// rejecting worker is swallowed here so one bad item can't halt the batch;
-// callers that need to know about failures report them through `worker`
-// itself (e.g. by catching internally and recording the error on the item).
+// A rejecting worker is swallowed so one bad item can't halt the batch; callers
+// that care report failures through `worker` itself.
 export async function runWithConcurrency(items, limit, worker) {
   let next = 0;
 
@@ -14,8 +11,7 @@ export async function runWithConcurrency(items, limit, worker) {
     try {
       await worker(items[i], i);
     } catch {
-      // Intentionally swallowed: one item's failure must not stop the pool
-      // or reject the overall runWithConcurrency() promise.
+      // See above: one item's failure must not stop the pool.
     }
     return runNext();
   }

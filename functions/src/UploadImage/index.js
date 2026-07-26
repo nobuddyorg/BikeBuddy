@@ -14,7 +14,7 @@ const { error } = require('../lib/http');
 
 const MAX_TOUR_IMAGES = 20;
 
-// Validate by magic bytes (not Content-Type): JPEG = FF D8 FF, PNG = 89 50 4E 47.
+// JPEG = FF D8 FF, PNG = 89 50 4E 47.
 function isJpegOrPng(buffer) {
   if (buffer.length < 4) return false;
   const jpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
@@ -50,14 +50,13 @@ async function uploadImage(
     return error(err.status ?? 500, err.message);
   }
 
-  // Validate the declared content-type AND the actual magic bytes.
+  // The declared type AND the actual bytes.
   if (!isImageContentType(file.mimeType) || !isJpegOrPng(file.buffer)) {
     return error(400, 'Only JPEG or PNG images are accepted');
   }
 
-  // Both read the ORIGINAL buffer — the resize re-encodes and drops EXIF, so GPS
-  // can only come from the untouched bytes. The buffer is never mutated, so the
-  // two are safe to run concurrently.
+  // The resize re-encodes and drops EXIF, so GPS can only come from the original
+  // buffer. Nothing mutates it, so both can read it at once.
   const [gps, resized] = await Promise.all([readGps(file.buffer), resize(file.buffer)]);
 
   const imageId = randomUUID();
@@ -67,18 +66,15 @@ async function uploadImage(
   await blockBlob.uploadData(resized, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } });
 
   const image = { id: imageId, blobName, ...(gps && { lat: gps.lat, lon: gps.lon }) };
-  // A read-modify-write .replace(tour) here would lose images from concurrent
-  // uploads to the same tour (each request's in-memory tour.images snapshot is
-  // taken before the async parse/resize/GPS work, so the slower of two
-  // requests would overwrite the faster one's array). Append atomically
-  // instead — UploadTour always seeds images: [], so /images/- is valid for
-  // every tour this app creates.
+  // Each request's tour.images snapshot predates its own parse/resize work, so
+  // a read-modify-write .replace() would lose a concurrent upload's image.
+  // UploadTour always seeds images: [], so '/images/-' is valid here.
   const tourItem = getToursContainer().item(tourId, userId);
   try {
     await tourItem.patch([{ op: 'add', path: '/images/-', value: image }]);
   } catch (err) {
-    // Only a tour predating the images field (never seeded with []) can hit
-    // this — "add" on a path that isn't an existing array creates it instead.
+    // Only reachable for a tour predating the images field: "add" on a path
+    // that isn't an existing array creates it instead.
     if (err.code !== 400) throw err;
     await tourItem.patch([{ op: 'add', path: '/images', value: [image] }]);
   }

@@ -9,18 +9,13 @@ const { toTourResponse } = require('../lib/tourResponse');
 
 const EDITABLE_FIELDS = ['name', 'description', 'createdAt'];
 
-// PATCH /api/tours/{tourId} — edit a tour's name/description/date. Only the
-// EDITABLE_FIELDS are writable; everything else (heatmapData, images,
-// gpxFileUrl, ...) is left untouched.
+// PATCH /api/tours/{tourId} — only EDITABLE_FIELDS are writable.
 //
-// The write is an atomic per-field patch, not a .replace(tour) of the doc read
-// above: replace rewrites every field from a snapshot taken before the request,
-// so a concurrent write landing in between is silently discarded. The realistic
-// case isn't two edits racing — it's an edit overlapping a photo upload, which
-// appends via patch '/images/-' (see UploadImage) and would be wiped out by a
-// replace, losing the image and orphaning its blob. Patching only the fields
-// that actually changed makes that impossible by construction, so no ETag or
-// retry loop is needed here (unlike DeleteImage, which must rewrite an array).
+// An atomic per-field patch, not a .replace() of the document read above: the
+// realistic race isn't two edits, it's an edit overlapping a photo upload,
+// whose '/images/-' append a replace would wipe out. Touching only the changed
+// fields rules that out by construction, so unlike DeleteImage — which has to
+// rewrite an array — this needs no ETag or retry loop.
 async function editTour(request, auth = authenticate, getContainer = toursContainer) {
   const user = await auth(request);
   if (!user) return unauthorized();

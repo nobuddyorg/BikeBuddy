@@ -1,6 +1,6 @@
 'use strict';
 
-// Pure tour list logic — sorting and the fuzzy search used by the tour list.
+// Pure tour-list logic: sorting, fuzzy search, paging.
 
 const tourTime = (t) => new Date(t.createdAt).getTime() || 0;
 
@@ -13,9 +13,8 @@ export const SORTERS = {
   'length-asc': (a, b) => (a.distance || 0) - (b.distance || 0),
 };
 
-// Subsequence match: every char of the query appears in order within the text.
-// Returns the matched indices into `text` (empty array for an empty query),
-// or null if the query does not fully match.
+// Subsequence match: every char of the query appears in order. Returns the
+// matched indices into `text`, or null when it doesn't fully match.
 export function fuzzyMatchIndices(query, text) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
@@ -35,18 +34,14 @@ export function fuzzyMatch(query, text) {
   return fuzzyMatchIndices(query, text) !== null;
 }
 
-// Tours filtered by the search box and ordered by the chosen sort.
 export function visibleTours(tours, sort, search) {
   const sorter = SORTERS[sort] || SORTERS['date-desc'];
   return tours.filter((t) => fuzzyMatch(search, t.name)).sort(sorter);
 }
 
-// Tours whose recorded track has at least one point inside the given map
-// bounds — "in view" means even partially on screen, not fully contained.
-// bounds is a plain {south, west, north, east} object (see mapBoundsPlain in
-// app.js) rather than a Leaflet LatLngBounds, so this stays framework-free.
-// A tour whose heatmapData hasn't been fetched yet (see ensureDetail) has no
-// points to test and is treated as out of view.
+// "In view" means partially on screen, not fully contained. Takes a plain
+// {south, west, north, east} rather than a Leaflet LatLngBounds so this stays
+// framework-free. A tour whose heatmapData isn't loaded yet counts as out.
 export function toursInView(tours, bounds) {
   if (!bounds) return tours;
   const { south, west, north, east } = bounds;
@@ -57,9 +52,8 @@ export function toursInView(tours, bounds) {
   );
 }
 
-// Combines a 'YYYY-MM-DD' input (from a <input type=date>) with the
-// time-of-day of an existing ISO timestamp, so correcting a tour's date
-// doesn't clobber the time it was recorded at.
+// Keeps the original time-of-day, so correcting a tour's date doesn't clobber
+// the time it was recorded at.
 export function withUpdatedDate(originalIso, dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const combined = new Date(originalIso);
@@ -69,9 +63,8 @@ export function withUpdatedDate(originalIso, dateStr) {
 
 export const PAGE_SIZE = 10;
 
-// Slices `items` to one page, clamping `page` into [1, totalPages] so a stale
-// page number (after a search/sort change shrinks the result set) never
-// produces an out-of-range slice.
+// Clamps `page` into range, so a stale page number left over from a larger
+// result set never produces an empty slice.
 export function paginate(items, page, pageSize) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const clamped = Math.min(Math.max(1, page), totalPages);

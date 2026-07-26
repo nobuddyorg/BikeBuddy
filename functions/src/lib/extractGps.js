@@ -3,8 +3,8 @@
 const sharp = require('sharp');
 const exifReader = require('exif-reader');
 
-// EXIF stores GPS as degrees/minutes/seconds ([d, m, s]) plus a hemisphere ref.
-// Some decoders pre-convert to a signed decimal number; accept both shapes.
+// EXIF stores [degrees, minutes, seconds] plus a hemisphere ref, but some
+// decoders pre-convert to a signed decimal.
 function toDecimal(value, ref) {
   let dec;
   if (Array.isArray(value)) {
@@ -20,7 +20,6 @@ function toDecimal(value, ref) {
   return dec;
 }
 
-// Pull a { lat, lon } from an exif-reader tags object, or null if absent/invalid.
 function gpsFromExifTags(tags) {
   const gps = tags?.GPSInfo || tags?.gps || tags?.GPS;
   if (!gps) return null;
@@ -31,9 +30,7 @@ function gpsFromExifTags(tags) {
   return { lat, lon };
 }
 
-// Read GPS coordinates from an image buffer's EXIF, or null when there are none
-// (or the buffer isn't a parseable image). Must run on the ORIGINAL upload —
-// resizing re-encodes and drops EXIF.
+// Must run on the ORIGINAL upload: resizing re-encodes and drops EXIF.
 async function extractGps(buffer) {
   try {
     const { exif } = await sharp(buffer).metadata();
