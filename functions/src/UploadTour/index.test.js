@@ -19,6 +19,7 @@ const reqWith = (query = {}) => ({ query: new URLSearchParams(query) });
 function makeGpxContainer() {
   const blockBlob = {
     uploadData: vi.fn().mockResolvedValue({}),
+    deleteIfExists: vi.fn().mockResolvedValue({ succeeded: true }),
     url: 'https://blob.example/gpx-files/user-1/some-id.gpx',
   };
   const getBlockBlobClient = vi.fn().mockReturnValue(blockBlob);
@@ -227,5 +228,59 @@ describe('UploadTour', () => {
       makeParseFile(bomBuffer),
     );
     expect(res.status).toBe(201);
+  });
+
+  it('uploads the blob before creating the document (#357)', async () => {
+    const order = [];
+    const gpx = makeGpxContainer();
+    gpx.blockBlob.uploadData.mockImplementation(async () => {
+      order.push('blob');
+      return {};
+    });
+    const toursContainer = makeToursContainer();
+    toursContainer.items.create.mockImplementation(async () => {
+      order.push('doc');
+      return { resource: {} };
+    });
+
+    await uploadTour(reqWith(), mockAuth, () => toursContainer, gpx, makeParseFile());
+
+    expect(order).toEqual(['blob', 'doc']);
+  });
+
+  it('rolls the blob back when the document create fails (#357)', async () => {
+    const gpx = makeGpxContainer();
+    const toursContainer = makeToursContainer();
+    toursContainer.items.create.mockRejectedValue(new Error('cosmos down'));
+
+    await expect(
+      uploadTour(reqWith(), mockAuth, () => toursContainer, gpx, makeParseFile()),
+    ).rejects.toThrow('cosmos down');
+
+    // Without this the orphaned GPX would be unreferenced by any tour and only
+    // ever cleaned up by a full account deletion.
+    expect(gpx.blockBlob.deleteIfExists).toHaveBeenCalled();
+  });
+
+  it('surfaces the create failure even when the rollback itself fails (#357)', async () => {
+    const gpx = makeGpxContainer();
+    gpx.blockBlob.deleteIfExists.mockRejectedValue(new Error('storage down'));
+    const toursContainer = makeToursContainer();
+    toursContainer.items.create.mockRejectedValue(new Error('cosmos down'));
+
+    // The create error is the actionable one; a failed best-effort cleanup must
+    // not mask it.
+    await expect(
+      uploadTour(reqWith(), mockAuth, () => toursContainer, gpx, makeParseFile()),
+    ).rejects.toThrow('cosmos down');
+  });
+
+  it('does not delete the blob when the document create succeeds (#357)', async () => {
+    const gpx = makeGpxContainer();
+
+    const res = await uploadTour(reqWith(), mockAuth, makeToursContainer, gpx, makeParseFile());
+
+    expect(res.status).toBe(201);
+    expect(gpx.blockBlob.deleteIfExists).not.toHaveBeenCalled();
   });
 });
