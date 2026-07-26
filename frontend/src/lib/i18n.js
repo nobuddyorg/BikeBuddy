@@ -127,7 +127,15 @@ export function setLanguage(code) {
   location.reload();
 }
 
-// Apply translations to all [data-i18n*] elements under root.
+// Attributes translated by data-i18n-<attr>. Adding one is a word here rather
+// than a copied block; read via getAttribute so the kebab name is written once
+// instead of also as its camelCase dataset spelling (#365).
+export const I18N_ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
+
+// Apply translations to all [data-i18n*] elements under root. The two content
+// sinks stay written out: they are assignments rather than setAttribute calls,
+// and folding them in would bury the fact that data-i18n-html is the one that
+// interprets markup.
 export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n);
@@ -135,16 +143,10 @@ export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n-html]').forEach((el) => {
     el.innerHTML = t(el.dataset.i18nHtml);
   });
-  root.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
-    el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
-  });
-  root.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
-    el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
-  });
-  root.querySelectorAll('[data-i18n-title]').forEach((el) => {
-    el.setAttribute('title', t(el.dataset.i18nTitle));
-  });
-  root.querySelectorAll('[data-i18n-alt]').forEach((el) => {
-    el.setAttribute('alt', t(el.dataset.i18nAlt));
-  });
+  for (const attr of I18N_ATTRS) {
+    const dataAttr = `data-i18n-${attr}`;
+    root.querySelectorAll(`[${dataAttr}]`).forEach((el) => {
+      el.setAttribute(attr, t(el.getAttribute(dataAttr)));
+    });
+  }
 }
