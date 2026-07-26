@@ -121,6 +121,7 @@
   "toast.toursLoadError": "Impossibile caricare i tuoi giri. Controlla la connessione e riprova.",
   "toast.tourDeleted": "Giro eliminato.",
   "toast.tourDeleteError": "Impossibile eliminare il giro.",
+  "toast.gpxDownloadError": "Impossibile scaricare il file GPX.",
   "toast.toursDeleted": "{count} giri eliminati.",
   "toast.toursDeletedPartial": "{deleted} di {total} giri eliminati.",
   "toast.photoDeleteError": "Impossibile eliminare la foto.",

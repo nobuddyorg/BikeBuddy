@@ -121,6 +121,7 @@
   "toast.toursLoadError": "Não foi possível carregar os teus percursos. Verifica a tua ligação e tenta novamente.",
   "toast.tourDeleted": "Percurso eliminado.",
   "toast.tourDeleteError": "Não foi possível eliminar o percurso.",
+  "toast.gpxDownloadError": "Não foi possível descarregar o ficheiro GPX.",
   "toast.toursDeleted": "{count} percursos eliminados.",
   "toast.toursDeletedPartial": "{deleted} de {total} percursos eliminados.",
   "toast.photoDeleteError": "Não foi possível eliminar a foto.",
