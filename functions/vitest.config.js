@@ -18,7 +18,6 @@ export default defineConfig({
         // Infrastructure files exercised by Azurite integration tests, not unit tests:
         'src/lib/db.js',
         'src/lib/blobStorage.js',
-        'src/lib/parseMultipart.js',
       ],
     },
   },
