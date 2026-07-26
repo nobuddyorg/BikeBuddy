@@ -6,10 +6,20 @@ const { toursContainer, readItem } = require('../lib/db');
 const { tourMetaSchema, uuidParamError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 
-// PATCH /api/tours/{tourId} — edit a tour's name/description/date. Only
-// name, description, and createdAt are editable; everything else
-// (heatmapData, images, gpxFileUrl, ...) is preserved by reading the existing
-// doc and patching in place.
+const EDITABLE_FIELDS = ['name', 'description', 'createdAt'];
+
+// PATCH /api/tours/{tourId} — edit a tour's name/description/date. Only the
+// EDITABLE_FIELDS are writable; everything else (heatmapData, images,
+// gpxFileUrl, ...) is left untouched.
+//
+// The write is an atomic per-field patch, not a .replace(tour) of the doc read
+// above: replace rewrites every field from a snapshot taken before the request,
+// so a concurrent write landing in between is silently discarded. The realistic
+// case isn't two edits racing — it's an edit overlapping a photo upload, which
+// appends via patch '/images/-' (see UploadImage) and would be wiped out by a
+// replace, losing the image and orphaning its blob. Patching only the fields
+// that actually changed makes that impossible by construction, so no ETag or
+// retry loop is needed here (unlike DeleteImage, which must rewrite an array).
 async function editTour(request, auth = authenticate, getContainer = toursContainer) {
   const user = await auth(request);
   if (!user) return unauthorized();
@@ -32,11 +42,13 @@ async function editTour(request, auth = authenticate, getContainer = toursContai
   const tour = await readItem(container, tourId, user.userId);
   if (!tour) return error(404, 'Tour not found');
 
-  if (parsed.data.name !== undefined) tour.name = parsed.data.name;
-  if (parsed.data.description !== undefined) tour.description = parsed.data.description;
-  if (parsed.data.createdAt !== undefined) tour.createdAt = parsed.data.createdAt;
+  const operations = EDITABLE_FIELDS.filter((field) => parsed.data[field] !== undefined).map(
+    (field) => ({ op: 'set', path: `/${field}`, value: parsed.data[field] }),
+  );
+  // Cosmos rejects an empty operations array, and there is nothing to write.
+  if (operations.length === 0) return { status: 200, jsonBody: tour };
 
-  const { resource: updated } = await container.item(tourId, user.userId).replace(tour);
+  const { resource: updated } = await container.item(tourId, user.userId).patch(operations);
   return { status: 200, jsonBody: updated };
 }
 
