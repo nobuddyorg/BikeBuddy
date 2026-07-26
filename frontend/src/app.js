@@ -16,6 +16,7 @@ import {
   validateImageQuota,
 } from './lib/files.js';
 import { runWithConcurrency } from './lib/concurrency.js';
+import { parseErrorMessage, xhrUpload } from './lib/upload.js';
 import { groupByProximity, fanOffsets } from './lib/pinLayout.js';
 import { heatOptionsForZoom } from './lib/heatmapZoom.js';
 import * as i18n from './lib/i18n.js';
@@ -406,36 +407,6 @@ async function apiFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
   return fetch(API_BASE + path, { ...options, headers });
-}
-
-// Extract a friendly message from a JSON `{ error }` body, falling back if not JSON.
-function parseErrorMessage(text, fallback) {
-  try {
-    return JSON.parse(text).error || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-// POST a single file as multipart with progress reporting. Resolves with the
-// parsed JSON body on 201, rejects with an Error carrying a friendly message.
-function xhrUpload(url, file, token, onProgress) {
-  return new Promise((resolve, reject) => {
-    const fd = new FormData();
-    fd.append('file', file, file.name);
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
-    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) onProgress(Math.round((ev.loaded / ev.total) * 100));
-    };
-    xhr.onload = () =>
-      xhr.status === 201
-        ? resolve(JSON.parse(xhr.responseText))
-        : reject(new Error(parseErrorMessage(xhr.responseText, 'Upload failed.')));
-    xhr.onerror = () => reject(new Error('Network error during upload.'));
-    xhr.send(fd);
-  });
 }
 
 // ── Tours ───────────────────────────────────────────────────────────────────
