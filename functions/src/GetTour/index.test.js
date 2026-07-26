@@ -33,8 +33,25 @@ describe('GET /api/tours/{tourId}', () => {
 
     expect(item).toHaveBeenCalledWith(TID, 'u1'); // partition key = userId (ownership)
     expect(res.status).toBe(200);
-    expect(res.jsonBody).toEqual({ ...TOUR, images: [] });
+    expect(res.jsonBody).toEqual({
+      ...TOUR,
+      userId: undefined,
+      description: undefined,
+      images: [],
+    });
     expect(res.jsonBody.heatmapData).toHaveLength(2);
+  });
+
+  // Storage metadata and the caller's Entra subject id stay server-side (#360).
+  it('projects away the Cosmos system properties and userId', async () => {
+    const stored = { ...TOUR, _rid: 'abc==', _self: 'dbs/a/colls/b/docs/c/', _etag: '"1"', _ts: 1 };
+    const { container } = makeContainer(async () => ({ resource: stored }));
+
+    const res = await getTour(reqWith(TID), mockAuth, () => container);
+
+    for (const key of ['userId', '_rid', '_self', '_etag', '_ts']) {
+      expect(res.jsonBody).not.toHaveProperty(key);
+    }
   });
 
   it('replaces gpxFileUrl with a signed SAS URL carrying the download filename', async () => {

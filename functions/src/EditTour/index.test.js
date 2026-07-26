@@ -48,6 +48,22 @@ describe('PATCH /api/tours/{tourId}', () => {
     expect(c.item).toHaveBeenCalledWith(TID, 'u1');
   });
 
+  // Storage metadata and the caller's Entra subject id stay server-side (#360).
+  it('projects away the Cosmos system properties and userId', async () => {
+    const stored = { ...TOUR, _rid: 'abc==', _self: 'dbs/a/colls/b/docs/c/', _etag: '"1"', _ts: 1 };
+    const c = makeContainer(async () => ({ resource: stored }));
+
+    const patched = await editTour(reqWith(TID, { name: 'New' }), mockAuth, () => c.container);
+    // Same projection on the nothing-to-write path, which returns the doc as read.
+    const unchanged = await editTour(reqWith(TID, {}), mockAuth, () => c.container);
+
+    for (const key of ['userId', '_rid', '_self', '_etag', '_ts']) {
+      expect(patched.jsonBody).not.toHaveProperty(key);
+      expect(unchanged.jsonBody).not.toHaveProperty(key);
+    }
+    expect(unchanged.jsonBody.name).toBe('Old name');
+  });
+
   it('patches only the provided field', async () => {
     const c = makeContainer(async () => ({ resource: { ...TOUR } }));
     const res = await editTour(reqWith(TID, { name: 'Renamed' }), mockAuth, () => c.container);

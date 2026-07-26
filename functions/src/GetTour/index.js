@@ -5,6 +5,7 @@ const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { imagesContainer, gpxContainer, readSasUrl } = require('../lib/blobStorage');
 const { loadOwnedTour } = require('../lib/ownedTour');
+const { toTourResponse } = require('../lib/tourResponse');
 
 // GET /api/tours/{tourId} — full tour document including heatmapData. Stored
 // images { id, blobName } are returned as { id, url } with a short-lived read
@@ -45,7 +46,7 @@ async function getTour(
     );
   }
 
-  return { status: 200, jsonBody: tour };
+  return { status: 200, jsonBody: toTourResponse(tour) };
 }
 
 app.http('GetTour', {

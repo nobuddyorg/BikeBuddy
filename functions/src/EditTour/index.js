@@ -5,6 +5,7 @@ const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer, readItem } = require('../lib/db');
 const { tourMetaSchema, tourMetaError, uuidParamError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
+const { toTourResponse } = require('../lib/tourResponse');
 
 const EDITABLE_FIELDS = ['name', 'description', 'createdAt'];
 
@@ -46,10 +47,10 @@ async function editTour(request, auth = authenticate, getContainer = toursContai
     (field) => ({ op: 'set', path: `/${field}`, value: parsed.data[field] }),
   );
   // Cosmos rejects an empty operations array, and there is nothing to write.
-  if (operations.length === 0) return { status: 200, jsonBody: tour };
+  if (operations.length === 0) return { status: 200, jsonBody: toTourResponse(tour) };
 
   const { resource: updated } = await container.item(tourId, user.userId).patch(operations);
-  return { status: 200, jsonBody: updated };
+  return { status: 200, jsonBody: toTourResponse(updated) };
 }
 
 app.http('EditTour', {
