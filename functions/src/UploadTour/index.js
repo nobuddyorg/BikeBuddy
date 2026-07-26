@@ -70,13 +70,25 @@ async function uploadTour(
     createdAt: parsed.date ?? new Date().toISOString(),
   };
 
-  // Blob upload and Cosmos DB create are independent — run in parallel.
-  await Promise.all([
-    blockBlob.uploadData(file.buffer, {
-      blobHTTPHeaders: { blobContentType: 'application/gpx+xml' },
-    }),
-    getToursContainer().items.create(tour),
-  ]);
+  // Sequential, not Promise.all: the two writes are independent in that neither
+  // needs the other's result, but they are not independent in consistency, and
+  // Promise.all rejects on the first failure while the other write completes
+  // anyway. Both partial states were reachable, and they are not equally bad —
+  // a tour document referencing a GPX blob that was never written is visible in
+  // the list and fails at download time, whereas an orphaned blob is invisible
+  // and costs a few KB. So write the blob first and roll it back if the Cosmos
+  // create fails, leaving only the recoverable state. The client still sees a
+  // 500 either way, but a retry can no longer accumulate orphaned blobs.
+  await blockBlob.uploadData(file.buffer, {
+    blobHTTPHeaders: { blobContentType: 'application/gpx+xml' },
+  });
+  try {
+    await getToursContainer().items.create(tour);
+  } catch (err) {
+    // Best-effort cleanup — the create failure is what the caller needs to see.
+    await blockBlob.deleteIfExists().catch(() => {});
+    throw err;
+  }
 
   return {
     status: 201,
