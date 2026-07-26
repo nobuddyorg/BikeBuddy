@@ -18,10 +18,9 @@ async function deleteBlobsByPrefix(container, prefix) {
   }
 }
 
-// DELETE /api/account — permanently delete the caller's account and all their
-// data: tours (Cosmos), GPX + image blobs (userId prefix), and the user doc.
-// Also queues the Entra directory object id for out-of-band deletion (GDPR) —
-// the public API never holds the privileged "delete any user" Graph credential.
+// DELETE /api/account — tours, blobs and the user doc go now; the Entra identity
+// is queued for out-of-band deletion, because the public API must never hold the
+// privileged "delete any user" Graph credential (GDPR).
 async function deleteAccount(
   request,
   auth = authenticate,
@@ -35,20 +34,19 @@ async function deleteAccount(
   if (!user) return unauthorized();
   const { userId, userOid } = user;
 
-  // Queue the identity for deletion first so the intent survives even if a later
-  // step fails. Only real Entra users have an oid (dev/no-auth has none).
+  // Queued first, so the intent survives a later step failing. Only real Entra
+  // users have an oid.
   if (userOid) {
     await getDeletions().items.upsert({ id: userOid, requestedAt: new Date().toISOString() });
   }
 
-  // Tours live in the user's partition — delete each.
   const toursC = getTours();
   const tours = await queryUserItems(toursC, userId, 'SELECT c.id FROM c WHERE c.userId = @userId');
   for (const tour of tours) {
     await toursC.item(tour.id, userId).delete();
   }
 
-  // All blobs are namespaced under `${userId}/` in both containers.
+  // Blobs are namespaced under `${userId}/` in both containers.
   const prefix = `${userId}/`;
   await deleteBlobsByPrefix(await getGpx(), prefix);
   await deleteBlobsByPrefix(await getImages(), prefix);

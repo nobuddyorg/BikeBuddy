@@ -1,7 +1,7 @@
 'use strict';
 
-// Client-side upload validation. The backend re-validates by magic bytes; this
-// is just fast UX feedback before the request is sent.
+// Fast UX feedback only — the backend re-validates by magic bytes.
+// Each check returns an i18n message key, or null when the upload is fine.
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -17,27 +17,23 @@ export function isImageFile(file) {
   return /^image\/(jpeg|png)$/.test(file.type) || /\.(jpe?g|png)$/i.test(file.name);
 }
 
-// Returns an i18n message key, or null when the GPX upload is acceptable.
 export function validateGpxUpload(file) {
   if (!isGpxFile(file)) return 'errors.gpxType';
   if (file.size > MAX_UPLOAD_BYTES) return 'errors.gpxSize';
   return null;
 }
 
-// Returns an i18n message key, or null when the image upload is acceptable.
 export function validateImageUpload(file) {
   if (!isImageFile(file)) return 'errors.imageType';
   if (file.size > MAX_IMAGE_BYTES) return 'errors.imageSize';
   return null;
 }
 
-// Returns an i18n message key, or null when the batch size is acceptable.
 export function validateImageBatch(files) {
   if (files.length > MAX_IMAGE_BATCH) return 'errors.tooManyImages';
   return null;
 }
 
-// Returns an i18n message key, or null when there's room for another image.
 export function validateImageQuota(existingCount) {
   if (existingCount >= MAX_TOUR_IMAGES) return 'errors.tourImageLimit';
   return null;

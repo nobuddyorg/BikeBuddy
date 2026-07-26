@@ -1,11 +1,9 @@
 'use strict';
 
-// Cosmos hands back system properties on every resource (_rid, _self, _etag,
-// _attachments, _ts) and the document also carries userId — the caller's Entra
-// subject id. None of that is the client's business, so single-tour responses
-// are projected explicitly, the way GetMe and the GetTours query already are
-// (#360). ExportData deliberately does not use this: returning the stored
-// document in full is the point of a portability export.
+// Cosmos returns its system properties on every resource, and the document also
+// carries the caller's Entra subject id — so single-tour responses are projected
+// explicitly, as GetMe and the GetTours query already are (#360). ExportData
+// stays off this on purpose: the full stored document is the point there.
 const toTourResponse = (tour) => ({
   id: tour.id,
   name: tour.name,

@@ -15,7 +15,7 @@ function haversineKm([lat1, lon1], [lat2, lon2]) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Single pass: accumulate distance and downsample simultaneously.
+// One pass: distance and downsampling together.
 function processPoints(points) {
   if (points.length === 0) return { distanceKm: 0, heatmapData: [] };
   const step = points.length > MAX_POINTS ? Math.ceil(points.length / MAX_POINTS) : 1;
@@ -32,11 +32,9 @@ function processPoints(points) {
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 
-// A <trkpt> with a missing or non-numeric lat/lon parses to NaN, and a single
-// one poisons the whole tour: it flows into the distance accumulator (stored as
-// `distance: null`, since JSON has no NaN) and reaches Leaflet's fitBounds as a
-// [null, null] pair, breaking the map for every tour. Drop such points instead.
-// Range bounds match the EXIF check in extractGps.js.
+// One <trkpt> with a missing or non-numeric lat/lon poisons the whole tour: NaN
+// flows into the distance accumulator and reaches Leaflet's fitBounds as
+// [null, null], breaking the map. Bounds match the EXIF check in extractGps.js.
 const isValidPoint = ([lat, lon]) =>
   Number.isFinite(lat) &&
   Number.isFinite(lon) &&
@@ -45,8 +43,8 @@ const isValidPoint = ([lat, lon]) =>
   lon >= -180 &&
   lon <= 180;
 
-// fast-xml-parser yields a single object, an array, or undefined for a repeated
-// element; normalise to an array.
+// fast-xml-parser yields an object, an array, or undefined for a repeated
+// element.
 const toArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
 
 /**

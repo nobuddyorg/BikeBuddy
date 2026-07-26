@@ -4,8 +4,7 @@ const sharp = require('sharp');
 
 const MAX_WIDTH = 2000;
 
-// Normalise orientation, downscale to <= MAX_WIDTH (never upscale), re-encode as
-// JPEG. Originals are never stored (see docs/explanation/design-decisions.md).
+// Originals are never stored — see docs/explanation/design-decisions.md.
 async function resizeImage(buffer) {
   return sharp(buffer)
     .rotate()

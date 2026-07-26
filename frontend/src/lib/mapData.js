@@ -2,12 +2,10 @@
 
 import { isStale, markFetched } from './sasCache.js';
 
-// Fills in the track points and pinnable photos the map needs, for every tour
-// still missing them, with one request instead of one detail fetch per tour
-// (#355). Tours that already carry fresh data — cached from an earlier call or
-// from a full detail fetch — are left untouched; once their signed photo URLs
-// go stale they are refilled (#362). A failed request settles them on empty
-// data so the map still renders and no retry storm follows.
+// One request for every tour still missing map data, rather than a detail fetch
+// each (#355). Tours already holding fresh data are left alone until their
+// signed photo URLs go stale (#362). A failure settles them on empty data, so
+// the map still renders and no retry storm follows.
 export async function ensureMapData(apiFetch, tours) {
   const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour));
   if (missing.length === 0) return;

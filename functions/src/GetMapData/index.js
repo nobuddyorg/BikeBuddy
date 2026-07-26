@@ -9,10 +9,9 @@ const { unauthorized } = require('../lib/http');
 const isGeotagged = (img) => typeof img.lat === 'number' && typeof img.lon === 'number';
 const pinnedImages = (tour) => (tour.images || []).filter(isGeotagged);
 
-// GET /api/map — everything the map needs for every tour of the user in a
-// single query: track points plus the geotagged photos that become pins (#355).
-// Photos without coordinates are never pinned, so they are left out and cost no
-// SAS signature here; the gallery still gets the full set from GetTour.
+// GET /api/map — every tour's track points and pinnable photos in one query,
+// instead of a detail fetch each (#355). Photos without coordinates can't be
+// pinned, so they cost no signature here; the gallery still gets them all.
 async function getMapData(
   request,
   auth = authenticate,

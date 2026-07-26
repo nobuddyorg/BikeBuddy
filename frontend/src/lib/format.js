@@ -1,7 +1,5 @@
 'use strict';
 
-// Pure display formatters — shared by app.js and the unit tests.
-
 export function formatDate(iso, locale = 'en-GB') {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString(locale, {

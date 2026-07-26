@@ -1,28 +1,18 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
-// #275: long-press a tour row to enter select mode (mobile's replacement for
-// the Select button), without disturbing normal short-click behavior. Also
-// #310: on touch, a plain tap only highlights the row (like a desktop
-// click) without opening the detail panel or entering select mode — the
-// detail panel is reached via swipe-left instead (swipe-detail.spec.ts),
-// and select mode via long-press only. A mouse click is unaffected either
-// way.
+// #275: long-press enters select mode, mobile's replacement for the Select
+// button. #310: a plain tap only highlights — the panel is swipe-left's job
+// (swipe-detail.spec.ts). Mouse clicks are unaffected by either.
 //
-// The topmost-row case is deliberately the primary test here: entering
-// select mode reveals #selection-bar above the list, shifting every row
-// down mid-gesture. For the topmost row specifically, the trailing ghost
-// click's fixed screen coordinates can end up landing on the newly-revealed
-// selection bar itself (in the worst case, on Cancel) instead of the tour
-// row — this broke the implementation multiple times during development,
-// caught only by driving genuine touch events, not mouse simulation.
+// The topmost row is the primary case on purpose. Entering select mode reveals
+// #selection-bar above the list and shifts every row down mid-gesture, so the
+// trailing ghost click's fixed coordinates can land on the bar itself — on
+// Cancel, worst case. Only genuine touch events catch it.
 
 buddyTest.describe('long-press to enter select mode', () => {
-  // Genuine touch dispatch (see longPressTour in main-page.ts) exercises the
-  // same code path as Playwright's own touchscreen API, which requires
-  // hasTouch — matching it here removes any doubt about whether Chromium's
-  // touch-to-pointer translation and ghost-click synthesis behave the same
-  // on a context never marked touch-capable.
+  // Chromium's touch-to-pointer translation and ghost-click synthesis are not
+  // worth trusting on a context never marked touch-capable.
   buddyTest.use({ hasTouch: true });
 
   buddyTest.beforeEach(async () => {
@@ -58,7 +48,7 @@ buddyTest.describe('long-press to enter select mode', () => {
 
       await expect(on(page).main.locators.selection.bar).toBeVisible();
       await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
-      // The detail panel must NOT have opened — this was a long-press, not a tap.
+      // A long-press, not a tap: the panel must stay shut.
       await expect(on(page).main.locators.detail.name).not.toBeVisible();
     },
   );
@@ -97,27 +87,20 @@ buddyTest.describe('long-press to enter select mode', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      // Opens via swipe-left (mobile's own way in), not selectTour's mouse
-      // click — this context is touch-only.
+      // Touch-only context, so swipe-left rather than selectTour's mouse click.
       await on(page).main.do.swipeTour('Long Press Tour B', -120);
       await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour B');
 
-      // CI-only failure (Linux Chromium), confirmed via trace inspection: the
-      // tap right after this succeeded mechanically (bounding box resolved,
-      // both touch events dispatched, no console error) but its
-      // compatibility click never arrived — #detail-panel still showed Tour
-      // B, completely untouched, for the full 5s assertion retry window, so
-      // no amount of waiting *after* the tap helped. Chromium's gesture
-      // recognizer needs this settle time *before* starting a new touch
-      // sequence elsewhere, right after a raw-CDP-dispatched drag — nothing
-      // else in this suite chains two independent touch gestures back to
-      // back like this. tapTour's own trailing wait doesn't cover this gap.
+      // Chromium's gesture recognizer needs settle time *before* a new touch
+      // sequence that follows a raw-CDP drag. Without it, on CI, the next tap
+      // dispatched cleanly but its compatibility click never arrived, so
+      // waiting after the tap could not help. Nothing else here chains two
+      // independent touch gestures back to back.
       await page.waitForTimeout(500);
       await on(page).main.do.tapTour('Long Press Tour A');
 
-      // The panel must close rather than keep showing Tour B while Tour A
-      // is highlighted — that mismatch would point its Edit/Delete buttons
-      // at Tour A instead of the Tour B still visibly named in the panel.
+      // Left open, the panel would still name Tour B while its Edit/Delete
+      // buttons acted on Tour A.
       await expect(on(page).main.locators.detail.panel).toBeHidden();
       await expect(
         on(page).main.locators.list.container.locator('.tour-item.active', {
@@ -136,9 +119,7 @@ buddyTest.describe('long-press to enter select mode', () => {
       await on(page).main.do.longPressTour('Long Press Tour A');
       await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
 
-      // A normal (short) click on a second tour, while already in select
-      // mode, toggles it via the existing click handler — long-press didn't
-      // break that path.
+      // Short click while already in select mode still toggles.
       await on(page).main.do.toggleTourSelection('Long Press Tour B');
       await expect(on(page).main.locators.selection.count).toHaveText('2 selected');
     },

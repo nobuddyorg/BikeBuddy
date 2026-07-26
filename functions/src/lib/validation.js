@@ -5,30 +5,27 @@ const { error } = require('./http');
 
 const stripHtml = (s) => s.replace(/[<>]/g, '').trim();
 
-// User-facing text: stripped first, then length-checked.
+// Stripped first, then length-checked.
 const nameSchema = z.string().transform(stripHtml).pipe(z.string().min(1).max(200));
 const descriptionSchema = z.string().transform(stripHtml).pipe(z.string().max(2000));
 
-// name + description metadata for tour create (query) and edit (body).
-// createdAt is edit-only (the tour's date) — never accepted on create/upload.
+// createdAt is edit-only — never accepted on create/upload.
 const tourMetaSchema = z.object({
   name: nameSchema.optional(),
   description: descriptionSchema.optional(),
   createdAt: z.iso.datetime().optional(),
 });
 
-// The frontend renders an error body verbatim, so these are i18n keys rather
-// than prose: Zod's own wording is English-only, describes the schema instead
-// of the fix, and changes with the library version (#359). Keys must exist in
-// frontend/src/locales/*.json.
+// The frontend renders an error body verbatim, so these are i18n keys, not
+// prose: Zod's own wording is English-only, describes the schema rather than the
+// fix, and changes with the library (#359). Keys live in frontend/src/locales/.
 const TOUR_META_ERROR_KEYS = {
   name: 'errors.tourName',
   description: 'errors.tourDescription',
   createdAt: 'errors.tourDate',
 };
 
-// 400 for a failed tourMetaSchema parse, naming the field that failed. A body
-// that isn't an object at all has no field path, hence the generic key.
+// A body that isn't an object at all has no field path, hence the generic key.
 function tourMetaError(zodError) {
   const field = zodError.issues[0]?.path?.[0];
   return error(400, TOUR_META_ERROR_KEYS[field] ?? 'errors.tourInvalid');
@@ -37,8 +34,7 @@ function tourMetaError(zodError) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v) => typeof v === 'string' && UUID_RE.test(v);
 
-// Validate route params are UUIDs; returns a 400 response for the first invalid
-// one, or null when all are valid.
+// Returns a 400 response for the first non-UUID param, or null when all pass.
 function uuidParamError(params) {
   for (const [key, value] of Object.entries(params)) {
     if (!isUuid(value)) return error(400, `Invalid ${key}`);
@@ -46,8 +42,8 @@ function uuidParamError(params) {
   return null;
 }
 
-// Must stay in sync with frontend/src/lib/i18n.js's SUPPORTED_LOCALES codes —
-// separate deployables, no shared module, so this list is kept in step by hand.
+// Kept in step by hand with frontend/src/lib/i18n.js's SUPPORTED_LOCALES:
+// separate deployables, no shared module.
 const SUPPORTED_LANGUAGE_CODES = ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt'];
 const languageSchema = z.enum(SUPPORTED_LANGUAGE_CODES);
 

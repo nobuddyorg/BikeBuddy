@@ -5,8 +5,7 @@ const { authenticate } = require('../middleware/authMiddleware');
 const { usersContainer, toursContainer, readItem, queryUserItems } = require('../lib/db');
 const { unauthorized } = require('../lib/http');
 
-// GET /api/me/export — the caller's full data (user doc + all their tours) as a
-// downloadable JSON file (GDPR data portability).
+// GET /api/me/export — GDPR data portability.
 async function exportData(
   request,
   auth = authenticate,

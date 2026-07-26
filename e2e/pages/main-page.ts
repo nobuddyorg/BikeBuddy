@@ -1,8 +1,8 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { initUploadModal } from './upload-modal';
 
-// Mirrors Locator.setInputFiles' own accepted type exactly (a single value,
-// or a homogeneous array of one variant — never a mixed array of both).
+// Locator.setInputFiles' own type: one value, or a homogeneous array — never a
+// mixed array.
 type FileInputArg = Parameters<Locator['setInputFiles']>[0];
 
 interface MainPage {
@@ -205,7 +205,7 @@ export function initMainPage(page: Page): MainPage {
     openHelp: async () => locators.buttons.help.click(),
     openEdit: async () => locators.buttons.editTour.click(),
     downloadGpx: async () => locators.buttons.downloadGpx.click(),
-    // Sign Out now lives inside the profile modal — open it first.
+    // Sign Out lives inside the profile modal.
     logout: async () => {
       await locators.buttons.profile.click();
       await locators.buttons.logout.click();
@@ -222,10 +222,9 @@ export function initMainPage(page: Page): MainPage {
     selectTour: async (name: string) => {
       await locators.list.container.locator('.tour-item', { hasText: name }).click();
     },
-    // Genuine touch dispatch (CDP), not Playwright's mouse API — createTourItem
-    // (app.js) tells a tap from a mouse click by the pointerType of the
-    // preceding pointerdown, so a mouse-based click() would never exercise
-    // the touch branch this is meant to test (#308).
+    // CDP touch dispatch, not Playwright's mouse API: createTourItem branches on
+    // the preceding pointerdown's pointerType, so a click() would take the wrong
+    // path (#308).
     tapTour: async (name: string) => {
       const row = locators.list.container.locator('.tour-item', { hasText: name });
       const box = await row.boundingBox();
@@ -235,21 +234,15 @@ export function initMainPage(page: Page): MainPage {
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      // 500ms, matching longPressTour's own trailing wait below, not the
-      // 300ms swipeTour uses — the compatibility click Chromium synthesizes
-      // after a touch tap arrives asynchronously, and CI's Linux Chromium
-      // was observed to need more margin here than local macOS runs (#310:
-      // a tap right after a swipe intermittently missed its target row on
-      // CI at 300ms).
+      // Chromium's synthesized compatibility click arrives asynchronously, and
+      // CI's Linux Chromium needs more margin than local macOS: at swipeTour's
+      // 300ms, a tap right after a swipe intermittently missed its row (#310).
       await page.waitForTimeout(500);
     },
-    // Genuine touch dispatch (CDP), not Playwright's mouse API — the actual
-    // bug this covers (#275: a long-press's trailing "ghost click" un-doing
-    // its own select-mode entry) is touch-specific. A mouse-based
-    // press-and-hold never reproduces it: Chromium suppresses the
-    // compatibility click outright once the original element is removed
-    // mid-gesture, so a mouse simulation would pass even against a broken
-    // implementation.
+    // The bug this covers (#275: a long-press's ghost click undoing its own
+    // select-mode entry) is touch-specific. Chromium suppresses the
+    // compatibility click outright when a mouse press removes the element
+    // mid-gesture, so a mouse simulation passes even against broken code.
     longPressTour: async (name: string) => {
       const row = locators.list.container.locator('.tour-item', { hasText: name });
       const box = await row.boundingBox();
@@ -260,22 +253,15 @@ export function initMainPage(page: Page): MainPage {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
       await page.waitForTimeout(700);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      // The trailing ghost click (and the app's suppression of it) is
-      // asynchronous and can arrive after touchEnd resolves. Playwright's
-      // web-first assertions succeed on the FIRST passing poll, not once the
-      // state has settled — without this wait, an assertion could pass
-      // before the ghost click has had a chance to wrongly fire, silently
-      // failing to exercise the exact race this helper exists to test.
-      // 500ms comfortably clears the app's 400ms suppression window.
+      // The ghost click can arrive after touchEnd resolves, and web-first
+      // assertions pass on the first successful poll rather than once the state
+      // settles — so without this wait a test could pass before the ghost click
+      // even had its chance to fire. 500ms clears the app's 400ms window.
       await page.waitForTimeout(500);
     },
-    // Genuine touch dispatch (CDP), matching longPressTour above — the
-    // implementation (bindTourSwipe in app.js) reads real touch
-    // pointerType, so a mouse-drag simulation would never exercise it.
-    // Positive dx swipes right (delete, #289); negative dx swipes left
-    // (opens the detail panel, #308).
-    // Multiple intermediate touchMove events (not one big jump) mirror how
-    // a real finger delivers a drag.
+    // Positive dx swipes right (delete, #289), negative left (detail, #308).
+    // The intermediate touchMove events mirror how a finger delivers a drag;
+    // bindTourSwipe reads real touch pointerType, so a mouse drag won't do.
     swipeTour: async (name: string, dx: number) => {
       const row = locators.list.container.locator('.tour-item', { hasText: name });
       const box = await row.boundingBox();
@@ -357,12 +343,9 @@ export function initMainPage(page: Page): MainPage {
     },
     pagerPrev: async () => locators.pager.prev.click(),
     pagerNext: async () => locators.pager.next.click(),
-    // Leaflet ignores zoom-control clicks that land mid-animation, so each
-    // click waits out the ~250ms zoom transition before the next one. Once
-    // the map hits min/max zoom, Leaflet marks the button aria-disabled;
-    // Playwright's click() then waits forever for it to become "enabled"
-    // rather than no-op'ing, so stop early instead of requesting more clicks
-    // than the map can actually take.
+    // Leaflet ignores zoom clicks that land mid-animation, hence the wait. At
+    // min/max zoom it marks the button aria-disabled, and Playwright's click()
+    // then blocks waiting for it rather than no-op'ing — so stop early.
     zoomOut: async (times: number) => {
       for (let i = 0; i < times; i++) {
         if ((await locators.mapControls.zoomOut.getAttribute('aria-disabled')) === 'true') break;

@@ -1,9 +1,8 @@
 import { CosmosClient, type Container } from '@azure/cosmos';
 
-// Direct access to the Cosmos `users` container so registration tests can start
-// from a clean database and assert what the backend persisted. Uses the same
-// connection the Functions host uses; falls back to the well-known emulator
-// endpoint/key when COSMOS_CONNECTION_STRING isn't exported (e.g. local runs).
+// Direct Cosmos access, so tests can start from a clean database and assert what
+// the backend persisted. Falls back to the well-known emulator endpoint when
+// COSMOS_CONNECTION_STRING isn't exported.
 const CONNECTION_STRING =
   process.env.COSMOS_CONNECTION_STRING ||
   'AccountEndpoint=http://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw==';
@@ -31,8 +30,7 @@ export function toursContainer(): Container {
   return db().container('tours');
 }
 
-// Remove every tour (partition key is /userId) so list/sort/search tests start
-// from a known set.
+// Partition key is /userId.
 export async function clearTours(): Promise<void> {
   const { resources } = await toursContainer()
     .items.query<{ id: string; userId: string }>('SELECT c.id, c.userId FROM c')
@@ -42,7 +40,7 @@ export async function clearTours(): Promise<void> {
   }
 }
 
-// Remove every user so a test starts with a clean user DB. Partition key is /id.
+// Partition key is /id.
 export async function clearUsers(): Promise<void> {
   const { resources } = await usersContainer()
     .items.query<{ id: string }>('SELECT c.id FROM c')

@@ -2,18 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
-// #272: select multiple tours in the sidebar and delete them together, from
-// across a page boundary, without disturbing the ones left unselected.
+// #272: delete several tours at once, from across a page boundary, without
+// disturbing the ones left unselected.
 
 buddyTest.describe('multi-select bulk delete', () => {
   buddyTest.beforeEach(async () => {
     await clearUsers();
     await clearTours();
     const now = Date.now();
-    // 22 tours: PAGE_SIZE is 10, so this spans 3 pages (10/10/2). ids must be
-    // real UUIDs — DELETE /api/tours/{tourId} validates the route param and
-    // 400s on anything else (functions/src/lib/validation.js), same as real
-    // tours always get via randomUUID() in UploadTour.
+    // 22 tours over a PAGE_SIZE of 10: three pages. The ids must be real UUIDs,
+    // since DELETE /api/tours/{tourId} validates the route param.
     const docs = Array.from({ length: 22 }, (_, i) => ({
       id: randomUUID(),
       userId: 'local-dev-user',
@@ -33,11 +31,8 @@ buddyTest.describe('multi-select bulk delete', () => {
     await expect(on(page).main.locators.selection.bar).toBeVisible();
     await expect(on(page).main.locators.selection.count).toHaveText('0 selected');
 
-    // Page 1: sorted newest-first by default (date-desc). Tour 01 was created
-    // with the most recent timestamp (i=0 → createdAt = now), so it's first
-    // on page 1. Tour 22 has the oldest timestamp (i=21 → now - 21min), so
-    // it's the very last item overall — with PAGE_SIZE=10 and 22 tours,
-    // that's page 3 (pages are 01-10, 11-20, 21-22).
+    // Newest-first by default, so Tour 01 leads page 1 and Tour 22 is last on
+    // page 3 (01-10, 11-20, 21-22).
     await on(page).main.do.toggleTourSelection('MultiSelect Tour 01');
     await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
 

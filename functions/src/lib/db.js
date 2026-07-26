@@ -8,9 +8,8 @@ function getClient() {
   return cosmosClient;
 }
 
-// Read a document by id within its partition, returning the resource or
-// undefined. A missing item surfaces as a thrown 404 (real Cosmos) or a
-// resolved resource of undefined (emulator); both are normalised to undefined.
+// A missing item is a thrown 404 on real Cosmos and a resolved undefined on the
+// emulator; both are normalised to undefined here.
 async function readItem(container, id, partitionKey) {
   try {
     const { resource } = await container.item(id, partitionKey).read();
@@ -21,17 +20,14 @@ async function readItem(container, id, partitionKey) {
   }
 }
 
-// How much of a result set one round trip may materialise. fetchAll() still
-// drains every continuation, so this bounds the page, not the result: a user
-// with years of tours costs several bounded responses instead of one unbounded
-// one (#363). ORDER BY createdAt is served by the range index the containers
-// include via '/*' (heatmapData/images are the only exclusions), so paging
-// costs no extra sort.
+// fetchAll() still drains every continuation, so this bounds the round trip,
+// not the result: years of tours cost several bounded responses instead of one
+// unbounded one (#363). ORDER BY createdAt rides the containers' '/*' range
+// index, so paging adds no sort.
 const MAX_ITEMS_PER_REQUEST = 100;
 
-// Run a single-partition query scoped to one user. The query must filter on the
-// @userId parameter; passing the same userId as the partition key is what keeps
-// a user's reads confined to their own data.
+// The query must filter on @userId: passing that same id as the partition key
+// is what confines a user's reads to their own data.
 async function queryUserItems(container, userId, query, maxItemCount = MAX_ITEMS_PER_REQUEST) {
   const { resources } = await container.items
     .query(
@@ -45,8 +41,7 @@ async function queryUserItems(container, userId, query, maxItemCount = MAX_ITEMS
 module.exports = {
   usersContainer: () => getClient().database(process.env.COSMOS_DATABASE).container('users'),
   toursContainer: () => getClient().database(process.env.COSMOS_DATABASE).container('tours'),
-  // Queue of Entra directory object ids to delete out-of-band (GDPR); processed
-  // by the scheduled deletion job, never by the public API.
+  // Drained by the scheduled deletion job, never by the public API (GDPR).
   deletionsContainer: () =>
     getClient().database(process.env.COSMOS_DATABASE).container('deletions'),
   readItem,

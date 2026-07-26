@@ -1,9 +1,8 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
-// Photo pins (#100): markers for geotagged images, default hidden, toggled on.
-// Seed a tour with a geotagged image directly so GetTour returns lat/lon (no
-// real upload needed; the SAS url is signed even if the blob is absent).
+// Photo pins (#100). Seeded directly rather than uploaded: a SAS url is signed
+// even when the blob behind it doesn't exist.
 
 const TID = '22222222-2222-4222-8222-222222222222';
 const IID = '33333333-3333-4333-8333-333333333333';
@@ -23,8 +22,7 @@ buddyTest.describe('photo pins', () => {
         [48.1, 11.5],
         [48.2, 11.6],
       ],
-      // Two photos at the SAME coordinates → both must be shown (fanned), not
-      // stacked into one (#126).
+      // Identical coordinates: both must fan out, not stack into one (#126).
       images: [
         { id: IID, blobName: `local-dev-user/${TID}/${IID}.jpg`, lat: 48.1, lon: 11.5 },
         { id: IID2, blobName: `local-dev-user/${TID}/${IID2}.jpg`, lat: 48.1, lon: 11.5 },
@@ -39,37 +37,31 @@ buddyTest.describe('photo pins', () => {
       await expect(on(page).main.locators.userMenu).toBeVisible();
       await expect(on(page).main.locators.list.container).toContainText('Geotagged Tour');
 
-      // Toggle visible (geotagged images exist) but off → no pins.
+      // Visible but off.
       await expect(on(page).main.locators.pins.toggle).toBeVisible();
       await expect(on(page).main.locators.pins.toggleInput).not.toBeChecked();
       await expect(on(page).main.locators.pins.markers).toHaveCount(0);
 
-      // Turn on → both co-located pins appear (fanned, each clickable).
       await on(page).main.do.showPins(true);
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-      // Zoom out past the map's minimum (region-level cutoff, #236): pins
-      // hide entirely rather than clutter a world/country-level view with
-      // fanned-out photos from possibly unrelated locations.
+      // Past the region-level cutoff (#236) pins hide entirely, rather than
+      // clutter a country-level view with photos from unrelated places.
       await on(page).main.do.zoomOut(15);
       await expect(on(page).main.locators.pins.markers).toHaveCount(0);
 
-      // Zoom back in past the cutoff (#210): the zoomend listener re-runs
-      // grouping/fan-out and both markers reappear.
+      // Back in past the cutoff: zoomend re-runs the grouping (#210).
       await on(page).main.do.zoomIn(15);
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-      // Turn off → pins removed.
       await on(page).main.do.showPins(false);
       await expect(on(page).main.locators.pins.markers).toHaveCount(0);
     },
   );
 });
 
-// #274: pins must be scoped to the selected tour — a single tour's markers
-// should never leak photos from other tours, and the toggle should only be
-// available when the current scope (selected tour, or all tours) actually
-// has a geotagged photo.
+// #274: a tour's markers must never leak in photos from other tours, and the
+// toggle must follow the current scope rather than the whole library.
 const TID_A = '55555555-5555-4555-8555-555555555555';
 const IID_A = '66666666-6666-4666-8666-666666666666';
 const TID_B = '77777777-7777-4777-8777-777777777777';
@@ -108,8 +100,8 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
         { id: IID_B, blobName: `local-dev-user/${TID_B}/${IID_B}.jpg`, lat: 48.12, lon: 11.55 },
       ],
     });
-    // No geotagged photos at all — proves the toggle hides for this tour
-    // even though other tours have pins.
+    // No geotagged photos: the toggle must hide for this tour even though
+    // others have pins.
     await toursContainer().items.create({
       id: TID_C,
       userId: 'local-dev-user',
@@ -126,23 +118,21 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
       await expect(on(page).main.locators.userMenu).toBeVisible();
       await expect(on(page).main.locators.list.count).toHaveText('3');
 
-      // All tours (nothing selected yet): both A's and B's pins show.
+      // Nothing selected yet: both A's and B's pins show.
       await expect(on(page).main.locators.pins.toggle).toBeVisible();
       await on(page).main.do.showPins(true);
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-      // Select Tour A: only its own pin shows, not Tour B's.
       await on(page).main.do.selectTour('Tour A');
       await expect(on(page).main.locators.detail.name).toHaveText('Tour A');
       await expect(on(page).main.locators.pins.markers).toHaveCount(1);
 
-      // Select Tour B: only its own pin shows.
       await on(page).main.do.selectTour('Tour B');
       await expect(on(page).main.locators.detail.name).toHaveText('Tour B');
       await expect(on(page).main.locators.pins.markers).toHaveCount(1);
 
-      // Select Tour C (no geotagged photos): the toggle itself hides, since
-      // this tour has no pins to show at all — not just zero markers.
+      // Tour C has no geotagged photos at all, so the toggle hides rather than
+      // showing zero markers.
       await on(page).main.do.selectTour('Tour C (no photos)');
       await expect(on(page).main.locators.detail.name).toHaveText('Tour C (no photos)');
       await expect(on(page).main.locators.pins.toggle).toBeHidden();
@@ -160,11 +150,9 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
   );
 });
 
-// #331: a mobile tap must focus the map on the tapped tour the same way a
-// desktop click / swipe-left does — not just highlight the row. Pins are the
-// easiest observable proxy for "did the map actually focus": geotaggedImages()
-// scopes to state.selectedTourId, but before the fix that scoping never
-// re-rendered on a plain tap, so both tours' pins stayed visible.
+// #331: a tap must focus the map, not just highlight the row. Pins are the
+// observable proxy — the scoping reads state.selectedTourId, which before the
+// fix never re-rendered on a plain tap.
 buddyTest.describe('mobile tap focuses the map, not just the row (#331)', () => {
   buddyTest.use({ hasTouch: true });
 
@@ -206,13 +194,12 @@ buddyTest.describe('mobile tap focuses the map, not just the row (#331)', () => 
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).main.locators.list.count).toHaveText('2');
 
-    // All tours (nothing tapped yet): both A's and B's pins show.
+    // Nothing tapped yet: both A's and B's pins show.
     await expect(on(page).main.locators.pins.toggle).toBeVisible();
     await on(page).main.do.showPins(true);
     await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-    // Tap Tour A (not a click — the detail panel must stay closed, #310):
-    // only its own pin should remain.
+    // A tap, not a click: the panel must stay closed (#310).
     await on(page).main.do.tapTour('Tour A');
     await expect(on(page).main.locators.detail.panel).toBeHidden();
     await expect(
