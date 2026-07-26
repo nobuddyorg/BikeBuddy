@@ -912,10 +912,19 @@ function geotaggedImages() {
   );
 }
 
+// L.divIcon takes an element as well as a string, and the element form is what
+// this needs: assigning img.src is a property write, never parsed as markup,
+// whereas the string form went through innerHTML. Today's URLs are signed blob
+// URLs built from server-generated names, so nothing hostile can reach it — but
+// that safety lives in backend blob naming, three modules away, and this is the
+// last data-carrying innerHTML sink in the app (#367).
 function photoPinIcon(url) {
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = t('lightbox.imgAlt');
   return L.divIcon({
     className: 'photo-pin',
-    html: `<img src="${url}" alt="Tour photo" />`,
+    html: img,
     iconSize: [36, 36],
     iconAnchor: [18, 18],
   });
@@ -1191,7 +1200,7 @@ function createImageTile(image) {
   const img = document.createElement('img');
   img.className = 'image-thumb';
   img.src = image.url;
-  img.alt = 'Tour photo';
+  img.alt = t('lightbox.imgAlt');
   img.loading = 'lazy';
   img.addEventListener('click', () => openLightbox(image.url));
 
