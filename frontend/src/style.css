@@ -465,7 +465,7 @@ body {
    labels and boundaries while keeping the dark aesthetic. The heat/track
    layer sits in its own pane above this one, so it's unaffected. */
 .map-tiles-dark {
-  filter: brightness(1.5) contrast(1.35) saturate(1.4);
+  filter: brightness(1.8) contrast(1.2) saturate(2);
 }
 
 .map-top-controls {
