@@ -65,8 +65,14 @@ const tileLayer = L.tileLayer(TILE_URLS.light, {
 // Leaflet tile URLs are JS state (unlike the CSS palette, which the browser
 // switches natively via prefers-color-scheme) — mirror the OS setting here so
 // the basemap matches the rest of the UI, including live theme changes.
+//
+// CARTO's dark_all tiles are low-contrast by design (#342), so the dark tile
+// pane also gets a CSS filter (map-tiles-dark, see style.css) to lift roads,
+// labels and boundaries — the heat/track layer lives in its own pane and is
+// unaffected.
 function applyMapTheme(isDark) {
   tileLayer.setUrl(isDark ? TILE_URLS.dark : TILE_URLS.light);
+  tileLayer.getContainer()?.classList.toggle('map-tiles-dark', isDark);
 }
 
 const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
