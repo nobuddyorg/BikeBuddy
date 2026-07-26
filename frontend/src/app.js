@@ -606,7 +606,13 @@ function bindTourSwipe(contentEl, tour) {
     }
     dragging = true;
     contentEl.style.transition = 'none';
-    contentEl.style.transform = `translateX(${dx}px)`;
+    // Clamped to half the row's width so the drag can never uncover more
+    // than its own bg — .tour-item-delete-bg / .tour-item-detail-bg each
+    // occupy one half, and past that point an overshot drag started
+    // revealing the other action's bg on the far edge.
+    const maxDx = contentEl.offsetWidth / 2;
+    const clampedDx = Math.max(-maxDx, Math.min(maxDx, dx));
+    contentEl.style.transform = `translateX(${clampedDx}px)`;
   });
 
   contentEl.addEventListener('pointerup', async (e) => {
@@ -844,8 +850,8 @@ function exitSelectMode() {
 const HEAT_OPTIONS = {
   radius: 16,
   blur: 20,
-  minOpacity: 0.15,
-  max: 1.6,
+  minOpacity: 0.45,
+  max: 1.0,
   maxZoom: 17,
   gradient: { 0.0: '#3b82f6', 0.3: '#22d3ee', 0.55: '#f97316', 0.8: '#ef4444', 1.0: '#fde047' },
 };
