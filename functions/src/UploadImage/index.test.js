@@ -108,6 +108,37 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(ops).toEqual([{ op: 'add', path: '/images/-', value: expect.any(Object) }]);
   });
 
+  // Deadlocks if the handler awaits the GPS read before calling resize: readGps
+  // only settles once resize has been entered, so a sequential handler times out.
+  it('starts the resize without waiting for the GPS read to finish', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
+    const images = makeImagesContainer();
+    let resizeEntered;
+    const resizeStarted = new Promise((resolve) => {
+      resizeEntered = resolve;
+    });
+    const resize = vi.fn(async (buffer) => {
+      resizeEntered();
+      return buffer;
+    });
+    const readGps = vi.fn(async () => {
+      await resizeStarted;
+      return null;
+    });
+
+    const res = await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      makeParseFile(JPEG),
+      resize,
+      readGps,
+    );
+
+    expect(res.status).toBe(201);
+  });
+
   it('stores and returns GPS coords when the image is geotagged', async () => {
     const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
     const images = makeImagesContainer();
