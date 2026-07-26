@@ -25,9 +25,18 @@ const now = () => Math.floor(Date.now() / 1000);
 // the OIDC metadata document.
 const mockConfig = async () => ({ issuer: ISSUER, jwksUri: 'https://example/keys' });
 const mockJwks = () => ({ getSigningKey: async () => ({ getPublicKey: () => publicKeyPem }) });
+// The token's kid is genuinely absent from the tenant's JWKS — the caller's
+// fault, so this stays a 401. jwks-rsa signals it with this error name.
 const failingJwks = () => ({
   getSigningKey: async () => {
-    throw new Error('key not found');
+    throw Object.assign(new Error('key not found'), { name: 'SigningKeyNotFoundError' });
+  },
+});
+
+// The JWKS endpoint itself is unreachable — not the caller's fault.
+const unreachableJwks = () => ({
+  getSigningKey: async () => {
+    throw Object.assign(new Error('getaddrinfo ENOTFOUND'), { name: 'FetchError' });
   },
 });
 
@@ -127,9 +136,36 @@ describe('authenticate — rejection (null)', () => {
     ['wrong audience', bearer(makeToken({ aud: 'wrong-client' }))],
     ['wrong issuer', bearer(makeToken({ iss: 'https://attacker.example.com/' }))],
     ['disallowed algorithm (HS256)', bearer(hsToken)],
-    ['JWKS signing-key lookup failure', bearer(makeToken()), failingJwks],
+    ['unknown signing key (kid not in JWKS)', bearer(makeToken()), failingJwks],
   ])('returns null for %s', async (_label, req, factory) => {
     expect(await run(req, factory)).toBeNull();
+  });
+});
+
+// Returning null here would answer 401, telling every correctly-authenticated
+// user they are signed out for the duration of an upstream outage. These must
+// propagate so callers surface a retryable 5xx instead (#358).
+describe('authenticate — infrastructure failures propagate', () => {
+  test('rethrows when the JWKS endpoint is unreachable', async () => {
+    await expect(run(bearer(makeToken()), unreachableJwks)).rejects.toThrow(
+      'getaddrinfo ENOTFOUND',
+    );
+  });
+
+  test('rethrows when the OIDC metadata document cannot be loaded', async () => {
+    const failingConfig = async () => {
+      throw new Error('OIDC metadata fetch failed: 503');
+    };
+    await expect(authenticate(bearer(makeToken()), mockJwks, failingConfig)).rejects.toThrow(
+      'OIDC metadata fetch failed: 503',
+    );
+  });
+
+  test('a malformed token is still rejected, not thrown, before any network call', async () => {
+    const neverCalled = async () => {
+      throw new Error('config should not be loaded for a malformed token');
+    };
+    expect(await authenticate(bearer('notajwt'), mockJwks, neverCalled)).toBeNull();
   });
 });
 
@@ -174,6 +210,30 @@ describe('getOpenIdConfig', () => {
     expect(config1).toEqual({ issuer: doc.issuer, jwksUri: doc.jwks_uri });
     expect(config2).toBe(config1);
     expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  // Without a TTL an issuer or jwks_uri change stays invisible until the warm
+  // instance recycles, which can be a very long time.
+  test('re-fetches once the cache TTL has elapsed (#358)', async () => {
+    const TTL = 60 * 60 * 1000;
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => doc });
+    // Drive a synthetic clock, starting past the TTL so this does not depend on
+    // whatever the earlier tests in this file left in the module-level cache.
+    let clock = Date.now() + TTL + 1;
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    try {
+      await getOpenIdConfig(fetchFn);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+
+      await getOpenIdConfig(fetchFn);
+      expect(fetchFn).toHaveBeenCalledTimes(1); // still within the new TTL
+
+      clock += TTL + 1;
+      await getOpenIdConfig(fetchFn);
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
