@@ -2,6 +2,7 @@
 
 const { getMapData } = require('./index');
 const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
+const { distanceMeters } = require('../lib/simplify');
 
 const TOURS = [
   {
@@ -96,5 +97,43 @@ describe('GET /api/map', () => {
 
     expect(res.status).toBe(401);
     expect(container.items.query).not.toHaveBeenCalled();
+  });
+
+  it('simplifies tracks when the combined point count blows the budget, without gaps between kept points', async () => {
+    const straightLine = (offset, n) =>
+      Array.from({ length: n }, (_, i) => [48.0 + offset, 11.0 + i * 0.0001]);
+    const bigTours = [
+      { id: 'big1', heatmapData: straightLine(0, 60000) },
+      { id: 'big2', heatmapData: straightLine(1, 60000) },
+    ];
+    const { container } = makeContainer(bigTours);
+    const getImagesContainer = vi.fn();
+
+    const res = await getMapData(req, mockAuth, () => container, getImagesContainer);
+
+    const [t1, t2] = res.jsonBody;
+    const totalReturned = t1.heatmapData.length + t2.heatmapData.length;
+    expect(totalReturned).toBeLessThan(
+      bigTours[0].heatmapData.length + bigTours[1].heatmapData.length,
+    );
+    expect(totalReturned).toBeLessThanOrEqual(100000);
+    expect(t1.heatmapData[0]).toEqual(bigTours[0].heatmapData[0]);
+    expect(t1.heatmapData[t1.heatmapData.length - 1]).toEqual(
+      bigTours[0].heatmapData[bigTours[0].heatmapData.length - 1],
+    );
+    for (const heatmapData of [t1.heatmapData, t2.heatmapData]) {
+      for (let i = 1; i < heatmapData.length; i++) {
+        expect(distanceMeters(heatmapData[i - 1], heatmapData[i])).toBeLessThanOrEqual(50);
+      }
+    }
+  });
+
+  it('leaves heatmapData untouched when the combined point count is within budget', async () => {
+    const { container } = makeContainer();
+    const { getImagesContainer } = makeImagesContainer();
+
+    const res = await getMapData(req, mockAuth, () => container, getImagesContainer);
+
+    expect(res.jsonBody[0].heatmapData).toEqual(TOURS[0].heatmapData);
   });
 });
