@@ -105,6 +105,7 @@ describe('GET /api/map', () => {
     const bigTours = [
       { id: 'big1', heatmapData: straightLine(0, 300) },
       { id: 'big2', heatmapData: straightLine(1, 300) },
+      { id: 'big3' },
     ];
     const { container } = makeContainer(bigTours);
     const getImagesContainer = vi.fn();
@@ -119,7 +120,7 @@ describe('GET /api/map', () => {
       maxGapMeters,
     );
 
-    const [t1, t2] = res.jsonBody;
+    const [t1, t2, t3] = res.jsonBody;
     const totalReturned = t1.heatmapData.length + t2.heatmapData.length;
     expect(totalReturned).toBeLessThan(
       bigTours[0].heatmapData.length + bigTours[1].heatmapData.length,
@@ -129,6 +130,7 @@ describe('GET /api/map', () => {
     expect(t1.heatmapData[t1.heatmapData.length - 1]).toEqual(
       bigTours[0].heatmapData[bigTours[0].heatmapData.length - 1],
     );
+    expect(t3.heatmapData).toEqual([]);
     for (const heatmapData of [t1.heatmapData, t2.heatmapData]) {
       for (let i = 1; i < heatmapData.length; i++) {
         expect(distanceMeters(heatmapData[i - 1], heatmapData[i])).toBeLessThanOrEqual(

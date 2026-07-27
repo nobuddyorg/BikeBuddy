@@ -42,6 +42,16 @@ describe('douglasPeucker', () => {
       expect(distanceMeters(result[i - 1], result[i])).toBeLessThanOrEqual(50);
     }
   });
+
+  it('keeps the outlying point of a loop back to its own start', () => {
+    const points = [
+      [48.0, 11.0],
+      [48.001, 11.0005],
+      [48.0, 11.0],
+    ];
+    const result = douglasPeucker(points, 5);
+    expect(result).toContainEqual(points[1]);
+  });
 });
 
 describe('simplifyToTarget', () => {
