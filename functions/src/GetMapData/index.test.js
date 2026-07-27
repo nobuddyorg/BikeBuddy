@@ -103,27 +103,37 @@ describe('GET /api/map', () => {
     const straightLine = (offset, n) =>
       Array.from({ length: n }, (_, i) => [48.0 + offset, 11.0 + i * 0.0001]);
     const bigTours = [
-      { id: 'big1', heatmapData: straightLine(0, 60000) },
-      { id: 'big2', heatmapData: straightLine(1, 60000) },
+      { id: 'big1', heatmapData: straightLine(0, 300) },
+      { id: 'big2', heatmapData: straightLine(1, 300) },
     ];
     const { container } = makeContainer(bigTours);
     const getImagesContainer = vi.fn();
+    const maxGapMeters = 50;
 
-    const res = await getMapData(req, mockAuth, () => container, getImagesContainer);
+    const res = await getMapData(
+      req,
+      mockAuth,
+      () => container,
+      getImagesContainer,
+      200,
+      maxGapMeters,
+    );
 
     const [t1, t2] = res.jsonBody;
     const totalReturned = t1.heatmapData.length + t2.heatmapData.length;
     expect(totalReturned).toBeLessThan(
       bigTours[0].heatmapData.length + bigTours[1].heatmapData.length,
     );
-    expect(totalReturned).toBeLessThanOrEqual(100000);
+    expect(totalReturned).toBeLessThanOrEqual(200);
     expect(t1.heatmapData[0]).toEqual(bigTours[0].heatmapData[0]);
     expect(t1.heatmapData[t1.heatmapData.length - 1]).toEqual(
       bigTours[0].heatmapData[bigTours[0].heatmapData.length - 1],
     );
     for (const heatmapData of [t1.heatmapData, t2.heatmapData]) {
       for (let i = 1; i < heatmapData.length; i++) {
-        expect(distanceMeters(heatmapData[i - 1], heatmapData[i])).toBeLessThanOrEqual(50);
+        expect(distanceMeters(heatmapData[i - 1], heatmapData[i])).toBeLessThanOrEqual(
+          maxGapMeters,
+        );
       }
     }
   });

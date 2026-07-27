@@ -22,17 +22,17 @@ const MIN_POINTS_PER_TOUR = 20;
 // continuous trail instead of breaking into dots.
 const MAX_GAP_METERS = 50;
 
-function budgetHeatmapData(tours) {
+function budgetHeatmapData(tours, totalPointBudget, maxGapMeters) {
   const totalPoints = tours.reduce((sum, tour) => sum + (tour.heatmapData?.length || 0), 0);
-  if (totalPoints <= TOTAL_POINT_BUDGET) return tours.map((tour) => tour.heatmapData || []);
+  if (totalPoints <= totalPointBudget) return tours.map((tour) => tour.heatmapData || []);
 
   return tours.map((tour) => {
     const points = tour.heatmapData || [];
     const target = Math.max(
       MIN_POINTS_PER_TOUR,
-      Math.round((TOTAL_POINT_BUDGET * points.length) / totalPoints),
+      Math.round((totalPointBudget * points.length) / totalPoints),
     );
-    return simplifyToTarget(points, target, MAX_GAP_METERS);
+    return simplifyToTarget(points, target, maxGapMeters);
   });
 }
 
@@ -44,6 +44,8 @@ async function getMapData(
   auth = authenticate,
   getContainer = toursContainer,
   getImagesContainer = imagesContainer,
+  totalPointBudget = TOTAL_POINT_BUDGET,
+  maxGapMeters = MAX_GAP_METERS,
 ) {
   const user = await auth(request);
   if (!user) return unauthorized();
@@ -58,7 +60,7 @@ async function getMapData(
     ? await getImagesContainer()
     : null;
 
-  const heatmapDataByTour = budgetHeatmapData(tours);
+  const heatmapDataByTour = budgetHeatmapData(tours, totalPointBudget, maxGapMeters);
 
   const jsonBody = await Promise.all(
     tours.map(async (tour, i) => ({
