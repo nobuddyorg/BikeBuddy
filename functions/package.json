@@ -21,7 +21,7 @@
     "mutate": "stryker run"
   },
   "dependencies": {
-    "@azure/cosmos": "^4.1.1",
+    "@azure/cosmos": "^4.10.0",
     "@azure/functions": "^4.16.2",
     "@azure/storage-blob": "^12.33.0",
     "busboy": "^1.6.0",
@@ -37,10 +37,10 @@
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^10.7.0",
+    "eslint": "^10.8.0",
     "eslint-plugin-n": "^18.2.2",
     "globals": "^17.7.0",
-    "prettier": "^3.9.5",
+    "prettier": "^3.9.6",
     "vitest": "^4.1.9"
   },
   "overrides": {
