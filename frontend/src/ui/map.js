@@ -46,3 +46,10 @@ export function refreshMapSize() {
   requestAnimationFrame(() => map.invalidateSize());
 }
 window.addEventListener('resize', refreshMapSize);
+
+// window 'resize' alone misses layout shifts that change the container's own
+// size without the viewport changing — e.g. the mobile sidebar growing once
+// tours load, or a browser toolbar collapsing without firing 'resize'. Left
+// unhandled, Leaflet keeps panning/zooming against its stale cached size,
+// which is what made the map look off-center on first load on mobile.
+new ResizeObserver(refreshMapSize).observe(map.getContainer());
