@@ -33,4 +33,19 @@ describe('resizeImage', () => {
     expect(meta.width).toBe(100);
     expect(meta.height).toBe(50);
   });
+
+  it('encodes at quality 82, not the sharp default', async () => {
+    const width = 100;
+    const height = 100;
+    const raw = Buffer.alloc(width * height * 3);
+    for (let i = 0; i < raw.length; i++) raw[i] = (i * 37) % 256;
+    const buffer = await sharp(raw, { raw: { width, height, channels: 3 } })
+      .png()
+      .toBuffer();
+
+    const resized = await resizeImage(buffer);
+    const defaultQuality = await sharp(buffer).rotate().jpeg({}).toBuffer();
+
+    expect(resized.length).not.toBe(defaultQuality.length);
+  });
 });

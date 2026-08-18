@@ -169,6 +169,38 @@ describe('authenticate — infrastructure failures propagate', () => {
   });
 });
 
+describe('authenticate — diagnostic logging', () => {
+  test('logs a warning naming the rejection reason for a malformed token', async () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await run(bearer('notajwt'));
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('rejected malformed bearer token'));
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('logs a warning naming the error for a rejected (but verifiable) token', async () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await run(bearer(makeToken({ exp: now() - 60 })));
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('TokenExpiredError'));
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('logs an error naming the failure when verification cannot be performed', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(run(bearer(makeToken()), unreachableJwks)).rejects.toThrow();
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('getaddrinfo ENOTFOUND'));
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe('authenticate — SKIP_AUTH dev bypass', () => {
   beforeEach(() => {
     process.env.SKIP_AUTH = 'true';
@@ -264,13 +296,42 @@ describe('getOpenIdConfig', () => {
       spy.mockRestore();
     }
   });
+
+  // The elapsed time hitting the TTL exactly must still count as expired, not
+  // just exceeding it — a warm instance shouldn't get to serve one request's
+  // worth of extra life out of rounding.
+  test('re-fetches when the cache age exactly equals the TTL', async () => {
+    const TTL = 60 * 60 * 1000;
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => doc });
+    // Same "start comfortably past whatever earlier tests left cached" trick
+    // as above, so this establishes its own fresh baseline first.
+    let clock = Date.now() + 100 * TTL;
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    try {
+      await getOpenIdConfig(fetchFn);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+
+      clock += TTL;
+      await getOpenIdConfig(fetchFn);
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe('defaultJwksClient', () => {
-  test('creates a jwks-rsa client and caches it', () => {
+  // The client is a module-level singleton (built once, reused for every
+  // request), so this has to be the one test that ever observes a fresh
+  // construction — a later call would just hand back the cached instance
+  // without re-invoking jwks-rsa, leaving these options unverified.
+  test('creates a jwks-rsa client, with caching and rate limiting enabled, and caches it', () => {
     const first = defaultJwksClient('https://example.com/keys');
     const second = defaultJwksClient('https://example.com/keys');
     expect(typeof first.getSigningKey).toBe('function');
     expect(second).toBe(first);
+    // Both guard against the JWKS endpoint being hammered: caching avoids a
+    // fetch per token, rate limiting avoids one per unknown kid.
+    expect(first.options).toMatchObject({ cache: true, rateLimit: true });
   });
 });

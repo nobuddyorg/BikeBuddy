@@ -115,6 +115,18 @@ describe('validation helpers', () => {
     it('reports a name stripped down to nothing as a name problem', () => {
       expect(keyFor({ name: '<<>>' })).toBe('errors.tourName');
     });
+
+    // Both `?.` steps guard against a shape that's not a real ZodError — an
+    // empty issues array, or an issue with no path — rather than throwing.
+    it('falls back to the generic key without throwing when issues is empty', () => {
+      expect(tourMetaError({ issues: [] }).jsonBody.error).toBe('errors.tourInvalid');
+    });
+
+    it('falls back to the generic key without throwing when an issue has no path', () => {
+      expect(tourMetaError({ issues: [{ message: 'bad' }] }).jsonBody.error).toBe(
+        'errors.tourInvalid',
+      );
+    });
   });
 
   describe('isImageContentType', () => {
