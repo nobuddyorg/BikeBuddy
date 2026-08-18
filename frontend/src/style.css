@@ -481,13 +481,19 @@ body {
 .pin-toggle {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-height: 34px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 7px;
   padding: 7px 11px;
+  /* <button> does not inherit the page font, so #btn-line-style rendered in
+     Arial next to the -apple-system <label> toggles beside it. */
+  font-family: inherit;
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.25;
   color: var(--color-text);
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -1295,6 +1301,13 @@ body {
 
   .pin-toggle {
     padding: 7px;
+  }
+
+  /* Label-less once .toggle-label-text is hidden, so the line-style button
+     squares up to match the expand button at the end of the same row. */
+  #btn-line-style {
+    width: 34px;
+    padding: 0;
   }
 
   .map-container {

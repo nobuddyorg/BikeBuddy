@@ -7,7 +7,7 @@ export const DEFAULT_LINE_STYLE = { color: '#f97316', weight: 3, opacity: 0.75 }
 export const STORAGE_KEY = 'bikebuddy-line-style';
 
 export const WEIGHT_MIN = 1;
-export const WEIGHT_MAX = 8;
+export const WEIGHT_MAX = 16;
 export const OPACITY_MIN = 0.2;
 export const OPACITY_MAX = 1;
 
