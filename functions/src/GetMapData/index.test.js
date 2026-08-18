@@ -1,6 +1,6 @@
 'use strict';
 
-const { getMapData } = require('./index');
+const { getMapData, isGeotagged, budgetHeatmapData } = require('./index');
 const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
 const { distanceMeters } = require('../lib/simplify');
 
@@ -147,5 +147,51 @@ describe('GET /api/map', () => {
     const res = await getMapData(req, mockAuth, () => container, getImagesContainer);
 
     expect(res.jsonBody[0].heatmapData).toEqual(TOURS[0].heatmapData);
+  });
+});
+
+describe('isGeotagged', () => {
+  it('requires both lat and lon to be numbers, not just one', () => {
+    expect(isGeotagged({ lat: 48.1, lon: 11.5 })).toBe(true);
+    expect(isGeotagged({ lat: 48.1 })).toBe(false);
+    expect(isGeotagged({ lon: 11.5 })).toBe(false);
+    expect(isGeotagged({})).toBe(false);
+  });
+});
+
+describe('budgetHeatmapData', () => {
+  const sine = (n) =>
+    Array.from({ length: n }, (_, i) => [48.0 + 0.01 * Math.sin(i * 0.05), 11.0 + i * 0.0002]);
+  const wiggle = (n) =>
+    Array.from({ length: n }, (_, i) => [48.5 + 0.01 * Math.sin(i * 0.3), 11.0 + i * 0.0003]);
+
+  it('leaves data untouched when total points exactly equal the budget (boundary)', () => {
+    const points = sine(50);
+    const result = budgetHeatmapData([{ heatmapData: points }], 50, Infinity);
+    expect(result[0]).toEqual(points);
+  });
+
+  it('simplifies once total points exceed the budget, even when one tour has no heatmapData', () => {
+    const points = sine(50);
+    const result = budgetHeatmapData([{ heatmapData: points }, { id: 'no-data' }], 10, Infinity);
+    expect(result[0]).not.toEqual(points);
+    expect(result[0].length).toBeLessThan(points.length);
+    expect(result[1]).toEqual([]);
+  });
+
+  it('clamps a small tour up to MIN_POINTS_PER_TOUR rather than down to its tiny raw share', () => {
+    const small = { heatmapData: wiggle(60) };
+    const big = { heatmapData: sine(2000) };
+    const result = budgetHeatmapData([small, big], 300, Infinity);
+    expect(result[0].length).toBe(20);
+  });
+
+  it("splits the budget proportionally to each tour's own point count", () => {
+    const big = { heatmapData: sine(2000) };
+    const small = { heatmapData: wiggle(100) };
+    const result = budgetHeatmapData([big, small], 525, Infinity);
+    // budget * points.length / totalPoints ≈ 500 for the big tour; a wrong
+    // formula (e.g. budget / points.length) would clamp it to MIN (20).
+    expect(result[0].length).toBeGreaterThan(100);
   });
 });

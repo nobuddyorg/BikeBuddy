@@ -100,6 +100,29 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     expect(images.deleteIfExists).not.toHaveBeenCalled();
   });
 
+  it('does not retry a non-412 error, even on the first attempt', async () => {
+    const tours = makeToursContainer(async () => ({
+      resource: { ...TOUR, images: [...TOUR.images] },
+    }));
+    tours.replace.mockRejectedValue(Object.assign(new Error('service unavailable'), { code: 503 }));
+    const images = makeImagesContainer();
+
+    await expect(
+      deleteImage(
+        reqWith(TID, IMG1),
+        mockAuth,
+        () => tours.container,
+        () => images.container,
+      ),
+    ).rejects.toThrow('service unavailable');
+
+    // A non-412 error must throw immediately (attempt 0), not fall into the
+    // conflict-retry loop that's only meant for 412s: replace() is called
+    // once, and read() only from the initial load, never from a retry.
+    expect(tours.replace).toHaveBeenCalledTimes(1);
+    expect(tours.read).toHaveBeenCalledTimes(1);
+  });
+
   // .replace() overwrites the whole document, so without an ETag check two
   // deletes racing on the same tour could silently clobber each other (same
   // class of bug as UploadImage's — see index.js). A 412 means someone else's

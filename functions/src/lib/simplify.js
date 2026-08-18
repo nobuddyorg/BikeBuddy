@@ -82,4 +82,4 @@ function simplifyToTarget(points, targetCount, maxGapMeters = Infinity, maxItera
   return best;
 }
 
-module.exports = { douglasPeucker, simplifyToTarget, distanceMeters };
+module.exports = { douglasPeucker, simplifyToTarget, distanceMeters, perpendicularDistanceMeters };

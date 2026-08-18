@@ -165,6 +165,23 @@ describe('parseGpx', () => {
     expect(result.distanceKm).toBe(0);
   });
 
+  // Both lat and lon must independently be finite: a point with a valid lat
+  // but a non-numeric lon (or vice versa) must still be dropped, not kept
+  // because *one* of the two coordinates happened to parse.
+  it('drops a point when only one of lat/lon is finite (#350)', () => {
+    const gpx = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="48" lon="not-a-number"/>
+    <trkpt lat="not-a-number" lon="11"/>
+    <trkpt lat="48" lon="11"/>
+  </trkseg></trk>
+</gpx>`;
+    const result = parseGpx(gpx);
+    expect(result.heatmapData).toEqual([[48, 11]]);
+    expect(result.distanceKm).toBe(0);
+  });
+
   it('skips trackpoints with out-of-range coordinates (#350)', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">

@@ -72,6 +72,22 @@ describe('GET /api/tours/{tourId}', () => {
     expect(res.jsonBody.gpxFileUrl).toBe(`https://blob/u1/${TID}.gpx?sig=x`);
   });
 
+  it('collapses each run of disallowed filename characters to a single underscore', async () => {
+    const tour = { ...TOUR, name: 'My  Alps!!', gpxFileUrl: 'https://blob/gpx-files/u1/t1.gpx' };
+    const { container } = makeContainer(async () => ({ resource: tour }));
+    const generateSasUrl = vi.fn(async () => `https://blob/u1/${TID}.gpx?sig=x`);
+    const getBlockBlobClient = vi.fn(() => ({ generateSasUrl }));
+    const gpxContainer = () => Promise.resolve({ getBlockBlobClient });
+
+    await getTour(reqWith(TID), mockAuth, () => container, undefined, gpxContainer);
+
+    // A naive per-character regex (no `+`) would emit "My__Alps__"; dropping
+    // disallowed chars entirely (instead of "_") would emit "MyAlps".
+    expect(generateSasUrl).toHaveBeenCalledWith(
+      expect.objectContaining({ contentDisposition: 'attachment; filename="My_Alps_.gpx"' }),
+    );
+  });
+
   it('falls back to "tour" as the download filename when the tour has no name', async () => {
     const tour = { ...TOUR, name: undefined, gpxFileUrl: 'https://blob/gpx-files/u1/t1.gpx' };
     const { container } = makeContainer(async () => ({ resource: tour }));

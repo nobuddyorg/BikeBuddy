@@ -88,4 +88,4 @@ app.http('GetMapData', {
   handler: (request) => getMapData(request),
 });
 
-module.exports = { getMapData };
+module.exports = { getMapData, isGeotagged, budgetHeatmapData };
