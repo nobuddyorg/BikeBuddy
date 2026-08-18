@@ -132,7 +132,7 @@ describe('parseGpx', () => {
     expect(result.heatmapData).toEqual([]);
   });
 
-  it('skips trackpoints with missing lat/lon without corrupting distance (#350)', () => {
+  it('skips trackpoints with missing lat/lon without corrupting distance', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><trkseg>
@@ -151,7 +151,7 @@ describe('parseGpx', () => {
     expect(result.distanceKm).toBeCloseTo(133.3878, 2);
   });
 
-  it('skips trackpoints with non-numeric lat/lon (#350)', () => {
+  it('skips trackpoints with non-numeric lat/lon', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><trkseg>
@@ -168,7 +168,7 @@ describe('parseGpx', () => {
   // Both lat and lon must independently be finite: a point with a valid lat
   // but a non-numeric lon (or vice versa) must still be dropped, not kept
   // because *one* of the two coordinates happened to parse.
-  it('drops a point when only one of lat/lon is finite (#350)', () => {
+  it('drops a point when only one of lat/lon is finite', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><trkseg>
@@ -182,7 +182,7 @@ describe('parseGpx', () => {
     expect(result.distanceKm).toBe(0);
   });
 
-  it('skips trackpoints with out-of-range coordinates (#350)', () => {
+  it('skips trackpoints with out-of-range coordinates', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><trkseg>
@@ -198,7 +198,7 @@ describe('parseGpx', () => {
     expect(result.distanceKm).toBe(0);
   });
 
-  it('keeps coordinates exactly on the range boundaries (#350)', () => {
+  it('keeps coordinates exactly on the range boundaries', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><trkseg>
@@ -213,7 +213,7 @@ describe('parseGpx', () => {
     ]);
   });
 
-  it('returns zero distance and empty heatmap when every trackpoint is invalid (#350)', () => {
+  it('returns zero distance and empty heatmap when every trackpoint is invalid', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><trkseg><trkpt/><trkpt lat="abc" lon="def"/></trkseg></trk>

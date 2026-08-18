@@ -68,7 +68,7 @@ describe('parseMultipart', () => {
     expect(req.body.locked).toBe(false);
   });
 
-  it('rejects an oversized upload that declares no Content-Length (#352)', async () => {
+  it('rejects an oversized upload that declares no Content-Length', async () => {
     // The chunked case the old Content-Length pre-check could not catch: no
     // length header at all, so only the streaming limit can stop it.
     const oversized = multipartBody(Buffer.alloc(MAX_FILE_BYTES + 1024, 0x41));
@@ -79,7 +79,7 @@ describe('parseMultipart', () => {
     });
   });
 
-  it('rejects an oversized upload that under-declares its Content-Length (#352)', async () => {
+  it('rejects an oversized upload that under-declares its Content-Length', async () => {
     // Content-Length is attacker-controlled; a low value must not buy a pass.
     const oversized = multipartBody(Buffer.alloc(MAX_FILE_BYTES + 1024, 0x41));
 
@@ -130,7 +130,7 @@ describe('parseMultipart', () => {
     });
 
     // The transport failed, not the server — a 500 here would blame BikeBuddy
-    // for a connection the client dropped (#383).
+    // for a connection the client dropped.
     await expect(parseMultipart(req)).rejects.toMatchObject({
       status: 400,
       message: 'Invalid multipart request',
@@ -140,7 +140,7 @@ describe('parseMultipart', () => {
   // A connection dropped mid-upload: busboy surfaces it on the file stream
   // once a file part has started, and on itself when it has not. Both must
   // settle the promise — an unsettled one leaves the request hanging — and
-  // both are broken request syntax, so 400 rather than 500 (#383).
+  // both are broken request syntax, so 400 rather than 500.
   it('rejects a request that ends mid-file as a client error', async () => {
     const truncated = Buffer.from(
       `--${BOUNDARY}\r\n` +
@@ -166,7 +166,7 @@ describe('parseMultipart', () => {
   });
 
   // busboy's own wording is English-only and moves with the library, so it is
-  // logged for diagnosis instead of being handed to the uploader (#383).
+  // logged for diagnosis instead of being handed to the uploader.
   it('logs the underlying parser error without returning it', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const truncated = Buffer.from(

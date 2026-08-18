@@ -31,7 +31,7 @@
   --color-wordmark-accent: #ae4a04;
   --navbar-height: 56px;
   --detail-width: 320px;
-  /* Wider than --detail-width (#306): at 320px the selection bar's count
+  /* Wider than --detail-width: at 320px the selection bar's count
      label ("1 ausgewählt" in German) plus the Delete/Cancel buttons wrap
      onto two rows. */
   --sidebar-width: 380px;
@@ -54,7 +54,7 @@
   /* Leaflet's own stylesheet (vendored via CDN, index.html) hardcodes its
      zoom control buttons to a white background/black text with no theme
      awareness — everything else in this app adapts via the --color-*
-     variables above, but Leaflet's classes never reference them (#286). */
+     variables above, but Leaflet's classes never reference them. */
   .leaflet-bar a {
     background-color: var(--color-surface);
     color: var(--color-text);
@@ -233,7 +233,7 @@ body {
   cursor: pointer;
 }
 
-/* Mobile-only replacement for .tour-sort (#275): an icon button + popover
+/* Mobile-only replacement for .tour-sort: an icon button + popover
    list, since a native <select> has no compact "icon-only" collapsed state.
    Hidden on desktop — the media query below swaps visibility with .tour-sort
    there. Selecting an option writes elTourSort.value and dispatches its
@@ -495,7 +495,7 @@ body {
   height: 100%;
 }
 
-/* CARTO's dark_all basemap is low-contrast by default (#342) — lift roads,
+/* CARTO's dark_all basemap is low-contrast by default — lift roads,
    labels and boundaries while keeping the dark aesthetic. The route layer
    sits in its own pane above this one, so it's unaffected. */
 .map-tiles-dark {
@@ -1283,13 +1283,13 @@ body {
     border-bottom: 1px solid var(--color-border);
   }
 
-  /* No spare row for a title/count/Select-button header on mobile (#275) —
+  /* No spare row for a title/count/Select-button header on mobile —
      select mode is entered by long-press instead (see bindLongPress in app.js). */
   .sidebar-header {
     display: none;
   }
 
-  /* Search and sort share one row instead of stacking, to save a row (#275).
+  /* Search and sort share one row instead of stacking, to save a row.
      The native <select> is swapped for a compact icon button + popover menu
      (.sort-menu) — a native select has no "icon-only" collapsed state. */
   .tour-controls {
@@ -1310,7 +1310,7 @@ body {
 
   /* .sidebar clips overflow (see rule above) and is height-capped on mobile,
      so the popover's own z-index can't rescue it once it extends past that
-     boundary — the clipped part reveals the map underneath (#294). Escape the
+     boundary — the clipped part reveals the map underneath. Escape the
      clipping ancestor the same way .lang-menu does; top/right are computed in
      JS from the button's actual position (setupSortMenu in app.js) since,
      unlike the navbar-anchored lang switcher, this row isn't always at a
@@ -1319,7 +1319,7 @@ body {
     position: fixed;
   }
 
-  /* Delete/Cancel become icon-only in the cramped mobile selection bar (#289) — data-i18n-aria-label on each button (index.html) keeps them
+  /* Delete/Cancel become icon-only in the cramped mobile selection bar — data-i18n-aria-label on each button (index.html) keeps them
      accessible once .btn-label is hidden. */
   .selection-bar-actions .btn-label {
     display: none;
@@ -1346,7 +1346,7 @@ body {
 
   .map-container {
     flex: 1;
-    /* Lowered from 40vh (#275): combined with the sidebar's 55vh cap, the old
+    /* Lowered from 40vh: combined with the sidebar's 55vh cap, the old
        95vh floor left almost no slack inside calc(100vh - navbar-height). The
        map stays visible by default (not fully hidden) — only shrunk; the
        existing fullscreen toggle still expands it fully. */
@@ -1373,7 +1373,7 @@ body {
   }
 
   /* Logo alone fits comfortably; logo + title pushed .navbar-actions'
-     buttons off-screen on narrow viewports (#301). */
+     buttons off-screen on narrow viewports. */
   .navbar-title {
     display: none;
   }
@@ -1394,7 +1394,7 @@ body {
 /* ── Language switcher ───────────────────────────── */
 
 .lang-switcher {
-  /* Shrink to the button's own size (#308) — its parent is now a
+  /* Shrink to the button's own size — its parent is now a
      .profile-meta <dd> (a grid column, wide enough for "dev@localhost"),
      and without this a plain block div fills that whole column. */
   display: inline-block;
@@ -1407,7 +1407,7 @@ body {
   font-weight: 600;
   /* .btn's own 14px left padding (index.html) would otherwise push the flag
      that much right of where "dev@localhost"/the join date start in the
-     dt/dd column above (#310) — this button is the only content in its
+     dt/dd column above — this button is the only content in its
      dd, so removing just this side is safe. */
   padding-left: 0;
 }

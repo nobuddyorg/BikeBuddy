@@ -72,7 +72,7 @@ describe('xhrUpload', () => {
 
   // The bug: JSON.parse threw inside xhr.onload, which escapes to the global
   // error handler rather than rejecting, so the promise never settled.
-  it('rejects rather than hanging when a 201 body is not valid JSON (#356)', async () => {
+  it('rejects rather than hanging when a 201 body is not valid JSON', async () => {
     const { FakeXhr } = makeXhr({ status: 201, responseText: '<html>proxy</html>' });
 
     await expect(xhrUpload('/api/x', file(), null, noop, FakeXhr)).rejects.toThrow(
@@ -104,7 +104,7 @@ describe('xhrUpload', () => {
 
   // The consequence that made the hang severe: an unsettled promise holds its
   // slot in the pool forever, so enough of them deadlock all remaining uploads.
-  it('does not stall the concurrency pool when responses are unparsable (#356)', async () => {
+  it('does not stall the concurrency pool when responses are unparsable', async () => {
     const { FakeXhr } = makeXhr({ status: 201, responseText: 'not json' });
     const outcomes = [];
 

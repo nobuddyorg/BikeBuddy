@@ -64,7 +64,7 @@ buddyTest.describe('long-press to enter select mode', () => {
   });
 
   buddyTest(
-    'a touch tap only highlights the row — no select mode, no detail panel (#310)',
+    'a touch tap only highlights the row — no select mode, no detail panel',
     async ({ on, page }) => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
@@ -81,34 +81,31 @@ buddyTest.describe('long-press to enter select mode', () => {
     },
   );
 
-  buddyTest(
-    'tapping a different row closes an already-open detail panel (#310)',
-    async ({ on, page }) => {
-      await page.goto('/');
-      await expect(on(page).main.locators.userMenu).toBeVisible();
+  buddyTest('tapping a different row closes an already-open detail panel', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      // Touch-only context, so swipe-left rather than selectTour's mouse click.
-      await on(page).main.do.swipeTour('Long Press Tour B', -120);
-      await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour B');
+    // Touch-only context, so swipe-left rather than selectTour's mouse click.
+    await on(page).main.do.swipeTour('Long Press Tour B', -120);
+    await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour B');
 
-      // Chromium's gesture recognizer needs settle time *before* a new touch
-      // sequence that follows a raw-CDP drag. Without it, on CI, the next tap
-      // dispatched cleanly but its compatibility click never arrived, so
-      // waiting after the tap could not help. Nothing else here chains two
-      // independent touch gestures back to back.
-      await page.waitForTimeout(500);
-      await on(page).main.do.tapTour('Long Press Tour A');
+    // Chromium's gesture recognizer needs settle time *before* a new touch
+    // sequence that follows a raw-CDP drag. Without it, on CI, the next tap
+    // dispatched cleanly but its compatibility click never arrived, so
+    // waiting after the tap could not help. Nothing else here chains two
+    // independent touch gestures back to back.
+    await page.waitForTimeout(500);
+    await on(page).main.do.tapTour('Long Press Tour A');
 
-      // Left open, the panel would still name Tour B while its Edit/Delete
-      // buttons acted on Tour A.
-      await expect(on(page).main.locators.detail.panel).toBeHidden();
-      await expect(
-        on(page).main.locators.list.container.locator('.tour-item.active', {
-          hasText: 'Long Press Tour A',
-        }),
-      ).toBeVisible();
-    },
-  );
+    // Left open, the panel would still name Tour B while its Edit/Delete
+    // buttons acted on Tour A.
+    await expect(on(page).main.locators.detail.panel).toBeHidden();
+    await expect(
+      on(page).main.locators.list.container.locator('.tour-item.active', {
+        hasText: 'Long Press Tour A',
+      }),
+    ).toBeVisible();
+  });
 
   buddyTest(
     'after a long press, click-to-toggle in select mode still works normally',

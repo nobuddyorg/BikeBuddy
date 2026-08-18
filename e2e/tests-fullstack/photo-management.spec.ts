@@ -3,9 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { clearUsers, clearTours } from './usersDb';
 
-// Deleting a single photo, the lightbox, and retrying a failed upload (#292).
+// Deleting a single photo, the lightbox, and retrying a failed upload.
 
-// Needs a clean slate: the tour's date comes from the GPX's <time> (#317), which
+// Needs a clean slate: the tour's date comes from the GPX's <time>, which
 // sorts it behind same-day fixture tours another spec may have left behind.
 buddyTest.beforeEach(async () => {
   await clearUsers();

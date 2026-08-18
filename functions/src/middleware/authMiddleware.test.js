@@ -144,7 +144,7 @@ describe('authenticate — rejection (null)', () => {
 
 // Returning null here would answer 401, telling every correctly-authenticated
 // user they are signed out for the duration of an upstream outage. These must
-// propagate so callers surface a retryable 5xx instead (#358).
+// propagate so callers surface a retryable 5xx instead.
 describe('authenticate — infrastructure failures propagate', () => {
   test('rethrows when the JWKS endpoint is unreachable', async () => {
     await expect(run(bearer(makeToken()), unreachableJwks)).rejects.toThrow(
@@ -218,7 +218,7 @@ describe('authenticate — SKIP_AUTH dev bypass', () => {
   });
 
   // A deployment that has both real auth configured and the bypass switched on
-  // would otherwise serve every anonymous caller as the same shared user (#361).
+  // would otherwise serve every anonymous caller as the same shared user.
   test('refuses the bypass when a client id is configured', async () => {
     delete process.env.ENTRA_TENANT_ID;
 
@@ -275,7 +275,7 @@ describe('getOpenIdConfig', () => {
 
   // Without a TTL an issuer or jwks_uri change stays invisible until the warm
   // instance recycles, which can be a very long time.
-  test('re-fetches once the cache TTL has elapsed (#358)', async () => {
+  test('re-fetches once the cache TTL has elapsed', async () => {
     const TTL = 60 * 60 * 1000;
     const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => doc });
     // Drive a synthetic clock, starting past the TTL so this does not depend on

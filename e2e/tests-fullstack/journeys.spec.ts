@@ -1,7 +1,7 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours } from './usersDb';
 
-// Use-case journeys against the real backend (#103): editing a tour and the
+// Use-case journeys against the real backend: editing a tour and the
 // profile showing the provisioned account (email + join date).
 
 const GPX = `<?xml version="1.0"?>
@@ -40,26 +40,23 @@ buddyTest.describe('user journeys', () => {
     await expect(on(page).main.locators.list.container).not.toContainText('Original Name');
   });
 
-  buddyTest(
-    'edit a tour: correcting the date updates the detail panel (#317)',
-    async ({ on, page }) => {
-      await page.goto('/');
-      await expect(on(page).main.locators.userMenu).toBeVisible();
-      await on(page).main.do.uploadGpx({ name: 'Dated Tour', gpx: GPX });
+  buddyTest('edit a tour: correcting the date updates the detail panel', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    await on(page).main.do.uploadGpx({ name: 'Dated Tour', gpx: GPX });
 
-      // The GPX's <time> puts the tour on 1 May 2026.
-      await expect(on(page).main.locators.detail.date).toHaveText('1 May 2026');
+    // The GPX's <time> puts the tour on 1 May 2026.
+    await expect(on(page).main.locators.detail.date).toHaveText('1 May 2026');
 
-      await on(page).main.do.openEdit();
-      await expect(on(page).modal.edit()).toBeVisible();
-      await expect(on(page).modal.edit.locators.date).toHaveValue('2026-05-01');
-      await on(page).modal.edit.do.setDate('2026-06-15');
-      await on(page).modal.edit.do.submit();
+    await on(page).main.do.openEdit();
+    await expect(on(page).modal.edit()).toBeVisible();
+    await expect(on(page).modal.edit.locators.date).toHaveValue('2026-05-01');
+    await on(page).modal.edit.do.setDate('2026-06-15');
+    await on(page).modal.edit.do.submit();
 
-      await expect(on(page).modal.edit()).toBeHidden();
-      await expect(on(page).main.locators.detail.date).toHaveText('15 Jun 2026');
-    },
-  );
+    await expect(on(page).modal.edit()).toBeHidden();
+    await expect(on(page).main.locators.detail.date).toHaveText('15 Jun 2026');
+  });
 
   buddyTest(
     'rejects a whitespace-only tour name and keeps the modal open',
@@ -126,7 +123,7 @@ buddyTest.describe('user journeys', () => {
     await on(page).main.do.openProfile();
     await expect(on(page).modal.profile()).toBeVisible();
     await expect(on(page).modal.profile.locators.email).toContainText('@');
-    // "Member since" must be a real date, not the "—" placeholder (#98).
+    // "Member since" must be a real date, not the "—" placeholder.
     await expect(on(page).modal.profile.locators.since).not.toHaveText('—');
   });
 });

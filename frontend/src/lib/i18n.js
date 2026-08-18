@@ -47,7 +47,7 @@ export function translate(messages, key, params = {}, fallback = {}) {
 }
 
 // The API answers validation failures with an i18n key rather than prose, so
-// the wording lives here (#359). Anything else it sends is already a sentence,
+// the wording lives here. Anything else it sends is already a sentence,
 // and an unknown key resolving to itself passes it through unchanged.
 export function translateApiMessage(messages, message, fallback = {}) {
   const translated = translate(messages, message, {}, fallback);
@@ -123,7 +123,7 @@ export function setLanguage(code) {
 }
 
 // Read via getAttribute rather than dataset, so each name is written once here
-// instead of also in its camelCase spelling (#365).
+// instead of also in its camelCase spelling.
 export const I18N_ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
 
 // The two content sinks stay written out rather than joining the table above:

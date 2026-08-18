@@ -25,7 +25,7 @@ export function xhrUpload(url, file, token, onProgress, XhrCtor = globalThis.XML
     // Every terminal outcome must settle this promise. A throw inside an XHR
     // handler escapes to the global error handler rather than rejecting — the
     // executor has already returned — leaving the tile spinning with no retry
-    // and its slot in runWithConcurrency's pool consumed for good (#356).
+    // and its slot in runWithConcurrency's pool consumed for good.
     xhr.onload = () => {
       if (xhr.status !== 201) {
         return reject(new Error(parseErrorMessage(xhr.responseText, 'Upload failed.')));

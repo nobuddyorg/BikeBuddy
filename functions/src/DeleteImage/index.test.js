@@ -53,7 +53,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     expect(res.status).toBe(204);
   });
 
-  it('removes the entry before deleting the blob (#354)', async () => {
+  it('removes the entry before deleting the blob', async () => {
     const order = [];
     const tours = makeToursContainer(async () => ({
       resource: { ...TOUR, images: [...TOUR.images] },
@@ -80,7 +80,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     expect(order).toEqual(['doc', 'blob']);
   });
 
-  it('does not delete the blob when the entry removal fails (#354)', async () => {
+  it('does not delete the blob when the entry removal fails', async () => {
     const tours = makeToursContainer(async () => ({
       resource: { ...TOUR, images: [...TOUR.images] },
     }));

@@ -48,7 +48,7 @@ const resolveName = (payload) => payload.name || payload.given_name || null;
 
 // A configured Entra tenant means this is not a dev environment, so the bypass
 // is refused there — by throwing rather than falling through to real auth,
-// which would leave the misconfiguration in place and unnoticed (#361).
+// which would leave the misconfiguration in place and unnoticed.
 function skipAuthIfDev() {
   if (process.env.SKIP_AUTH !== 'true') return null;
   if (process.env.ENTRA_CLIENT_ID || process.env.ENTRA_TENANT_ID) {

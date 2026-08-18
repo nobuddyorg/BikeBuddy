@@ -22,7 +22,7 @@ async function readItem(container, id, partitionKey) {
 
 // fetchAll() still drains every continuation, so this bounds the round trip,
 // not the result: years of tours cost several bounded responses instead of one
-// unbounded one (#363). ORDER BY createdAt rides the containers' '/*' range
+// unbounded one. ORDER BY createdAt rides the containers' '/*' range
 // index, so paging adds no sort.
 const MAX_ITEMS_PER_REQUEST = 100;
 

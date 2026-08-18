@@ -18,7 +18,7 @@ const tourMetaSchema = z.object({
 
 // The frontend renders an error body verbatim, so these are i18n keys, not
 // prose: Zod's own wording is English-only, describes the schema rather than the
-// fix, and changes with the library (#359). Keys live in frontend/src/locales/.
+// fix, and changes with the library. Keys live in frontend/src/locales/.
 const TOUR_META_ERROR_KEYS = {
   name: 'errors.tourName',
   description: 'errors.tourDescription',

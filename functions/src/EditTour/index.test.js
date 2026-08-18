@@ -48,7 +48,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     expect(c.item).toHaveBeenCalledWith(TID, 'u1');
   });
 
-  // Storage metadata and the caller's Entra subject id stay server-side (#360).
+  // Storage metadata and the caller's Entra subject id stay server-side.
   it('projects away the Cosmos system properties and userId', async () => {
     const stored = { ...TOUR, _rid: 'abc==', _self: 'dbs/a/colls/b/docs/c/', _etag: '"1"', _ts: 1 };
     const c = makeContainer(async () => ({ resource: stored }));
@@ -141,7 +141,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     ]);
   });
 
-  it('does not clobber a photo uploaded between the read and the write (#351)', async () => {
+  it('does not clobber a photo uploaded between the read and the write', async () => {
     const NEW_IMAGE = { id: 'img-1', blobName: 'u1/t/img-1.jpg' };
     // An UploadImage patch ('/images/-') landed after editTour read the doc, so
     // the request's snapshot has images: [] while the stored doc has one image.
@@ -176,7 +176,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     const res = await editTour(reqWith(TID, { name: '' }), mockAuth, () => c.container);
 
     expect(res.status).toBe(400);
-    // A translatable key, not Zod's English (#359).
+    // A translatable key, not Zod's English.
     expect(res.jsonBody.error).toBe('errors.tourName');
     expect(c.patch).not.toHaveBeenCalled();
   });

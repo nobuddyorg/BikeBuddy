@@ -57,7 +57,7 @@ const mapEntry = (t: typeof trackedTour) => ({
   images: t.images,
 });
 
-buddyTest.describe('filter tours in view (#315)', () => {
+buddyTest.describe('filter tours in view', () => {
   buddyTest.beforeEach(async ({ page }) => {
     await page.route('**/api/me', (route) =>
       route.fulfill(
