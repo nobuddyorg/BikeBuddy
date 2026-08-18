@@ -37,6 +37,7 @@
   "map.photoPins": "Pines de fotos",
   "map.emptyTitle": "No hay rutas para mostrar",
   "map.emptyBody": "Sube un archivo GPX para ver tu ruta como un mapa de calor.",
+  "map.loading": "Cargando los datos de tus rutas…",
 
   "tours.showAll": "Mostrar todas las rutas",
   "tours.noMatch": "Ninguna ruta coincide con tus filtros.",

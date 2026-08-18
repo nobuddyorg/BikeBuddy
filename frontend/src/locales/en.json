@@ -37,6 +37,7 @@
   "map.photoPins": "Photo pins",
   "map.emptyTitle": "No tours to display",
   "map.emptyBody": "Upload a GPX file to see your route as a heatmap.",
+  "map.loading": "Loading your ride data…",
 
   "tours.showAll": "Show All Tours",
   "tours.noMatch": "No tours match your filters.",

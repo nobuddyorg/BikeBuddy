@@ -37,6 +37,7 @@
   "map.photoPins": "Indicatori foto",
   "map.emptyTitle": "Nessun giro da mostrare",
   "map.emptyBody": "Carica un file GPX per vedere il tuo percorso come mappa di calore.",
+  "map.loading": "Caricamento dei dati dei tuoi percorsi…",
 
   "tours.showAll": "Mostra tutti i giri",
   "tours.noMatch": "Nessun giro corrisponde ai tuoi filtri.",

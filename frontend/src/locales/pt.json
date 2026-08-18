@@ -37,6 +37,7 @@
   "map.photoPins": "Marcadores de fotos",
   "map.emptyTitle": "Sem percursos para mostrar",
   "map.emptyBody": "Carrega um ficheiro GPX para ver o teu percurso como um mapa de calor.",
+  "map.loading": "A carregar os dados dos teus percursos…",
 
   "tours.showAll": "Mostrar todos os percursos",
   "tours.noMatch": "Nenhum percurso corresponde aos teus filtros.",

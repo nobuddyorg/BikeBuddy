@@ -37,6 +37,7 @@
   "map.photoPins": "Repères photo",
   "map.emptyTitle": "Aucune sortie à afficher",
   "map.emptyBody": "Importe un fichier GPX pour voir ton parcours sous forme de carte de chaleur.",
+  "map.loading": "Chargement de tes données de parcours…",
 
   "tours.showAll": "Afficher toutes les sorties",
   "tours.noMatch": "Aucune sortie ne correspond à tes filtres.",

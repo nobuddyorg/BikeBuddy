@@ -141,6 +141,7 @@ const elAppLayout = document.querySelector('.app-layout');
 const elSidebar = document.querySelector('.sidebar');
 const elAuthPrompt = $('auth-prompt');
 const elMapEmpty = $('map-empty');
+const elMapLoading = $('map-loading');
 const elDetailPanel = $('detail-panel');
 const elDetailName = $('detail-name');
 const elDetailDate = $('detail-date');
@@ -391,6 +392,11 @@ async function apiFetch(path, options = {}) {
 // ── Tours ───────────────────────────────────────────────────────────────────
 
 async function loadTours() {
+  // Fired alongside /api/tours rather than after it (#397): on a cold backend
+  // both pay the same cold-start latency, so starting them together instead of
+  // in sequence roughly halves the wait before the map can render.
+  const mapDataPromise = apiFetch('/api/map');
+  mapDataPromise.catch(() => {}); // avoid an unhandled-rejection warning if renderAllHeatmap never consumes it
   try {
     const res = await apiFetch('/api/tours');
     if (!res.ok) throw new Error('load failed');
@@ -402,7 +408,7 @@ async function loadTours() {
     state.loadingTours = false;
   }
   renderSidebar();
-  await renderAllHeatmap();
+  await renderAllHeatmap(mapDataPromise);
 }
 
 // Keyed on the explicit flag rather than on heatmapData/images being present:
@@ -793,8 +799,10 @@ function renderHeatmap(points, padding) {
   map.fitBounds(L.latLngBounds(points), { padding: [padding, padding] });
 }
 
-async function renderAllHeatmap() {
-  await ensureMapData(apiFetch, state.tours);
+async function renderAllHeatmap(mapDataPromise) {
+  show(elMapLoading, true);
+  await ensureMapData(apiFetch, state.tours, mapDataPromise);
+  show(elMapLoading, false);
   const allPoints = state.tours.flatMap((t) => toHeatPoints(t.heatmapData));
   renderHeatmap(allPoints, 40);
   show(elMapEmpty, allPoints.length === 0);

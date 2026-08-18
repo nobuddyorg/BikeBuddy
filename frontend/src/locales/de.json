@@ -37,6 +37,7 @@
   "map.photoPins": "Foto-Pins",
   "map.emptyTitle": "Keine Touren vorhanden",
   "map.emptyBody": "Lade eine GPX-Datei hoch, um deine Route als Heatmap zu sehen.",
+  "map.loading": "Deine Streckendaten werden geladen…",
 
   "tours.showAll": "Alle Touren anzeigen",
   "tours.noMatch": "Keine Touren entsprechen deinen Filtern.",
