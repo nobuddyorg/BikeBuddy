@@ -115,4 +115,17 @@ describe('ensureMapData', () => {
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
   });
+
+  // Lets a caller start /api/map alongside /api/tours instead of after it, so a
+  // cold backend only pays its cold-start latency once per load (#397).
+  it('consumes a pre-started fetch instead of issuing its own', async () => {
+    const tours = [{ id: 't1' }];
+    const apiFetch = vi.fn();
+    const mapDataPromise = Promise.resolve(ok([{ id: 't1', heatmapData: [[1, 1]], images: [] }]));
+
+    await ensureMapData(apiFetch, tours, mapDataPromise);
+
+    expect(apiFetch).not.toHaveBeenCalled();
+    expect(tours[0].heatmapData).toEqual([[1, 1]]);
+  });
 });
