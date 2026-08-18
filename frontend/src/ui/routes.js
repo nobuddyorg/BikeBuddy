@@ -38,6 +38,11 @@ export function renderRoutes(pointSets, padding) {
   drawRoutes(pointSets);
   const allPoints = pointSets.flat();
   if (allPoints.length === 0) return;
+  // Tours finish loading asynchronously, by which point the container may
+  // have resized (mobile sidebar settling, address-bar collapsing) since
+  // Leaflet last measured it — fitBounds would otherwise center against that
+  // stale size and leave the map visibly panned off.
+  map.invalidateSize();
   map.fitBounds(L.latLngBounds(allPoints), { padding: [padding, padding] });
 }
 
