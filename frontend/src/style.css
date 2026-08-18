@@ -6,6 +6,15 @@
   padding: 0;
 }
 
+/* Vendored locally (see vendor/.archivo-source) — used only for the wordmark. */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('vendor/fonts/archivo-700.woff2') format('woff2');
+}
+
 :root {
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
@@ -16,6 +25,10 @@
   --color-text: #1e293b;
   --color-text-muted: #64748b;
   --color-danger: #ef4444;
+  /* --color-primary (#f97316) is only ~2.8:1 on a white navbar, short of the
+     4.5:1 normal-text AA floor — this is a separate, darker shade of the same
+     hue kept just for the wordmark's accent word. */
+  --color-wordmark-accent: #ae4a04;
   --navbar-height: 56px;
   --detail-width: 320px;
   /* Wider than --detail-width (#306): at 320px the selection bar's count
@@ -32,6 +45,10 @@
     --color-border: #2e3250;
     --color-text: #e2e8f0;
     --color-text-muted: #8892a4;
+    /* The light-theme shade above is too dark to read against the dark
+       surface, so dark mode gets its own lighter value rather than reusing
+       it — --color-primary already clears 6:1+ here. */
+    --color-wordmark-accent: #f97316;
   }
 
   /* Leaflet's own stylesheet (vendored via CDN, index.html) hardcodes its
@@ -102,10 +119,27 @@ body {
 }
 
 .navbar-title {
+  font-family:
+    'Archivo',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.02em;
+  padding-bottom: 2px;
+}
+
+.navbar-title-ruled {
   color: var(--color-text);
+  border-bottom: 2px solid currentColor;
+  padding-bottom: 1px;
+}
+
+.navbar-title-accent {
+  color: var(--color-wordmark-accent);
 }
 
 .navbar-actions {
