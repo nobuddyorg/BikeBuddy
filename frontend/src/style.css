@@ -1225,14 +1225,15 @@ body {
 }
 
 .map-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 34px;
   height: 34px;
   border: 1px solid var(--color-border);
   border-radius: 7px;
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 16px;
-  line-height: 1;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -1275,7 +1276,7 @@ body {
   }
 
   /* Sidebar is a scrollable strip above the map; give the tour list enough
-     room to show several tours (the ⛶ button still expands the map full-screen). */
+     room to show several tours (the expand button still expands the map full-screen). */
   .sidebar {
     width: 100%;
     max-height: 55vh;
