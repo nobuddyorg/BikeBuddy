@@ -20,6 +20,14 @@ import { ensureMapData } from './lib/mapData.js';
 import { isStale, markFetched } from './lib/sasCache.js';
 import { parseErrorMessage, xhrUpload } from './lib/upload.js';
 import { groupByProximity, fanOffsets } from './lib/pinLayout.js';
+import {
+  loadLineStyle,
+  saveLineStyle,
+  WEIGHT_MIN,
+  WEIGHT_MAX,
+  OPACITY_MIN,
+  OPACITY_MAX,
+} from './lib/lineStyle.js';
 import * as i18n from './lib/i18n.js';
 
 const t = i18n.t;
@@ -37,6 +45,8 @@ const state = {
   tours: [],
   selectedTourId: null,
   routeLayer: null,
+  routePointSets: [],
+  lineStyle: loadLineStyle(),
   pinLayer: null,
   showPins: false,
   loadingTours: false,
@@ -135,6 +145,14 @@ const elBtnDeleteSelected = $('btn-delete-selected');
 const elBtnCancelSelect = $('btn-cancel-select');
 const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
+const elLineStyleWrap = $('line-style-wrap');
+const elBtnLineStyle = $('btn-line-style');
+const elLineStyleMenu = $('line-style-menu');
+const elLineStyleColor = $('line-style-color');
+const elLineStyleWidth = $('line-style-width');
+const elLineStyleWidthValue = $('line-style-width-value');
+const elLineStyleOpacity = $('line-style-opacity');
+const elLineStyleOpacityValue = $('line-style-opacity-value');
 const elBtnMapExpand = $('btn-map-expand');
 const elAppLayout = document.querySelector('.app-layout');
 const elSidebar = document.querySelector('.sidebar');
@@ -692,6 +710,7 @@ function renderSidebar() {
   show(elNoTours, signedIn && !loading && state.tours.length === 0);
   show(elTourControls, hasTours);
   show(elFilterInViewToggle, hasTours);
+  show(elLineStyleWrap, hasTours);
   show(elTourList, hasTours);
   show(elBtnShowAll, hasTours);
   show(elBtnSelectMode, hasTours);
@@ -767,9 +786,7 @@ function exitSelectMode() {
   renderAllRoutes();
 }
 
-// ── Route rendering (#418) ───────────────────────────────────────────────────
-
-const LINE_OPTIONS = { color: '#f97316', weight: 3, opacity: 0.75 };
+// ── Route rendering (#418, #420) ─────────────────────────────────────────────
 
 function clearRouteLayer() {
   if (state.routeLayer) {
@@ -784,12 +801,19 @@ function drawRoutes(pointSets) {
   clearRouteLayer();
   const lines = pointSets
     .filter((pts) => pts.length > 1)
-    .map((pts) => L.polyline(pts, LINE_OPTIONS));
+    .map((pts) => L.polyline(pts, state.lineStyle));
   if (lines.length === 0) return;
   state.routeLayer = L.layerGroup(lines).addTo(map);
 }
 
+// Redraws the last-rendered tours in the current style without touching
+// pan/zoom, so changing color/width/opacity doesn't re-fit the map.
+function redrawRoutes() {
+  drawRoutes(state.routePointSets);
+}
+
 function renderRoutes(pointSets, padding) {
+  state.routePointSets = pointSets;
   drawRoutes(pointSets);
   const allPoints = pointSets.flat();
   if (allPoints.length === 0) return;
@@ -1765,6 +1789,58 @@ function setupSortMenu() {
   });
 }
 
+function setupLineStyleMenu() {
+  elLineStyleWidth.min = String(WEIGHT_MIN);
+  elLineStyleWidth.max = String(WEIGHT_MAX);
+  elLineStyleOpacity.min = String(Math.round(OPACITY_MIN * 100));
+  elLineStyleOpacity.max = String(Math.round(OPACITY_MAX * 100));
+
+  const applyControls = () => {
+    elLineStyleColor.value = state.lineStyle.color;
+    elLineStyleWidth.value = String(state.lineStyle.weight);
+    elLineStyleWidthValue.textContent = `${state.lineStyle.weight}px`;
+    const opacityPct = Math.round(state.lineStyle.opacity * 100);
+    elLineStyleOpacity.value = String(opacityPct);
+    elLineStyleOpacityValue.textContent = `${opacityPct}%`;
+  };
+  applyControls();
+
+  const closeMenu = () => {
+    show(elLineStyleMenu, false);
+    elBtnLineStyle.setAttribute('aria-expanded', 'false');
+  };
+  const openMenu = () => {
+    show(elLineStyleMenu, true);
+    elBtnLineStyle.setAttribute('aria-expanded', 'true');
+  };
+
+  elBtnLineStyle.addEventListener('click', () => {
+    if (elLineStyleMenu.classList.contains('hidden')) openMenu();
+    else closeMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if (!elLineStyleWrap.contains(e.target)) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !elLineStyleMenu.classList.contains('hidden')) closeMenu();
+  });
+
+  const updateStyle = (patch) => {
+    state.lineStyle = { ...state.lineStyle, ...patch };
+    applyControls();
+    redrawRoutes();
+    saveLineStyle(state.lineStyle);
+  };
+
+  elLineStyleColor.addEventListener('input', () => updateStyle({ color: elLineStyleColor.value }));
+  elLineStyleWidth.addEventListener('input', () =>
+    updateStyle({ weight: Number(elLineStyleWidth.value) }),
+  );
+  elLineStyleOpacity.addEventListener('input', () =>
+    updateStyle({ opacity: Number(elLineStyleOpacity.value) / 100 }),
+  );
+}
+
 elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
 wireModalClose(elHelpModal, $('btn-close-help'), () => closeModal(elHelpModal));
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
@@ -1789,5 +1865,6 @@ document.addEventListener('keydown', (e) => {
   await i18n.init(); // detect locale, load messages, translate the static markup
   setupLanguageSwitcher();
   setupSortMenu();
+  setupLineStyleMenu();
   initAuth();
 })();
