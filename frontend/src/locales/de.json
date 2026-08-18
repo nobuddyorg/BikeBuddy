@@ -35,6 +35,7 @@
   "map.expandTitle": "Karte vergrößern",
   "map.restoreTitle": "Ansicht wiederherstellen",
   "map.photoPins": "Foto-Pins",
+  "map.lineView": "Linienansicht",
   "map.emptyTitle": "Keine Touren vorhanden",
   "map.emptyBody": "Lade eine GPX-Datei hoch, um deine Route als Heatmap zu sehen.",
   "map.loading": "Deine Streckendaten werden geladen…",

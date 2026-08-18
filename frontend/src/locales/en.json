@@ -35,6 +35,7 @@
   "map.expandTitle": "Expand map",
   "map.restoreTitle": "Restore panels",
   "map.photoPins": "Photo pins",
+  "map.lineView": "Line view",
   "map.emptyTitle": "No tours to display",
   "map.emptyBody": "Upload a GPX file to see your route as a heatmap.",
   "map.loading": "Loading your ride data…",

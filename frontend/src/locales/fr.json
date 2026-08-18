@@ -35,6 +35,7 @@
   "map.expandTitle": "Agrandir la carte",
   "map.restoreTitle": "Restaurer les panneaux",
   "map.photoPins": "Repères photo",
+  "map.lineView": "Vue en ligne",
   "map.emptyTitle": "Aucune sortie à afficher",
   "map.emptyBody": "Importe un fichier GPX pour voir ton parcours sous forme de carte de chaleur.",
   "map.loading": "Chargement de tes données de parcours…",

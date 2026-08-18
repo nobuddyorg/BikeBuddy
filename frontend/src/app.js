@@ -38,6 +38,9 @@ const state = {
   tours: [],
   selectedTourId: null,
   heatLayer: null,
+  lineLayer: null,
+  routePointSets: [],
+  mapStyle: 'heat',
   pinLayer: null,
   showPins: false,
   loadingTours: false,
@@ -136,6 +139,8 @@ const elBtnDeleteSelected = $('btn-delete-selected');
 const elBtnCancelSelect = $('btn-cancel-select');
 const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
+const elRouteStyleToggle = $('route-style-toggle');
+const elRouteStyleInput = $('route-style-toggle-input');
 const elBtnMapExpand = $('btn-map-expand');
 const elAppLayout = document.querySelector('.app-layout');
 const elSidebar = document.querySelector('.sidebar');
@@ -312,6 +317,7 @@ async function signOut() {
   state.tours = [];
   state.selectedTourId = null;
   clearHeatmap();
+  clearLineLayer();
   clearPins();
   show(elPinToggle, false);
   show(elDetailPanel, false);
@@ -396,7 +402,7 @@ async function loadTours() {
   // both pay the same cold-start latency, so starting them together instead of
   // in sequence roughly halves the wait before the map can render.
   const mapDataPromise = apiFetch('/api/map');
-  mapDataPromise.catch(() => {}); // avoid an unhandled-rejection warning if renderAllHeatmap never consumes it
+  mapDataPromise.catch(() => {}); // avoid an unhandled-rejection warning if renderAllRoutes never consumes it
   try {
     const res = await apiFetch('/api/tours');
     if (!res.ok) throw new Error('load failed');
@@ -408,7 +414,7 @@ async function loadTours() {
     state.loadingTours = false;
   }
   renderSidebar();
-  await renderAllHeatmap(mapDataPromise);
+  await renderAllRoutes(mapDataPromise);
 }
 
 // Keyed on the explicit flag rather than on heatmapData/images being present:
@@ -693,6 +699,7 @@ function renderSidebar() {
   show(elNoTours, signedIn && !loading && state.tours.length === 0);
   show(elTourControls, hasTours);
   show(elFilterInViewToggle, hasTours);
+  show(elRouteStyleToggle, hasTours);
   show(elTourList, hasTours);
   show(elBtnShowAll, hasTours);
   show(elBtnSelectMode, hasTours);
@@ -732,7 +739,7 @@ function toggleTourSelection(tourId) {
     state.selectedIds.add(tourId);
   }
   renderSidebar();
-  renderSelectedToursHeatmap();
+  renderSelectedToursRoutes();
 }
 
 function enterSelectMode() {
@@ -765,10 +772,10 @@ function exitSelectMode() {
   state.selectMode = false;
   state.selectedIds.clear();
   renderSidebar();
-  renderAllHeatmap();
+  renderAllRoutes();
 }
 
-// ── Heatmap rendering ─────────────────────────────────────────────────────────
+// ── Route rendering: heatmap or line (#401) ─────────────────────────────────
 
 // max must stay above the per-point intensity in toHeatPoints, or a single pass
 // already saturates to the hottest colour and repeat passes stop standing out.
@@ -780,6 +787,7 @@ const HEAT_OPTIONS = {
   maxZoom: 17,
   gradient: { 0.0: '#3b82f6', 0.3: '#22d3ee', 0.55: '#f97316', 0.8: '#ef4444', 1.0: '#fde047' },
 };
+const LINE_OPTIONS = { color: '#f97316', weight: 3, opacity: 0.75 };
 
 function clearHeatmap() {
   if (state.heatLayer) {
@@ -788,42 +796,79 @@ function clearHeatmap() {
   }
 }
 
+function clearLineLayer() {
+  if (state.lineLayer) {
+    map.removeLayer(state.lineLayer);
+    state.lineLayer = null;
+  }
+}
+
 // The API sends [[lat, lon], ...]; leaflet.heat wants a third intensity value.
 const toHeatPoints = (heatmapData) => (heatmapData || []).map(([lat, lon]) => [lat, lon, 0.4]);
 
-function renderHeatmap(points, padding) {
-  clearHeatmap();
-  if (points.length === 0) return;
-
-  state.heatLayer = L.heatLayer(points, heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS)).addTo(map);
-  map.fitBounds(L.latLngBounds(points), { padding: [padding, padding] });
+// One polyline per tour, so tours never get joined by a spurious segment
+// across the gap between them the way a single flattened point list would.
+function renderLines(pointSets) {
+  const lines = pointSets
+    .filter((pts) => pts.length > 1)
+    .map((pts) => L.polyline(pts, LINE_OPTIONS));
+  if (lines.length === 0) return;
+  state.lineLayer = L.layerGroup(lines).addTo(map);
 }
 
-async function renderAllHeatmap(mapDataPromise) {
+// Redraws in the current style without touching pan/zoom, so flipping the
+// style toggle doesn't re-fit the map.
+function drawRoutes(pointSets) {
+  clearHeatmap();
+  clearLineLayer();
+  if (state.mapStyle === 'line') {
+    renderLines(pointSets);
+    return;
+  }
+  const points = toHeatPoints(pointSets.flat());
+  if (points.length === 0) return;
+  state.heatLayer = L.heatLayer(points, heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS)).addTo(map);
+}
+
+function renderRoutes(pointSets, padding) {
+  state.routePointSets = pointSets;
+  drawRoutes(pointSets);
+  const allPoints = pointSets.flat();
+  if (allPoints.length === 0) return;
+  map.fitBounds(L.latLngBounds(allPoints), { padding: [padding, padding] });
+}
+
+async function renderAllRoutes(mapDataPromise) {
   show(elMapLoading, true);
   await ensureMapData(apiFetch, state.tours, mapDataPromise);
   show(elMapLoading, false);
-  const allPoints = state.tours.flatMap((t) => toHeatPoints(t.heatmapData));
-  renderHeatmap(allPoints, 40);
-  show(elMapEmpty, allPoints.length === 0);
+  const pointSets = state.tours.map((t) => t.heatmapData || []);
+  renderRoutes(pointSets, 40);
+  show(
+    elMapEmpty,
+    pointSets.every((pts) => pts.length === 0),
+  );
   renderPins();
 }
 
 // Mirrors the checked set while in select mode (#298), falling back to all
 // tours when nothing is checked so the map never goes blank.
-async function renderSelectedToursHeatmap() {
+async function renderSelectedToursRoutes() {
   if (state.selectedIds.size === 0) {
-    await renderAllHeatmap();
-    if (state.selectedIds.size !== 0) return renderSelectedToursHeatmap();
+    await renderAllRoutes();
+    if (state.selectedIds.size !== 0) return renderSelectedToursRoutes();
     return;
   }
   const requested = [...state.selectedIds].sort().join(',');
   const tours = state.tours.filter((tour) => state.selectedIds.has(tour.id));
   await ensureMapData(apiFetch, state.tours);
   if ([...state.selectedIds].sort().join(',') !== requested) return; // selection changed while loading
-  const points = tours.flatMap((t) => toHeatPoints(t.heatmapData));
-  renderHeatmap(points, 40);
-  show(elMapEmpty, points.length === 0);
+  const pointSets = tours.map((t) => t.heatmapData || []);
+  renderRoutes(pointSets, 40);
+  show(
+    elMapEmpty,
+    pointSets.every((pts) => pts.length === 0),
+  );
   renderPins();
 }
 
@@ -967,7 +1012,7 @@ async function focusTourOnMap(tourId) {
   await ensureDetail(tour);
   if (state.selectedTourId !== tourId) return null; // user switched while loading
   show(elMapEmpty, false);
-  renderHeatmap(toHeatPoints(tour.heatmapData), 60);
+  renderRoutes([tour.heatmapData || []], 60);
   renderPins();
   return tour;
 }
@@ -1058,7 +1103,7 @@ async function deleteTourById(id) {
     state.tours = state.tours.filter((t) => t.id !== id);
     if (id === state.selectedTourId) deselectTour();
     renderSidebar();
-    await renderAllHeatmap();
+    await renderAllRoutes();
     toast(t('toast.tourDeleted'), 'success');
   } catch {
     toast(t('toast.tourDeleteError'), 'error');
@@ -1115,7 +1160,7 @@ async function deleteSelectedTours() {
   }
 
   renderSidebar();
-  await renderAllHeatmap();
+  await renderAllRoutes();
 }
 
 function renderDetailPanel(tour) {
@@ -1642,7 +1687,7 @@ elTourPagerNext.addEventListener('click', () => {
 });
 elBtnShowAll.addEventListener('click', () => {
   deselectTour();
-  renderAllHeatmap();
+  renderAllRoutes();
 });
 elBtnSelectMode.addEventListener('click', enterSelectMode);
 elBtnCancelSelect.addEventListener('click', exitSelectMode);
@@ -1655,6 +1700,13 @@ elPinToggleInput.addEventListener('change', () => {
 // The browser restores the checkbox on reload while JS state resets to false,
 // so without this the pins need an off/on toggle to reappear (#145).
 elPinToggleInput.checked = state.showPins;
+
+elRouteStyleInput.addEventListener('change', () => {
+  state.mapStyle = elRouteStyleInput.checked ? 'line' : 'heat';
+  drawRoutes(state.routePointSets);
+});
+// Same reload quirk as elPinToggleInput above.
+elRouteStyleInput.checked = state.mapStyle === 'line';
 
 // Expand the map by collapsing the side panels (#143).
 elBtnMapExpand.addEventListener('click', () => {
