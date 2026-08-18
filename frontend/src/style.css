@@ -462,8 +462,8 @@ body {
 }
 
 /* CARTO's dark_all basemap is low-contrast by default (#342) — lift roads,
-   labels and boundaries while keeping the dark aesthetic. The heat/track
-   layer sits in its own pane above this one, so it's unaffected. */
+   labels and boundaries while keeping the dark aesthetic. The route layer
+   sits in its own pane above this one, so it's unaffected. */
 .map-tiles-dark {
   filter: brightness(1.8) contrast(1.2) saturate(2);
 }

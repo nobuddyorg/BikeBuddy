@@ -5,8 +5,8 @@
     <!-- user-scalable=no stops iOS Safari's native pinch/double-tap zoom from
        racing Leaflet's own touch handling: WebKit's private gesture events
        ignore touch-action and only respect this viewport restriction, so
-       without it the page zooms instantly while the map (and heat layer)
-       only catch up once the gesture ends (#396). -->
+       without it the page zooms instantly while the map only catches up
+       once the gesture ends (#396). -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -22,25 +22,21 @@
     <title>BikeBuddy</title>
     <meta
       name="description"
-      content="Upload GPX rides (cycling or motorcycling) and see them as interactive heatmaps."
+      content="Upload GPX rides (cycling or motorcycling) and see your routes on the map."
     />
     <meta name="theme-color" content="#0f1117" />
     <link rel="icon" href="favicon.png" type="image/png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <!-- Social link previews -->
     <meta property="og:title" content="BikeBuddy" />
-    <meta
-      property="og:description"
-      content="Upload GPX rides and see them as interactive heatmaps."
-    />
+    <meta property="og:description" content="Upload GPX rides and see your routes on the map." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://nobuddy.org/BikeBuddy/" />
     <meta name="twitter:card" content="summary" />
 
-    <!-- Leaflet and Leaflet.heat, vendored — see vendor/.leaflet-source -->
+    <!-- Leaflet, vendored — see vendor/.leaflet-source -->
     <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
     <script src="vendor/leaflet/leaflet.js"></script>
-    <script src="vendor/leaflet-heat.js"></script>
     <!-- MSAL Browser (Microsoft Entra External ID auth). Vendored locally:
        loading cross-origin from a CDN was blocked by the browser (ORB) on GitHub Pages. -->
     <script src="vendor/msal-browser.min.js"></script>
@@ -235,16 +231,6 @@
               >📷 <span class="toggle-label-text" data-i18n="map.photoPins">Photo pins</span></span
             >
           </label>
-          <label
-            id="route-style-toggle"
-            class="pin-toggle hidden"
-            data-i18n-aria-label="map.lineView"
-          >
-            <input type="checkbox" id="route-style-toggle-input" />
-            <span
-              >〰️ <span class="toggle-label-text" data-i18n="map.lineView">Line view</span></span
-            >
-          </label>
           <button
             id="btn-map-expand"
             class="map-expand-btn"
@@ -259,7 +245,7 @@
           <div class="map-empty-card">
             <div class="map-empty-icon">🗺️</div>
             <h3 data-i18n="map.emptyTitle">No tours to display</h3>
-            <p data-i18n="map.emptyBody">Upload a GPX file to see your route as a heatmap.</p>
+            <p data-i18n="map.emptyBody">Upload a GPX file to see your route on the map.</p>
           </div>
         </div>
         <div id="map-loading" class="map-empty-overlay hidden">
@@ -345,8 +331,8 @@
         <div class="help-content">
           <h3 data-i18n="help.q1">🧭 What is this?</h3>
           <p data-i18n="help.a1">
-            Upload GPX tracks from your rides — cycling or motorcycling — and see them as an
-            interactive heatmap. Warmer colours mean you rode there more often.
+            Upload GPX tracks from your rides — cycling or motorcycling — and see them as routes on
+            an interactive map.
           </p>
           <h3 data-i18n="help.q2">🔑 Sign in & your account</h3>
           <p data-i18n-html="help.a2">
@@ -368,10 +354,10 @@
             Click <strong>Select</strong> in the sidebar to check off several tours and delete them
             together.
           </p>
-          <h3 data-i18n="help.q6">🗺️ Map & heatmap</h3>
+          <h3 data-i18n="help.q6">🗺️ Map & routes</h3>
           <p data-i18n-html="help.a6">
-            Click a tour to focus it; <strong>Show All Tours</strong> brings back the combined
-            heatmap. Warmer colours mean you rode there more often.
+            Click a tour to focus it; <strong>Show All Tours</strong> brings back every route on the
+            map.
           </p>
           <h3 data-i18n="help.q7">📷 Photos & pins</h3>
           <p data-i18n-html="help.a7">

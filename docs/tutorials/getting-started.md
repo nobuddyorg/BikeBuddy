@@ -36,7 +36,7 @@ It brings everything up and opens the app at <http://localhost:4280>:
 
 1. The app auto-signs-in as a local dev user.
 2. Click **Upload GPX**, give it a name, drop a `.gpx` file.
-3. It appears in the sidebar and as a heatmap on the map. Click it to focus, add
+3. It appears in the sidebar and as a route on the map. Click it to focus, add
    photos, or edit it.
 
 ![Upload modal with a tour name and a .gpx file ready to upload](../assets/screenshots/upload-tour.png)

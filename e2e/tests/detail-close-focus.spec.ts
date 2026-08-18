@@ -3,7 +3,7 @@ import { buddyTest, expect } from '../pages/buddy-test';
 // #378: closing the detail panel must not drop the selection. The map is always
 // showing either one tour with its own photos, or every tour with all of them.
 // Before the fix, closing the panel cleared state.selectedTourId while leaving
-// the single tour's heatmap on the map — so the pins widened to every tour's
+// the single tour's route on the map — so the pins widened to every tour's
 // photos while the track stayed scoped to one, and no row was active.
 
 // 1x1 transparent PNG — the marker only needs a valid <img> src, not a real blob.
