@@ -930,6 +930,15 @@ map.on('zoomend', () => {
   state.heatLayer?.setOptions(heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS));
 });
 
+// leaflet.heat only repaints on 'moveend', which lags visibly behind touch
+// drags/pinches (esp. inertia glides) even though the base tiles track the
+// finger instantly. redraw()'s own per-frame guard makes this cheap and it
+// no-ops during animated (click-to-zoom) transitions, so this only fills the
+// gap for live touch gestures (#396).
+map.on('move zoom', () => {
+  state.heatLayer?.redraw();
+});
+
 // ── Tour selection ────────────────────────────────────────────────────────────
 
 // The map half of selecting a tour, shared by selectTour and highlightTour so
