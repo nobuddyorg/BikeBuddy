@@ -35,6 +35,7 @@
   "map.expandTitle": "Kaart vergroten",
   "map.restoreTitle": "Panelen herstellen",
   "map.photoPins": "Foto-pins",
+  "map.lineView": "Lijnweergave",
   "map.emptyTitle": "Geen ritten om te tonen",
   "map.emptyBody": "Upload een GPX-bestand om je route als heatmap te zien.",
   "map.loading": "Je routegegevens worden geladen…",

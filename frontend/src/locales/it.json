@@ -35,6 +35,7 @@
   "map.expandTitle": "Espandi mappa",
   "map.restoreTitle": "Ripristina i pannelli",
   "map.photoPins": "Indicatori foto",
+  "map.lineView": "Vista linea",
   "map.emptyTitle": "Nessun giro da mostrare",
   "map.emptyBody": "Carica un file GPX per vedere il tuo percorso come mappa di calore.",
   "map.loading": "Caricamento dei dati dei tuoi percorsi…",

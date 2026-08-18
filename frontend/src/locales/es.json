@@ -35,6 +35,7 @@
   "map.expandTitle": "Ampliar mapa",
   "map.restoreTitle": "Restaurar paneles",
   "map.photoPins": "Pines de fotos",
+  "map.lineView": "Vista de línea",
   "map.emptyTitle": "No hay rutas para mostrar",
   "map.emptyBody": "Sube un archivo GPX para ver tu ruta como un mapa de calor.",
   "map.loading": "Cargando los datos de tus rutas…",
