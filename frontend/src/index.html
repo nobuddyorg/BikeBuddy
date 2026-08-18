@@ -231,6 +231,39 @@
               >📷 <span class="toggle-label-text" data-i18n="map.photoPins">Photo pins</span></span
             >
           </label>
+          <div id="line-style-wrap" class="line-style-wrap hidden">
+            <button
+              id="btn-line-style"
+              type="button"
+              class="pin-toggle"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              data-i18n-aria-label="map.lineStyle"
+            >
+              🎨 <span class="toggle-label-text" data-i18n="map.lineStyle">Line style</span>
+            </button>
+            <div
+              id="line-style-menu"
+              class="line-style-menu hidden"
+              role="dialog"
+              data-i18n-aria-label="map.lineStyle"
+            >
+              <label class="line-style-field">
+                <span data-i18n="map.lineStyleColor">Color</span>
+                <input id="line-style-color" type="color" />
+              </label>
+              <label class="line-style-field">
+                <span data-i18n="map.lineStyleWidth">Width</span>
+                <input id="line-style-width" type="range" step="1" />
+                <span id="line-style-width-value" class="line-style-value"></span>
+              </label>
+              <label class="line-style-field">
+                <span data-i18n="map.lineStyleOpacity">Opacity</span>
+                <input id="line-style-opacity" type="range" step="5" />
+                <span id="line-style-opacity-value" class="line-style-value"></span>
+              </label>
+            </div>
+          </div>
           <button
             id="btn-map-expand"
             class="map-expand-btn"
