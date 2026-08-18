@@ -2,10 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
-// #298: the map must show exactly the checked set. Leaflet's canvas heat layer
-// isn't inspectable from Playwright, so #map-empty is the proxy — one tour has
-// heatmap data and the other doesn't, and toggling between them flips it only
-// when the scoping is right.
+// #298: the map must show exactly the checked set. #map-empty is the simplest
+// proxy for that — one tour has route data and the other doesn't, and toggling
+// between them flips it only when the scoping is right.
 
 const TID_WITH_DATA = randomUUID();
 const TID_NO_DATA = randomUUID();

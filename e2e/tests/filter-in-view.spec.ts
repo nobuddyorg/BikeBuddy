@@ -2,7 +2,7 @@ import { buddyTest, expect } from '../pages/buddy-test';
 
 // #315: a toggle in the sidebar narrows the tour list to only tours whose
 // track is (even partially) on screen. On load the map auto-fits to *all*
-// loaded tours (renderAllHeatmap), so a tour with a real track is reliably in
+// loaded tours (renderAllRoutes), so a tour with a real track is reliably in
 // view right away. A tour with no recorded track (e.g. GPX import produced no
 // points) never contributes to that fit and is never "in view" either,
 // regardless of where the map is looking — this is the scenario the test

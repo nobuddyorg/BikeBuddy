@@ -20,7 +20,6 @@ import { ensureMapData } from './lib/mapData.js';
 import { isStale, markFetched } from './lib/sasCache.js';
 import { parseErrorMessage, xhrUpload } from './lib/upload.js';
 import { groupByProximity, fanOffsets } from './lib/pinLayout.js';
-import { heatOptionsForZoom } from './lib/heatmapZoom.js';
 import * as i18n from './lib/i18n.js';
 
 const t = i18n.t;
@@ -37,10 +36,7 @@ const state = {
   user: null,
   tours: [],
   selectedTourId: null,
-  heatLayer: null,
-  lineLayer: null,
-  routePointSets: [],
-  mapStyle: 'heat',
+  routeLayer: null,
   pinLayer: null,
   showPins: false,
   loadingTours: false,
@@ -139,8 +135,6 @@ const elBtnDeleteSelected = $('btn-delete-selected');
 const elBtnCancelSelect = $('btn-cancel-select');
 const elPinToggle = $('pin-toggle');
 const elPinToggleInput = $('pin-toggle-input');
-const elRouteStyleToggle = $('route-style-toggle');
-const elRouteStyleInput = $('route-style-toggle-input');
 const elBtnMapExpand = $('btn-map-expand');
 const elAppLayout = document.querySelector('.app-layout');
 const elSidebar = document.querySelector('.sidebar');
@@ -316,8 +310,7 @@ async function signOut() {
   state.user = null;
   state.tours = [];
   state.selectedTourId = null;
-  clearHeatmap();
-  clearLineLayer();
+  clearRouteLayer();
   clearPins();
   show(elPinToggle, false);
   show(elDetailPanel, false);
@@ -699,7 +692,6 @@ function renderSidebar() {
   show(elNoTours, signedIn && !loading && state.tours.length === 0);
   show(elTourControls, hasTours);
   show(elFilterInViewToggle, hasTours);
-  show(elRouteStyleToggle, hasTours);
   show(elTourList, hasTours);
   show(elBtnShowAll, hasTours);
   show(elBtnSelectMode, hasTours);
@@ -775,63 +767,29 @@ function exitSelectMode() {
   renderAllRoutes();
 }
 
-// ── Route rendering: heatmap or line (#401) ─────────────────────────────────
+// ── Route rendering (#418) ───────────────────────────────────────────────────
 
-// max must stay above the per-point intensity in toHeatPoints, or a single pass
-// already saturates to the hottest colour and repeat passes stop standing out.
-const HEAT_OPTIONS = {
-  radius: 16,
-  blur: 20,
-  minOpacity: 0.45,
-  max: 1.0,
-  maxZoom: 17,
-  gradient: { 0.0: '#3b82f6', 0.3: '#22d3ee', 0.55: '#f97316', 0.8: '#ef4444', 1.0: '#fde047' },
-};
 const LINE_OPTIONS = { color: '#f97316', weight: 3, opacity: 0.75 };
 
-function clearHeatmap() {
-  if (state.heatLayer) {
-    map.removeLayer(state.heatLayer);
-    state.heatLayer = null;
+function clearRouteLayer() {
+  if (state.routeLayer) {
+    map.removeLayer(state.routeLayer);
+    state.routeLayer = null;
   }
 }
-
-function clearLineLayer() {
-  if (state.lineLayer) {
-    map.removeLayer(state.lineLayer);
-    state.lineLayer = null;
-  }
-}
-
-// The API sends [[lat, lon], ...]; leaflet.heat wants a third intensity value.
-const toHeatPoints = (heatmapData) => (heatmapData || []).map(([lat, lon]) => [lat, lon, 0.4]);
 
 // One polyline per tour, so tours never get joined by a spurious segment
 // across the gap between them the way a single flattened point list would.
-function renderLines(pointSets) {
+function drawRoutes(pointSets) {
+  clearRouteLayer();
   const lines = pointSets
     .filter((pts) => pts.length > 1)
     .map((pts) => L.polyline(pts, LINE_OPTIONS));
   if (lines.length === 0) return;
-  state.lineLayer = L.layerGroup(lines).addTo(map);
-}
-
-// Redraws in the current style without touching pan/zoom, so flipping the
-// style toggle doesn't re-fit the map.
-function drawRoutes(pointSets) {
-  clearHeatmap();
-  clearLineLayer();
-  if (state.mapStyle === 'line') {
-    renderLines(pointSets);
-    return;
-  }
-  const points = toHeatPoints(pointSets.flat());
-  if (points.length === 0) return;
-  state.heatLayer = L.heatLayer(points, heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS)).addTo(map);
+  state.routeLayer = L.layerGroup(lines).addTo(map);
 }
 
 function renderRoutes(pointSets, padding) {
-  state.routePointSets = pointSets;
   drawRoutes(pointSets);
   const allPoints = pointSets.flat();
   if (allPoints.length === 0) return;
@@ -977,30 +935,6 @@ map.on('moveend', () => {
 });
 map.on('zoomend', renderPins);
 
-// leaflet.heat's radius/blur are fixed CSS pixels, so they need rescaling on
-// every zoom (#318).
-map.on('zoomend', () => {
-  state.heatLayer?.setOptions(heatOptionsForZoom(map.getZoom(), HEAT_OPTIONS));
-});
-
-// leaflet.heat only repositions/repaints its canvas on 'moveend', which lags
-// visibly behind touch drags/pinches (esp. inertia glides) even though the
-// base tiles track the finger instantly. Its own redraw() isn't enough here:
-// it repaints in place without re-anchoring the canvas element, so mid-drag
-// it draws already-panned coordinates onto a canvas that then *also* rides
-// the live pane transform, doubling the visible offset. Calling its private
-// _reset() (what 'moveend' itself calls) re-anchors the canvas before each
-// repaint, so do that instead, throttled to one call per animation frame to
-// match its own internal throttling (#396).
-let heatFrame = null;
-map.on('move zoom', () => {
-  if (heatFrame || !state.heatLayer) return;
-  heatFrame = requestAnimationFrame(() => {
-    heatFrame = null;
-    state.heatLayer?._reset();
-  });
-});
-
 // ── Tour selection ────────────────────────────────────────────────────────────
 
 // The map half of selecting a tour, shared by selectTour and highlightTour so
@@ -1035,7 +969,7 @@ function closeDetailPanel() {
   refreshMapSize();
 }
 
-// Ends the selection itself. Every caller renders the all-tours heatmap after,
+// Ends the selection itself. Every caller renders the all-tours map after,
 // which is what keeps the map off a tour that is no longer selected.
 function deselectTour() {
   state.selectedTourId = null;
@@ -1559,7 +1493,7 @@ async function submitUpload(e) {
     );
     closeUpload();
     await loadTours();
-    selectTour(tourId); // success → jump to the new tour's heatmap
+    selectTour(tourId); // success → jump to the new tour's route
     toast(t('toast.tourUploaded'), 'success');
   } catch (err) {
     showUploadError(tApi(err.message));
@@ -1700,13 +1634,6 @@ elPinToggleInput.addEventListener('change', () => {
 // The browser restores the checkbox on reload while JS state resets to false,
 // so without this the pins need an off/on toggle to reappear (#145).
 elPinToggleInput.checked = state.showPins;
-
-elRouteStyleInput.addEventListener('change', () => {
-  state.mapStyle = elRouteStyleInput.checked ? 'line' : 'heat';
-  drawRoutes(state.routePointSets);
-});
-// Same reload quirk as elPinToggleInput above.
-elRouteStyleInput.checked = state.mapStyle === 'line';
 
 // Expand the map by collapsing the side panels (#143).
 elBtnMapExpand.addEventListener('click', () => {

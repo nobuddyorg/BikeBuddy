@@ -1,7 +1,7 @@
 {
   "name": "BikeBuddy",
   "short_name": "BikeBuddy",
-  "description": "Upload GPX rides and see them as interactive heatmaps.",
+  "description": "Upload GPX rides and see your routes on the map.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

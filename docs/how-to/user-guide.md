@@ -20,7 +20,7 @@ and all its data.
 2. Enter a name (defaults to the file name) and an optional description.
 3. Drop or choose a `.gpx` file (max 10 MB) and click **Upload**.
 
-The tour appears in the sidebar and on the map; the view jumps to its heatmap.
+The tour appears in the sidebar and on the map; the view jumps to its route.
 
 ## Find a tour
 
@@ -29,8 +29,8 @@ The tour appears in the sidebar and on the map; the view jumps to its heatmap.
 
 ## Read the map
 
-- The heatmap shows where you've ridden; warmer colours = more passes.
-- Click a tour to focus it; **Show All Tours** restores the combined heatmap.
+- Each tour draws as a line showing where you rode.
+- Click a tour to focus it; **Show All Tours** restores every route on the map.
 - Toggle **In view** (top right of the map) to show only the tours visible in
   the current map view — useful once you have tours from many different places
   and want the sidebar list to match what you're looking at.

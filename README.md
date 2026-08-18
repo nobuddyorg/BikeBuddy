@@ -1,6 +1,6 @@
 # BikeBuddy
 
-BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any ride (cycling or motorcycling), visualize them as heatmaps, and attach photos.
+BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any ride (cycling or motorcycling), visualize them as routes on the map, and attach photos.
 
 ![Node.js](https://img.shields.io/badge/node-%3E%3D24-brightgreen?logo=node.js)
 ![Azure Functions](https://img.shields.io/badge/Azure%20Functions-v4-blue?logo=azure-functions)
@@ -43,7 +43,7 @@ Infrastructure details: [Infrastructure how-to](docs/how-to/infrastructure.md). 
 
 ## Screenshot
 
-![BikeBuddy map view with a heatmap and tour sidebar](docs/assets/screenshots/map-overview.png)
+![BikeBuddy map view with ride routes and tour sidebar](docs/assets/screenshots/map-overview.png)
 
 ## Technology map
 
