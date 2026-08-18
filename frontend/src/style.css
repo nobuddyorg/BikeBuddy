@@ -777,9 +777,12 @@ body {
    (Delete's trash can) — the SVG uses fill="currentColor" so it picks up
    the button's own color (danger-red, white on hover) instead of an emoji's
    fixed built-in colors. */
+/* vertical-align matters here specifically for the map toolbar's checkbox
+   toggles. */
 .btn-icon {
   display: inline-flex;
   align-items: center;
+  vertical-align: middle;
 }
 
 .btn-icon svg {
