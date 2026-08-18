@@ -2,7 +2,7 @@ import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, listUsers } from './usersDb';
 
 // Language selection lives in profile settings and persists to the user doc,
-// unlike the old navbar-only, localStorage-only picker (#290).
+// unlike the old navbar-only, localStorage-only picker.
 
 buddyTest.describe('language preference', () => {
   buddyTest.beforeEach(async () => {

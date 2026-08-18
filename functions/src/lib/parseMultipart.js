@@ -20,7 +20,7 @@ function badRequest(message) {
  * Streamed into busboy rather than read whole: arrayBuffer() allocated the
  * entire payload before any limit could apply, and Content-Length can't prevent
  * that — chunked requests carry none, and the header is attacker-controlled
- * either way (#352).
+ * either way.
  *
  * @param {import('@azure/functions').HttpRequest} request
  */
@@ -56,7 +56,7 @@ async function parseMultipart(request) {
     }
 
     // A body that stops mid-stream is malformed request syntax, not a server
-    // fault, so it must not become a 500 (#383). busboy's own wording is
+    // fault, so it must not become a 500. busboy's own wording is
     // English-only and says nothing the uploader can act on, so it is logged
     // rather than returned.
     const rejectMalformed = (err) => {

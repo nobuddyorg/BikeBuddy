@@ -146,7 +146,7 @@ describe('UploadTour', () => {
       makeParseFile(),
     );
     expect(res.status).toBe(400);
-    // A translatable key, not Zod's English (#359).
+    // A translatable key, not Zod's English.
     expect(res.jsonBody.error).toBe('errors.tourName');
   });
 
@@ -232,7 +232,7 @@ describe('UploadTour', () => {
     expect(res.status).toBe(201);
   });
 
-  it('uploads the blob before creating the document (#357)', async () => {
+  it('uploads the blob before creating the document', async () => {
     const order = [];
     const gpx = makeGpxContainer();
     gpx.blockBlob.uploadData.mockImplementation(async () => {
@@ -250,7 +250,7 @@ describe('UploadTour', () => {
     expect(order).toEqual(['blob', 'doc']);
   });
 
-  it('rolls the blob back when the document create fails (#357)', async () => {
+  it('rolls the blob back when the document create fails', async () => {
     const gpx = makeGpxContainer();
     const toursContainer = makeToursContainer();
     toursContainer.items.create.mockRejectedValue(new Error('cosmos down'));
@@ -264,7 +264,7 @@ describe('UploadTour', () => {
     expect(gpx.blockBlob.deleteIfExists).toHaveBeenCalled();
   });
 
-  it('surfaces the create failure even when the rollback itself fails (#357)', async () => {
+  it('surfaces the create failure even when the rollback itself fails', async () => {
     const gpx = makeGpxContainer();
     gpx.blockBlob.deleteIfExists.mockRejectedValue(new Error('storage down'));
     const toursContainer = makeToursContainer();
@@ -277,7 +277,7 @@ describe('UploadTour', () => {
     ).rejects.toThrow('cosmos down');
   });
 
-  it('does not delete the blob when the document create succeeds (#357)', async () => {
+  it('does not delete the blob when the document create succeeds', async () => {
     const gpx = makeGpxContainer();
 
     const res = await uploadTour(reqWith(), mockAuth, makeToursContainer, gpx, makeParseFile());

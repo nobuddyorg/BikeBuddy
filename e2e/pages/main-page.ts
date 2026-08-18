@@ -224,7 +224,7 @@ export function initMainPage(page: Page): MainPage {
     },
     // CDP touch dispatch, not Playwright's mouse API: createTourItem branches on
     // the preceding pointerdown's pointerType, so a click() would take the wrong
-    // path (#308).
+    // path.
     tapTour: async (name: string) => {
       const row = locators.list.container.locator('.tour-item', { hasText: name });
       const box = await row.boundingBox();
@@ -236,7 +236,7 @@ export function initMainPage(page: Page): MainPage {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       // Chromium's synthesized compatibility click arrives asynchronously, and
       // CI's Linux Chromium needs more margin than local macOS: at swipeTour's
-      // 300ms, a tap right after a swipe intermittently missed its row (#310).
+      // 300ms, a tap right after a swipe intermittently missed its row.
       await page.waitForTimeout(500);
     },
     // The bug this covers (#275: a long-press's ghost click undoing its own

@@ -40,7 +40,7 @@ describe('DELETE /api/tours/{tourId}', () => {
     expect(res.status).toBe(204);
   });
 
-  it('deletes the document before the blob (#354)', async () => {
+  it('deletes the document before the blob', async () => {
     const order = [];
     const tours = makeToursContainer(async () => ({ resource: TOUR }));
     tours.del.mockImplementation(async () => {
@@ -65,7 +65,7 @@ describe('DELETE /api/tours/{tourId}', () => {
     expect(order).toEqual(['doc', 'blob']);
   });
 
-  it('does not delete the blob when the document delete fails (#354)', async () => {
+  it('does not delete the blob when the document delete fails', async () => {
     const tours = makeToursContainer(async () => ({ resource: TOUR }));
     tours.del.mockRejectedValue(Object.assign(new Error('conflict'), { code: 409 }));
     const gpx = makeGpxContainer();

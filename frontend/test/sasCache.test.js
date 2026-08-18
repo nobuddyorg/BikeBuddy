@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SAS_CACHE_TTL_MS, isStale, markFetched } from '../src/lib/sasCache.js';
 
 // SAS_TTL_MS in functions/src/lib/blobStorage.js. The client cache has to give
-// up on a signed URL before storage does, or it hands out URLs that 403 (#362).
+// up on a signed URL before storage does, or it hands out URLs that 403.
 const SERVER_SAS_TTL_MS = 60 * 60 * 1000;
 
 describe('sasCache', () => {

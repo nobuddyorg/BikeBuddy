@@ -1,7 +1,7 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours } from './usersDb';
 
-// Sorting + fuzzy search over the tour list (#102), against the real backend.
+// Sorting + fuzzy search over the tour list, against the real backend.
 // Three tours with distinct names and lengths give a deterministic order.
 
 const gpx = (name: string, lon2: string) => `<?xml version="1.0"?>

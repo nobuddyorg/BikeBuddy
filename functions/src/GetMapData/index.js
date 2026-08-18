@@ -37,7 +37,7 @@ function budgetHeatmapData(tours, totalPointBudget, maxGapMeters) {
 }
 
 // GET /api/map — every tour's track points and pinnable photos in one query,
-// instead of a detail fetch each (#355). Photos without coordinates can't be
+// instead of a detail fetch each. Photos without coordinates can't be
 // pinned, so they cost no signature here; the gallery still gets them all.
 async function getMapData(
   request,

@@ -87,7 +87,7 @@ describe('translateApiMessage', () => {
 // applyI18n only ever calls root.querySelectorAll and reads/writes attributes,
 // so a stand-in is enough to pin which attributes it applies without a DOM.
 // With no messages loaded, t() resolves a key to itself — that is the assertion
-// handle: the key reaching the right attribute is what this guards (#365).
+// handle: the key reaching the right attribute is what this guards.
 describe('applyI18n', () => {
   const makeEl = (attrs) => ({
     attrs,

@@ -1,7 +1,7 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, listUsers } from './usersDb';
 
-// GDPR account export + deletion against the real backend (#117).
+// GDPR account export + deletion against the real backend.
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">

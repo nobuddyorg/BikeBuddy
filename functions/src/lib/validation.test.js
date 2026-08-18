@@ -89,7 +89,7 @@ describe('validation helpers', () => {
   });
 
   // The client renders these verbatim, so they must be i18n keys and never
-  // Zod's own English, schema-shaped wording (#359).
+  // Zod's own English, schema-shaped wording.
   describe('tourMetaError', () => {
     const keyFor = (input) => tourMetaError(tourMetaSchema.safeParse(input).error).jsonBody.error;
 

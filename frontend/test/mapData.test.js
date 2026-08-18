@@ -20,7 +20,7 @@ describe('ensureMapData', () => {
 
     await ensureMapData(apiFetch, tours);
 
-    // The N+1 this replaced issued one GET /api/tours/{id} per tour (#355).
+    // The N+1 this replaced issued one GET /api/tours/{id} per tour.
     expect(apiFetch).toHaveBeenCalledTimes(1);
     expect(apiFetch).toHaveBeenCalledWith('/api/map');
     expect(tours[0].heatmapData).toEqual([[48, 11]]);
@@ -86,7 +86,7 @@ describe('ensureMapData', () => {
   });
 
   // The photo URLs in the response are signed and expire, so a tour whose data
-  // has aged past the cache TTL must be refilled rather than kept (#362).
+  // has aged past the cache TTL must be refilled rather than kept.
   it('refills a tour whose signed photo URLs have gone stale', async () => {
     const stale = {
       id: 't1',
@@ -117,7 +117,7 @@ describe('ensureMapData', () => {
   });
 
   // Lets a caller start /api/map alongside /api/tours instead of after it, so a
-  // cold backend only pays its cold-start latency once per load (#397).
+  // cold backend only pays its cold-start latency once per load.
   it('consumes a pre-started fetch instead of issuing its own', async () => {
     const tours = [{ id: 't1' }];
     const apiFetch = vi.fn();

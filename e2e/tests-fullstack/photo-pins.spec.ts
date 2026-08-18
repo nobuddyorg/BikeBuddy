@@ -1,7 +1,7 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
-// Photo pins (#100). Seeded directly rather than uploaded: a SAS url is signed
+// Photo pins. Seeded directly rather than uploaded: a SAS url is signed
 // even when the blob behind it doesn't exist.
 
 const TID = '22222222-2222-4222-8222-222222222222';
@@ -22,7 +22,7 @@ buddyTest.describe('photo pins', () => {
         [48.1, 11.5],
         [48.2, 11.6],
       ],
-      // Identical coordinates: both must fan out, not stack into one (#126).
+      // Identical coordinates: both must fan out, not stack into one.
       images: [
         { id: IID, blobName: `local-dev-user/${TID}/${IID}.jpg`, lat: 48.1, lon: 11.5 },
         { id: IID2, blobName: `local-dev-user/${TID}/${IID2}.jpg`, lat: 48.1, lon: 11.5 },
@@ -45,12 +45,12 @@ buddyTest.describe('photo pins', () => {
       await on(page).main.do.showPins(true);
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-      // Past the region-level cutoff (#236) pins hide entirely, rather than
+      // Past the region-level cutoff pins hide entirely, rather than
       // clutter a country-level view with photos from unrelated places.
       await on(page).main.do.zoomOut(15);
       await expect(on(page).main.locators.pins.markers).toHaveCount(0);
 
-      // Back in past the cutoff: zoomend re-runs the grouping (#210).
+      // Back in past the cutoff: zoomend re-runs the grouping.
       await on(page).main.do.zoomIn(15);
       await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
@@ -138,7 +138,7 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
       await expect(on(page).main.locators.pins.toggle).toBeHidden();
 
       // Closing the panel leaves the tour selected, so its pins stay scoped to
-      // it; "Show All Tours" is what goes back to every tour's (#378).
+      // it; "Show All Tours" is what goes back to every tour's.
       await on(page).main.do.selectTour('Tour A');
       await on(page).main.do.closeDetail();
       await expect(on(page).main.locators.pins.toggle).toBeVisible();
@@ -153,7 +153,7 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
 // #331: a tap must focus the map, not just highlight the row. Pins are the
 // observable proxy — the scoping reads state.selectedTourId, which before the
 // fix never re-rendered on a plain tap.
-buddyTest.describe('mobile tap focuses the map, not just the row (#331)', () => {
+buddyTest.describe('mobile tap focuses the map, not just the row', () => {
   buddyTest.use({ hasTouch: true });
 
   buddyTest.beforeEach(async () => {
@@ -199,7 +199,7 @@ buddyTest.describe('mobile tap focuses the map, not just the row (#331)', () => 
     await on(page).main.do.showPins(true);
     await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-    // A tap, not a click: the panel must stay closed (#310).
+    // A tap, not a click: the panel must stay closed.
     await on(page).main.do.tapTour('Tour A');
     await expect(on(page).main.locators.detail.panel).toBeHidden();
     await expect(
