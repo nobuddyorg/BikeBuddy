@@ -105,6 +105,8 @@
 
   "lightbox.aria": "Foto",
   "lightbox.imgAlt": "Foto do percurso",
+  "lightbox.prevAria": "Foto anterior",
+  "lightbox.nextAria": "Foto seguinte",
 
   "common.close": "Fechar",
   "common.account": "Conta",

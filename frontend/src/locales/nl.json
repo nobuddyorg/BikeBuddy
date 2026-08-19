@@ -105,6 +105,8 @@
 
   "lightbox.aria": "Foto",
   "lightbox.imgAlt": "Foto van de rit",
+  "lightbox.prevAria": "Vorige foto",
+  "lightbox.nextAria": "Volgende foto",
 
   "common.close": "Sluiten",
   "common.account": "Account",

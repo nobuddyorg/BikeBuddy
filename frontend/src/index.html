@@ -611,12 +611,36 @@
     <!-- Image lightbox -->
     <div
       id="lightbox"
-      class="lightbox hidden"
+      class="modal-overlay lightbox hidden"
       role="dialog"
       aria-modal="true"
       data-i18n-aria-label="lightbox.aria"
     >
+      <button
+        id="btn-lightbox-prev"
+        type="button"
+        class="lightbox-nav lightbox-prev"
+        data-i18n-aria-label="lightbox.prevAria"
+      >
+        ‹
+      </button>
       <img id="lightbox-img" data-i18n-alt="lightbox.imgAlt" alt="Tour photo" />
+      <button
+        id="btn-close-lightbox"
+        type="button"
+        class="modal-close lightbox-close"
+        data-i18n-aria-label="common.close"
+      >
+        ✕
+      </button>
+      <button
+        id="btn-lightbox-next"
+        type="button"
+        class="lightbox-nav lightbox-next"
+        data-i18n-aria-label="lightbox.nextAria"
+      >
+        ›
+      </button>
     </div>
 
     <!-- Edit tour modal -->

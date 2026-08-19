@@ -105,6 +105,8 @@
 
   "lightbox.aria": "Foto",
   "lightbox.imgAlt": "Foto del giro",
+  "lightbox.prevAria": "Foto precedente",
+  "lightbox.nextAria": "Foto successiva",
 
   "common.close": "Chiudi",
   "common.account": "Account",
