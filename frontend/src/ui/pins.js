@@ -54,7 +54,14 @@ export function clearPins() {
 
 function makePinMarker(img, latlng) {
   const marker = L.marker(latlng, { icon: photoPinIcon(img.url) });
-  marker.on('click', () => openLightbox(img.url));
+  marker.on('click', () => {
+    const images = geotaggedImages();
+    const index = images.findIndex((i) => i.id === img.id);
+    openLightbox(
+      images.map((i) => i.url),
+      index < 0 ? 0 : index,
+    );
+  });
   return marker;
 }
 

@@ -106,6 +106,7 @@ interface MainPage {
     lightbox: {
       root: Locator;
       img: Locator;
+      closeButton: Locator;
     };
     pins: {
       toggle: Locator;
@@ -187,6 +188,7 @@ export function initMainPage(page: Page): MainPage {
     lightbox: {
       root: page.locator('#lightbox'),
       img: page.locator('#lightbox-img'),
+      closeButton: page.locator('#btn-close-lightbox'),
     },
     pins: {
       toggle: page.locator('#pin-toggle'),
@@ -328,7 +330,7 @@ export function initMainPage(page: Page): MainPage {
       await locators.image.thumbs.nth(index).click();
     },
     closeLightbox: async () => {
-      await locators.lightbox.root.click();
+      await locators.lightbox.closeButton.click();
     },
     deleteTour: async () => {
       page.once('dialog', (d) => d.accept());

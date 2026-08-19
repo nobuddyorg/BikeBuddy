@@ -62,7 +62,7 @@ import {
   downloadSelectedGpx,
 } from './ui/tour-detail.js';
 import { openUpload, closeUpload, submitUpload, selectFile } from './ui/upload-modal.js';
-import { uploadImages, closeLightbox } from './ui/images.js';
+import { uploadImages, closeLightbox, lightboxPrev, lightboxNext } from './ui/images.js';
 import { renderSidebar, loadTours, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
 import { renderAllRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
@@ -161,15 +161,19 @@ wireModalClose(elUploadModal, $('btn-close-upload'), closeUpload);
 wireDropzone(elImageDropzone, elImageFile, uploadImages);
 wireDropzone(elDropzone, elUploadFile, ([file]) => selectFile(file));
 
-elLightbox.addEventListener('click', closeLightbox);
+wireModalClose(elLightbox, $('btn-close-lightbox'), closeLightbox);
+$('btn-lightbox-prev').addEventListener('click', lightboxPrev);
+$('btn-lightbox-next').addEventListener('click', lightboxNext);
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    if (!elLightbox.classList.contains('hidden')) return closeLightbox();
-    const open = openModalEl();
-    if (open) return closeModal(open);
-  }
   const open = openModalEl();
-  if (open) trapFocus(e, open);
+  if (!open) return;
+  if (e.key === 'Escape') return open === elLightbox ? closeLightbox() : closeModal(open);
+  if (open === elLightbox) {
+    if (e.key === 'ArrowLeft') return lightboxPrev();
+    if (e.key === 'ArrowRight') return lightboxNext();
+  }
+  trapFocus(e, open);
 });
 
 (async () => {

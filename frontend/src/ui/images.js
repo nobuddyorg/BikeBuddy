@@ -15,6 +15,7 @@ import {
 } from './dom.js';
 import { apiFetch, getAccessToken, API_BASE } from './auth.js';
 import { renderPins } from './pins.js';
+import { openModal, closeModal } from './modal.js';
 
 const t = i18n.t;
 
@@ -33,7 +34,15 @@ export function createImageTile(image) {
   img.src = image.url;
   img.alt = t('lightbox.imgAlt');
   img.loading = 'lazy';
-  img.addEventListener('click', () => openLightbox(image.url));
+  img.addEventListener('click', () => {
+    const tour = state.tours.find((t) => t.id === state.selectedTourId);
+    const images = tour?.images || [];
+    const index = images.findIndex((i) => i.id === image.id);
+    openLightbox(
+      images.map((i) => i.url),
+      index < 0 ? 0 : index,
+    );
+  });
 
   const del = document.createElement('button');
   del.type = 'button';
@@ -125,14 +134,32 @@ export function renderGallery(tour) {
   (tour.images || []).forEach((image) => elImageGrid.appendChild(createImageTile(image)));
 }
 
-export function openLightbox(url) {
-  elLightboxImg.src = url;
-  show(elLightbox, true);
+let lightboxUrls = [];
+let lightboxIndex = 0;
+
+export function openLightbox(urls, index) {
+  lightboxUrls = urls;
+  lightboxIndex = index;
+  elLightboxImg.src = lightboxUrls[lightboxIndex];
+  openModal(elLightbox);
+}
+
+export function lightboxPrev() {
+  if (lightboxUrls.length === 0) return;
+  lightboxIndex = (lightboxIndex - 1 + lightboxUrls.length) % lightboxUrls.length;
+  elLightboxImg.src = lightboxUrls[lightboxIndex];
+}
+
+export function lightboxNext() {
+  if (lightboxUrls.length === 0) return;
+  lightboxIndex = (lightboxIndex + 1) % lightboxUrls.length;
+  elLightboxImg.src = lightboxUrls[lightboxIndex];
 }
 
 export function closeLightbox() {
-  show(elLightbox, false);
+  closeModal(elLightbox);
   elLightboxImg.src = '';
+  lightboxUrls = [];
 }
 
 async function deleteImage(imageId, tileEl) {

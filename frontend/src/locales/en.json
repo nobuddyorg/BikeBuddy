@@ -109,6 +109,8 @@
 
   "lightbox.aria": "Photo",
   "lightbox.imgAlt": "Tour photo",
+  "lightbox.prevAria": "Previous photo",
+  "lightbox.nextAria": "Next photo",
 
   "common.close": "Close",
   "common.account": "Account",
