@@ -12,10 +12,12 @@ import {
   elImageDropzone,
   elLightbox,
   elLightboxImg,
+  elLightboxError,
 } from './dom.js';
 import { apiFetch, getAccessToken, API_BASE } from './auth.js';
 import { renderPins } from './pins.js';
 import { openModal, closeModal } from './modal.js';
+import { ensureDetail } from './sidebar.js';
 
 const t = i18n.t;
 
@@ -43,6 +45,16 @@ export function createImageTile(image) {
       index < 0 ? 0 : index,
     );
   });
+  // A SAS URL expires in the background (see sasCache.js) — the tile that
+  // was a fine thumbnail a moment ago can start failing without a re-render.
+  img.addEventListener('error', () => {
+    renderErrorTile(fig, t('detail.photoLoadError'), {
+      retryable: true,
+      retryAria: t('detail.retryLoadAria'),
+      onRetry: () => retryTourImages(),
+      onDismiss: () => fig.remove(),
+    });
+  });
 
   const del = document.createElement('button');
   del.type = 'button';
@@ -56,6 +68,55 @@ export function createImageTile(image) {
 
   fig.append(img, del);
   return fig;
+}
+
+// Shared by the upload-pending tile and the broken-thumbnail state above -
+// same error/retry/dismiss layout, different message and retry action.
+function renderErrorTile(fig, message, { retryable, retryAria, onRetry, onDismiss }) {
+  fig.className = 'image-tile image-tile-error';
+  fig.dataset.testid = 'image-tile-error';
+  fig.innerHTML = '';
+
+  const msg = document.createElement('p');
+  msg.className = 'image-tile-error-message';
+  msg.textContent = message;
+
+  const actions = document.createElement('div');
+  actions.className = 'image-tile-actions';
+
+  if (retryable) {
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'image-tile-retry';
+    retry.dataset.testid = 'image-tile-retry';
+    retry.setAttribute('aria-label', retryAria);
+    retry.textContent = '↻';
+    retry.addEventListener('click', onRetry);
+    actions.append(retry);
+  }
+
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'image-tile-dismiss';
+  dismiss.dataset.testid = 'image-tile-dismiss';
+  dismiss.setAttribute('aria-label', t('detail.dismissPhotoAria'));
+  dismiss.textContent = '✕';
+  dismiss.addEventListener('click', onDismiss);
+  actions.append(dismiss);
+
+  fig.append(msg, actions);
+}
+
+// Forces a fresh signature rather than retrying the dead URL (see sasCache.js)
+// and re-renders every tile, since one expired SAS URL means they all are.
+async function retryTourImages() {
+  const tour = state.tours.find((t) => t.id === state.selectedTourId);
+  if (!tour) return null;
+  tour.fetchedAt = 0;
+  await ensureDetail(tour);
+  if (state.selectedTourId !== tour.id) return null; // user navigated away while refetching
+  renderGallery(tour);
+  return tour;
 }
 
 // One in-flight upload: pending (progress ring) → error (retry/dismiss) or done
@@ -89,38 +150,12 @@ function createPendingImageTile(file) {
       fig.append(ring, name);
     },
     setError(message, retryable) {
-      fig.className = 'image-tile image-tile-error';
-      fig.dataset.testid = 'image-tile-error';
-      fig.innerHTML = '';
-
-      const msg = document.createElement('p');
-      msg.className = 'image-tile-error-message';
-      msg.textContent = message;
-
-      const actions = document.createElement('div');
-      actions.className = 'image-tile-actions';
-
-      if (retryable) {
-        const retry = document.createElement('button');
-        retry.type = 'button';
-        retry.className = 'image-tile-retry';
-        retry.dataset.testid = 'image-tile-retry';
-        retry.setAttribute('aria-label', t('detail.retryPhotoAria'));
-        retry.textContent = '↻';
-        retry.addEventListener('click', () => tile.onRetry && tile.onRetry());
-        actions.append(retry);
-      }
-
-      const dismiss = document.createElement('button');
-      dismiss.type = 'button';
-      dismiss.className = 'image-tile-dismiss';
-      dismiss.dataset.testid = 'image-tile-dismiss';
-      dismiss.setAttribute('aria-label', t('detail.dismissPhotoAria'));
-      dismiss.textContent = '✕';
-      dismiss.addEventListener('click', () => fig.remove());
-      actions.append(dismiss);
-
-      fig.append(msg, actions);
+      renderErrorTile(fig, message, {
+        retryable,
+        retryAria: t('detail.retryPhotoAria'),
+        onRetry: () => tile.onRetry && tile.onRetry(),
+        onDismiss: () => fig.remove(),
+      });
     },
     setDone(image) {
       fig.replaceWith(createImageTile(image));
@@ -137,29 +172,50 @@ export function renderGallery(tour) {
 let lightboxUrls = [];
 let lightboxIndex = 0;
 
+function setLightboxSrc(url) {
+  show(elLightboxError, false);
+  show(elLightboxImg, true);
+  elLightboxImg.src = url;
+}
+
+// A SAS URL can expire while the lightbox sits open on it (see sasCache.js) -
+// swap in the error state rather than leaving a blank/broken image.
+elLightboxImg.addEventListener('error', () => {
+  show(elLightboxImg, false);
+  show(elLightboxError, true);
+});
+
 export function openLightbox(urls, index) {
   lightboxUrls = urls;
   lightboxIndex = index;
-  elLightboxImg.src = lightboxUrls[lightboxIndex];
+  setLightboxSrc(lightboxUrls[lightboxIndex]);
   openModal(elLightbox);
 }
 
 export function lightboxPrev() {
   if (lightboxUrls.length === 0) return;
   lightboxIndex = (lightboxIndex - 1 + lightboxUrls.length) % lightboxUrls.length;
-  elLightboxImg.src = lightboxUrls[lightboxIndex];
+  setLightboxSrc(lightboxUrls[lightboxIndex]);
 }
 
 export function lightboxNext() {
   if (lightboxUrls.length === 0) return;
   lightboxIndex = (lightboxIndex + 1) % lightboxUrls.length;
-  elLightboxImg.src = lightboxUrls[lightboxIndex];
+  setLightboxSrc(lightboxUrls[lightboxIndex]);
 }
 
 export function closeLightbox() {
   closeModal(elLightbox);
   elLightboxImg.src = '';
   lightboxUrls = [];
+}
+
+export async function retryLightboxImage() {
+  const tour = await retryTourImages();
+  if (!tour) return;
+  lightboxUrls = (tour.images || []).map((i) => i.url);
+  if (lightboxIndex >= lightboxUrls.length) lightboxIndex = Math.max(lightboxUrls.length - 1, 0);
+  setLightboxSrc(lightboxUrls[lightboxIndex]);
 }
 
 async function deleteImage(imageId, tileEl) {

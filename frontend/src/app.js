@@ -62,7 +62,13 @@ import {
   downloadSelectedGpx,
 } from './ui/tour-detail.js';
 import { openUpload, closeUpload, submitUpload, selectFile } from './ui/upload-modal.js';
-import { uploadImages, closeLightbox, lightboxPrev, lightboxNext } from './ui/images.js';
+import {
+  uploadImages,
+  closeLightbox,
+  lightboxPrev,
+  lightboxNext,
+  retryLightboxImage,
+} from './ui/images.js';
 import { renderSidebar, loadTours, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
 import { renderAllRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
@@ -164,6 +170,7 @@ wireDropzone(elDropzone, elUploadFile, ([file]) => selectFile(file));
 wireModalClose(elLightbox, $('btn-close-lightbox'), closeLightbox);
 $('btn-lightbox-prev').addEventListener('click', lightboxPrev);
 $('btn-lightbox-next').addEventListener('click', lightboxNext);
+$('btn-lightbox-retry').addEventListener('click', retryLightboxImage);
 
 document.addEventListener('keydown', (e) => {
   const open = openModalEl();

@@ -636,6 +636,17 @@
         ‹
       </button>
       <img id="lightbox-img" data-i18n-alt="lightbox.imgAlt" alt="Tour photo" />
+      <div id="lightbox-error" class="lightbox-error hidden">
+        <p data-i18n="detail.photoLoadError">Photo failed to load</p>
+        <button
+          type="button"
+          id="btn-lightbox-retry"
+          class="btn btn-secondary"
+          data-i18n="lightbox.retry"
+        >
+          Retry
+        </button>
+      </div>
       <button
         id="btn-close-lightbox"
         type="button"
