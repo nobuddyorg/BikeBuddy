@@ -4,6 +4,17 @@ const L = window.L;
 
 export const map = L.map('map', { center: [48.5, 10.5], zoom: 6 });
 
+// iOS Safari's native pinch-zoom is driven by private gesturestart/
+// gesturechange events that ignore touch-action entirely, so pinching over
+// the map would otherwise zoom the whole page instead of (or racing)
+// Leaflet's own touch handling. This is the only hook that reaches that
+// gesture, and — unlike the maximum-scale/user-scalable meta tag this used
+// to lean on — it's scoped to the map container instead of the whole
+// document.
+const mapContainer = map.getContainer();
+mapContainer.addEventListener('gesturestart', (e) => e.preventDefault());
+mapContainer.addEventListener('gesturechange', (e) => e.preventDefault());
+
 const TILE_URLS = {
   light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
   dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',

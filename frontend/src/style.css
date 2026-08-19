@@ -493,6 +493,9 @@ body {
 #map {
   width: 100%;
   height: 100%;
+  /* Leaves pan/pinch-zoom over the map entirely to Leaflet's own touch
+     handling instead of racing the browser's native gesture. */
+  touch-action: none;
 }
 
 /* CARTO's dark_all basemap is low-contrast by default — lift roads,
