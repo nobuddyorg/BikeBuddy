@@ -14,6 +14,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).main.locators.buttons.login).toBeHidden();
     await expect(on(page).main.locators.buttons.upload).toBeEnabled();
+    await expect(on(page).main.locators.authPrompt).toBeHidden();
   });
 
   buddyTest('shows the empty state when there are no tours', async ({ on, page }) => {
