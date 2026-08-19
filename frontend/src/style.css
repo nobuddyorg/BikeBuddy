@@ -22,13 +22,20 @@
   --color-border: #e2e8f0;
   --color-primary: #f97316;
   --color-primary-hover: #ea6c0a;
+  /* White text on --color-primary is only ~2.8:1, short of the 4.5:1 AA
+     floor — filled buttons that carry text use this darker shade instead. */
+  --color-primary-strong: #c2410c;
+  --color-primary-strong-hover: #9a3412;
   --color-text: #1e293b;
   --color-text-muted: #64748b;
   --color-danger: #ef4444;
-  /* --color-primary (#f97316) is only ~2.8:1 on a white navbar, short of the
-     4.5:1 normal-text AA floor — this is a separate, darker shade of the same
-     hue kept just for the wordmark's accent word. */
-  --color-wordmark-accent: #ae4a04;
+  /* Same AA gap as --color-primary above, for filled danger buttons. */
+  --color-danger-strong: #b91c1c;
+  --color-danger-strong-hover: #991b1b;
+  /* --color-primary (#f97316) is only ~2.8:1 on a light surface, short of the
+     4.5:1 normal-text AA floor — this darker shade covers orange text sitting
+     directly on a surface background (wordmark, search highlight, buttons). */
+  --color-primary-text: #ae4a04;
   --navbar-height: 56px;
   --detail-width: 320px;
   /* Wider than --detail-width: at 320px the selection bar's count
@@ -48,7 +55,7 @@
     /* The light-theme shade above is too dark to read against the dark
        surface, so dark mode gets its own lighter value rather than reusing
        it — --color-primary already clears 6:1+ here. */
-    --color-wordmark-accent: #f97316;
+    --color-primary-text: #f97316;
   }
 
   /* Leaflet's own stylesheet (vendored via CDN, index.html) hardcodes its
@@ -139,7 +146,7 @@ body {
 }
 
 .navbar-title-accent {
-  color: var(--color-wordmark-accent);
+  color: var(--color-primary-text);
 }
 
 .navbar-actions {
@@ -431,7 +438,7 @@ body {
 
 .tour-item-name mark {
   background: none;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-weight: 700;
 }
 
@@ -447,7 +454,7 @@ body {
   background: none;
   border: none;
   border-top: 1px solid var(--color-border);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
@@ -767,12 +774,12 @@ body {
 }
 
 .btn-primary {
-  background: var(--color-primary);
+  background: var(--color-primary-strong);
   color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
+  background: var(--color-primary-strong-hover);
 }
 
 .btn-secondary {
@@ -782,9 +789,9 @@ body {
 }
 
 .btn-danger {
-  background: transparent;
-  color: var(--color-danger);
-  border: 1px solid var(--color-danger);
+  background: var(--color-danger-strong);
+  color: #fff;
+  border: 1px solid var(--color-danger-strong);
 }
 
 /* .btn-icon holds either a plain glyph (Cancel's ✕) or an inline SVG
@@ -806,8 +813,8 @@ body {
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: var(--color-danger);
-  color: #fff;
+  background: var(--color-danger-strong-hover);
+  border-color: var(--color-danger-strong-hover);
 }
 
 .btn-secondary:hover:not(:disabled) {
