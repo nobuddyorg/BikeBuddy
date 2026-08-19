@@ -1375,6 +1375,107 @@ body {
   }
 }
 
+/* ── App-shell skeleton ──────────────────────────── */
+
+/* i18n.js removes this class once the detected locale is applied. Visibility
+   (not display) so the real layout still exists to size against. */
+body.i18n-loading .navbar,
+body.i18n-loading .app-layout {
+  visibility: hidden;
+}
+
+body:not(.i18n-loading) .app-skeleton {
+  display: none;
+}
+
+.app-skeleton {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-block {
+  background: var(--color-surface-2);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.skeleton-navbar {
+  height: var(--navbar-height);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.skeleton-navbar-logo {
+  width: 120px;
+  height: 20px;
+}
+
+.skeleton-navbar-action {
+  width: 84px;
+  height: 34px;
+}
+
+.skeleton-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.skeleton-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-border);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skeleton-line {
+  width: 50%;
+  height: 18px;
+}
+
+.skeleton-row {
+  height: 52px;
+}
+
+.skeleton-map {
+  flex: 1;
+  border-radius: 0;
+}
+
+@media (max-width: 768px) {
+  .skeleton-body {
+    flex-direction: column;
+  }
+
+  .skeleton-sidebar {
+    width: 100%;
+    max-height: 55vh;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
 /* ── Responsive (mobile / tablet) ────────────────── */
 
 @media (max-width: 768px) {

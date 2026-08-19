@@ -40,7 +40,27 @@
 
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
+  <body class="i18n-loading">
+    <!-- Gray placeholder shell, shown until i18n.init() (frontend/src/lib/i18n.js)
+         applies the detected locale — hides the real markup below, which ships
+         with hardcoded English text and would otherwise flash before the swap. -->
+    <div id="app-skeleton" class="app-skeleton" aria-hidden="true">
+      <div class="skeleton-navbar">
+        <div class="skeleton-block skeleton-navbar-logo"></div>
+        <div class="skeleton-block skeleton-navbar-action"></div>
+      </div>
+      <div class="skeleton-body">
+        <div class="skeleton-sidebar">
+          <div class="skeleton-block skeleton-line"></div>
+          <div class="skeleton-block skeleton-row"></div>
+          <div class="skeleton-block skeleton-row"></div>
+          <div class="skeleton-block skeleton-row"></div>
+          <div class="skeleton-block skeleton-row"></div>
+        </div>
+        <div class="skeleton-block skeleton-map"></div>
+      </div>
+    </div>
+
     <!-- Top nav -->
     <header class="navbar">
       <div class="navbar-brand">

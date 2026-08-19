@@ -109,6 +109,9 @@ export async function init() {
 
   document.documentElement.lang = currentLocale;
   applyI18n(document);
+  // Reveals the real markup — see the .i18n-loading skeleton rules in
+  // style.css for why it starts hidden.
+  document.body.classList.remove('i18n-loading');
 }
 
 // Reloads, so every string re-renders — dynamic ones included.

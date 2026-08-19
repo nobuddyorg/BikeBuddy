@@ -184,9 +184,16 @@ document.addEventListener('keydown', (e) => {
 });
 
 (async () => {
-  await i18n.init(); // detect locale, load messages, translate the static markup
-  setupLanguageSwitcher();
-  setupSortMenu();
-  setupLineStyleMenu();
-  initAuth();
+  try {
+    await i18n.init(); // detect locale, load messages, translate the static markup
+    setupLanguageSwitcher();
+    setupSortMenu();
+    setupLineStyleMenu();
+    initAuth();
+  } finally {
+    // Belt-and-suspenders: i18n.init() already does this once translation is
+    // applied, but a failure anywhere above must not leave the skeleton
+    // covering the page forever.
+    document.body.classList.remove('i18n-loading');
+  }
 })();
