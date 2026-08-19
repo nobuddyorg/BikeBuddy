@@ -189,7 +189,7 @@ export function openLightbox(urls, index) {
   lightboxUrls = urls;
   lightboxIndex = index;
   setLightboxSrc(lightboxUrls[lightboxIndex]);
-  openModal(elLightbox);
+  openModal(elLightbox, closeLightbox);
 }
 
 export function lightboxPrev() {

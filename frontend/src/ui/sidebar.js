@@ -15,6 +15,7 @@ import {
   focusTourOnMap,
   updateMapFilterChip,
 } from './tour-detail.js';
+import { consumeDeepLinkTourId, syncUrl } from './router.js';
 import { toast } from './toast.js';
 import {
   show,
@@ -61,6 +62,14 @@ export async function loadTours() {
   }
   renderSidebar();
   await renderAllRoutes(mapDataPromise);
+
+  // Only meaningful on the first load — consumeDeepLinkTourId() clears the
+  // pending id, so a later retry-button reload won't reopen it.
+  const deepLinkId = consumeDeepLinkTourId();
+  if (deepLinkId) {
+    if (state.tours.some((tour) => tour.id === deepLinkId)) await selectTour(deepLinkId);
+    else syncUrl(); // unknown/deleted tour: drop it from the URL, stay on the full map
+  }
 }
 
 // Keyed on the explicit flag rather than on heatmapData/images being present:
@@ -441,6 +450,7 @@ export function highlightTour(tourId) {
   state.selectedTourId = tourId;
   renderSidebar();
   focusTourOnMap(tourId); // a plain tap must focus the map like a click does
+  syncUrl();
 }
 
 export function exitSelectMode() {
