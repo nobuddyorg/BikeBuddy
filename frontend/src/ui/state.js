@@ -12,6 +12,7 @@ export const state = {
   pinLayer: null,
   showPins: false,
   loadingTours: false,
+  toursLoadFailed: false,
   sort: 'date-desc',
   search: '',
   filterInView: false,

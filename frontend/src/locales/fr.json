@@ -15,6 +15,8 @@
   "sidebar.sortAria": "Trier les sorties",
   "sidebar.noToursYet": "Aucune sortie pour l'instant.",
   "sidebar.uploadFirst": "Importe ton premier GPX",
+  "sidebar.loadError": "Impossible de charger tes sorties.",
+  "sidebar.retry": "Réessayer",
   "sidebar.pagerPrevAria": "Page précédente",
   "sidebar.pagerNextAria": "Page suivante",
   "sidebar.pagerLabel": "Page {page} sur {totalPages}",
@@ -41,6 +43,7 @@
   "map.lineStyleOpacity": "Opacité",
   "map.emptyTitle": "Aucune sortie à afficher",
   "map.emptyBody": "Importe un fichier GPX pour voir ton parcours sur la carte.",
+  "map.loadErrorTitle": "Impossible de charger tes sorties",
   "map.loading": "Chargement de tes données de parcours…",
 
   "tours.showAll": "Afficher toutes les sorties",

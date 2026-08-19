@@ -15,6 +15,8 @@
   "sidebar.sortAria": "Ordenar rutas",
   "sidebar.noToursYet": "Aún no hay rutas.",
   "sidebar.uploadFirst": "Sube tu primer GPX",
+  "sidebar.loadError": "No se pudieron cargar tus rutas.",
+  "sidebar.retry": "Inténtalo de nuevo",
   "sidebar.pagerPrevAria": "Página anterior",
   "sidebar.pagerNextAria": "Página siguiente",
   "sidebar.pagerLabel": "Página {page} de {totalPages}",
@@ -41,6 +43,7 @@
   "map.lineStyleOpacity": "Opacidad",
   "map.emptyTitle": "No hay rutas para mostrar",
   "map.emptyBody": "Sube un archivo GPX para ver tu ruta en el mapa.",
+  "map.loadErrorTitle": "No se pudieron cargar tus rutas",
   "map.loading": "Cargando los datos de tus rutas…",
 
   "tours.showAll": "Mostrar todas las rutas",

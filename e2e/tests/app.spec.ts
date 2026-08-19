@@ -3,8 +3,17 @@ import { buddyTest, expect } from '../pages/buddy-test';
 // These run against the static frontend (no backend): devMode falls back to a
 // synthetic local user, so auth/list/empty-state UI is deterministic.
 
+const emptyToursRoute = (route: import('@playwright/test').Route) =>
+  route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+
 buddyTest.describe('BikeBuddy static UI', () => {
   buddyTest.beforeEach(async ({ page }) => {
+    // The static server 404s every /api/* path (see serve.mjs), which
+    // loadTours() now treats as a failed load rather than an empty account
+    // (#435) — mock a real empty response so these tests exercise the
+    // genuinely-empty state, not the load-error one.
+    await page.route('**/api/tours', emptyToursRoute);
+    await page.route('**/api/map', emptyToursRoute);
     await page.goto('/');
   });
 
@@ -20,6 +29,26 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).main.locators.list.empty).toBeVisible();
     await expect(on(page).main.locators.list.count).toHaveText('0');
   });
+
+  buddyTest(
+    'shows a retry-able error when the tour load fails, and recovers',
+    async ({ on, page }) => {
+      await page.route('**/api/tours', (route) =>
+        route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
+      );
+      await page.reload();
+
+      await expect(on(page).main.locators.list.loadError).toBeVisible();
+      await expect(on(page).main.locators.list.empty).toBeHidden();
+      await expect(on(page).main.locators.mapLoadError).toBeVisible();
+
+      await page.route('**/api/tours', emptyToursRoute);
+      await on(page).main.locators.list.retryButton.click();
+
+      await expect(on(page).main.locators.list.loadError).toBeHidden();
+      await expect(on(page).main.locators.list.empty).toBeVisible();
+    },
+  );
 
   buddyTest('upload modal opens, rejects a non-GPX file, and closes', async ({ on, page }) => {
     await on(page).main.do.openUpload();

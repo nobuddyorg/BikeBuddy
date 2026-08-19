@@ -16,6 +16,7 @@ import {
   elTourList,
   elTourCount,
   elNoTours,
+  elTourLoadError,
   elTourLoading,
   elTourControls,
   elFilterInViewToggle,
@@ -39,12 +40,14 @@ export async function loadTours() {
   // sequence roughly halves the wait before the map can render.
   const mapDataPromise = apiFetch('/api/map');
   mapDataPromise.catch(() => {}); // avoid an unhandled-rejection warning if renderAllRoutes never consumes it
+  state.toursLoadFailed = false;
   try {
     const res = await apiFetch('/api/tours');
     if (!res.ok) throw new Error('load failed');
     state.tours = await res.json();
   } catch {
     state.tours = [];
+    state.toursLoadFailed = true;
     toast(t('toast.toursLoadError'), 'error');
   } finally {
     state.loadingTours = false;
@@ -326,11 +329,13 @@ function createTourItem(tour) {
 export function renderSidebar() {
   const signedIn = !!state.user;
   const loading = signedIn && state.loadingTours;
-  const hasTours = signedIn && !loading && state.tours.length > 0;
+  const failed = signedIn && !loading && state.toursLoadFailed;
+  const hasTours = signedIn && !loading && !failed && state.tours.length > 0;
 
   show(elTourLoading, loading);
+  show(elTourLoadError, failed);
   show(elFilterInViewToggle, hasTours);
-  show(elNoTours, signedIn && !loading && state.tours.length === 0);
+  show(elNoTours, signedIn && !loading && !failed && state.tours.length === 0);
   show(elTourControls, hasTours);
   show(elLineStyleWrap, hasTours);
   show(elTourList, hasTours);

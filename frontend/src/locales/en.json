@@ -15,6 +15,8 @@
   "sidebar.sortAria": "Sort tours",
   "sidebar.noToursYet": "No tours yet.",
   "sidebar.uploadFirst": "Upload your first GPX",
+  "sidebar.loadError": "Couldn't load your tours.",
+  "sidebar.retry": "Try again",
   "sidebar.pagerPrevAria": "Previous page",
   "sidebar.pagerNextAria": "Next page",
   "sidebar.pagerLabel": "Page {page} of {totalPages}",
@@ -41,6 +43,7 @@
   "map.lineStyleOpacity": "Opacity",
   "map.emptyTitle": "No tours to display",
   "map.emptyBody": "Upload a GPX file to see your route on the map.",
+  "map.loadErrorTitle": "Couldn't load your tours",
   "map.loading": "Loading your ride data…",
 
   "tours.showAll": "Show All Tours",
