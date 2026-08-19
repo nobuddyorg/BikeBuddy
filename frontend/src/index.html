@@ -212,9 +212,7 @@
           </button>
         </div>
 
-        <button id="btn-show-all" class="show-all-btn hidden" data-i18n="tours.showAll">
-          Show All Tours
-        </button>
+        <button id="btn-show-all" class="show-all-btn hidden">Show All Tours</button>
 
         <div id="no-tours" class="empty-state hidden">
           <p data-i18n="sidebar.noToursYet">No tours yet.</p>
@@ -357,6 +355,16 @@
                 <path d="M15 20h4a1 1 0 0 0 1-1v-4" />
               </svg>
             </span>
+          </button>
+        </div>
+        <div id="map-filter-chip" class="map-filter-chip hidden">
+          <span id="map-filter-chip-label" class="map-filter-chip-label"></span>
+          <button
+            id="btn-clear-map-filter"
+            class="map-filter-chip-clear"
+            data-i18n-aria-label="map.filterChipClearAria"
+          >
+            ✕
           </button>
         </div>
         <div id="map-empty" class="map-empty-overlay hidden">

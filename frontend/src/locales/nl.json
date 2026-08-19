@@ -46,8 +46,11 @@
   "map.emptyBody": "Upload een GPX-bestand om je route op de kaart te zien.",
   "map.loadErrorTitle": "Je ritten konden niet worden geladen",
   "map.loading": "Je routegegevens worden geladen…",
+  "map.filterChipLabel": "Weergave: {name}",
+  "map.filterChipClearAria": "Alle ritten tonen",
 
   "tours.showAll": "Alle ritten tonen",
+  "tours.showAllFiltered": "Alle ritten tonen (van {name})",
   "tours.noMatch": "Geen ritten komen overeen met je filters.",
 
   "detail.date": "Datum",
@@ -145,7 +148,8 @@
   "toast.photoDeleteError": "Foto kon niet worden verwijderd.",
   "toast.nameUpdated": "Naam bijgewerkt.",
   "toast.exportDone": "Je gegevensexport is gedownload.",
-  "toast.exportError": "Je gegevens konden niet worden geëxporteerd.",  "toast.accountDeleted": "Je gegevens zijn verwijderd. Je inlog wordt binnenkort volledig verwijderd.",
+  "toast.exportError": "Je gegevens konden niet worden geëxporteerd.",
+  "toast.accountDeleted": "Je gegevens zijn verwijderd. Je inlog wordt binnenkort volledig verwijderd.",
   "toast.accountDeleteError": "Je account kon niet worden verwijderd. Probeer het opnieuw.",
   "toast.tourUploaded": "Rit geüpload.",
 

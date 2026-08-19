@@ -46,8 +46,11 @@
   "map.emptyBody": "Importe un fichier GPX pour voir ton parcours sur la carte.",
   "map.loadErrorTitle": "Impossible de charger tes sorties",
   "map.loading": "Chargement de tes données de parcours…",
+  "map.filterChipLabel": "Affichage : {name}",
+  "map.filterChipClearAria": "Afficher toutes les sorties",
 
   "tours.showAll": "Afficher toutes les sorties",
+  "tours.showAllFiltered": "Afficher toutes les sorties (depuis {name})",
   "tours.noMatch": "Aucune sortie ne correspond à tes filtres.",
 
   "detail.date": "Date",
@@ -145,7 +148,8 @@
   "toast.photoDeleteError": "Impossible de supprimer la photo.",
   "toast.nameUpdated": "Nom mis à jour.",
   "toast.exportDone": "L'export de tes données a été téléchargé.",
-  "toast.exportError": "Impossible d'exporter tes données.",  "toast.accountDeleted": "Tes données ont été supprimées. Ta connexion sera entièrement supprimée sous peu.",
+  "toast.exportError": "Impossible d'exporter tes données.",
+  "toast.accountDeleted": "Tes données ont été supprimées. Ta connexion sera entièrement supprimée sous peu.",
   "toast.accountDeleteError": "Impossible de supprimer ton compte. Réessaie.",
   "toast.tourUploaded": "Sortie importée.",
 

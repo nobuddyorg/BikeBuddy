@@ -46,8 +46,11 @@
   "map.emptyBody": "Carrega um ficheiro GPX para ver o teu percurso no mapa.",
   "map.loadErrorTitle": "Não foi possível carregar os teus percursos",
   "map.loading": "A carregar os dados dos teus percursos…",
+  "map.filterChipLabel": "A mostrar: {name}",
+  "map.filterChipClearAria": "Mostrar todos os percursos",
 
   "tours.showAll": "Mostrar todos os percursos",
+  "tours.showAllFiltered": "Mostrar todos os percursos (de {name})",
   "tours.noMatch": "Nenhum percurso corresponde aos teus filtros.",
 
   "detail.date": "Data",
@@ -145,7 +148,8 @@
   "toast.photoDeleteError": "Não foi possível eliminar a foto.",
   "toast.nameUpdated": "Nome atualizado.",
   "toast.exportDone": "A exportação dos teus dados foi transferida.",
-  "toast.exportError": "Não foi possível exportar os teus dados.",  "toast.accountDeleted": "Os teus dados foram eliminados. O teu acesso será totalmente removido em breve.",
+  "toast.exportError": "Não foi possível exportar os teus dados.",
+  "toast.accountDeleted": "Os teus dados foram eliminados. O teu acesso será totalmente removido em breve.",
   "toast.accountDeleteError": "Não foi possível eliminar a tua conta. Tenta novamente.",
   "toast.tourUploaded": "Percurso carregado.",
 
