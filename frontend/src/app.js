@@ -82,8 +82,16 @@ import {
   openModalEl,
   wireDropzone,
 } from './ui/modal.js';
+import { readInitialUrl, initHistory, syncUrl } from './ui/router.js';
 
 const t = i18n.t;
+
+// Before anything renders, so the sort/search/in-view controls reflect the
+// URL rather than their HTML defaults on a reload or a shared link (#443).
+readInitialUrl();
+elTourSearch.value = state.search;
+elTourSort.value = state.sort;
+initHistory();
 
 // 'moveend' covers pan and zoom both, so the in-view list needs no second
 // listener.
@@ -112,16 +120,19 @@ elTourSearch.addEventListener('input', () => {
   state.search = elTourSearch.value;
   state.page = 1;
   renderSidebar();
+  syncUrl();
 });
 elTourSort.addEventListener('change', () => {
   state.sort = elTourSort.value;
   state.page = 1;
   renderSidebar();
+  syncUrl();
 });
 elFilterInViewInput.addEventListener('change', () => {
   state.filterInView = elFilterInViewInput.checked;
   state.page = 1;
   renderSidebar();
+  syncUrl();
 });
 // Same reload quirk as elPinToggleInput below.
 elFilterInViewInput.checked = state.filterInView;

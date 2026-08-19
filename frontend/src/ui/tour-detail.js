@@ -30,6 +30,7 @@ import {
   elMapFilterChipLabel,
 } from './dom.js';
 import { openModal, closeModal } from './modal.js';
+import { pushLayer, syncUrl } from './router.js';
 
 const t = i18n.t;
 const tApi = i18n.tApi;
@@ -56,6 +57,9 @@ export async function selectTour(tourId) {
   renderSidebar();
   renderDetailPanel(tour); // name/meta now; resets the image section
   updateMapFilterChip();
+  // Pushed after the URL already reflects the new tour, so Back returns here
+  // and closes the panel (#443) — the tour stays selected, matching #442.
+  pushLayer(closeDetailPanel);
   const loaded = await focusTourOnMap(tourId);
   if (loaded) renderGallery(loaded);
 }
@@ -85,6 +89,7 @@ export function deselectTour() {
   closeDetailPanel();
   renderSidebar();
   renderPins();
+  syncUrl();
 }
 
 export function openEdit() {

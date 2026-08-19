@@ -1,16 +1,21 @@
 'use strict';
 
 import { show } from './dom.js';
+import { pushLayer } from './router.js';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 let modalReturnFocus = null;
 
-export function openModal(modal) {
+// onHistoryClose lets a caller with extra close-time cleanup (the lightbox)
+// run its real close function when Back pops this modal, instead of the
+// plain show(modal, false) closeModal() would otherwise do.
+export function openModal(modal, onHistoryClose) {
   modalReturnFocus = document.activeElement;
   show(modal, true);
   const focusables = modal.querySelectorAll(FOCUSABLE);
   (focusables[focusables.length > 1 ? 1 : 0] || modal).focus();
+  pushLayer(onHistoryClose || (() => closeModal(modal)));
 }
 
 export function closeModal(modal) {
