@@ -22,7 +22,7 @@ function drawRoutes(pointSets) {
   clearRouteLayer();
   const lines = pointSets
     .filter((pts) => pts.length > 1)
-    .map((pts) => L.polyline(pts, state.lineStyle));
+    .map((pts) => L.polyline(pts, { ...state.lineStyle, interactive: false }));
   if (lines.length === 0) return;
   state.routeLayer = L.layerGroup(lines).addTo(map);
 }
