@@ -49,6 +49,7 @@ interface MainPage {
   locators: {
     map: Locator;
     mapEmpty: Locator;
+    mapLoadError: Locator;
     userMenu: Locator;
     authPrompt: Locator;
     sidebar: Locator;
@@ -74,6 +75,8 @@ interface MainPage {
       active: Locator;
       count: Locator;
       empty: Locator;
+      loadError: Locator;
+      retryButton: Locator;
     };
     selection: {
       bar: Locator;
@@ -127,6 +130,7 @@ export function initMainPage(page: Page): MainPage {
   const locators = {
     map: page.locator('#map'),
     mapEmpty: page.locator('#map-empty'),
+    mapLoadError: page.locator('#map-load-error'),
     userMenu: page.locator('#user-menu'),
     authPrompt: page.locator('#auth-prompt'),
     sidebar: page.locator('.sidebar'),
@@ -152,6 +156,8 @@ export function initMainPage(page: Page): MainPage {
       active: page.locator('#tour-list .tour-item.active'),
       count: page.locator('#tour-count'),
       empty: page.locator('#no-tours'),
+      loadError: page.locator('#tour-load-error'),
+      retryButton: page.locator('#btn-retry-tours'),
     },
     selection: {
       bar: page.locator('#selection-bar'),
