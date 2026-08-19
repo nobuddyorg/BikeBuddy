@@ -681,17 +681,23 @@ body {
   position: relative;
 }
 
+/* Hit area is 44x44 (WCAG 2.5.5) even though the painted glyph stays small —
+   this is the only way off the full-screen mobile detail panel. */
 .detail-close {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 6px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
-  padding: 4px;
 }
 
 .detail-close:hover {
@@ -702,7 +708,8 @@ body {
   font-size: 17px;
   font-weight: 700;
   margin-bottom: 16px;
-  padding-right: 28px;
+  /* Clears the 44px-wide .detail-close hit area anchored at right:6px. */
+  padding-right: 40px;
 }
 
 .detail-meta {
@@ -833,6 +840,18 @@ body {
 .btn-full {
   width: 100%;
   text-align: center;
+}
+
+/* Icon-only .btn-ghost buttons whose painted glyph is much smaller than the
+   44x44 WCAG 2.5.5 hit-area floor. */
+#btn-help,
+#tour-pager-prev,
+#tour-pager-next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 /* ── Modal ───────────────────────────────────────── */
@@ -1093,6 +1112,20 @@ body {
   transition: opacity 0.15s;
 }
 
+/* Extends the tap target to 44x44 (WCAG 2.5.5) without growing the visible
+   22x22 circle, which would overwhelm the thumbnail it sits on. */
+.image-delete::before,
+.image-tile-retry::before,
+.image-tile-dismiss::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
 .image-tile:hover .image-delete,
 .image-delete:focus-visible {
   opacity: 1;
@@ -1163,6 +1196,7 @@ body {
 
 .image-tile-retry,
 .image-tile-dismiss {
+  position: relative;
   width: 22px;
   height: 22px;
   border: none;
@@ -1291,8 +1325,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--color-border);
   border-radius: 7px;
   background: var(--color-surface);
