@@ -249,6 +249,7 @@ function highlightedNameNode(name, indices) {
   name = name || '';
   const div = document.createElement('div');
   div.className = 'tour-item-name';
+  div.title = name; // full, unmarked name — a hover tooltip for the ellipsis-truncated row (#445)
   const matched = new Set(indices);
   let i = 0;
   while (i < name.length) {
