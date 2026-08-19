@@ -61,6 +61,8 @@
   "detail.deletePhotoAria": "Supprimer la photo",
   "detail.retryPhotoAria": "Réessayer l'envoi",
   "detail.dismissPhotoAria": "Retirer",
+  "detail.photoLoadError": "Impossible de charger la photo.",
+  "detail.retryLoadAria": "Réessayer de charger la photo",
 
   "help.title": "Comment utiliser BikeBuddy",
   "help.q1": "🧭 Qu'est-ce que c'est ?",
@@ -111,6 +113,7 @@
   "lightbox.imgAlt": "Photo de la sortie",
   "lightbox.prevAria": "Photo précédente",
   "lightbox.nextAria": "Photo suivante",
+  "lightbox.retry": "Réessayer",
 
   "common.close": "Fermer",
   "common.account": "Compte",

@@ -61,6 +61,8 @@
   "detail.deletePhotoAria": "Foto löschen",
   "detail.retryPhotoAria": "Upload wiederholen",
   "detail.dismissPhotoAria": "Entfernen",
+  "detail.photoLoadError": "Foto konnte nicht geladen werden.",
+  "detail.retryLoadAria": "Laden erneut versuchen",
 
   "help.title": "So funktioniert BikeBuddy",
   "help.q1": "🧭 Was ist das?",
@@ -111,6 +113,7 @@
   "lightbox.imgAlt": "Tourfoto",
   "lightbox.prevAria": "Vorheriges Foto",
   "lightbox.nextAria": "Nächstes Foto",
+  "lightbox.retry": "Erneut versuchen",
 
   "common.close": "Schließen",
   "common.account": "Konto",

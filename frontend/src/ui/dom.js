@@ -63,6 +63,7 @@ export const elImageFile = $('image-file');
 export const elImageError = $('image-error');
 export const elLightbox = $('lightbox');
 export const elLightboxImg = $('lightbox-img');
+export const elLightboxError = $('lightbox-error');
 export const elEditModal = $('edit-modal');
 export const elEditForm = $('edit-form');
 export const elEditName = $('edit-name');

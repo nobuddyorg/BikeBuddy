@@ -61,6 +61,8 @@
   "detail.deletePhotoAria": "Foto verwijderen",
   "detail.retryPhotoAria": "Upload opnieuw proberen",
   "detail.dismissPhotoAria": "Verwijderen",
+  "detail.photoLoadError": "Foto kon niet worden geladen.",
+  "detail.retryLoadAria": "Opnieuw proberen te laden",
 
   "help.title": "Zo gebruik je BikeBuddy",
   "help.q1": "🧭 Wat is dit?",
@@ -111,6 +113,7 @@
   "lightbox.imgAlt": "Foto van de rit",
   "lightbox.prevAria": "Vorige foto",
   "lightbox.nextAria": "Volgende foto",
+  "lightbox.retry": "Opnieuw proberen",
 
   "common.close": "Sluiten",
   "common.account": "Account",

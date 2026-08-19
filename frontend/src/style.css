@@ -1233,6 +1233,16 @@ body {
   cursor: default;
 }
 
+.lightbox-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+  text-align: center;
+  cursor: default;
+}
+
 .lightbox .modal-close {
   color: rgba(255, 255, 255, 0.85);
 }

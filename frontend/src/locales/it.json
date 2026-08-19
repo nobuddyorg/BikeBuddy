@@ -61,6 +61,8 @@
   "detail.deletePhotoAria": "Elimina foto",
   "detail.retryPhotoAria": "Riprova il caricamento",
   "detail.dismissPhotoAria": "Rimuovi",
+  "detail.photoLoadError": "Impossibile caricare la foto.",
+  "detail.retryLoadAria": "Riprova a caricare la foto",
 
   "help.title": "Come usare BikeBuddy",
   "help.q1": "🧭 Cos'è questo?",
@@ -111,6 +113,7 @@
   "lightbox.imgAlt": "Foto del giro",
   "lightbox.prevAria": "Foto precedente",
   "lightbox.nextAria": "Foto successiva",
+  "lightbox.retry": "Riprova",
 
   "common.close": "Chiudi",
   "common.account": "Account",
