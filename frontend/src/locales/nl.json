@@ -15,6 +15,8 @@
   "sidebar.sortAria": "Ritten sorteren",
   "sidebar.noToursYet": "Nog geen ritten.",
   "sidebar.uploadFirst": "Upload je eerste GPX-bestand",
+  "sidebar.loadError": "Je ritten konden niet worden geladen.",
+  "sidebar.retry": "Opnieuw proberen",
   "sidebar.pagerPrevAria": "Vorige pagina",
   "sidebar.pagerNextAria": "Volgende pagina",
   "sidebar.pagerLabel": "Pagina {page} van {totalPages}",
@@ -41,6 +43,7 @@
   "map.lineStyleOpacity": "Dekking",
   "map.emptyTitle": "Geen ritten om te tonen",
   "map.emptyBody": "Upload een GPX-bestand om je route op de kaart te zien.",
+  "map.loadErrorTitle": "Je ritten konden niet worden geladen",
   "map.loading": "Je routegegevens worden geladen…",
 
   "tours.showAll": "Alle ritten tonen",

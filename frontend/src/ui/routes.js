@@ -3,7 +3,7 @@
 import { ensureMapData } from '../lib/mapData.js';
 import { state } from './state.js';
 import { map } from './map.js';
-import { show, elMapEmpty, elMapLoading } from './dom.js';
+import { show, elMapEmpty, elMapLoadError, elMapLoading } from './dom.js';
 import { apiFetch } from './auth.js';
 import { renderPins } from './pins.js';
 
@@ -52,10 +52,9 @@ export async function renderAllRoutes(mapDataPromise) {
   show(elMapLoading, false);
   const pointSets = state.tours.map((t) => t.heatmapData || []);
   renderRoutes(pointSets, 40);
-  show(
-    elMapEmpty,
-    pointSets.every((pts) => pts.length === 0),
-  );
+  const empty = pointSets.every((pts) => pts.length === 0);
+  show(elMapLoadError, empty && state.toursLoadFailed);
+  show(elMapEmpty, empty && !state.toursLoadFailed);
   renderPins();
 }
 

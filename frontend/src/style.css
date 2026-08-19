@@ -639,6 +639,10 @@ body {
   font-size: 13px;
 }
 
+.map-empty-card .btn {
+  margin-top: 10px;
+}
+
 .map-loading-card {
   display: flex;
   align-items: center;
