@@ -26,6 +26,7 @@ import {
   elSelectionBar,
   elSelectionCount,
   elBtnDeleteSelected,
+  elAuthPrompt,
   elTourPager,
   elTourPagerLabel,
   elTourPagerPrev,
@@ -332,6 +333,7 @@ export function renderSidebar() {
   const failed = signedIn && !loading && state.toursLoadFailed;
   const hasTours = signedIn && !loading && !failed && state.tours.length > 0;
 
+  show(elAuthPrompt, !signedIn);
   show(elTourLoading, loading);
   show(elTourLoadError, failed);
   show(elFilterInViewToggle, hasTours);
