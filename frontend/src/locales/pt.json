@@ -15,6 +15,8 @@
   "sidebar.sortAria": "Ordenar percursos",
   "sidebar.noToursYet": "Ainda não há percursos.",
   "sidebar.uploadFirst": "Carrega o teu primeiro GPX",
+  "sidebar.loadError": "Não foi possível carregar os teus percursos.",
+  "sidebar.retry": "Tentar novamente",
   "sidebar.pagerPrevAria": "Página anterior",
   "sidebar.pagerNextAria": "Página seguinte",
   "sidebar.pagerLabel": "Página {page} de {totalPages}",
@@ -23,6 +25,7 @@
   "sidebar.selectedCount": "{count} selecionados",
   "sidebar.deleteSelected": "Eliminar",
   "sidebar.cancelSelect": "Cancelar",
+  "sidebar.tourItemAria": "{name}, {date}, {distance}",
 
   "sort.dateDesc": "Mais recentes primeiro",
   "sort.dateAsc": "Mais antigos primeiro",
@@ -41,6 +44,7 @@
   "map.lineStyleOpacity": "Opacidade",
   "map.emptyTitle": "Sem percursos para mostrar",
   "map.emptyBody": "Carrega um ficheiro GPX para ver o teu percurso no mapa.",
+  "map.loadErrorTitle": "Não foi possível carregar os teus percursos",
   "map.loading": "A carregar os dados dos teus percursos…",
 
   "tours.showAll": "Mostrar todos os percursos",

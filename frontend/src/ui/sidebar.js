@@ -16,6 +16,7 @@ import {
   elTourList,
   elTourCount,
   elNoTours,
+  elTourLoadError,
   elTourLoading,
   elTourControls,
   elFilterInViewToggle,
@@ -25,6 +26,7 @@ import {
   elSelectionBar,
   elSelectionCount,
   elBtnDeleteSelected,
+  elAuthPrompt,
   elTourPager,
   elTourPagerLabel,
   elTourPagerPrev,
@@ -39,12 +41,14 @@ export async function loadTours() {
   // sequence roughly halves the wait before the map can render.
   const mapDataPromise = apiFetch('/api/map');
   mapDataPromise.catch(() => {}); // avoid an unhandled-rejection warning if renderAllRoutes never consumes it
+  state.toursLoadFailed = false;
   try {
     const res = await apiFetch('/api/tours');
     if (!res.ok) throw new Error('load failed');
     state.tours = await res.json();
   } catch {
     state.tours = [];
+    state.toursLoadFailed = true;
     toast(t('toast.toursLoadError'), 'error');
   } finally {
     state.loadingTours = false;
@@ -276,6 +280,22 @@ function createTourItem(tour) {
 
   const content = document.createElement('div');
   content.className = 'tour-item-content';
+  content.tabIndex = 0;
+  content.setAttribute(
+    'aria-label',
+    t('sidebar.tourItemAria', {
+      name: tour.name || '',
+      date: formatDate(tour.createdAt, i18n.dateLocale()),
+      distance: formatDistance(tour.distance),
+    }),
+  );
+  if (state.selectMode) {
+    content.setAttribute('role', 'checkbox');
+    content.setAttribute('aria-checked', String(state.selectedIds.has(tour.id)));
+  } else {
+    content.setAttribute('role', 'button');
+  }
+  if (tour.id === state.selectedTourId) content.setAttribute('aria-current', 'true');
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -312,6 +332,13 @@ function createTourItem(tour) {
       selectTour(tour.id);
     }
   });
+  content.addEventListener('keydown', (e) => {
+    // Space also scrolls the list by default; only suppress that once this
+    // row is actually the one handling the key.
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    e.preventDefault();
+    content.click();
+  });
   bindLongPress(content, () => {
     if (state.selectMode) return false;
     enterSingleSelect(tour.id);
@@ -326,11 +353,14 @@ function createTourItem(tour) {
 export function renderSidebar() {
   const signedIn = !!state.user;
   const loading = signedIn && state.loadingTours;
-  const hasTours = signedIn && !loading && state.tours.length > 0;
+  const failed = signedIn && !loading && state.toursLoadFailed;
+  const hasTours = signedIn && !loading && !failed && state.tours.length > 0;
 
+  show(elAuthPrompt, !signedIn);
   show(elTourLoading, loading);
+  show(elTourLoadError, failed);
   show(elFilterInViewToggle, hasTours);
-  show(elNoTours, signedIn && !loading && state.tours.length === 0);
+  show(elNoTours, signedIn && !loading && !failed && state.tours.length === 0);
   show(elTourControls, hasTours);
   show(elLineStyleWrap, hasTours);
   show(elTourList, hasTours);

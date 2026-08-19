@@ -409,6 +409,13 @@ body {
   background: var(--color-surface-2);
 }
 
+/* Overrides the default 1px outline: auto ring, which reads poorly against
+   this row's hover/active backgrounds in both themes. */
+.tour-item-content:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .tour-item.active .tour-item-content {
   background: var(--color-surface-2);
   border-left: 3px solid var(--color-primary);
@@ -637,6 +644,10 @@ body {
 .map-empty-card p {
   color: var(--color-text-muted);
   font-size: 13px;
+}
+
+.map-empty-card .btn {
+  margin-top: 10px;
 }
 
 .map-loading-card {

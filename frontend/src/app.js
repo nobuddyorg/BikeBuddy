@@ -63,7 +63,7 @@ import {
 } from './ui/tour-detail.js';
 import { openUpload, closeUpload, submitUpload, selectFile } from './ui/upload-modal.js';
 import { uploadImages, closeLightbox, lightboxPrev, lightboxNext } from './ui/images.js';
-import { renderSidebar, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
+import { renderSidebar, loadTours, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
 import { renderAllRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
 import { setupLanguageSwitcher, setupSortMenu, setupLineStyleMenu } from './ui/menus.js';
@@ -130,6 +130,8 @@ elBtnShowAll.addEventListener('click', () => {
   deselectTour();
   renderAllRoutes();
 });
+$('btn-retry-tours').addEventListener('click', loadTours);
+$('btn-retry-map').addEventListener('click', loadTours);
 elBtnSelectMode.addEventListener('click', enterSelectMode);
 elBtnCancelSelect.addEventListener('click', exitSelectMode);
 elBtnDeleteSelected.addEventListener('click', deleteSelectedTours);

@@ -211,6 +211,13 @@
             Upload your first GPX
           </button>
         </div>
+
+        <div id="tour-load-error" class="empty-state hidden">
+          <p data-i18n="sidebar.loadError">Couldn't load your tours.</p>
+          <button class="btn btn-primary btn-full" id="btn-retry-tours" data-i18n="sidebar.retry">
+            Try again
+          </button>
+        </div>
       </aside>
 
       <!-- Map -->
@@ -342,6 +349,15 @@
             <div class="map-empty-icon">🗺️</div>
             <h3 data-i18n="map.emptyTitle">No tours to display</h3>
             <p data-i18n="map.emptyBody">Upload a GPX file to see your route on the map.</p>
+          </div>
+        </div>
+        <div id="map-load-error" class="map-empty-overlay hidden">
+          <div class="map-empty-card">
+            <div class="map-empty-icon">⚠️</div>
+            <h3 data-i18n="map.loadErrorTitle">Couldn't load your tours</h3>
+            <button class="btn btn-primary" id="btn-retry-map" data-i18n="sidebar.retry">
+              Try again
+            </button>
           </div>
         </div>
         <div id="map-loading" class="map-empty-overlay hidden">

@@ -15,6 +15,8 @@
   "sidebar.sortAria": "Ordina giri",
   "sidebar.noToursYet": "Ancora nessun giro.",
   "sidebar.uploadFirst": "Carica il tuo primo GPX",
+  "sidebar.loadError": "Impossibile caricare i tuoi giri.",
+  "sidebar.retry": "Riprova",
   "sidebar.pagerPrevAria": "Pagina precedente",
   "sidebar.pagerNextAria": "Pagina successiva",
   "sidebar.pagerLabel": "Pagina {page} di {totalPages}",
@@ -23,6 +25,7 @@
   "sidebar.selectedCount": "{count} selezionati",
   "sidebar.deleteSelected": "Elimina",
   "sidebar.cancelSelect": "Annulla",
+  "sidebar.tourItemAria": "{name}, {date}, {distance}",
 
   "sort.dateDesc": "Più recenti prima",
   "sort.dateAsc": "Meno recenti prima",
@@ -41,6 +44,7 @@
   "map.lineStyleOpacity": "Opacità",
   "map.emptyTitle": "Nessun giro da mostrare",
   "map.emptyBody": "Carica un file GPX per vedere il tuo percorso sulla mappa.",
+  "map.loadErrorTitle": "Impossibile caricare i tuoi giri",
   "map.loading": "Caricamento dei dati dei tuoi percorsi…",
 
   "tours.showAll": "Mostra tutti i giri",
