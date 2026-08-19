@@ -25,6 +25,7 @@
   "sidebar.selectedCount": "{count} geselecteerd",
   "sidebar.deleteSelected": "Verwijderen",
   "sidebar.cancelSelect": "Annuleren",
+  "sidebar.tourItemAria": "{name}, {date}, {distance}",
 
   "sort.dateDesc": "Nieuwste eerst",
   "sort.dateAsc": "Oudste eerst",
