@@ -26,6 +26,7 @@ interface MainPage {
     swipeTour(name: string, dx: number): Promise<void>;
     closeDetail(): Promise<void>;
     showAllTours(): Promise<void>;
+    clearMapFilter(): Promise<void>;
     uploadGpx(opts: { name: string; gpx: string; filename?: string }): Promise<void>;
     addImage(files: FileInputArg): Promise<void>;
     dismissImageError(): Promise<void>;
@@ -93,6 +94,11 @@ interface MainPage {
       name: Locator;
       description: Locator;
       date: Locator;
+    };
+    mapFilterChip: {
+      root: Locator;
+      label: Locator;
+      clearButton: Locator;
     };
     image: {
       input: Locator;
@@ -175,6 +181,11 @@ export function initMainPage(page: Page): MainPage {
       name: page.locator('#detail-name'),
       description: page.locator('#detail-description'),
       date: page.locator('#detail-date'),
+    },
+    mapFilterChip: {
+      root: page.locator('#map-filter-chip'),
+      label: page.locator('#map-filter-chip-label'),
+      clearButton: page.locator('#btn-clear-map-filter'),
     },
     image: {
       input: page.locator('#image-file'),
@@ -293,6 +304,7 @@ export function initMainPage(page: Page): MainPage {
     },
     closeDetail: async () => locators.buttons.closeDetail.click(),
     showAllTours: async () => locators.buttons.showAll.click(),
+    clearMapFilter: async () => locators.mapFilterChip.clearButton.click(),
     uploadGpx: async ({
       name,
       gpx,

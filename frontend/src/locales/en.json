@@ -46,8 +46,11 @@
   "map.emptyBody": "Upload a GPX file to see your route on the map.",
   "map.loadErrorTitle": "Couldn't load your tours",
   "map.loading": "Loading your ride data…",
+  "map.filterChipLabel": "Showing: {name}",
+  "map.filterChipClearAria": "Show all tours",
 
   "tours.showAll": "Show All Tours",
+  "tours.showAllFiltered": "Show All Tours (from {name})",
   "tours.noMatch": "No tours match your filters.",
 
   "detail.date": "Date",
@@ -145,7 +148,8 @@
   "toast.photoDeleteError": "Could not delete the photo.",
   "toast.nameUpdated": "Name updated.",
   "toast.exportDone": "Your data export has been downloaded.",
-  "toast.exportError": "Could not export your data.",  "toast.accountDeleted": "Your data has been deleted. Your login will be fully removed shortly.",
+  "toast.exportError": "Could not export your data.",
+  "toast.accountDeleted": "Your data has been deleted. Your login will be fully removed shortly.",
   "toast.accountDeleteError": "Could not delete your account. Please try again.",
   "toast.tourUploaded": "Tour uploaded.",
 
