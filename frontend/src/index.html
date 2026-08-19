@@ -2,15 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- user-scalable=no stops iOS Safari's native pinch/double-tap zoom from
-       racing Leaflet's own touch handling: WebKit's private gesture events
-       ignore touch-action and only respect this viewport restriction, so
-       without it the page zooms instantly while the map only catches up
-       once the gesture ends. -->
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
+    <!-- Pinch/double-tap zoom stays enabled for the page; the map's own
+       gesture conflict (see ui/map.js) is handled there instead of by
+       disabling zoom for the whole document. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- GitHub Pages cannot set response headers, so the policy ships in the
        document. A meta CSP cannot express frame-ancestors, HSTS or
        Permissions-Policy — see docs/explanation/security.md. -->
