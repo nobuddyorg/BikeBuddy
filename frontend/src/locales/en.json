@@ -23,6 +23,7 @@
   "sidebar.selectedCount": "{count} selected",
   "sidebar.deleteSelected": "Delete",
   "sidebar.cancelSelect": "Cancel",
+  "sidebar.tourItemAria": "{name}, {date}, {distance}",
 
   "sort.dateDesc": "Newest first",
   "sort.dateAsc": "Oldest first",

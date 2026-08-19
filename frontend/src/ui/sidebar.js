@@ -276,6 +276,22 @@ function createTourItem(tour) {
 
   const content = document.createElement('div');
   content.className = 'tour-item-content';
+  content.tabIndex = 0;
+  content.setAttribute(
+    'aria-label',
+    t('sidebar.tourItemAria', {
+      name: tour.name || '',
+      date: formatDate(tour.createdAt, i18n.dateLocale()),
+      distance: formatDistance(tour.distance),
+    }),
+  );
+  if (state.selectMode) {
+    content.setAttribute('role', 'checkbox');
+    content.setAttribute('aria-checked', String(state.selectedIds.has(tour.id)));
+  } else {
+    content.setAttribute('role', 'button');
+  }
+  if (tour.id === state.selectedTourId) content.setAttribute('aria-current', 'true');
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -311,6 +327,13 @@ function createTourItem(tour) {
     } else {
       selectTour(tour.id);
     }
+  });
+  content.addEventListener('keydown', (e) => {
+    // Space also scrolls the list by default; only suppress that once this
+    // row is actually the one handling the key.
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    e.preventDefault();
+    content.click();
   });
   bindLongPress(content, () => {
     if (state.selectMode) return false;
