@@ -100,6 +100,16 @@
   "profile.dangerZone": "Gefahrenzone",
   "profile.yourAccount": "Dein Konto",
 
+  "stats.title": "Deine Statistik",
+  "stats.totalDistance": "Gesamtdistanz",
+  "stats.totalRides": "Touren insgesamt",
+  "stats.thisYear": "Dieses Jahr",
+  "stats.lastYear": "Letztes Jahr",
+  "stats.average": "Durchschnittliche Tour",
+  "stats.longest": "Längste Tour",
+  "stats.noRides": "Noch keine Touren.",
+  "stats.perYearRow": "{distance} · {count} Touren",
+
   "upload.title": "Tour hochladen",
   "upload.name": "Name",
   "upload.namePlaceholder": "z. B. Alpenrunde",

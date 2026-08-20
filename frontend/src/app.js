@@ -48,6 +48,7 @@ import {
   elDeleteAccountModal,
   elDeleteAccountInput,
   elBtnDeleteAccountConfirm,
+  elBtnStatsLongest,
   show,
 } from './ui/dom.js';
 import { signIn, signOut, initAuth } from './ui/auth.js';
@@ -64,6 +65,7 @@ import {
 import {
   closeDetailPanel,
   deselectTour,
+  selectTour,
   deleteSelectedTour,
   deleteSelectedTours,
   openEdit,
@@ -117,6 +119,12 @@ elBtnLogout.addEventListener('click', signOut);
 elBtnProfile.addEventListener('click', openProfile);
 elProfileNameForm.addEventListener('submit', saveProfileName);
 elBtnExportData.addEventListener('click', downloadMyData);
+elBtnStatsLongest.addEventListener('click', () => {
+  const id = elBtnStatsLongest.dataset.tourId;
+  if (!id) return;
+  closeProfile();
+  selectTour(id);
+});
 elBtnDeleteAccount.addEventListener('click', openDeleteAccountModal);
 elDeleteAccountInput.addEventListener('input', updateDeleteAccountConfirmState);
 elBtnDeleteAccountConfirm.addEventListener('click', deleteMyAccount);

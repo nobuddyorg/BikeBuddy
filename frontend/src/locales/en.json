@@ -100,6 +100,16 @@
   "profile.dangerZone": "Danger zone",
   "profile.yourAccount": "Your account",
 
+  "stats.title": "Your stats",
+  "stats.totalDistance": "Total distance",
+  "stats.totalRides": "Total rides",
+  "stats.thisYear": "This year",
+  "stats.lastYear": "Last year",
+  "stats.average": "Average ride",
+  "stats.longest": "Longest ride",
+  "stats.noRides": "No rides yet.",
+  "stats.perYearRow": "{distance} · {count} rides",
+
   "upload.title": "Upload a Tour",
   "upload.name": "Name",
   "upload.namePlaceholder": "e.g. Alpine Loop",

@@ -100,6 +100,16 @@
   "profile.dangerZone": "Zona de peligro",
   "profile.yourAccount": "Tu cuenta",
 
+  "stats.title": "Tus estadísticas",
+  "stats.totalDistance": "Distancia total",
+  "stats.totalRides": "Rutas totales",
+  "stats.thisYear": "Este año",
+  "stats.lastYear": "Año pasado",
+  "stats.average": "Ruta media",
+  "stats.longest": "Ruta más larga",
+  "stats.noRides": "Aún no hay rutas.",
+  "stats.perYearRow": "{distance} · {count} rutas",
+
   "upload.title": "Subir una ruta",
   "upload.name": "Nombre",
   "upload.namePlaceholder": "p. ej. Vuelta alpina",

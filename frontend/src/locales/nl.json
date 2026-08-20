@@ -100,6 +100,16 @@
   "profile.dangerZone": "Gevarenzone",
   "profile.yourAccount": "Je account",
 
+  "stats.title": "Jouw statistieken",
+  "stats.totalDistance": "Totale afstand",
+  "stats.totalRides": "Ritten totaal",
+  "stats.thisYear": "Dit jaar",
+  "stats.lastYear": "Vorig jaar",
+  "stats.average": "Gemiddelde rit",
+  "stats.longest": "Langste rit",
+  "stats.noRides": "Nog geen ritten.",
+  "stats.perYearRow": "{distance} · {count} ritten",
+
   "upload.title": "Een rit uploaden",
   "upload.name": "Naam",
   "upload.namePlaceholder": "bijv. Alpenroute",

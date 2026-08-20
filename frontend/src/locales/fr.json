@@ -100,6 +100,16 @@
   "profile.dangerZone": "Zone dangereuse",
   "profile.yourAccount": "Ton compte",
 
+  "stats.title": "Tes statistiques",
+  "stats.totalDistance": "Distance totale",
+  "stats.totalRides": "Sorties au total",
+  "stats.thisYear": "Cette année",
+  "stats.lastYear": "L'année dernière",
+  "stats.average": "Sortie moyenne",
+  "stats.longest": "Sortie la plus longue",
+  "stats.noRides": "Pas encore de sorties.",
+  "stats.perYearRow": "{distance} · {count} sorties",
+
   "upload.title": "Importer une sortie",
   "upload.name": "Nom",
   "upload.namePlaceholder": "ex. Boucle alpine",
