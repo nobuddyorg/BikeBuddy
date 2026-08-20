@@ -1,6 +1,7 @@
 {
   "nav.helpAria": "Aide",
   "nav.helpTitle": "Comment utiliser BikeBuddy",
+  "nav.reloadAria": "Recharger la page",
   "nav.upload": "Importer GPX",
   "nav.uploadDisabledTitle": "Connecte-toi pour importer des sorties",
   "nav.signIn": "Se connecter",

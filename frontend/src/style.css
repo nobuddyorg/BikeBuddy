@@ -386,18 +386,6 @@ body {
   min-height: 0;
 }
 
-/* Grows from 0 as sidebar.js's custom pull-to-refresh drags the list down
-   (see bindPullToRefresh) — height, not transform, so it's a normal flex
-   sibling pushing .tour-list down rather than overlapping it. */
-.pull-refresh-indicator {
-  height: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
 .tour-pager {
   display: flex;
   align-items: center;
@@ -939,6 +927,25 @@ body {
 }
 
 .stats-header-btn svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+/* Mobile only (below) — desktop users have an ordinary browser reload.
+   Placed after .btn for the same zero-padding-wins reason as
+   .stats-header-btn above. */
+.navbar-reload {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.navbar-reload svg {
   display: block;
   width: 20px;
   height: 20px;
@@ -1844,6 +1851,10 @@ body:not(.i18n-loading) .app-skeleton {
   }
 
   .tour-stats-btn {
+    display: inline-flex;
+  }
+
+  .navbar-reload {
     display: inline-flex;
   }
 

@@ -1,6 +1,7 @@
 {
   "nav.helpAria": "Help",
   "nav.helpTitle": "How to use BikeBuddy",
+  "nav.reloadAria": "Reload page",
   "nav.upload": "Upload GPX",
   "nav.uploadDisabledTitle": "Sign in to upload tours",
   "nav.signIn": "Sign In",
