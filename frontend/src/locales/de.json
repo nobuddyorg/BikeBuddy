@@ -97,6 +97,7 @@
   "profile.langAria": "Sprache ändern",
   "profile.exportData": "Meine Daten exportieren",
   "profile.deleteAccount": "Konto löschen",
+  "profile.dangerZone": "Gefahrenzone",
   "profile.yourAccount": "Dein Konto",
 
   "upload.title": "Tour hochladen",
@@ -121,6 +122,8 @@
   "lightbox.retry": "Erneut versuchen",
 
   "common.close": "Schließen",
+  "common.cancel": "Abbrechen",
+  "common.delete": "Löschen",
   "common.account": "Konto",
 
   "lang.searchPlaceholder": "Sprachen suchen…",
@@ -143,6 +146,7 @@
 
   "toast.toursLoadError": "Deine Touren konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
   "toast.tourDeleted": "Tour gelöscht.",
+  "toast.undo": "Rückgängig",
   "toast.tourDeleteError": "Tour konnte nicht gelöscht werden.",
   "toast.gpxDownloadError": "GPX-Datei konnte nicht heruntergeladen werden.",
   "toast.toursDeleted": "{count} Touren gelöscht.",
@@ -155,8 +159,13 @@
   "toast.accountDeleteError": "Konto konnte nicht gelöscht werden. Bitte versuche es erneut.",
   "toast.tourUploaded": "Tour hochgeladen.",
 
-  "confirm.deleteTour": "Diese Tour löschen? Das kann nicht rückgängig gemacht werden.",
-  "confirm.deleteTours": "Ausgewählte Touren löschen? Das kann nicht rückgängig gemacht werden.",
-  "confirm.deletePhoto": "Dieses Foto löschen?",
-  "confirm.deleteAccount": "Konto endgültig löschen? Deine Touren und Fotos werden sofort entfernt; deine Anmeldung wird kurz danach vollständig entfernt. Das kann nicht rückgängig gemacht werden."
+  "confirm.deleteTourTitle": "Tour löschen?",
+  "confirm.deleteTourMessage": "„{name}“ löschen? Du hast ein paar Sekunden, um das rückgängig zu machen.",
+  "confirm.deleteToursTitle": "Touren löschen?",
+  "confirm.deleteToursMessage": "{count} Touren löschen? Du hast ein paar Sekunden, um das rückgängig zu machen.",
+  "confirm.deletePhotoTitle": "Foto löschen?",
+  "confirm.deletePhotoMessage": "Dieses Foto löschen? Das kann nicht rückgängig gemacht werden.",
+  "confirm.deleteAccountTitle": "Konto löschen",
+  "confirm.deleteAccount": "Konto endgültig löschen? Deine Touren und Fotos werden sofort entfernt; deine Anmeldung wird kurz danach vollständig entfernt. Das kann nicht rückgängig gemacht werden.",
+  "confirm.deleteAccountPhraseHint": "Gib {phrase} ein, um zu bestätigen."
 }

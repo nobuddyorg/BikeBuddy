@@ -97,6 +97,7 @@
   "profile.langAria": "Mudar idioma",
   "profile.exportData": "Exportar os meus dados",
   "profile.deleteAccount": "Eliminar conta",
+  "profile.dangerZone": "Zona de perigo",
   "profile.yourAccount": "A tua conta",
 
   "upload.title": "Carregar um percurso",
@@ -121,6 +122,8 @@
   "lightbox.retry": "Tentar novamente",
 
   "common.close": "Fechar",
+  "common.cancel": "Cancelar",
+  "common.delete": "Eliminar",
   "common.account": "Conta",
 
   "lang.searchPlaceholder": "Pesquisar idiomas…",
@@ -143,6 +146,7 @@
 
   "toast.toursLoadError": "Não foi possível carregar os teus percursos. Verifica a tua ligação e tenta novamente.",
   "toast.tourDeleted": "Percurso eliminado.",
+  "toast.undo": "Desfazer",
   "toast.tourDeleteError": "Não foi possível eliminar o percurso.",
   "toast.gpxDownloadError": "Não foi possível descarregar o ficheiro GPX.",
   "toast.toursDeleted": "{count} percursos eliminados.",
@@ -155,8 +159,13 @@
   "toast.accountDeleteError": "Não foi possível eliminar a tua conta. Tenta novamente.",
   "toast.tourUploaded": "Percurso carregado.",
 
-  "confirm.deleteTour": "Eliminar este percurso? Esta ação não pode ser revertida.",
-  "confirm.deleteTours": "Eliminar os percursos selecionados? Esta ação não pode ser revertida.",
-  "confirm.deletePhoto": "Eliminar esta foto?",
-  "confirm.deleteAccount": "Eliminar definitivamente a tua conta? Os teus percursos e fotos são removidos de imediato; o teu acesso será totalmente removido pouco depois. Esta ação não pode ser revertida."
+  "confirm.deleteTourTitle": "Eliminar percurso?",
+  "confirm.deleteTourMessage": "Eliminar “{name}”? Terás alguns segundos para desfazer.",
+  "confirm.deleteToursTitle": "Eliminar percursos?",
+  "confirm.deleteToursMessage": "Eliminar {count} percursos? Terás alguns segundos para desfazer.",
+  "confirm.deletePhotoTitle": "Eliminar foto?",
+  "confirm.deletePhotoMessage": "Eliminar esta foto? Esta ação não pode ser revertida.",
+  "confirm.deleteAccountTitle": "Eliminar a tua conta",
+  "confirm.deleteAccount": "Eliminar definitivamente a tua conta? Os teus percursos e fotos são removidos de imediato; o teu acesso será totalmente removido pouco depois. Esta ação não pode ser revertida.",
+  "confirm.deleteAccountPhraseHint": "Escreve {phrase} para confirmar."
 }

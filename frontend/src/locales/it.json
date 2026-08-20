@@ -97,6 +97,7 @@
   "profile.langAria": "Cambia lingua",
   "profile.exportData": "Esporta i miei dati",
   "profile.deleteAccount": "Elimina account",
+  "profile.dangerZone": "Zona pericolosa",
   "profile.yourAccount": "Il tuo account",
 
   "upload.title": "Carica un giro",
@@ -121,6 +122,8 @@
   "lightbox.retry": "Riprova",
 
   "common.close": "Chiudi",
+  "common.cancel": "Annulla",
+  "common.delete": "Elimina",
   "common.account": "Account",
 
   "lang.searchPlaceholder": "Cerca lingue…",
@@ -143,6 +146,7 @@
 
   "toast.toursLoadError": "Impossibile caricare i tuoi giri. Controlla la connessione e riprova.",
   "toast.tourDeleted": "Giro eliminato.",
+  "toast.undo": "Annulla",
   "toast.tourDeleteError": "Impossibile eliminare il giro.",
   "toast.gpxDownloadError": "Impossibile scaricare il file GPX.",
   "toast.toursDeleted": "{count} giri eliminati.",
@@ -155,8 +159,13 @@
   "toast.accountDeleteError": "Impossibile eliminare il tuo account. Riprova.",
   "toast.tourUploaded": "Giro caricato.",
 
-  "confirm.deleteTour": "Eliminare questo giro? L'operazione non può essere annullata.",
-  "confirm.deleteTours": "Eliminare i giri selezionati? L'operazione non può essere annullata.",
-  "confirm.deletePhoto": "Eliminare questa foto?",
-  "confirm.deleteAccount": "Eliminare definitivamente il tuo account? I tuoi giri e le foto vengono rimossi immediatamente; il tuo accesso verrà rimosso completamente poco dopo. L'operazione non può essere annullata."
+  "confirm.deleteTourTitle": "Eliminare il giro?",
+  "confirm.deleteTourMessage": "Eliminare “{name}”? Avrai qualche secondo per annullare.",
+  "confirm.deleteToursTitle": "Eliminare i giri?",
+  "confirm.deleteToursMessage": "Eliminare {count} giri? Avrai qualche secondo per annullare.",
+  "confirm.deletePhotoTitle": "Eliminare la foto?",
+  "confirm.deletePhotoMessage": "Eliminare questa foto? L'operazione non può essere annullata.",
+  "confirm.deleteAccountTitle": "Elimina il tuo account",
+  "confirm.deleteAccount": "Eliminare definitivamente il tuo account? I tuoi giri e le foto vengono rimossi immediatamente; il tuo accesso verrà rimosso completamente poco dopo. L'operazione non può essere annullata.",
+  "confirm.deleteAccountPhraseHint": "Digita {phrase} per confermare."
 }

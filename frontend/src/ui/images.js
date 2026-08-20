@@ -17,6 +17,7 @@ import {
 import { apiFetch, getAccessToken, API_BASE } from './auth.js';
 import { renderPins } from './pins.js';
 import { openModal, closeModal } from './modal.js';
+import { confirmDialog } from './confirm.js';
 import { ensureDetail } from './sidebar.js';
 
 const t = i18n.t;
@@ -219,7 +220,12 @@ export async function retryLightboxImage() {
 }
 
 async function deleteImage(imageId, tileEl) {
-  if (!confirm(t('confirm.deletePhoto'))) return;
+  const ok = await confirmDialog({
+    title: t('confirm.deletePhotoTitle'),
+    message: t('confirm.deletePhotoMessage'),
+    confirmLabel: t('common.delete'),
+  });
+  if (!ok) return;
   const tourId = state.selectedTourId;
   try {
     const res = await apiFetch(`/api/tours/${tourId}/images/${imageId}`, { method: 'DELETE' });

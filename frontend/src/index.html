@@ -593,6 +593,9 @@
           >
             Export my data
           </button>
+        </div>
+        <div class="profile-danger-zone">
+          <h3 data-i18n="profile.dangerZone">Danger zone</h3>
           <button
             id="btn-delete-account"
             class="btn btn-danger btn-full"
@@ -748,6 +751,68 @@
             Save
           </button>
         </form>
+      </div>
+    </div>
+
+    <!-- Confirm modal: reused for delete-tour, delete-tours, delete-photo -->
+    <div
+      id="confirm-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-modal-title"
+    >
+      <div class="modal confirm-modal">
+        <button id="btn-close-confirm" class="modal-close" data-i18n-aria-label="common.close">
+          ✕
+        </button>
+        <h2 id="confirm-modal-title" class="profile-name"></h2>
+        <p id="confirm-modal-message"></p>
+        <div class="confirm-modal-actions">
+          <button id="btn-confirm-cancel" class="btn btn-secondary" data-i18n="common.cancel">
+            Cancel
+          </button>
+          <button id="btn-confirm-ok" class="btn btn-danger"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete-account modal: a typed confirmation phrase, not just a click -->
+    <div
+      id="delete-account-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-account-modal-title"
+    >
+      <div class="modal">
+        <button
+          id="btn-close-delete-account"
+          class="modal-close"
+          data-i18n-aria-label="common.close"
+        >
+          ✕
+        </button>
+        <h2
+          id="delete-account-modal-title"
+          class="profile-name"
+          data-i18n="confirm.deleteAccountTitle"
+        >
+          Delete your account
+        </h2>
+        <p data-i18n="confirm.deleteAccount"></p>
+        <label class="field">
+          <span id="delete-account-hint"></span>
+          <input id="delete-account-input" type="text" autocomplete="off" />
+        </label>
+        <button
+          id="btn-delete-account-confirm"
+          class="btn btn-danger btn-full"
+          disabled
+          data-i18n="profile.deleteAccount"
+        >
+          Delete account
+        </button>
       </div>
     </div>
 

@@ -1066,6 +1066,28 @@ body {
   margin-top: 20px;
 }
 
+.profile-danger-zone {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.profile-danger-zone h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-danger);
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
 /* ── Upload form ─────────────────────────────────── */
 
 .upload-form {
@@ -1388,6 +1410,9 @@ body {
 }
 
 .toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-left: 3px solid var(--color-primary);
@@ -1406,6 +1431,18 @@ body {
 
 .toast-success {
   border-left-color: #10b981;
+}
+
+.toast-action {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 /* ── Header avatar, map expand, loading ──────────── */

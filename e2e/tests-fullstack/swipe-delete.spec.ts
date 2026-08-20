@@ -2,7 +2,7 @@ import { buddyTest, expect } from '../pages/buddy-test';
 import { clearUsers, clearTours, toursContainer } from './usersDb';
 
 // #289: swipe a tour row (touch only) to delete that single tour directly,
-// with the same confirm() safety net as every other delete path.
+// with the same confirm-modal safety net as every other delete path.
 
 buddyTest.describe('swipe to delete a tour', () => {
   buddyTest.use({ hasTouch: true });
@@ -34,20 +34,20 @@ buddyTest.describe('swipe to delete a tour', () => {
       await expect(on(page).main.locators.userMenu).toBeVisible();
       await expect(on(page).main.locators.list.names).toHaveCount(2);
 
-      page.once('dialog', (d) => d.accept());
       await on(page).main.do.swipeTour('Swipe Tour A', 120);
+      await on(page).main.locators.confirmModal.ok.click();
 
       await expect(on(page).main.locators.list.names).toHaveCount(1);
       await expect(on(page).main.locators.list.names.first()).toHaveText('Swipe Tour B');
     },
   );
 
-  buddyTest('dismissing the confirm dialog keeps the tour', async ({ on, page }) => {
+  buddyTest('dismissing the confirm modal keeps the tour', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    page.once('dialog', (d) => d.dismiss());
     await on(page).main.do.swipeTour('Swipe Tour A', 120);
+    await on(page).main.locators.confirmModal.cancel.click();
 
     await expect(on(page).main.locators.list.names).toHaveCount(2);
   });
