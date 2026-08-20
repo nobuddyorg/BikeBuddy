@@ -1249,7 +1249,9 @@ body {
 .image-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  /* Hairline, not spaced — the set reads as one contact sheet rather than
+     separated tiles. */
+  gap: 1px;
   margin-bottom: 10px;
 }
 
@@ -1257,16 +1259,65 @@ body {
   position: relative;
   margin: 0;
   min-width: 0;
+  animation: image-tile-in 0.5s ease-out backwards;
 }
 
+@keyframes image-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmers on a skeleton background until the photo loads (or errors, which
+   swaps the whole tile for renderErrorTile's markup instead — so this never
+   gets stuck waiting on a load that isn't coming). No opacity/fade needed:
+   an <img> with no decoded bitmap yet already shows nothing but its own
+   background, so the loaded photo simply paints over the shimmer the
+   instant it's ready. */
 .image-thumb {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 6px;
-  background: var(--color-surface-2);
   cursor: pointer;
   display: block;
+  background: linear-gradient(
+    100deg,
+    var(--color-surface-2) 40%,
+    var(--color-surface) 50%,
+    var(--color-surface-2) 60%
+  );
+  background-size: 200% 100%;
+  animation: image-thumb-shimmer 1.4s ease-in-out infinite;
+}
+
+.image-thumb.is-loaded {
+  animation: none;
+  background: none;
+}
+
+@keyframes image-thumb-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-tile {
+    animation: none;
+  }
+
+  .image-thumb {
+    animation: none;
+  }
 }
 
 .image-delete {
@@ -1386,6 +1437,10 @@ body {
   background: var(--color-danger);
 }
 
+/* The backdrop is the page's own surface colour, not black — keeps the
+   lightbox feeling like part of the same themed surface as everything
+   behind it, so a photo's own colours stay the only strong colour on
+   screen (#466). */
 .lightbox {
   position: fixed;
   inset: 0;
@@ -1393,18 +1448,35 @@ body {
      opened from tour details would otherwise paint behind them. */
   z-index: 1700;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.85);
-  cursor: zoom-out;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--color-bg) 95%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
-.lightbox img {
-  max-width: 92vw;
-  max-height: 92vh;
+/* Padding (not a fixed-position button row) reserves room at the top so the
+   icon buttons never sit on top of a tall photo's own edge. */
+.lightbox-stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 16px 16px;
+  cursor: zoom-out;
+  /* Owns the horizontal swipe gesture itself (images.js) — nothing native to
+     hand off to here since the modal already covers the full viewport. */
+  touch-action: none;
+}
+
+.lightbox-stage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
-  cursor: default;
+  cursor: zoom-out;
 }
 
 .lightbox-error {
@@ -1412,47 +1484,75 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  color: #fff;
+  color: var(--color-text);
   text-align: center;
   cursor: default;
 }
 
-.lightbox .modal-close {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.lightbox .modal-close:hover {
-  color: #fff;
-}
-
-.lightbox-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+/* Solid, theme-matched circles rather than text glyphs on a blurred backdrop
+   — legible against any photo, in either theme, which the old floating
+   prev/next glyphs on a faint dark circle were not (#466). */
+.lightbox-icon-btn,
+.lightbox-nav-btn {
   width: 44px;
   height: 44px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
-  color: #fff;
-  font-size: 28px;
-  line-height: 1;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
   cursor: pointer;
 }
 
-.lightbox-nav:hover {
-  background: rgba(0, 0, 0, 0.6);
+.lightbox-icon-btn:hover,
+.lightbox-nav-btn:hover {
+  background: var(--color-surface-2);
 }
 
-.lightbox-prev {
-  left: 16px;
+.lightbox-icon-btn svg,
+.lightbox-nav-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
-.lightbox-next {
-  right: 16px;
+.lightbox-icon-btn {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  z-index: 1;
+}
+
+.lightbox-delete {
+  left: max(12px, env(safe-area-inset-left));
+  color: var(--color-danger);
+}
+
+.lightbox-close {
+  right: max(12px, env(safe-area-inset-right));
+}
+
+/* A bottom bar rather than side-floating buttons: touch users get the same
+   affordance mouse users do (swipe alone isn't discoverable), and nothing
+   overlaps the photo itself (#466). */
+.lightbox-navbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+}
+
+.lightbox-counter {
+  min-width: 56px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Toasts ──────────────────────────────────────── */

@@ -689,41 +689,86 @@
       data-i18n-aria-label="lightbox.aria"
     >
       <button
-        id="btn-lightbox-prev"
+        id="btn-lightbox-delete"
         type="button"
-        class="lightbox-nav lightbox-prev"
-        data-i18n-aria-label="lightbox.prevAria"
+        class="lightbox-icon-btn lightbox-delete hidden"
+        data-i18n-aria-label="lightbox.deleteAria"
+        data-i18n-title="lightbox.deleteAria"
       >
-        ‹
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+          />
+        </svg>
       </button>
-      <img id="lightbox-img" data-i18n-alt="lightbox.imgAlt" alt="Tour photo" />
-      <div id="lightbox-error" class="lightbox-error hidden">
-        <p data-i18n="detail.photoLoadError">Photo failed to load</p>
-        <button
-          type="button"
-          id="btn-lightbox-retry"
-          class="btn btn-secondary"
-          data-i18n="lightbox.retry"
-        >
-          Retry
-        </button>
-      </div>
       <button
         id="btn-close-lightbox"
         type="button"
-        class="modal-close lightbox-close"
+        class="lightbox-icon-btn lightbox-close"
         data-i18n-aria-label="common.close"
       >
-        ✕
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M6 6l12 12M18 6L6 18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
       </button>
-      <button
-        id="btn-lightbox-next"
-        type="button"
-        class="lightbox-nav lightbox-next"
-        data-i18n-aria-label="lightbox.nextAria"
-      >
-        ›
-      </button>
+      <div id="lightbox-stage" class="lightbox-stage">
+        <img id="lightbox-img" data-i18n-alt="lightbox.imgAlt" alt="Tour photo" />
+        <div id="lightbox-error" class="lightbox-error hidden">
+          <p data-i18n="detail.photoLoadError">Photo failed to load</p>
+          <button
+            type="button"
+            id="btn-lightbox-retry"
+            class="btn btn-secondary"
+            data-i18n="lightbox.retry"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+      <div class="lightbox-navbar">
+        <button
+          id="btn-lightbox-prev"
+          type="button"
+          class="lightbox-nav-btn"
+          data-i18n-aria-label="lightbox.prevAria"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M15 4l-8 8 8 8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+        <span id="lightbox-counter" class="lightbox-counter" aria-live="polite"></span>
+        <button
+          id="btn-lightbox-next"
+          type="button"
+          class="lightbox-nav-btn"
+          data-i18n-aria-label="lightbox.nextAria"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M9 4l8 8-8 8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Edit tour modal -->

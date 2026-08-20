@@ -131,6 +131,8 @@
   "lightbox.imgAlt": "Tour photo",
   "lightbox.prevAria": "Previous photo",
   "lightbox.nextAria": "Next photo",
+  "lightbox.deleteAria": "Delete photo",
+  "lightbox.counter": "{current} of {total}",
   "lightbox.retry": "Retry",
 
   "common.close": "Close",

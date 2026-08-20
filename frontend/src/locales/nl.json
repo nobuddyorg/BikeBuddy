@@ -131,6 +131,8 @@
   "lightbox.imgAlt": "Foto van de rit",
   "lightbox.prevAria": "Vorige foto",
   "lightbox.nextAria": "Volgende foto",
+  "lightbox.deleteAria": "Foto verwijderen",
+  "lightbox.counter": "{current} van {total}",
   "lightbox.retry": "Opnieuw proberen",
 
   "common.close": "Sluiten",

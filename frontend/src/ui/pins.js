@@ -21,7 +21,9 @@ function geotaggedImages() {
     ? state.tours.filter((t) => t.id === state.selectedTourId)
     : state.tours;
   return tours.flatMap((t) =>
-    (t.images || []).filter((img) => typeof img.lat === 'number' && typeof img.lon === 'number'),
+    (t.images || [])
+      .filter((img) => typeof img.lat === 'number' && typeof img.lon === 'number')
+      .map((img) => ({ ...img, tourId: t.id })),
   );
 }
 
@@ -57,10 +59,7 @@ function makePinMarker(img, latlng) {
   marker.on('click', () => {
     const images = geotaggedImages();
     const index = images.findIndex((i) => i.id === img.id);
-    openLightbox(
-      images.map((i) => i.url),
-      index < 0 ? 0 : index,
-    );
+    openLightbox(images, index < 0 ? 0 : index);
   });
   return marker;
 }
