@@ -57,6 +57,9 @@
 
   "detail.date": "Date",
   "detail.distance": "Distance",
+  "detail.elevationGain": "Elevation gain",
+  "detail.duration": "Duration",
+  "detail.avgSpeed": "Avg speed",
   "detail.photos": "Photos",
   "detail.addPhotosAria": "Add photos",
   "detail.dropPhotos": "Drop or click to add photos (JPEG/PNG)",

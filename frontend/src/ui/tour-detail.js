@@ -1,7 +1,13 @@
 'use strict';
 
 import * as i18n from '../lib/i18n.js';
-import { formatDate, formatDistance } from '../lib/format.js';
+import {
+  formatDate,
+  formatDistance,
+  formatElevation,
+  formatDuration,
+  formatSpeed,
+} from '../lib/format.js';
 import { withUpdatedDate } from '../lib/tours.js';
 import { runWithConcurrency } from '../lib/concurrency.js';
 import { parseErrorMessage } from '../lib/upload.js';
@@ -20,6 +26,9 @@ import {
   elDetailName,
   elDetailDate,
   elDetailDist,
+  elDetailElevationGain,
+  elDetailDuration,
+  elDetailAvgSpeed,
   elDetailDesc,
   elEditModal,
   elEditName,
@@ -62,7 +71,10 @@ export async function selectTour(tourId) {
   // and closes the panel (#443) — the tour stays selected, matching #442.
   pushLayer(closeDetailPanel);
   const loaded = await focusTourOnMap(tourId);
-  if (loaded) renderGallery(loaded);
+  if (loaded) {
+    renderDetailMeta(loaded); // elevation/duration/avgSpeed only land with this fetch
+    renderGallery(loaded);
+  }
 }
 
 // The panel closes, the selection outlives it: the map is always showing one
@@ -233,11 +245,21 @@ export async function deleteSelectedTours() {
   scheduleTourRemoval(tours);
 }
 
-function renderDetailPanel(tour) {
+// Split from renderDetailPanel so selectTour can refresh just the meta once
+// ensureDetail's fetch lands elevationGain/durationSeconds/avgSpeed — those
+// aren't in the list payload, only the single-tour one.
+function renderDetailMeta(tour) {
   elDetailName.textContent = tour.name;
   elDetailDate.textContent = formatDate(tour.createdAt, i18n.dateLocale());
   elDetailDist.textContent = formatDistance(tour.distance);
+  elDetailElevationGain.textContent = formatElevation(tour.elevationGain);
+  elDetailDuration.textContent = formatDuration(tour.durationSeconds);
+  elDetailAvgSpeed.textContent = formatSpeed(tour.avgSpeed);
   elDetailDesc.textContent = tour.description || '';
+}
+
+function renderDetailPanel(tour) {
+  renderDetailMeta(tour);
   resetImageSection();
   show(elDetailPanel, true);
   refreshMapSize();

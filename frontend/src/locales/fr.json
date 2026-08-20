@@ -57,6 +57,9 @@
 
   "detail.date": "Date",
   "detail.distance": "Distance",
+  "detail.elevationGain": "Dénivelé positif",
+  "detail.duration": "Durée",
+  "detail.avgSpeed": "Vitesse moyenne",
   "detail.photos": "Photos",
   "detail.addPhotosAria": "Ajouter des photos",
   "detail.dropPhotos": "Dépose ou clique pour ajouter des photos (JPEG/PNG)",

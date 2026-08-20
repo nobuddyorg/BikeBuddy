@@ -57,6 +57,9 @@
 
   "detail.date": "Datum",
   "detail.distance": "Afstand",
+  "detail.elevationGain": "Hoogtewinst",
+  "detail.duration": "Duur",
+  "detail.avgSpeed": "Gem. snelheid",
   "detail.photos": "Foto's",
   "detail.addPhotosAria": "Foto's toevoegen",
   "detail.dropPhotos": "Sleep of klik om foto's toe te voegen (JPEG/PNG)",

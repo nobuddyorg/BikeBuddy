@@ -68,6 +68,13 @@ async function uploadTour(
     images: [],
     distance: parsed.distanceKm,
     createdAt: parsed.date ?? new Date().toISOString(),
+    elevationGain: parsed.elevationGain,
+    elevationLoss: parsed.elevationLoss,
+    minElevation: parsed.minElevation,
+    maxElevation: parsed.maxElevation,
+    durationSeconds: parsed.durationSeconds,
+    movingSeconds: parsed.movingSeconds,
+    avgSpeed: parsed.avgSpeed,
   };
 
   // Sequential, not Promise.all: neither write needs the other's result, but

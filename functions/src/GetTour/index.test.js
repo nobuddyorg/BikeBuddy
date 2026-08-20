@@ -38,6 +38,13 @@ describe('GET /api/tours/{tourId}', () => {
       userId: undefined,
       description: undefined,
       images: [],
+      elevationGain: null,
+      elevationLoss: null,
+      minElevation: null,
+      maxElevation: null,
+      durationSeconds: null,
+      movingSeconds: null,
+      avgSpeed: null,
     });
     expect(res.jsonBody.heatmapData).toHaveLength(2);
   });

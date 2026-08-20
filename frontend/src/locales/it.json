@@ -57,6 +57,9 @@
 
   "detail.date": "Data",
   "detail.distance": "Distanza",
+  "detail.elevationGain": "Dislivello positivo",
+  "detail.duration": "Durata",
+  "detail.avgSpeed": "Velocità media",
   "detail.photos": "Foto",
   "detail.addPhotosAria": "Aggiungi foto",
   "detail.dropPhotos": "Trascina o clicca per aggiungere foto (JPEG/PNG)",
