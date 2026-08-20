@@ -76,6 +76,19 @@
       </div>
       <div class="navbar-actions">
         <button
+          id="btn-reload"
+          type="button"
+          class="btn btn-ghost navbar-reload"
+          data-i18n-aria-label="nav.reloadAria"
+          data-i18n-title="nav.reloadAria"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path
+              d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L14 11h7V4l-2.35 2.35z"
+            />
+          </svg>
+        </button>
+        <button
           id="btn-help"
           class="btn btn-ghost"
           data-i18n-aria-label="nav.helpAria"
@@ -237,9 +250,6 @@
           </div>
         </div>
 
-        <div id="pull-refresh-indicator" class="pull-refresh-indicator" aria-hidden="true">
-          <span class="spinner"></span>
-        </div>
         <ul id="tour-list" class="tour-list hidden"></ul>
 
         <div id="tour-pager" class="tour-pager hidden">

@@ -34,6 +34,7 @@ import {
   elBtnMapExpand,
   elAppLayout,
   elBtnHelp,
+  elBtnReload,
   elHelpModal,
   elProfileModal,
   elEditModal,
@@ -84,13 +85,7 @@ import {
   lightboxNext,
   retryLightboxImage,
 } from './ui/images.js';
-import {
-  renderSidebar,
-  loadTours,
-  enterSelectMode,
-  exitSelectMode,
-  bindPullToRefresh,
-} from './ui/sidebar.js';
+import { renderSidebar, loadTours, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
 import { renderAllRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
 import { setupLanguageSwitcher, setupSortMenu, setupLineStyleMenu } from './ui/menus.js';
@@ -194,7 +189,6 @@ elBtnShowAll.addEventListener('click', () => {
 });
 $('btn-retry-tours').addEventListener('click', loadTours);
 $('btn-retry-map').addEventListener('click', loadTours);
-bindPullToRefresh();
 elBtnSelectMode.addEventListener('click', enterSelectMode);
 elBtnCancelSelect.addEventListener('click', exitSelectMode);
 elBtnDeleteSelected.addEventListener('click', deleteSelectedTours);
@@ -216,6 +210,7 @@ elBtnMapExpand.addEventListener('click', () => {
 });
 
 elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
+elBtnReload.addEventListener('click', () => window.location.reload());
 wireModalClose(elHelpModal, $('btn-close-help'), () => closeModal(elHelpModal));
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
 wireModalClose(elEditModal, $('btn-close-edit'), closeEdit);
