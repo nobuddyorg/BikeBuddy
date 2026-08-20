@@ -48,8 +48,6 @@
   "map.emptyBody": "Carrega um ficheiro GPX para ver o teu percurso no mapa.",
   "map.loadErrorTitle": "Não foi possível carregar os teus percursos",
   "map.loading": "A carregar os dados dos teus percursos…",
-  "map.filterChipLabel": "A mostrar: {name}",
-  "map.filterChipClearAria": "Mostrar todos os percursos",
 
   "tours.showAll": "Mostrar todos os percursos",
   "tours.showAllFiltered": "Mostrar todos os percursos (de {name})",

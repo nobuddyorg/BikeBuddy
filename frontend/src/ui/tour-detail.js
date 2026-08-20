@@ -35,8 +35,6 @@ import {
   elEditDate,
   elEditDescription,
   elEditError,
-  elMapFilterChip,
-  elMapFilterChipLabel,
 } from './dom.js';
 import { openModal, closeModal } from './modal.js';
 import { confirmDialog } from './confirm.js';
@@ -66,7 +64,6 @@ export async function selectTour(tourId) {
   state.selectedTourId = tourId;
   renderSidebar();
   renderDetailPanel(tour); // name/meta now; resets the image section
-  updateMapFilterChip();
   // Pushed after the URL already reflects the new tour, so Back returns here
   // and closes the panel (#443) — the tour stays selected, matching #442.
   pushLayer(closeDetailPanel);
@@ -77,22 +74,9 @@ export async function selectTour(tourId) {
   }
 }
 
-// The panel closes, the selection outlives it: the map is always showing one
-// tour with its own photos or every tour with all of them, never a mix.
-// updateMapFilterChip() is what tells the user that's still the case —
-// otherwise closing the panel leaves the map filtered with no indication (#442).
 export function closeDetailPanel() {
   show(elDetailPanel, false);
   refreshMapSize();
-  updateMapFilterChip();
-}
-
-// A pill over the map, not the sidebar, so the filtered state is visible
-// without scrolling — and reachable on mobile once the panel is closed.
-export function updateMapFilterChip() {
-  const tour = state.tours.find((t) => t.id === state.selectedTourId);
-  show(elMapFilterChip, !!tour);
-  if (tour) elMapFilterChipLabel.textContent = t('map.filterChipLabel', { name: tour.name });
 }
 
 // Ends the selection itself. Every caller renders the all-tours map after,

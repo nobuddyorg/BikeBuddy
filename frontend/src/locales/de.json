@@ -48,8 +48,6 @@
   "map.emptyBody": "Lade eine GPX-Datei hoch, um deine Route auf der Karte zu sehen.",
   "map.loadErrorTitle": "Deine Touren konnten nicht geladen werden",
   "map.loading": "Deine Streckendaten werden geladen…",
-  "map.filterChipLabel": "Zeige: {name}",
-  "map.filterChipClearAria": "Alle Touren anzeigen",
 
   "tours.showAll": "Alle Touren anzeigen",
   "tours.showAllFiltered": "Alle Touren anzeigen (von {name})",

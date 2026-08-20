@@ -48,8 +48,6 @@
   "map.emptyBody": "Importe un fichier GPX pour voir ton parcours sur la carte.",
   "map.loadErrorTitle": "Impossible de charger tes sorties",
   "map.loading": "Chargement de tes données de parcours…",
-  "map.filterChipLabel": "Affichage : {name}",
-  "map.filterChipClearAria": "Afficher toutes les sorties",
 
   "tours.showAll": "Afficher toutes les sorties",
   "tours.showAllFiltered": "Afficher toutes les sorties (depuis {name})",

@@ -48,8 +48,6 @@
   "map.emptyBody": "Carica un file GPX per vedere il tuo percorso sulla mappa.",
   "map.loadErrorTitle": "Impossibile caricare i tuoi giri",
   "map.loading": "Caricamento dei dati dei tuoi percorsi…",
-  "map.filterChipLabel": "Visualizzazione: {name}",
-  "map.filterChipClearAria": "Mostra tutti i giri",
 
   "tours.showAll": "Mostra tutti i giri",
   "tours.showAllFiltered": "Mostra tutti i giri (da {name})",

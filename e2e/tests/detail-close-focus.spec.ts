@@ -96,28 +96,6 @@ buddyTest.describe('closing the detail panel', () => {
     await expect(on(page).main.locators.pins.markers).toHaveCount(1);
   });
 
-  // #442: closing the panel must not be a silent filter — the map area itself
-  // has to say only one tour is showing, reachable without scrolling the sidebar.
-  buddyTest('closing the panel shows a map chip naming the filtered tour', async ({ on, page }) => {
-    await expect(on(page).main.locators.mapFilterChip.root).toBeHidden();
-
-    await on(page).main.do.selectTour('Alpine Loop');
-    await expect(on(page).main.locators.mapFilterChip.root).toBeVisible();
-    await expect(on(page).main.locators.mapFilterChip.label).toContainText('Alpine Loop');
-
-    await on(page).main.do.closeDetail();
-
-    // The chip must survive the panel closing — that's the bug: the filter
-    // used to have no on-screen indication once the panel was gone.
-    await expect(on(page).main.locators.mapFilterChip.root).toBeVisible();
-    await expect(on(page).main.locators.mapFilterChip.label).toContainText('Alpine Loop');
-
-    await on(page).main.do.clearMapFilter();
-
-    await expect(on(page).main.locators.mapFilterChip.root).toBeHidden();
-    await expect(on(page).main.locators.list.active).toHaveCount(0);
-  });
-
   buddyTest('"Show All Tours" is what returns to the whole map', async ({ on, page }) => {
     await on(page).main.do.showPins(true);
     await on(page).main.do.selectTour('Alpine Loop');
@@ -129,6 +107,5 @@ buddyTest.describe('closing the detail panel', () => {
 
     await expect(on(page).main.locators.list.active).toHaveCount(0);
     await expect(on(page).main.locators.pins.markers).toHaveCount(2);
-    await expect(on(page).main.locators.mapFilterChip.root).toBeHidden();
   });
 });

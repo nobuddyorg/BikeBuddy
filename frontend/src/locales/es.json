@@ -48,8 +48,6 @@
   "map.emptyBody": "Sube un archivo GPX para ver tu ruta en el mapa.",
   "map.loadErrorTitle": "No se pudieron cargar tus rutas",
   "map.loading": "Cargando los datos de tus rutas…",
-  "map.filterChipLabel": "Mostrando: {name}",
-  "map.filterChipClearAria": "Mostrar todas las rutas",
 
   "tours.showAll": "Mostrar todas las rutas",
   "tours.showAllFiltered": "Mostrar todas las rutas (de {name})",

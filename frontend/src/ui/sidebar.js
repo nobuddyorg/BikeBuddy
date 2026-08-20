@@ -8,13 +8,7 @@ import { state } from './state.js';
 import { mapBoundsPlain } from './map.js';
 import { apiFetch } from './auth.js';
 import { renderAllRoutes, renderSelectedToursRoutes } from './routes.js';
-import {
-  deleteTourById,
-  selectTour,
-  closeDetailPanel,
-  focusTourOnMap,
-  updateMapFilterChip,
-} from './tour-detail.js';
+import { deleteTourById, selectTour, closeDetailPanel, focusTourOnMap } from './tour-detail.js';
 import { consumeDeepLinkTourId, syncUrl } from './router.js';
 import { toast } from './toast.js';
 import {
@@ -390,7 +384,6 @@ export function renderSidebar() {
   show(elBtnShowAll, hasTours);
   show(elBtnSelectMode, hasTours);
   show(elSelectionBar, hasTours && state.selectMode);
-  updateMapFilterChip();
   const selectedTour = hasTours && state.tours.find((tour) => tour.id === state.selectedTourId);
   elBtnShowAll.classList.toggle('active', !!selectedTour);
   elBtnShowAll.textContent = selectedTour
