@@ -33,14 +33,16 @@
     <meta property="og:url" content="https://nobuddy.org/BikeBuddy/" />
     <meta name="twitter:card" content="summary" />
 
+    <!-- defer (not blocking parse) preserves document order, so app.js
+       (a module, deferred by default) still sees window.L/window.msal. -->
     <!-- Leaflet, vendored — see vendor/.leaflet-source -->
     <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
-    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="vendor/leaflet/leaflet.js" defer></script>
     <!-- MSAL Browser (Microsoft Entra External ID auth). Vendored locally:
        loading cross-origin from a CDN was blocked by the browser (ORB) on GitHub Pages. -->
-    <script src="vendor/msal-browser.min.js"></script>
+    <script src="vendor/msal-browser.min.js" defer></script>
     <!-- App config — copy config.js.example to config.js and fill in Entra values -->
-    <script src="config.js"></script>
+    <script src="config.js" defer></script>
 
     <link rel="stylesheet" href="style.css" />
   </head>
