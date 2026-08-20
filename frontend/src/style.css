@@ -966,6 +966,8 @@ body {
   border-radius: 14px;
   padding: 32px 36px;
   min-width: 300px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   text-align: center;
   position: relative;
 }
