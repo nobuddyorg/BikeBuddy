@@ -50,6 +50,7 @@ import {
   elBtnStatsLongest,
   elStatsModal,
   elBtnStats,
+  elBtnStatsHeader,
   show,
 } from './ui/dom.js';
 import { signIn, signOut, initAuth } from './ui/auth.js';
@@ -122,6 +123,7 @@ elBtnProfile.addEventListener('click', openProfile);
 elProfileNameForm.addEventListener('submit', saveProfileName);
 elBtnExportData.addEventListener('click', downloadMyData);
 elBtnStats.addEventListener('click', openStatsModal);
+elBtnStatsHeader.addEventListener('click', openStatsModal);
 wireModalClose(elStatsModal, $('btn-close-stats'), closeStatsModal);
 elBtnStatsLongest.addEventListener('click', () => {
   const id = elBtnStatsLongest.dataset.tourId;

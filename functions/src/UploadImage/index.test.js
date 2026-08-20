@@ -1,5 +1,6 @@
 'use strict';
 
+const sharp = require('sharp');
 const { uploadImage, isJpegOrPng } = require('./index');
 
 const TID = '11111111-1111-4111-8111-111111111111';
@@ -30,7 +31,9 @@ function makeImagesContainer() {
 
 const makeParseFile = (buffer, mimeType = 'image/jpeg') =>
   vi.fn().mockResolvedValue({ filename: 'p.jpg', mimeType, buffer });
-const noResize = (buf) => Promise.resolve(buf);
+// Stands in for resizeVariants: real sharp processing on these fake,
+// magic-bytes-only buffers would reject them as unreadable images.
+const noResize = (buf) => Promise.resolve({ full: buf, thumbnail: buf });
 const reqWith = (tourId) => ({ params: { tourId } });
 
 describe('isJpegOrPng (magic-byte validation)', () => {
@@ -71,9 +74,14 @@ describe('POST /api/tours/{tourId}/images', () => {
 
     expect(res.status).toBe(201);
     expect(res.jsonBody.url).toBe('https://blob/sas-url');
+    expect(res.jsonBody.thumbUrl).toBe('https://blob/sas-url');
     expect(images.blockBlob.uploadData).toHaveBeenCalledWith(JPEG, {
       blobHTTPHeaders: { blobContentType: 'image/jpeg' },
     });
+    expect(images.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}/${res.jsonBody.id}.jpg`);
+    expect(images.getBlockBlobClient).toHaveBeenCalledWith(
+      `u1/${TID}/${res.jsonBody.id}_thumb.jpg`,
+    );
     const [ops] = tours.patch.mock.calls[0];
     expect(ops).toEqual([
       {
@@ -82,6 +90,55 @@ describe('POST /api/tours/{tourId}/images', () => {
         value: { id: res.jsonBody.id, blobName: `u1/${TID}/${res.jsonBody.id}.jpg` },
       },
     ]);
+  });
+
+  it('uploads both the full image and the thumbnail as separate blobs', async () => {
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
+    const images = makeImagesContainer();
+    const full = Buffer.from('full-bytes');
+    const thumbnail = Buffer.from('thumb-bytes');
+    const resize = async () => ({ full, thumbnail });
+
+    await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      makeParseFile(JPEG),
+      resize,
+    );
+
+    expect(images.blockBlob.uploadData).toHaveBeenCalledWith(full, {
+      blobHTTPHeaders: { blobContentType: 'image/jpeg' },
+    });
+    expect(images.blockBlob.uploadData).toHaveBeenCalledWith(thumbnail, {
+      blobHTTPHeaders: { blobContentType: 'image/jpeg' },
+    });
+  });
+
+  // Every other test injects a resize stub (real sharp processing rejects
+  // their fake magic-bytes-only buffers) — this is the one that exercises
+  // the actual default (resizeVariants -> resizeImage + resizeThumbnail)
+  // end-to-end, with a real decodable JPEG.
+  it('resizes for real when no resize override is given', async () => {
+    const validJpeg = await sharp({
+      create: { width: 50, height: 50, channels: 3, background: { r: 1, g: 2, b: 3 } },
+    })
+      .jpeg()
+      .toBuffer();
+    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
+    const images = makeImagesContainer();
+
+    const res = await uploadImage(
+      reqWith(TID),
+      mockAuth,
+      () => tours.container,
+      () => images.container,
+      makeParseFile(validJpeg),
+    );
+
+    expect(res.status).toBe(201);
+    expect(images.blockBlob.uploadData).toHaveBeenCalledTimes(2);
   });
 
   // Appending via the atomic /images/- patch (rather than reading tour.images
@@ -119,7 +176,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     });
     const resize = vi.fn(async (buffer) => {
       resizeEntered();
-      return buffer;
+      return { full: buffer, thumbnail: buffer };
     });
     const readGps = vi.fn(async () => {
       await resizeStarted;

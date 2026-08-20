@@ -114,6 +114,7 @@ export const elStatsEmpty = $('stats-empty');
 export const elStatsPerYear = $('stats-per-year');
 export const elStatsModal = $('stats-modal');
 export const elBtnStats = $('btn-stats');
+export const elBtnStatsHeader = $('btn-stats-header');
 export const elUploadModal = $('upload-modal');
 export const elUploadForm = $('upload-form');
 export const elUploadName = $('upload-name');

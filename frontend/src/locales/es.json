@@ -174,9 +174,9 @@
   "toast.tourUploaded": "Ruta subida.",
 
   "confirm.deleteTourTitle": "¿Eliminar ruta?",
-  "confirm.deleteTourMessage": "¿Eliminar «{name}»? Tendrás unos segundos para deshacerlo.",
+  "confirm.deleteTourMessage": "¿Eliminar «{name}»? Esta acción no se puede deshacer.",
   "confirm.deleteToursTitle": "¿Eliminar rutas?",
-  "confirm.deleteToursMessage": "¿Eliminar {count} rutas? Tendrás unos segundos para deshacerlo.",
+  "confirm.deleteToursMessage": "¿Eliminar {count} rutas? Esta acción no se puede deshacer.",
   "confirm.deletePhotoTitle": "¿Eliminar foto?",
   "confirm.deletePhotoMessage": "¿Eliminar esta foto? Esta acción no se puede deshacer.",
   "confirm.deleteAccountTitle": "Eliminar tu cuenta",

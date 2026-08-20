@@ -39,7 +39,10 @@ export function createImageTile(image) {
 
   const img = document.createElement('img');
   img.className = 'image-thumb';
-  img.src = image.url;
+  // thumbUrl is missing only for a tour whose detail predates #466's
+  // real-thumbnail backfill and hasn't been migrated yet — fall back to the
+  // full image rather than showing nothing.
+  img.src = image.thumbUrl || image.url;
   img.alt = t('lightbox.imgAlt');
   img.loading = 'lazy';
   // Skeleton shimmer (style.css) until the photo has actually loaded.

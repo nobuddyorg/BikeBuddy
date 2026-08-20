@@ -50,7 +50,15 @@ describe('GET /api/map', () => {
           [48.1, 11.5],
           [48.2, 11.6],
         ],
-        images: [{ id: 'img1', url: 'https://blob/u1/t1/img1.jpg?sig=x', lat: 48.1, lon: 11.5 }],
+        images: [
+          {
+            id: 'img1',
+            url: 'https://blob/u1/t1/img1.jpg?sig=x',
+            thumbUrl: 'https://blob/u1/t1/img1_thumb.jpg?sig=x',
+            lat: 48.1,
+            lon: 11.5,
+          },
+        ],
       },
       { id: 't2', heatmapData: [], images: [] },
     ]);
@@ -62,8 +70,10 @@ describe('GET /api/map', () => {
 
     await getMapData(req, mockAuth, () => container, getImagesContainer);
 
-    expect(getBlockBlobClient).toHaveBeenCalledTimes(1);
+    // Once for the full image, once for its thumbnail — never for img2 (no coords).
+    expect(getBlockBlobClient).toHaveBeenCalledTimes(2);
     expect(getBlockBlobClient).toHaveBeenCalledWith('u1/t1/img1.jpg');
+    expect(getBlockBlobClient).toHaveBeenCalledWith('u1/t1/img1_thumb.jpg');
   });
 
   it('never touches blob storage when no tour has a geotagged photo', async () => {

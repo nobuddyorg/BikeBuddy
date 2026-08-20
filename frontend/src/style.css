@@ -312,19 +312,25 @@ body {
   border-color: var(--color-primary);
 }
 
+/* Mobile-only counterpart to .stats-header-btn below — the sidebar-header it
+   sits in is hidden entirely on mobile, so the stats trigger needs a second
+   home there, sized to match .sort-menu-btn since they're both icon-only
+   controls in the same row. Hidden by default; shown in the mobile
+   @media block further down. */
 .tour-stats-btn {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
+  width: 48px;
+  height: 48px;
   padding: 0;
 }
 
 .tour-stats-btn svg {
-  width: 18px;
-  height: 18px;
+  display: block;
+  width: 28px;
+  height: 28px;
 }
 
 .sort-menu-list {
@@ -905,6 +911,25 @@ body {
 
 .btn-ghost:hover:not(:disabled) {
   color: var(--color-text);
+}
+
+/* Desktop: inline with the tour count instead of its own row. Placed after
+   .btn so its zero padding actually wins — same specificity, later in the
+   cascade. */
+.stats-header-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.stats-header-btn svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .btn-full {
@@ -1804,6 +1829,10 @@ body:not(.i18n-loading) .app-skeleton {
 
   .sort-menu {
     display: block;
+  }
+
+  .tour-stats-btn {
+    display: inline-flex;
   }
 
   /* .sidebar clips overflow (see rule above) and is height-capped on mobile,

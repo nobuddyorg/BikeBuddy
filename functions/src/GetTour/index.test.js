@@ -127,8 +127,18 @@ describe('GET /api/tours/{tourId}', () => {
 
     // toStrictEqual so a stray lat/lon: undefined on the non-geotagged image is caught.
     expect(res.jsonBody.images).toStrictEqual([
-      { id: 'img1', url: 'https://blob/u1/t1/img1.jpg?sig=x', lat: 48.1, lon: 11.5 },
-      { id: 'img2', url: 'https://blob/u1/t1/img2.jpg?sig=x' },
+      {
+        id: 'img1',
+        url: 'https://blob/u1/t1/img1.jpg?sig=x',
+        thumbUrl: 'https://blob/u1/t1/img1_thumb.jpg?sig=x',
+        lat: 48.1,
+        lon: 11.5,
+      },
+      {
+        id: 'img2',
+        url: 'https://blob/u1/t1/img2.jpg?sig=x',
+        thumbUrl: 'https://blob/u1/t1/img2_thumb.jpg?sig=x',
+      },
     ]);
   });
 

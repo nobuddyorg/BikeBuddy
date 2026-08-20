@@ -174,9 +174,9 @@
   "toast.tourUploaded": "Sortie importée.",
 
   "confirm.deleteTourTitle": "Supprimer la sortie ?",
-  "confirm.deleteTourMessage": "Supprimer « {name} » ? Tu auras quelques secondes pour annuler.",
+  "confirm.deleteTourMessage": "Supprimer « {name} » ? Cette action est irréversible.",
   "confirm.deleteToursTitle": "Supprimer les sorties ?",
-  "confirm.deleteToursMessage": "Supprimer {count} sorties ? Tu auras quelques secondes pour annuler.",
+  "confirm.deleteToursMessage": "Supprimer {count} sorties ? Cette action est irréversible.",
   "confirm.deletePhotoTitle": "Supprimer la photo ?",
   "confirm.deletePhotoMessage": "Supprimer cette photo ? Cette action est irréversible.",
   "confirm.deleteAccountTitle": "Supprimer ton compte",

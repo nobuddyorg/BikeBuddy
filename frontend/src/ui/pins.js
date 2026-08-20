@@ -55,7 +55,9 @@ export function clearPins() {
 }
 
 function makePinMarker(img, latlng) {
-  const marker = L.marker(latlng, { icon: photoPinIcon(img.url) });
+  // The pin icon is 28px — no reason to ship the same up-to-2000px image the
+  // lightbox needs just to paint a marker (#466).
+  const marker = L.marker(latlng, { icon: photoPinIcon(img.thumbUrl || img.url) });
   marker.on('click', () => {
     const images = geotaggedImages();
     const index = images.findIndex((i) => i.id === img.id);
