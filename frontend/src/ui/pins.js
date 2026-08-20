@@ -12,7 +12,7 @@ const L = window.L;
 
 const PIN_GROUP_THRESHOLD_PX = 24;
 const PIN_FAN_RADIUS_PX = 16;
-const PIN_MIN_ZOOM = 8;
+const PIN_MIN_ZOOM = 7;
 
 // Scoped to the selected tour so its pins never leak in photos from others,
 // and across every loaded tour on the full map.
@@ -35,8 +35,8 @@ function photoPinIcon(url) {
   return L.divIcon({
     className: 'photo-pin',
     html: img,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 }
 

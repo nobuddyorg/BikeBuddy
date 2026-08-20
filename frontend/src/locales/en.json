@@ -48,8 +48,6 @@
   "map.emptyBody": "Upload a GPX file to see your route on the map.",
   "map.loadErrorTitle": "Couldn't load your tours",
   "map.loading": "Loading your ride data…",
-  "map.filterChipLabel": "Showing: {name}",
-  "map.filterChipClearAria": "Show all tours",
 
   "tours.showAll": "Show All Tours",
   "tours.showAllFiltered": "Show All Tours (from {name})",

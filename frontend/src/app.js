@@ -27,7 +27,6 @@ import {
   elTourPagerPrev,
   elTourPagerNext,
   elBtnShowAll,
-  elBtnClearMapFilter,
   elBtnSelectMode,
   elBtnCancelSelect,
   elBtnDeleteSelected,
@@ -177,10 +176,6 @@ elTourPagerNext.addEventListener('click', () => {
   renderSidebar();
 });
 elBtnShowAll.addEventListener('click', () => {
-  deselectTour();
-  renderAllRoutes();
-});
-elBtnClearMapFilter.addEventListener('click', () => {
   deselectTour();
   renderAllRoutes();
 });

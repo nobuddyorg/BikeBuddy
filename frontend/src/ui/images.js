@@ -186,6 +186,11 @@ elLightboxImg.addEventListener('error', () => {
   show(elLightboxError, true);
 });
 
+// Tap-the-photo-to-close (#466): wireModalClose only closes on a click that
+// lands on the overlay itself, which stopped covering the image once the
+// lightbox became a real focus-trapped modal with prev/next controls.
+elLightboxImg.addEventListener('click', closeLightbox);
+
 export function openLightbox(urls, index) {
   lightboxUrls = urls;
   lightboxIndex = index;
