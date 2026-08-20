@@ -312,6 +312,21 @@ body {
   border-color: var(--color-primary);
 }
 
+.tour-stats-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+}
+
+.tour-stats-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .sort-menu-list {
   position: absolute;
   top: calc(100% + 6px);
@@ -1022,27 +1037,20 @@ body {
   font-size: 14px;
 }
 
-.profile-stats {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
+.stats-modal {
+  max-width: 420px;
   text-align: left;
 }
 
-.profile-stats h3 {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
+.stats-modal .profile-name {
+  text-align: center;
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
-  margin: 0;
+  margin: 16px 0 0;
 }
 
 .stat-tile {

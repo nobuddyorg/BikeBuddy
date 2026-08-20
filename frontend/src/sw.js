@@ -54,6 +54,7 @@ const PRECACHE_URLS = [
   'ui/routes.js',
   'ui/sidebar.js',
   'ui/state.js',
+  'ui/statsModal.js',
   'ui/toast.js',
   'ui/tour-detail.js',
   'ui/upload-modal.js',
