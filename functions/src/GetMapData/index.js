@@ -74,13 +74,13 @@ async function getMapData(
       id: tour.id,
       heatmapData: heatmapDataByTour[i],
       images: await Promise.all(
-        pinnedImages(tour).map(async (img) => ({
-          id: img.id,
-          url: await readSasUrl(container.getBlockBlobClient(img.blobName)),
-          thumbUrl: await readSasUrl(container.getBlockBlobClient(thumbBlobName(img.blobName))),
-          lat: img.lat,
-          lon: img.lon,
-        })),
+        pinnedImages(tour).map(async (img) => {
+          const [url, thumbUrl] = await Promise.all([
+            readSasUrl(container.getBlockBlobClient(img.blobName)),
+            readSasUrl(container.getBlockBlobClient(thumbBlobName(img.blobName))),
+          ]);
+          return { id: img.id, url, thumbUrl, lat: img.lat, lon: img.lon };
+        }),
       ),
     })),
   );
