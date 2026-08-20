@@ -192,14 +192,20 @@ export function setupLineStyleMenu() {
     state.lineStyle = { ...state.lineStyle, ...patch };
     applyControls();
     redrawRoutes();
-    saveLineStyle(state.lineStyle);
   };
+  // localStorage is only written once the user settles on a value, not on
+  // every 'input' tick of a drag — the live preview above is cheap, a
+  // synchronous disk write per tick isn't.
+  const commitStyle = () => saveLineStyle(state.lineStyle);
 
   elLineStyleColor.addEventListener('input', () => updateStyle({ color: elLineStyleColor.value }));
+  elLineStyleColor.addEventListener('change', commitStyle);
   elLineStyleWidth.addEventListener('input', () =>
     updateStyle({ weight: Number(elLineStyleWidth.value) }),
   );
+  elLineStyleWidth.addEventListener('change', commitStyle);
   elLineStyleOpacity.addEventListener('input', () =>
     updateStyle({ opacity: Number(elLineStyleOpacity.value) / 100 }),
   );
+  elLineStyleOpacity.addEventListener('change', commitStyle);
 }

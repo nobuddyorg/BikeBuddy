@@ -27,10 +27,11 @@ function drawRoutes(pointSets) {
   state.routeLayer = L.layerGroup(lines).addTo(map);
 }
 
-// Redraws the last-rendered tours in the current style without touching
-// pan/zoom, so changing color/width/opacity doesn't re-fit the map.
+// Applies the current line style to the already-drawn polylines in place —
+// no layer teardown/rebuild and no pan/zoom change, so a slider drag stays
+// smooth instead of re-creating every polyline on each tick.
 export function redrawRoutes() {
-  drawRoutes(state.routePointSets);
+  state.routeLayer?.eachLayer((layer) => layer.setStyle(state.lineStyle));
 }
 
 export function renderRoutes(pointSets, padding) {
