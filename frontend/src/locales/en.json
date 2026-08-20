@@ -97,6 +97,7 @@
   "profile.langAria": "Change language",
   "profile.exportData": "Export my data",
   "profile.deleteAccount": "Delete account",
+  "profile.dangerZone": "Danger zone",
   "profile.yourAccount": "Your account",
 
   "upload.title": "Upload a Tour",
@@ -121,6 +122,8 @@
   "lightbox.retry": "Retry",
 
   "common.close": "Close",
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
   "common.account": "Account",
 
   "lang.searchPlaceholder": "Search languages…",
@@ -143,6 +146,7 @@
 
   "toast.toursLoadError": "Couldn’t load your tours. Check your connection and try again.",
   "toast.tourDeleted": "Tour deleted.",
+  "toast.undo": "Undo",
   "toast.tourDeleteError": "Could not delete the tour.",
   "toast.gpxDownloadError": "Could not download the GPX file.",
   "toast.toursDeleted": "{count} tours deleted.",
@@ -155,8 +159,13 @@
   "toast.accountDeleteError": "Could not delete your account. Please try again.",
   "toast.tourUploaded": "Tour uploaded.",
 
-  "confirm.deleteTour": "Delete this tour? This cannot be undone.",
-  "confirm.deleteTours": "Delete the selected tours? This cannot be undone.",
-  "confirm.deletePhoto": "Delete this photo?",
-  "confirm.deleteAccount": "Permanently delete your account? Your tours and photos are removed immediately; your sign-in is fully removed shortly after. This cannot be undone."
+  "confirm.deleteTourTitle": "Delete tour?",
+  "confirm.deleteTourMessage": "Delete “{name}”? You'll have a few seconds to undo it.",
+  "confirm.deleteToursTitle": "Delete tours?",
+  "confirm.deleteToursMessage": "Delete {count} tours? You'll have a few seconds to undo it.",
+  "confirm.deletePhotoTitle": "Delete photo?",
+  "confirm.deletePhotoMessage": "Delete this photo? This cannot be undone.",
+  "confirm.deleteAccountTitle": "Delete your account",
+  "confirm.deleteAccount": "Permanently delete your account? Your tours and photos are removed immediately; your sign-in is fully removed shortly after. This cannot be undone.",
+  "confirm.deleteAccountPhraseHint": "Type {phrase} to confirm."
 }

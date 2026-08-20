@@ -97,6 +97,7 @@
   "profile.langAria": "Taal wijzigen",
   "profile.exportData": "Mijn gegevens exporteren",
   "profile.deleteAccount": "Account verwijderen",
+  "profile.dangerZone": "Gevarenzone",
   "profile.yourAccount": "Je account",
 
   "upload.title": "Een rit uploaden",
@@ -121,6 +122,8 @@
   "lightbox.retry": "Opnieuw proberen",
 
   "common.close": "Sluiten",
+  "common.cancel": "Annuleren",
+  "common.delete": "Verwijderen",
   "common.account": "Account",
 
   "lang.searchPlaceholder": "Talen zoeken…",
@@ -143,6 +146,7 @@
 
   "toast.toursLoadError": "Je ritten konden niet worden geladen. Controleer je verbinding en probeer het opnieuw.",
   "toast.tourDeleted": "Rit verwijderd.",
+  "toast.undo": "Ongedaan maken",
   "toast.tourDeleteError": "Rit kon niet worden verwijderd.",
   "toast.gpxDownloadError": "GPX-bestand kon niet worden gedownload.",
   "toast.toursDeleted": "{count} ritten verwijderd.",
@@ -155,8 +159,13 @@
   "toast.accountDeleteError": "Je account kon niet worden verwijderd. Probeer het opnieuw.",
   "toast.tourUploaded": "Rit geüpload.",
 
-  "confirm.deleteTour": "Deze rit verwijderen? Dit kan niet ongedaan worden gemaakt.",
-  "confirm.deleteTours": "Geselecteerde ritten verwijderen? Dit kan niet ongedaan worden gemaakt.",
-  "confirm.deletePhoto": "Deze foto verwijderen?",
-  "confirm.deleteAccount": "Je account permanent verwijderen? Je ritten en foto's worden direct verwijderd; je inlog wordt kort daarna volledig verwijderd. Dit kan niet ongedaan worden gemaakt."
+  "confirm.deleteTourTitle": "Rit verwijderen?",
+  "confirm.deleteTourMessage": "“{name}” verwijderen? Je hebt een paar seconden om dit ongedaan te maken.",
+  "confirm.deleteToursTitle": "Ritten verwijderen?",
+  "confirm.deleteToursMessage": "{count} ritten verwijderen? Je hebt een paar seconden om dit ongedaan te maken.",
+  "confirm.deletePhotoTitle": "Foto verwijderen?",
+  "confirm.deletePhotoMessage": "Deze foto verwijderen? Dit kan niet ongedaan worden gemaakt.",
+  "confirm.deleteAccountTitle": "Account verwijderen",
+  "confirm.deleteAccount": "Je account permanent verwijderen? Je ritten en foto's worden direct verwijderd; je inlog wordt kort daarna volledig verwijderd. Dit kan niet ongedaan worden gemaakt.",
+  "confirm.deleteAccountPhraseHint": "Typ {phrase} om te bevestigen."
 }

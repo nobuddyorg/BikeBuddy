@@ -97,6 +97,7 @@
   "profile.langAria": "Changer de langue",
   "profile.exportData": "Exporter mes données",
   "profile.deleteAccount": "Supprimer le compte",
+  "profile.dangerZone": "Zone dangereuse",
   "profile.yourAccount": "Ton compte",
 
   "upload.title": "Importer une sortie",
@@ -121,6 +122,8 @@
   "lightbox.retry": "Réessayer",
 
   "common.close": "Fermer",
+  "common.cancel": "Annuler",
+  "common.delete": "Supprimer",
   "common.account": "Compte",
 
   "lang.searchPlaceholder": "Rechercher une langue…",
@@ -143,6 +146,7 @@
 
   "toast.toursLoadError": "Impossible de charger tes sorties. Vérifie ta connexion et réessaie.",
   "toast.tourDeleted": "Sortie supprimée.",
+  "toast.undo": "Annuler",
   "toast.tourDeleteError": "Impossible de supprimer la sortie.",
   "toast.gpxDownloadError": "Impossible de télécharger le fichier GPX.",
   "toast.toursDeleted": "{count} sorties supprimées.",
@@ -155,8 +159,13 @@
   "toast.accountDeleteError": "Impossible de supprimer ton compte. Réessaie.",
   "toast.tourUploaded": "Sortie importée.",
 
-  "confirm.deleteTour": "Supprimer cette sortie ? Cette action est irréversible.",
-  "confirm.deleteTours": "Supprimer les sorties sélectionnées ? Cette action est irréversible.",
-  "confirm.deletePhoto": "Supprimer cette photo ?",
-  "confirm.deleteAccount": "Supprimer définitivement ton compte ? Tes sorties et photos sont supprimées immédiatement ; ta connexion sera entièrement supprimée peu après. Cette action est irréversible."
+  "confirm.deleteTourTitle": "Supprimer la sortie ?",
+  "confirm.deleteTourMessage": "Supprimer « {name} » ? Tu auras quelques secondes pour annuler.",
+  "confirm.deleteToursTitle": "Supprimer les sorties ?",
+  "confirm.deleteToursMessage": "Supprimer {count} sorties ? Tu auras quelques secondes pour annuler.",
+  "confirm.deletePhotoTitle": "Supprimer la photo ?",
+  "confirm.deletePhotoMessage": "Supprimer cette photo ? Cette action est irréversible.",
+  "confirm.deleteAccountTitle": "Supprimer ton compte",
+  "confirm.deleteAccount": "Supprimer définitivement ton compte ? Tes sorties et photos sont supprimées immédiatement ; ta connexion sera entièrement supprimée peu après. Cette action est irréversible.",
+  "confirm.deleteAccountPhraseHint": "Tape {phrase} pour confirmer."
 }

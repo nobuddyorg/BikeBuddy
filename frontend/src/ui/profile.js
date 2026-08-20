@@ -16,9 +16,17 @@ import {
   elProfileNameError,
   elProfileEmail,
   elProfileSince,
+  elDeleteAccountModal,
+  elDeleteAccountHint,
+  elDeleteAccountInput,
+  elBtnDeleteAccountConfirm,
 } from './dom.js';
 
 const t = i18n.t;
+
+// A typed phrase rather than a second click, kept as one literal token
+// (not translated) so it stays exact and easy to type regardless of locale.
+const DELETE_ACCOUNT_PHRASE = 'DELETE';
 
 function renderProfile() {
   elProfileTitle.textContent = state.user.name || t('profile.yourAccount');
@@ -107,12 +115,30 @@ export async function downloadMyData() {
   }
 }
 
-// GDPR erasure.
+export function openDeleteAccountModal() {
+  elDeleteAccountInput.value = '';
+  elDeleteAccountHint.textContent = t('confirm.deleteAccountPhraseHint', {
+    phrase: DELETE_ACCOUNT_PHRASE,
+  });
+  elBtnDeleteAccountConfirm.disabled = true;
+  openModal(elDeleteAccountModal);
+}
+
+export function closeDeleteAccountModal() {
+  closeModal(elDeleteAccountModal);
+}
+
+export function updateDeleteAccountConfirmState() {
+  elBtnDeleteAccountConfirm.disabled = elDeleteAccountInput.value !== DELETE_ACCOUNT_PHRASE;
+}
+
+// GDPR erasure. Only reachable once the typed-phrase check in the modal has
+// enabled the button, so no further confirmation happens here.
 export async function deleteMyAccount() {
-  if (!confirm(t('confirm.deleteAccount'))) return;
   try {
     const res = await apiFetch('/api/account', { method: 'DELETE' });
     if (!res.ok) throw new Error('delete failed');
+    closeDeleteAccountModal();
     closeProfile();
     toast(t('toast.accountDeleted'), 'success');
     await signOut();

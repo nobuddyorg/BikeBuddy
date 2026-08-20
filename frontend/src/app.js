@@ -44,6 +44,10 @@ import {
   elDropzone,
   elUploadFile,
   elLightbox,
+  elConfirmModal,
+  elDeleteAccountModal,
+  elDeleteAccountInput,
+  elBtnDeleteAccountConfirm,
   show,
 } from './ui/dom.js';
 import { signIn, signOut, initAuth } from './ui/auth.js';
@@ -53,6 +57,9 @@ import {
   downloadMyData,
   deleteMyAccount,
   closeProfile,
+  openDeleteAccountModal,
+  closeDeleteAccountModal,
+  updateDeleteAccountConfirmState,
 } from './ui/profile.js';
 import {
   closeDetailPanel,
@@ -84,6 +91,7 @@ import {
   openModalEl,
   wireDropzone,
 } from './ui/modal.js';
+import { cancelConfirm } from './ui/confirm.js';
 import { readInitialUrl, initHistory, syncUrl } from './ui/router.js';
 
 const t = i18n.t;
@@ -109,7 +117,10 @@ elBtnLogout.addEventListener('click', signOut);
 elBtnProfile.addEventListener('click', openProfile);
 elProfileNameForm.addEventListener('submit', saveProfileName);
 elBtnExportData.addEventListener('click', downloadMyData);
-elBtnDeleteAccount.addEventListener('click', deleteMyAccount);
+elBtnDeleteAccount.addEventListener('click', openDeleteAccountModal);
+elDeleteAccountInput.addEventListener('input', updateDeleteAccountConfirmState);
+elBtnDeleteAccountConfirm.addEventListener('click', deleteMyAccount);
+wireModalClose(elDeleteAccountModal, $('btn-close-delete-account'), closeDeleteAccountModal);
 elBtnCloseDetail.addEventListener('click', closeDetailPanel);
 elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
 elBtnEditTour.addEventListener('click', openEdit);
@@ -204,7 +215,11 @@ $('btn-lightbox-retry').addEventListener('click', retryLightboxImage);
 document.addEventListener('keydown', (e) => {
   const open = openModalEl();
   if (!open) return;
-  if (e.key === 'Escape') return open === elLightbox ? closeLightbox() : closeModal(open);
+  if (e.key === 'Escape') {
+    if (open === elLightbox) return closeLightbox();
+    if (open === elConfirmModal) return cancelConfirm();
+    return closeModal(open);
+  }
   if (open === elLightbox) {
     if (e.key === 'ArrowLeft') return lightboxPrev();
     if (e.key === 'ArrowRight') return lightboxNext();

@@ -30,6 +30,7 @@ import {
   elMapFilterChipLabel,
 } from './dom.js';
 import { openModal, closeModal } from './modal.js';
+import { confirmDialog } from './confirm.js';
 import { pushLayer, syncUrl } from './router.js';
 
 const t = i18n.t;
@@ -143,19 +144,76 @@ export async function submitEdit(e) {
   }
 }
 
-export async function deleteTourById(id) {
-  if (!confirm(t('confirm.deleteTour'))) return;
-  try {
-    const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('delete failed');
-    state.tours = state.tours.filter((t) => t.id !== id);
-    if (id === state.selectedTourId) deselectTour();
+// Undo window: the delete is optimistic on the client and the real DELETE
+// call is deferred until this elapses, so Undo just cancels the timer and
+// puts the tour(s) back — no server-side restore needed.
+const DELETE_GRACE_MS = 6000;
+
+// Shared by the single- and bulk-delete flows below. `tours` are the actual
+// objects (not just ids) so Undo can restore them without a re-fetch.
+function scheduleTourRemoval(tours) {
+  const ids = tours.map((tour) => tour.id);
+  state.tours = state.tours.filter((tour) => !ids.includes(tour.id));
+  ids.forEach((id) => state.selectedIds.delete(id));
+  if (ids.includes(state.selectedTourId)) deselectTour();
+  state.selectMode = false;
+  renderSidebar();
+  renderAllRoutes();
+
+  let undone = false;
+  const timer = setTimeout(async () => {
+    const succeeded = [];
+    const failed = [];
+    await runWithConcurrency(ids, 3, async (id) => {
+      try {
+        const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('delete failed');
+        succeeded.push(id);
+      } catch {
+        failed.push(id);
+      }
+    });
+    if (failed.length === 0) return;
+    // A failed background delete must not leave the tour missing from the UI.
+    state.tours.push(...tours.filter((tour) => failed.includes(tour.id)));
     renderSidebar();
     await renderAllRoutes();
-    toast(t('toast.tourDeleted'), 'success');
-  } catch {
-    toast(t('toast.tourDeleteError'), 'error');
-  }
+    toast(
+      succeeded.length === 0
+        ? t('toast.tourDeleteError')
+        : t('toast.toursDeletedPartial', { deleted: succeeded.length, total: ids.length }),
+      'error',
+    );
+  }, DELETE_GRACE_MS);
+
+  toast(
+    ids.length === 1 ? t('toast.tourDeleted') : t('toast.toursDeleted', { count: ids.length }),
+    'success',
+    DELETE_GRACE_MS,
+    {
+      label: t('toast.undo'),
+      onClick: () => {
+        if (undone) return;
+        undone = true;
+        clearTimeout(timer);
+        state.tours.push(...tours);
+        renderSidebar();
+        renderAllRoutes();
+      },
+    },
+  );
+}
+
+export async function deleteTourById(id) {
+  const tour = state.tours.find((t) => t.id === id);
+  if (!tour) return;
+  const ok = await confirmDialog({
+    title: t('confirm.deleteTourTitle'),
+    message: t('confirm.deleteTourMessage', { name: tour.name || '' }),
+    confirmLabel: t('common.delete'),
+  });
+  if (!ok) return;
+  scheduleTourRemoval([tour]);
 }
 
 export async function deleteSelectedTour() {
@@ -165,50 +223,14 @@ export async function deleteSelectedTour() {
 
 export async function deleteSelectedTours() {
   if (state.selectedIds.size === 0) return;
-  if (!confirm(t('confirm.deleteTours'))) return;
-
-  const ids = [...state.selectedIds];
-  const succeeded = [];
-  const failed = [];
-
-  await runWithConcurrency(ids, 3, async (id) => {
-    try {
-      const res = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('delete failed');
-      succeeded.push(id);
-    } catch {
-      failed.push(id);
-    }
+  const tours = state.tours.filter((tour) => state.selectedIds.has(tour.id));
+  const ok = await confirmDialog({
+    title: t('confirm.deleteToursTitle'),
+    message: t('confirm.deleteToursMessage', { count: tours.length }),
+    confirmLabel: t('common.delete'),
   });
-
-  state.tours = state.tours.filter((tour) => !succeeded.includes(tour.id));
-  succeeded.forEach((id) => state.selectedIds.delete(id));
-  if (succeeded.includes(state.selectedTourId)) {
-    deselectTour();
-  }
-
-  if (failed.length === 0) {
-    state.selectMode = false;
-    toast(
-      succeeded.length === 1
-        ? t('toast.tourDeleted')
-        : t('toast.toursDeleted', { count: succeeded.length }),
-      'success',
-    );
-  } else if (succeeded.length === 0) {
-    toast(t('toast.tourDeleteError'), 'error');
-  } else {
-    toast(
-      t('toast.toursDeletedPartial', {
-        deleted: succeeded.length,
-        total: ids.length,
-      }),
-      'error',
-    );
-  }
-
-  renderSidebar();
-  await renderAllRoutes();
+  if (!ok) return;
+  scheduleTourRemoval(tours);
 }
 
 function renderDetailPanel(tour) {

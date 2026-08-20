@@ -97,6 +97,7 @@
   "profile.langAria": "Cambiar idioma",
   "profile.exportData": "Exportar mis datos",
   "profile.deleteAccount": "Eliminar cuenta",
+  "profile.dangerZone": "Zona de peligro",
   "profile.yourAccount": "Tu cuenta",
 
   "upload.title": "Subir una ruta",
@@ -121,6 +122,8 @@
   "lightbox.retry": "Inténtalo de nuevo",
 
   "common.close": "Cerrar",
+  "common.cancel": "Cancelar",
+  "common.delete": "Eliminar",
   "common.account": "Cuenta",
 
   "lang.searchPlaceholder": "Buscar idiomas…",
@@ -143,6 +146,7 @@
 
   "toast.toursLoadError": "No se pudieron cargar tus rutas. Comprueba tu conexión e inténtalo de nuevo.",
   "toast.tourDeleted": "Ruta eliminada.",
+  "toast.undo": "Deshacer",
   "toast.tourDeleteError": "No se pudo eliminar la ruta.",
   "toast.gpxDownloadError": "No se pudo descargar el archivo GPX.",
   "toast.toursDeleted": "{count} rutas eliminadas.",
@@ -155,8 +159,13 @@
   "toast.accountDeleteError": "No se pudo eliminar tu cuenta. Inténtalo de nuevo.",
   "toast.tourUploaded": "Ruta subida.",
 
-  "confirm.deleteTour": "¿Eliminar esta ruta? Esta acción no se puede deshacer.",
-  "confirm.deleteTours": "¿Eliminar las rutas seleccionadas? Esta acción no se puede deshacer.",
-  "confirm.deletePhoto": "¿Eliminar esta foto?",
-  "confirm.deleteAccount": "¿Eliminar tu cuenta de forma permanente? Tus rutas y fotos se eliminan de inmediato; tu sesión se elimina por completo poco después. Esta acción no se puede deshacer."
+  "confirm.deleteTourTitle": "¿Eliminar ruta?",
+  "confirm.deleteTourMessage": "¿Eliminar «{name}»? Tendrás unos segundos para deshacerlo.",
+  "confirm.deleteToursTitle": "¿Eliminar rutas?",
+  "confirm.deleteToursMessage": "¿Eliminar {count} rutas? Tendrás unos segundos para deshacerlo.",
+  "confirm.deletePhotoTitle": "¿Eliminar foto?",
+  "confirm.deletePhotoMessage": "¿Eliminar esta foto? Esta acción no se puede deshacer.",
+  "confirm.deleteAccountTitle": "Eliminar tu cuenta",
+  "confirm.deleteAccount": "¿Eliminar tu cuenta de forma permanente? Tus rutas y fotos se eliminan de inmediato; tu sesión se elimina por completo poco después. Esta acción no se puede deshacer.",
+  "confirm.deleteAccountPhraseHint": "Escribe {phrase} para confirmar."
 }

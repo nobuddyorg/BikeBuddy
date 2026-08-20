@@ -10,6 +10,7 @@ import {
   elUploadModal,
   elProfileModal,
   elHelpModal,
+  elDeleteAccountModal,
 } from './dom.js';
 import { initials } from '../lib/format.js';
 import { clearRouteLayer } from './routes.js';
@@ -136,7 +137,9 @@ export async function signOut() {
   clearPins();
   show(elPinToggle, false);
   show(elDetailPanel, false);
-  [elEditModal, elUploadModal, elProfileModal, elHelpModal].forEach((m) => show(m, false));
+  [elEditModal, elUploadModal, elProfileModal, elHelpModal, elDeleteAccountModal].forEach((m) =>
+    show(m, false),
+  );
   renderSidebar();
   renderNavAuth();
 }
