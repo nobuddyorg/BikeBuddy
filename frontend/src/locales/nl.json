@@ -20,6 +20,7 @@
   "sidebar.pagerPrevAria": "Vorige pagina",
   "sidebar.pagerNextAria": "Volgende pagina",
   "sidebar.pagerLabel": "Pagina {page} van {totalPages}",
+  "sidebar.filteredCount": "{count} / {total}",
   "sidebar.select": "Selecteren",
   "sidebar.filterInView": "In beeld",
   "sidebar.selectedCount": "{count} geselecteerd",
