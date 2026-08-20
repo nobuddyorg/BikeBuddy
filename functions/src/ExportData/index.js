@@ -16,12 +16,10 @@ async function exportData(
   if (!user) return unauthorized();
   const { userId } = user;
 
-  const userDoc = await readItem(getUsers(), userId, userId);
-  const tours = await queryUserItems(
-    getTours(),
-    userId,
-    'SELECT * FROM c WHERE c.userId = @userId',
-  );
+  const [userDoc, tours] = await Promise.all([
+    readItem(getUsers(), userId, userId),
+    queryUserItems(getTours(), userId, 'SELECT * FROM c WHERE c.userId = @userId'),
+  ]);
 
   return {
     status: 200,

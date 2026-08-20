@@ -25,12 +25,18 @@ async function getTour(
   if (tour.images?.length) {
     const container = await getImagesContainer();
     tour.images = await Promise.all(
-      tour.images.map(async (img) => ({
-        id: img.id,
-        url: await readSasUrl(container.getBlockBlobClient(img.blobName)),
-        thumbUrl: await readSasUrl(container.getBlockBlobClient(thumbBlobName(img.blobName))),
-        ...(typeof img.lat === 'number' && { lat: img.lat, lon: img.lon }),
-      })),
+      tour.images.map(async (img) => {
+        const [url, thumbUrl] = await Promise.all([
+          readSasUrl(container.getBlockBlobClient(img.blobName)),
+          readSasUrl(container.getBlockBlobClient(thumbBlobName(img.blobName))),
+        ]);
+        return {
+          id: img.id,
+          url,
+          thumbUrl,
+          ...(typeof img.lat === 'number' && { lat: img.lat, lon: img.lon }),
+        };
+      }),
     );
   } else {
     tour.images = [];
