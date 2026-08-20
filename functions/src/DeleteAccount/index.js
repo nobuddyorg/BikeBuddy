@@ -13,9 +13,11 @@ const { gpxContainer, imagesContainer } = require('../lib/blobStorage');
 const { unauthorized } = require('../lib/http');
 
 async function deleteBlobsByPrefix(container, prefix) {
+  const names = [];
   for await (const blob of container.listBlobsFlat({ prefix })) {
-    await container.deleteBlob(blob.name);
+    names.push(blob.name);
   }
+  await Promise.all(names.map((name) => container.deleteBlob(name)));
 }
 
 // DELETE /api/account — tours, blobs and the user doc go now; the Entra identity
@@ -42,9 +44,7 @@ async function deleteAccount(
 
   const toursC = getTours();
   const tours = await queryUserItems(toursC, userId, 'SELECT c.id FROM c WHERE c.userId = @userId');
-  for (const tour of tours) {
-    await toursC.item(tour.id, userId).delete();
-  }
+  await Promise.all(tours.map((tour) => toursC.item(tour.id, userId).delete()));
 
   // Blobs are namespaced under `${userId}/` in both containers.
   const prefix = `${userId}/`;
