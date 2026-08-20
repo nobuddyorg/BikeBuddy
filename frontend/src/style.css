@@ -116,6 +116,12 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
 }
 
 .navbar-logo {
@@ -930,25 +936,6 @@ body {
   display: block;
   width: 20px;
   height: 20px;
-}
-
-/* Mobile only (below) — desktop users have an ordinary browser reload.
-   Placed after .btn for the same zero-padding-wins reason as
-   .stats-header-btn above. */
-.navbar-reload {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-}
-
-.navbar-reload svg {
-  display: block;
-  width: 24px;
-  height: 24px;
 }
 
 .btn-full {
@@ -1851,10 +1838,6 @@ body:not(.i18n-loading) .app-skeleton {
   }
 
   .tour-stats-btn {
-    display: inline-flex;
-  }
-
-  .navbar-reload {
     display: inline-flex;
   }
 
