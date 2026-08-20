@@ -125,14 +125,33 @@
         </div>
 
         <div id="tour-controls" class="tour-controls hidden">
-          <input
-            id="tour-search"
-            type="search"
-            class="tour-search"
-            data-i18n-placeholder="sidebar.searchPlaceholder"
-            data-i18n-aria-label="sidebar.searchAria"
-            autocomplete="off"
-          />
+          <div class="tour-search-wrap">
+            <input
+              id="tour-search"
+              type="search"
+              class="tour-search"
+              data-i18n-placeholder="sidebar.searchPlaceholder"
+              data-i18n-aria-label="sidebar.searchAria"
+              autocomplete="off"
+            />
+            <button
+              id="tour-search-clear"
+              type="button"
+              class="tour-search-clear hidden"
+              data-i18n-aria-label="sidebar.searchClearAria"
+              data-i18n-title="sidebar.searchClearAria"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
           <select id="tour-sort" class="tour-sort" data-i18n-aria-label="sidebar.sortAria">
             <option value="date-desc" data-i18n="sort.dateDesc">Newest first</option>
             <option value="date-asc" data-i18n="sort.dateAsc">Oldest first</option>

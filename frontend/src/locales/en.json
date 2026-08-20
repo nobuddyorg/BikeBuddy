@@ -12,6 +12,7 @@
   "sidebar.loading": "Loading your tours…",
   "sidebar.searchPlaceholder": "Search tours…",
   "sidebar.searchAria": "Search tours",
+  "sidebar.searchClearAria": "Clear search",
   "sidebar.sortAria": "Sort tours",
   "sidebar.noToursYet": "No tours yet.",
   "sidebar.uploadFirst": "Upload your first GPX",

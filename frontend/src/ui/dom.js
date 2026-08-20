@@ -10,6 +10,7 @@ export const elTourLoadError = $('tour-load-error');
 export const elTourLoading = $('tour-loading');
 export const elTourControls = $('tour-controls');
 export const elTourSearch = $('tour-search');
+export const elTourSearchClear = $('tour-search-clear');
 export const elTourSort = $('tour-sort');
 export const elSortMenu = $('sort-menu');
 export const elBtnSortMenu = $('btn-sort-menu');

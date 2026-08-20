@@ -12,6 +12,7 @@
   "sidebar.loading": "Deine Touren werden geladen…",
   "sidebar.searchPlaceholder": "Touren suchen…",
   "sidebar.searchAria": "Touren suchen",
+  "sidebar.searchClearAria": "Suche löschen",
   "sidebar.sortAria": "Touren sortieren",
   "sidebar.noToursYet": "Noch keine Touren.",
   "sidebar.uploadFirst": "Lade deine erste GPX-Datei hoch",

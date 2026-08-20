@@ -12,6 +12,7 @@
   "sidebar.loading": "Caricamento dei tuoi giri…",
   "sidebar.searchPlaceholder": "Cerca giri…",
   "sidebar.searchAria": "Cerca giri",
+  "sidebar.searchClearAria": "Cancella ricerca",
   "sidebar.sortAria": "Ordina giri",
   "sidebar.noToursYet": "Ancora nessun giro.",
   "sidebar.uploadFirst": "Carica il tuo primo GPX",

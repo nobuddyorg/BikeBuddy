@@ -34,9 +34,47 @@ export function fuzzyMatch(query, text) {
   return fuzzyMatchIndices(query, text) !== null;
 }
 
+// Higher is better; null means no match. Ranks an exact/prefix/word-boundary
+// substring above a merely contiguous one, and any contiguous run above a
+// scattered subsequence — a tighter scatter still beats a sprawling one — so
+// short queries (which match almost everything as a scattered subsequence)
+// still float the real hits to the top.
+export function matchScore(query, text) {
+  const q = query.trim().toLowerCase();
+  if (!q) return 0;
+  const t = (text || '').toLowerCase();
+  const idx = t.indexOf(q);
+  if (idx !== -1) {
+    if (idx === 0 && t.length === q.length) return 1000;
+    if (idx === 0) return 900;
+    if (t[idx - 1] === ' ' || t[idx - 1] === '-') return 800;
+    return 600;
+  }
+  const indices = fuzzyMatchIndices(q, t);
+  if (!indices) return null;
+  if (indices.length === 0) return 0;
+  const span = indices[indices.length - 1] - indices[0] + 1;
+  return Math.max(1, 400 - span);
+}
+
+// Ranks by relevance when searching name and description; falls back to the
+// chosen sort (as tiebreaker, and outright when the box is empty).
 export function visibleTours(tours, sort, search) {
   const sorter = SORTERS[sort] || SORTERS['date-desc'];
-  return tours.filter((t) => fuzzyMatch(search, t.name)).sort(sorter);
+  const q = (search || '').trim();
+  if (!q) return [...tours].sort(sorter);
+  return tours
+    .map((tour) => {
+      const nameScore = matchScore(q, tour.name || '');
+      if (nameScore !== null) return { tour, score: nameScore };
+      const descScore = matchScore(q, tour.description || '');
+      // Pushed below every name match, however weak, since a hit buried in
+      // the description is a weaker signal than any hit in the name.
+      return descScore !== null ? { tour, score: descScore - 1000 } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score || sorter(a.tour, b.tour))
+    .map(({ tour }) => tour);
 }
 
 // "In view" means partially on screen, not fully contained. Takes a plain

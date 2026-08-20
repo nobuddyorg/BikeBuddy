@@ -12,6 +12,7 @@
   "sidebar.loading": "Cargando tus rutas…",
   "sidebar.searchPlaceholder": "Buscar rutas…",
   "sidebar.searchAria": "Buscar rutas",
+  "sidebar.searchClearAria": "Borrar búsqueda",
   "sidebar.sortAria": "Ordenar rutas",
   "sidebar.noToursYet": "Aún no hay rutas.",
   "sidebar.uploadFirst": "Sube tu primer GPX",

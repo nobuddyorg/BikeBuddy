@@ -236,6 +236,46 @@ body {
   border-color: var(--color-primary);
 }
 
+.tour-search-wrap {
+  position: relative;
+  display: flex;
+}
+
+.tour-search-wrap .tour-search {
+  width: 100%;
+  padding-right: 30px;
+}
+
+/* Hide the native WebKit clear ✕ so it doesn't sit next to ours. */
+.tour-search-wrap .tour-search::-webkit-search-cancel-button {
+  display: none;
+}
+
+.tour-search-clear {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.tour-search-clear:hover {
+  color: var(--color-text);
+}
+
+.tour-search-clear svg {
+  width: 16px;
+  height: 16px;
+}
+
 .tour-sort {
   cursor: pointer;
 }
@@ -1559,7 +1599,7 @@ body:not(.i18n-loading) .app-skeleton {
     flex-direction: row;
   }
 
-  .tour-search {
+  .tour-search-wrap {
     flex: 1;
   }
 
