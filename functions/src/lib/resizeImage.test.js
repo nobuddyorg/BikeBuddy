@@ -34,6 +34,16 @@ describe('resizeImage', () => {
     expect(meta.height).toBe(50);
   });
 
+  it('rejects an image over the pixel limit instead of decoding it', async () => {
+    const buffer = await sharp({
+      create: { width: 100, height: 100, channels: 3, background: { r: 1, g: 2, b: 3 } },
+    })
+      .png()
+      .toBuffer();
+
+    await expect(resizeImage(buffer, 5000)).rejects.toThrow(/exceeds pixel limit/i);
+  });
+
   it('encodes at quality 82, not the sharp default', async () => {
     const width = 100;
     const height = 100;
@@ -78,6 +88,16 @@ describe('resizeThumbnail', () => {
 
     expect(meta.width).toBe(100);
     expect(meta.height).toBe(50);
+  });
+
+  it('rejects an image over the pixel limit instead of decoding it', async () => {
+    const buffer = await sharp({
+      create: { width: 100, height: 100, channels: 3, background: { r: 1, g: 2, b: 3 } },
+    })
+      .png()
+      .toBuffer();
+
+    await expect(resizeThumbnail(buffer, 5000)).rejects.toThrow(/exceeds pixel limit/i);
   });
 
   it('is smaller than the full-size resize for the same source image', async () => {
