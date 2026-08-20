@@ -19,7 +19,11 @@
       name="description"
       content="Upload GPX rides (cycling or motorcycling) and see your routes on the map."
     />
-    <meta name="theme-color" content="#0f1117" />
+    <!-- Two metas, not one: matches the light/dark split the app already
+       renders via prefers-color-scheme (style.css), so browser chrome and
+       the install splash follow the active scheme instead of always dark. -->
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="favicon.png" type="image/png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <!-- Social link previews -->

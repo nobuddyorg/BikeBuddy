@@ -241,3 +241,11 @@ document.addEventListener('keydown', (e) => {
     document.body.classList.remove('i18n-loading');
   }
 })();
+
+// Offline support is a progressive enhancement — registration failing (an
+// unsupported browser, a blocked extension) shouldn't affect the rest of the app.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
