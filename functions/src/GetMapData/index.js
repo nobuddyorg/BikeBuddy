@@ -4,6 +4,7 @@ const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer, queryUserItems } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
+const { thumbBlobName } = require('../lib/thumbBlobName');
 const { unauthorized } = require('../lib/http');
 const { simplifyToTarget } = require('../lib/simplify');
 
@@ -70,6 +71,7 @@ async function getMapData(
         pinnedImages(tour).map(async (img) => ({
           id: img.id,
           url: await readSasUrl(container.getBlockBlobClient(img.blobName)),
+          thumbUrl: await readSasUrl(container.getBlockBlobClient(thumbBlobName(img.blobName))),
           lat: img.lat,
           lon: img.lon,
         })),

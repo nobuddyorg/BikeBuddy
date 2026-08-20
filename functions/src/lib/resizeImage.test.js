@@ -1,7 +1,7 @@
 'use strict';
 
 const sharp = require('sharp');
-const { resizeImage } = require('./resizeImage');
+const { resizeImage, resizeThumbnail } = require('./resizeImage');
 
 describe('resizeImage', () => {
   it('downscales an oversized image to the max width and re-encodes as JPEG', async () => {
@@ -47,5 +47,48 @@ describe('resizeImage', () => {
     const defaultQuality = await sharp(buffer).rotate().jpeg({}).toBuffer();
 
     expect(resized.length).not.toBe(defaultQuality.length);
+  });
+});
+
+describe('resizeThumbnail', () => {
+  it('downscales to the thumbnail width and re-encodes as JPEG', async () => {
+    const buffer = await sharp({
+      create: { width: 3000, height: 1500, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .png()
+      .toBuffer();
+
+    const thumb = await resizeThumbnail(buffer);
+    const meta = await sharp(thumb).metadata();
+
+    expect(meta.format).toBe('jpeg');
+    expect(meta.width).toBe(320);
+    expect(meta.height).toBe(160);
+  });
+
+  it('never upscales an image smaller than the thumbnail width', async () => {
+    const buffer = await sharp({
+      create: { width: 100, height: 50, channels: 3, background: { r: 1, g: 2, b: 3 } },
+    })
+      .jpeg()
+      .toBuffer();
+
+    const thumb = await resizeThumbnail(buffer);
+    const meta = await sharp(thumb).metadata();
+
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(50);
+  });
+
+  it('is smaller than the full-size resize for the same source image', async () => {
+    const buffer = await sharp({
+      create: { width: 3000, height: 1500, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .png()
+      .toBuffer();
+
+    const [full, thumb] = await Promise.all([resizeImage(buffer), resizeThumbnail(buffer)]);
+
+    expect(thumb.length).toBeLessThan(full.length);
   });
 });

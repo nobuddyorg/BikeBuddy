@@ -46,6 +46,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     );
 
     expect(images.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}/${IMG1}.jpg`);
+    expect(images.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}/${IMG1}_thumb.jpg`);
     expect(images.deleteIfExists).toHaveBeenCalled();
     const [doc, options] = tours.replace.mock.calls[0];
     expect(doc.images.map((i) => i.id)).toEqual([IMG2]);
@@ -77,7 +78,9 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
 
     // Blob-first would leave tour.images referencing a deleted blob — a
     // permanently broken thumbnail — if the write below then failed.
-    expect(order).toEqual(['doc', 'blob']);
+    // Both the full and thumbnail blob deletes fire (in parallel) only
+    // after the doc write settles.
+    expect(order).toEqual(['doc', 'blob', 'blob']);
   });
 
   it('does not delete the blob when the entry removal fails', async () => {
@@ -157,8 +160,9 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     expect(replace.mock.calls[1][1]).toEqual({
       accessCondition: { type: 'IfMatch', condition: '"etag-v2"' },
     });
-    // The blob delete isn't retried — only the document write races.
-    expect(images.deleteIfExists).toHaveBeenCalledTimes(1);
+    // The blob delete isn't retried — only the document write races. Two
+    // calls (full + thumbnail), not one per retry.
+    expect(images.deleteIfExists).toHaveBeenCalledTimes(2);
   });
 
   it('gives up after repeated 412 conflicts', async () => {

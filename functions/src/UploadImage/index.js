@@ -6,7 +6,8 @@ const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
-const { resizeImage } = require('../lib/resizeImage');
+const { resizeImage, resizeThumbnail } = require('../lib/resizeImage');
+const { thumbBlobName } = require('../lib/thumbBlobName');
 const { extractGps } = require('../lib/extractGps');
 const { isImageContentType } = require('../lib/validation');
 const { loadOwnedTour } = require('../lib/ownedTour');
@@ -22,14 +23,23 @@ function isJpegOrPng(buffer) {
   return jpeg || png;
 }
 
-// POST /api/tours/{tourId}/images — store a resized JPEG and append it to the tour.
+// The default `resize` dependency: both sizes, generated from the original
+// buffer independently (not chained) so each keeps its own quality/rotation
+// pass rather than compounding a second lossy re-encode onto the first.
+async function resizeVariants(buffer) {
+  const [full, thumbnail] = await Promise.all([resizeImage(buffer), resizeThumbnail(buffer)]);
+  return { full, thumbnail };
+}
+
+// POST /api/tours/{tourId}/images — store a resized JPEG (plus a thumbnail
+// variant) and append it to the tour.
 async function uploadImage(
   request,
   auth = authenticate,
   getToursContainer = toursContainer,
   getImagesContainer = imagesContainer,
   parseFile = parseMultipart,
-  resize = resizeImage,
+  resize = resizeVariants,
   readGps = extractGps,
 ) {
   const guard = await loadOwnedTour(request, auth, getToursContainer);
@@ -57,13 +67,17 @@ async function uploadImage(
 
   // The resize re-encodes and drops EXIF, so GPS can only come from the original
   // buffer. Nothing mutates it, so both can read it at once.
-  const [gps, resized] = await Promise.all([readGps(file.buffer), resize(file.buffer)]);
+  const [gps, { full, thumbnail }] = await Promise.all([readGps(file.buffer), resize(file.buffer)]);
 
   const imageId = randomUUID();
   const blobName = `${userId}/${tourId}/${imageId}.jpg`;
   const container = await getImagesContainer();
   const blockBlob = container.getBlockBlobClient(blobName);
-  await blockBlob.uploadData(resized, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } });
+  const thumbBlockBlob = container.getBlockBlobClient(thumbBlobName(blobName));
+  await Promise.all([
+    blockBlob.uploadData(full, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } }),
+    thumbBlockBlob.uploadData(thumbnail, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } }),
+  ]);
 
   const image = { id: imageId, blobName, ...(gps && { lat: gps.lat, lon: gps.lon }) };
   // Each request's tour.images snapshot predates its own parse/resize work, so
@@ -79,11 +93,13 @@ async function uploadImage(
     await tourItem.patch([{ op: 'add', path: '/images', value: [image] }]);
   }
 
+  const [url, thumbUrl] = await Promise.all([readSasUrl(blockBlob), readSasUrl(thumbBlockBlob)]);
   return {
     status: 201,
     jsonBody: {
       id: imageId,
-      url: await readSasUrl(blockBlob),
+      url,
+      thumbUrl,
       ...(gps && { lat: gps.lat, lon: gps.lon }),
     },
   };

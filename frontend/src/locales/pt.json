@@ -174,9 +174,9 @@
   "toast.tourUploaded": "Percurso carregado.",
 
   "confirm.deleteTourTitle": "Eliminar percurso?",
-  "confirm.deleteTourMessage": "Eliminar “{name}”? Terás alguns segundos para desfazer.",
+  "confirm.deleteTourMessage": "Eliminar “{name}”? Esta ação não pode ser revertida.",
   "confirm.deleteToursTitle": "Eliminar percursos?",
-  "confirm.deleteToursMessage": "Eliminar {count} percursos? Terás alguns segundos para desfazer.",
+  "confirm.deleteToursMessage": "Eliminar {count} percursos? Esta ação não pode ser revertida.",
   "confirm.deletePhotoTitle": "Eliminar foto?",
   "confirm.deletePhotoMessage": "Eliminar esta foto? Esta ação não pode ser revertida.",
   "confirm.deleteAccountTitle": "Eliminar a tua conta",

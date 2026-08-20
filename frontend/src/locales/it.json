@@ -174,9 +174,9 @@
   "toast.tourUploaded": "Giro caricato.",
 
   "confirm.deleteTourTitle": "Eliminare il giro?",
-  "confirm.deleteTourMessage": "Eliminare “{name}”? Avrai qualche secondo per annullare.",
+  "confirm.deleteTourMessage": "Eliminare “{name}”? L'operazione non può essere annullata.",
   "confirm.deleteToursTitle": "Eliminare i giri?",
-  "confirm.deleteToursMessage": "Eliminare {count} giri? Avrai qualche secondo per annullare.",
+  "confirm.deleteToursMessage": "Eliminare {count} giri? L'operazione non può essere annullata.",
   "confirm.deletePhotoTitle": "Eliminare la foto?",
   "confirm.deletePhotoMessage": "Eliminare questa foto? L'operazione non può essere annullata.",
   "confirm.deleteAccountTitle": "Elimina il tuo account",

@@ -174,9 +174,9 @@
   "toast.tourUploaded": "Rit geüpload.",
 
   "confirm.deleteTourTitle": "Rit verwijderen?",
-  "confirm.deleteTourMessage": "“{name}” verwijderen? Je hebt een paar seconden om dit ongedaan te maken.",
+  "confirm.deleteTourMessage": "“{name}” verwijderen? Dit kan niet ongedaan worden gemaakt.",
   "confirm.deleteToursTitle": "Ritten verwijderen?",
-  "confirm.deleteToursMessage": "{count} ritten verwijderen? Je hebt een paar seconden om dit ongedaan te maken.",
+  "confirm.deleteToursMessage": "{count} ritten verwijderen? Dit kan niet ongedaan worden gemaakt.",
   "confirm.deletePhotoTitle": "Foto verwijderen?",
   "confirm.deletePhotoMessage": "Deze foto verwijderen? Dit kan niet ongedaan worden gemaakt.",
   "confirm.deleteAccountTitle": "Account verwijderen",

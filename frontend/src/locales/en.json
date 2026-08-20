@@ -174,9 +174,9 @@
   "toast.tourUploaded": "Tour uploaded.",
 
   "confirm.deleteTourTitle": "Delete tour?",
-  "confirm.deleteTourMessage": "Delete “{name}”? You'll have a few seconds to undo it.",
+  "confirm.deleteTourMessage": "Delete “{name}”? This cannot be undone.",
   "confirm.deleteToursTitle": "Delete tours?",
-  "confirm.deleteToursMessage": "Delete {count} tours? You'll have a few seconds to undo it.",
+  "confirm.deleteToursMessage": "Delete {count} tours? This cannot be undone.",
   "confirm.deletePhotoTitle": "Delete photo?",
   "confirm.deletePhotoMessage": "Delete this photo? This cannot be undone.",
   "confirm.deleteAccountTitle": "Delete your account",

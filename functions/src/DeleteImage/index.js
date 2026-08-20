@@ -4,6 +4,7 @@ const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer, readItem } = require('../lib/db');
 const { imagesContainer } = require('../lib/blobStorage');
+const { thumbBlobName } = require('../lib/thumbBlobName');
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { error } = require('../lib/http');
 
@@ -52,7 +53,10 @@ async function deleteImage(
   }
 
   const container = await getImagesContainer();
-  await container.getBlockBlobClient(image.blobName).deleteIfExists();
+  await Promise.all([
+    container.getBlockBlobClient(image.blobName).deleteIfExists(),
+    container.getBlockBlobClient(thumbBlobName(image.blobName)).deleteIfExists(),
+  ]);
 
   return { status: 204 };
 }

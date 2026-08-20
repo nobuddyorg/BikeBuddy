@@ -174,9 +174,9 @@
   "toast.tourUploaded": "Tour hochgeladen.",
 
   "confirm.deleteTourTitle": "Tour löschen?",
-  "confirm.deleteTourMessage": "„{name}“ löschen? Du hast ein paar Sekunden, um das rückgängig zu machen.",
+  "confirm.deleteTourMessage": "„{name}“ löschen? Das kann nicht rückgängig gemacht werden.",
   "confirm.deleteToursTitle": "Touren löschen?",
-  "confirm.deleteToursMessage": "{count} Touren löschen? Du hast ein paar Sekunden, um das rückgängig zu machen.",
+  "confirm.deleteToursMessage": "{count} Touren löschen? Das kann nicht rückgängig gemacht werden.",
   "confirm.deletePhotoTitle": "Foto löschen?",
   "confirm.deletePhotoMessage": "Dieses Foto löschen? Das kann nicht rückgängig gemacht werden.",
   "confirm.deleteAccountTitle": "Konto löschen",
