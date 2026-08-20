@@ -300,8 +300,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   padding: 0;
 }
 
@@ -310,8 +310,8 @@ body {
    the old text version look small no matter how far its font-size was
    pushed up. */
 .sort-menu-btn svg {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
 }
 
 #filter-in-view-toggle:has(input:checked) {
@@ -328,15 +328,15 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   padding: 0;
 }
 
 .tour-stats-btn svg {
   display: block;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
 }
 
 .sort-menu-list {
@@ -1844,7 +1844,7 @@ body:not(.i18n-loading) .app-skeleton {
   /* "?" glyph reads too small at .btn's 13px base font-size next to the
      44px tap target it already sits in. */
   #btn-help {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   /* .sidebar clips overflow (see rule above) and is height-capped on mobile,
