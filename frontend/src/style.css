@@ -386,6 +386,18 @@ body {
   min-height: 0;
 }
 
+/* Grows from 0 as sidebar.js's custom pull-to-refresh drags the list down
+   (see bindPullToRefresh) — height, not transform, so it's a normal flex
+   sibling pushing .tour-list down rather than overlapping it. */
+.pull-refresh-indicator {
+  height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .tour-pager {
   display: flex;
   align-items: center;
