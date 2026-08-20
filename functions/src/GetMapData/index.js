@@ -7,6 +7,9 @@ const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { thumbBlobName } = require('../lib/thumbBlobName');
 const { unauthorized } = require('../lib/http');
 const { simplifyToTarget } = require('../lib/simplify');
+const { createHeatmapCache } = require('../lib/heatmapCache');
+
+const defaultHeatmapCache = createHeatmapCache();
 
 const isGeotagged = (img) => typeof img.lat === 'number' && typeof img.lon === 'number';
 const pinnedImages = (tour) => (tour.images || []).filter(isGeotagged);
@@ -47,6 +50,7 @@ async function getMapData(
   getImagesContainer = imagesContainer,
   totalPointBudget = TOTAL_POINT_BUDGET,
   maxGapMeters = MAX_GAP_METERS,
+  heatmapCache = defaultHeatmapCache,
 ) {
   const user = await auth(request);
   if (!user) return unauthorized();
@@ -61,7 +65,9 @@ async function getMapData(
     ? await getImagesContainer()
     : null;
 
-  const heatmapDataByTour = budgetHeatmapData(tours, totalPointBudget, maxGapMeters);
+  const heatmapDataByTour = heatmapCache.getOrCompute(user.userId, tours, () =>
+    budgetHeatmapData(tours, totalPointBudget, maxGapMeters),
+  );
 
   const jsonBody = await Promise.all(
     tours.map(async (tour, i) => ({
