@@ -34,7 +34,7 @@ import {
   elBtnMapExpand,
   elAppLayout,
   elBtnHelp,
-  elBtnReload,
+  elBtnBrandReload,
   elHelpModal,
   elProfileModal,
   elEditModal,
@@ -210,7 +210,7 @@ elBtnMapExpand.addEventListener('click', () => {
 });
 
 elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
-elBtnReload.addEventListener('click', () => window.location.reload());
+elBtnBrandReload.addEventListener('click', () => window.location.reload());
 wireModalClose(elHelpModal, $('btn-close-help'), () => closeModal(elHelpModal));
 wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
 wireModalClose(elEditModal, $('btn-close-edit'), closeEdit);
