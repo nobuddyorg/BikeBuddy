@@ -11,6 +11,7 @@ import {
   elProfileModal,
   elHelpModal,
   elDeleteAccountModal,
+  elStatsModal,
 } from './dom.js';
 import { initials } from '../lib/format.js';
 import { clearRouteLayer } from './routes.js';
@@ -137,9 +138,14 @@ export async function signOut() {
   clearPins();
   show(elPinToggle, false);
   show(elDetailPanel, false);
-  [elEditModal, elUploadModal, elProfileModal, elHelpModal, elDeleteAccountModal].forEach((m) =>
-    show(m, false),
-  );
+  [
+    elEditModal,
+    elUploadModal,
+    elProfileModal,
+    elHelpModal,
+    elDeleteAccountModal,
+    elStatsModal,
+  ].forEach((m) => show(m, false));
   renderSidebar();
   renderNavAuth();
 }

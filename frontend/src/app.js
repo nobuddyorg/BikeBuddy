@@ -48,6 +48,8 @@ import {
   elDeleteAccountInput,
   elBtnDeleteAccountConfirm,
   elBtnStatsLongest,
+  elStatsModal,
+  elBtnStats,
   show,
 } from './ui/dom.js';
 import { signIn, signOut, initAuth } from './ui/auth.js';
@@ -61,6 +63,7 @@ import {
   closeDeleteAccountModal,
   updateDeleteAccountConfirmState,
 } from './ui/profile.js';
+import { openStatsModal, closeStatsModal } from './ui/statsModal.js';
 import {
   closeDetailPanel,
   deselectTour,
@@ -118,10 +121,12 @@ elBtnLogout.addEventListener('click', signOut);
 elBtnProfile.addEventListener('click', openProfile);
 elProfileNameForm.addEventListener('submit', saveProfileName);
 elBtnExportData.addEventListener('click', downloadMyData);
+elBtnStats.addEventListener('click', openStatsModal);
+wireModalClose(elStatsModal, $('btn-close-stats'), closeStatsModal);
 elBtnStatsLongest.addEventListener('click', () => {
   const id = elBtnStatsLongest.dataset.tourId;
   if (!id) return;
-  closeProfile();
+  closeStatsModal();
   selectTour(id);
 });
 elBtnDeleteAccount.addEventListener('click', openDeleteAccountModal);
