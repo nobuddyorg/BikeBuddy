@@ -31,6 +31,10 @@ interface ProfileModal {
       deleteAccount: Locator;
       close: Locator;
     };
+    deleteAccountModal: {
+      input: Locator;
+      confirm: Locator;
+    };
   };
 }
 
@@ -54,6 +58,10 @@ export function initProfileModal(page: Page): ProfileModal {
       deleteAccount: page.locator('#btn-delete-account'),
       close: page.locator('#btn-close-profile'),
     },
+    deleteAccountModal: {
+      input: page.locator('#delete-account-input'),
+      confirm: page.locator('#btn-delete-account-confirm'),
+    },
   };
   const interactions = {
     setName: async (name: string) => locators.nameInput.fill(name),
@@ -65,8 +73,9 @@ export function initProfileModal(page: Page): ProfileModal {
     },
     exportData: async () => locators.buttons.exportData.click(),
     deleteAccount: async () => {
-      page.once('dialog', (d) => d.accept());
       await locators.buttons.deleteAccount.click();
+      await locators.deleteAccountModal.input.fill('DELETE');
+      await locators.deleteAccountModal.confirm.click();
     },
     close: async () => locators.buttons.close.click(),
   };

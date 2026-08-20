@@ -32,7 +32,7 @@ buddyTest.describe('account data (GDPR)', () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('bikebuddy-export.json');
 
-    // Delete account (auto-accepts the confirm) → signed out, DB emptied.
+    // Delete account (types the confirmation phrase) → signed out, DB emptied.
     await on(page).modal.profile.do.deleteAccount();
     await expect(on(page).main.locators.buttons.login).toBeVisible();
     await expect(on(page).main.locators.userMenu).toBeHidden();

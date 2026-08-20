@@ -129,6 +129,12 @@ interface MainPage {
       zoomOut: Locator;
       zoomIn: Locator;
     };
+    confirmModal: {
+      root: Locator;
+      message: Locator;
+      ok: Locator;
+      cancel: Locator;
+    };
   };
 }
 
@@ -215,6 +221,12 @@ export function initMainPage(page: Page): MainPage {
     mapControls: {
       zoomOut: page.locator('.leaflet-control-zoom-out'),
       zoomIn: page.locator('.leaflet-control-zoom-in'),
+    },
+    confirmModal: {
+      root: page.locator('#confirm-modal'),
+      message: page.locator('#confirm-modal-message'),
+      ok: page.locator('#btn-confirm-ok'),
+      cancel: page.locator('#btn-confirm-cancel'),
     },
   };
 
@@ -335,8 +347,8 @@ export function initMainPage(page: Page): MainPage {
       await locators.image.retryButtons.first().click();
     },
     deleteImage: async (index = 0) => {
-      page.once('dialog', (d) => d.accept());
       await locators.image.deleteButtons.nth(index).click();
+      await locators.confirmModal.ok.click();
     },
     openLightbox: async (index = 0) => {
       await locators.image.thumbs.nth(index).click();
@@ -345,16 +357,16 @@ export function initMainPage(page: Page): MainPage {
       await locators.lightbox.closeButton.click();
     },
     deleteTour: async () => {
-      page.once('dialog', (d) => d.accept());
       await locators.buttons.deleteTour.click();
+      await locators.confirmModal.ok.click();
     },
     enterSelectMode: async () => locators.buttons.selectMode.click(),
     toggleTourSelection: async (name: string) => {
       await locators.list.container.locator('.tour-item', { hasText: name }).click();
     },
     deleteSelected: async () => {
-      page.once('dialog', (d) => d.accept());
       await locators.buttons.deleteSelected.click();
+      await locators.confirmModal.ok.click();
     },
     cancelSelect: async () => locators.buttons.cancelSelect.click(),
     showPins: async (visible: boolean) => {
