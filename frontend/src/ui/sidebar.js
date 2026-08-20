@@ -389,18 +389,22 @@ export function renderSidebar() {
   elBtnShowAll.textContent = selectedTour
     ? t('tours.showAllFiltered', { name: selectedTour.name })
     : t('tours.showAll');
-  elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
   elSelectionCount.textContent = t('sidebar.selectedCount', { count: state.selectedIds.size });
   elBtnDeleteSelected.disabled = state.selectedIds.size === 0;
 
   elTourList.innerHTML = '';
   if (!hasTours) {
+    elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
     show(elTourPager, false);
     return;
   }
 
   const scoped = state.filterInView ? toursInView(state.tours, mapBoundsPlain()) : state.tours;
   const visible = visibleTours(scoped, state.sort, state.search);
+  const filterActive = state.filterInView || state.search.trim() !== '';
+  elTourCount.textContent = filterActive
+    ? t('sidebar.filteredCount', { count: visible.length, total: state.tours.length })
+    : String(state.tours.length);
   if (visible.length === 0) {
     elTourList.appendChild(textDiv('tour-empty', t('tours.noMatch')));
     show(elTourPager, false);
