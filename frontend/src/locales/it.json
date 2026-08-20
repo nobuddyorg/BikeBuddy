@@ -131,6 +131,8 @@
   "lightbox.imgAlt": "Foto del giro",
   "lightbox.prevAria": "Foto precedente",
   "lightbox.nextAria": "Foto successiva",
+  "lightbox.deleteAria": "Elimina foto",
+  "lightbox.counter": "{current} di {total}",
   "lightbox.retry": "Riprova",
 
   "common.close": "Chiudi",

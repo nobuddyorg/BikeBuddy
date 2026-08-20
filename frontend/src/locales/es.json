@@ -131,6 +131,8 @@
   "lightbox.imgAlt": "Foto de la ruta",
   "lightbox.prevAria": "Foto anterior",
   "lightbox.nextAria": "Foto siguiente",
+  "lightbox.deleteAria": "Eliminar foto",
+  "lightbox.counter": "{current} de {total}",
   "lightbox.retry": "Inténtalo de nuevo",
 
   "common.close": "Cerrar",

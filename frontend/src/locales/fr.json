@@ -131,6 +131,8 @@
   "lightbox.imgAlt": "Photo de la sortie",
   "lightbox.prevAria": "Photo précédente",
   "lightbox.nextAria": "Photo suivante",
+  "lightbox.deleteAria": "Supprimer la photo",
+  "lightbox.counter": "{current} sur {total}",
   "lightbox.retry": "Réessayer",
 
   "common.close": "Fermer",
