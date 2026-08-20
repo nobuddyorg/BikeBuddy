@@ -88,6 +88,7 @@ import {
 import { renderSidebar, loadTours, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
 import { renderAllRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
+import { debounce } from './lib/debounce.js';
 import { setupLanguageSwitcher, setupSortMenu, setupLineStyleMenu } from './ui/menus.js';
 import {
   openModal,
@@ -110,11 +111,17 @@ show(elTourSearchClear, state.search.length > 0);
 elTourSort.value = state.sort;
 initHistory();
 
+// Debounced: 'moveend' can fire several times in quick succession (inertial
+// panning, a pinch-zoom followed by a pan), and each renderSidebar() rescans
+// every tour's points plus rebuilds the list DOM.
+const DEBOUNCE_MS = 200;
+const renderInViewList = debounce(() => {
+  if (state.filterInView) renderSidebar();
+}, DEBOUNCE_MS);
+
 // 'moveend' covers pan and zoom both, so the in-view list needs no second
 // listener.
-map.on('moveend', () => {
-  if (state.filterInView) renderSidebar();
-});
+map.on('moveend', renderInViewList);
 map.on('zoomend', renderPins);
 
 elBtnLogin.addEventListener('click', signIn);
@@ -145,12 +152,19 @@ elBtnUploadSidebar.addEventListener('click', openUpload);
 elEditForm.addEventListener('submit', submitEdit);
 elUploadForm.addEventListener('submit', submitUpload);
 
+// Fuzzy-scoring every tour and rebuilding the list DOM on every keystroke is
+// wasted work while the user is still typing, so only that part is debounced
+// — the input's own value and the clear button stay in sync immediately.
+const renderSearchResults = debounce(() => {
+  renderSidebar();
+  syncUrl();
+}, DEBOUNCE_MS);
+
 elTourSearch.addEventListener('input', () => {
   state.search = elTourSearch.value;
   state.page = 1;
   show(elTourSearchClear, state.search.length > 0);
-  renderSidebar();
-  syncUrl();
+  renderSearchResults();
 });
 elTourSearchClear.addEventListener('click', () => {
   elTourSearch.value = '';
