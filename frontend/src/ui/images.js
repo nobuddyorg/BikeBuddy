@@ -39,9 +39,6 @@ export function createImageTile(image) {
 
   const img = document.createElement('img');
   img.className = 'image-thumb';
-  // thumbUrl is missing only for a tour whose detail predates #466's
-  // real-thumbnail backfill and hasn't been migrated yet — fall back to the
-  // full image rather than showing nothing.
   img.src = image.thumbUrl || image.url;
   img.alt = t('lightbox.imgAlt');
   img.loading = 'lazy';
@@ -53,9 +50,19 @@ export function createImageTile(image) {
     const index = images.findIndex((i) => i.id === image.id);
     openLightbox(images, index < 0 ? 0 : index);
   });
-  // A SAS URL expires in the background (see sasCache.js) — the tile that
-  // was a fine thumbnail a moment ago can start failing without a re-render.
+  // thumbUrl is always a signed URL even for photos that predate #466's
+  // real-thumbnail work and have no thumb blob yet — SAS signing doesn't
+  // check blob existence, so it 404s rather than coming back empty. Fall
+  // back to the full image once before treating it as a real load failure
+  // (a SAS URL expiring in the background per sasCache.js is the other
+  // reason this fires).
+  let triedFullImage = !image.thumbUrl;
   img.addEventListener('error', () => {
+    if (!triedFullImage) {
+      triedFullImage = true;
+      img.src = image.url;
+      return;
+    }
     renderErrorTile(fig, t('detail.photoLoadError'), {
       retryable: true,
       retryAria: t('detail.retryLoadAria'),
@@ -291,7 +298,8 @@ export async function retryLightboxImage() {
   const tour = await retryTourImages();
   if (!tour) return;
   lightboxImages = (tour.images || []).map((i) => ({ ...i, tourId: tour.id }));
-  if (lightboxIndex >= lightboxImages.length) lightboxIndex = Math.max(lightboxImages.length - 1, 0);
+  if (lightboxIndex >= lightboxImages.length)
+    lightboxIndex = Math.max(lightboxImages.length - 1, 0);
   renderLightbox();
 }
 
@@ -307,7 +315,9 @@ async function deletePhoto(imageId, tourId) {
   });
   if (!ok) return null;
   try {
-    const res = await apiFetch(`/api/tours/${tourId}/images/${imageId}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/tours/${tourId}/images/${imageId}`, {
+      method: 'DELETE',
+    });
     if (!res.ok) throw new Error('delete failed');
     const tour = state.tours.find((t) => t.id === tourId);
     if (tour?.images) tour.images = tour.images.filter((i) => i.id !== imageId);
