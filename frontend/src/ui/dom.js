@@ -4,6 +4,7 @@ export const $ = (id) => document.getElementById(id);
 export const show = (el, visible) => el.classList.toggle('hidden', !visible);
 
 export const elTourList = $('tour-list');
+export const elPullRefreshIndicator = $('pull-refresh-indicator');
 export const elTourCount = $('tour-count');
 export const elNoTours = $('no-tours');
 export const elTourLoadError = $('tour-load-error');

@@ -15,6 +15,7 @@ import {
   show,
   elSidebar,
   elTourList,
+  elPullRefreshIndicator,
   elTourCount,
   elNoTours,
   elTourLoadError,
@@ -63,6 +64,67 @@ export async function loadTours() {
   if (deepLinkId) {
     if (state.tours.some((tour) => tour.id === deepLinkId)) await selectTour(deepLinkId);
     else syncUrl(); // unknown/deleted tour: drop it from the URL, stay on the full map
+  }
+}
+
+const PULL_REFRESH_THRESHOLD_PX = 64;
+const PULL_REFRESH_MAX_PX = 90;
+
+// The browser's native pull-to-refresh can never fire here: body has
+// overflow:hidden by design (this is a fixed single-screen app, see
+// style.css), so the document itself never scrolls, which is what that
+// gesture depends on. This reimplements it by hand, scoped to the list,
+// since #map's own touch-action fix (#466) only ever addressed panning the
+// map — not the missing document scroll native refresh needs.
+export function bindPullToRefresh() {
+  let startY = null;
+  let pulling = false;
+  let refreshing = false;
+
+  const setPull = (px) => {
+    elPullRefreshIndicator.style.height = `${px}px`;
+  };
+
+  elTourList.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch' || refreshing || elTourList.scrollTop > 0) return;
+    startY = e.clientY;
+    pulling = false;
+  });
+
+  elTourList.addEventListener('pointermove', (e) => {
+    if (startY === null || refreshing) return;
+    const dy = e.clientY - startY;
+    if (dy <= 0 || elTourList.scrollTop > 0) {
+      startY = null;
+      if (pulling) {
+        pulling = false;
+        setPull(0);
+      }
+      return;
+    }
+    pulling = true;
+    e.preventDefault();
+    setPull(Math.min(dy, PULL_REFRESH_MAX_PX));
+  });
+
+  elTourList.addEventListener('pointerup', () => finishPull());
+  elTourList.addEventListener('pointercancel', () => finishPull());
+
+  async function finishPull() {
+    startY = null;
+    if (!pulling) return;
+    pulling = false;
+    const pulledPast =
+      parseFloat(elPullRefreshIndicator.style.height || '0') >= PULL_REFRESH_THRESHOLD_PX;
+    if (!pulledPast) {
+      setPull(0);
+      return;
+    }
+    refreshing = true;
+    setPull(PULL_REFRESH_THRESHOLD_PX);
+    await loadTours();
+    setPull(0);
+    refreshing = false;
   }
 }
 
