@@ -285,4 +285,45 @@ describe('UploadTour', () => {
     expect(res.status).toBe(201);
     expect(gpx.blockBlob.deleteIfExists).not.toHaveBeenCalled();
   });
+
+  it('stores elevation, duration and speed parsed from the GPX', async () => {
+    const gpxWithElevation = Buffer.from(
+      `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="48.1351" lon="11.5820"><ele>500</ele><time>2024-06-01T10:00:00Z</time></trkpt>
+    <trkpt lat="48.1361" lon="11.5830"><ele>520</ele><time>2024-06-01T10:10:00Z</time></trkpt>
+  </trkseg></trk>
+</gpx>`,
+      'utf8',
+    );
+    const toursContainer = makeToursContainer();
+    await uploadTour(
+      reqWith(),
+      mockAuth,
+      () => toursContainer,
+      makeGpxContainer(),
+      makeParseFile(gpxWithElevation),
+    );
+    const [doc] = toursContainer.items.create.mock.calls[0];
+    expect(doc.elevationGain).toBe(20);
+    expect(doc.elevationLoss).toBe(0);
+    expect(doc.minElevation).toBe(500);
+    expect(doc.maxElevation).toBe(520);
+    expect(doc.durationSeconds).toBe(600);
+  });
+
+  it('stores null elevation/duration when the GPX has neither <ele> nor <time>', async () => {
+    const toursContainer = makeToursContainer();
+    await uploadTour(
+      reqWith(),
+      mockAuth,
+      () => toursContainer,
+      makeGpxContainer(),
+      makeParseFile(), // GPX_CONTENT has neither
+    );
+    const [doc] = toursContainer.items.create.mock.calls[0];
+    expect(doc.elevationGain).toBeNull();
+    expect(doc.durationSeconds).toBeNull();
+  });
 });

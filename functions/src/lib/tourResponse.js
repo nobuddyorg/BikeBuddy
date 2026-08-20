@@ -13,6 +13,13 @@ const toTourResponse = (tour) => ({
   heatmapData: tour.heatmapData,
   images: tour.images,
   gpxFileUrl: tour.gpxFileUrl,
+  elevationGain: tour.elevationGain ?? null,
+  elevationLoss: tour.elevationLoss ?? null,
+  minElevation: tour.minElevation ?? null,
+  maxElevation: tour.maxElevation ?? null,
+  durationSeconds: tour.durationSeconds ?? null,
+  movingSeconds: tour.movingSeconds ?? null,
+  avgSpeed: tour.avgSpeed ?? null,
 });
 
 module.exports = { toTourResponse };

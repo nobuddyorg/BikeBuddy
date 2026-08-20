@@ -11,6 +11,23 @@ function makeGpx({ name = 'Test Tour', time = '2024-06-01T10:00:00Z', points = [
 </gpx>`;
 }
 
+// points: [lat, lon, ele?, time?] — ele/time omitted entirely when undefined,
+// matching a real GPX exporter that either writes both on every point or
+// neither.
+function makeGpxWithExtras(points) {
+  const trkpts = points
+    .map(([lat, lon, ele, time]) => {
+      const eleTag = ele !== undefined ? `<ele>${ele}</ele>` : '';
+      const timeTag = time !== undefined ? `<time>${time}</time>` : '';
+      return `<trkpt lat="${lat}" lon="${lon}">${eleTag}${timeTag}</trkpt>`;
+    })
+    .join('\n');
+  return `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>${trkpts}</trkseg></trk>
+</gpx>`;
+}
+
 const TWO_POINTS = [
   [48.1351, 11.582],
   [48.1361, 11.583],
@@ -233,5 +250,125 @@ describe('parseGpx', () => {
     expect(result.date).toBeNull();
     expect(result.distanceKm).toBe(0);
     expect(result.heatmapData).toEqual([]);
+  });
+
+  describe('elevation stats', () => {
+    it('ignores deltas below the 3m noise threshold', () => {
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, 100],
+          [48, 11.001, 101],
+          [48, 11.002, 99.5],
+        ]),
+      );
+      expect(result.elevationGain).toBe(0);
+      expect(result.elevationLoss).toBe(0);
+    });
+
+    it('accumulates gain and loss across a mixed profile, resetting the baseline only past the threshold', () => {
+      // 100 -> 110 (+10, counted) -> 105 (-5, counted) -> 120 (+15, counted)
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, 100],
+          [48, 11.001, 110],
+          [48, 11.002, 105],
+          [48, 11.003, 120],
+        ]),
+      );
+      expect(result.elevationGain).toBe(25);
+      expect(result.elevationLoss).toBe(5);
+    });
+
+    it('reports min and max elevation', () => {
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, 50],
+          [48, 11.001, 200],
+          [48, 11.002, 10],
+        ]),
+      );
+      expect(result.minElevation).toBe(10);
+      expect(result.maxElevation).toBe(200);
+    });
+
+    it('returns null gain/loss/min/max when no trackpoint has <ele>', () => {
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11],
+          [48, 11.001],
+        ]),
+      );
+      expect(result.elevationGain).toBeNull();
+      expect(result.elevationLoss).toBeNull();
+      expect(result.minElevation).toBeNull();
+      expect(result.maxElevation).toBeNull();
+    });
+
+    it('reports min/max but not gain/loss for a single elevation point', () => {
+      const result = parseGpx(makeGpxWithExtras([[48, 11, 42]]));
+      expect(result.minElevation).toBe(42);
+      expect(result.maxElevation).toBe(42);
+      expect(result.elevationGain).toBeNull();
+      expect(result.elevationLoss).toBeNull();
+    });
+  });
+
+  describe('duration and speed stats', () => {
+    it('returns elapsed duration spanning the first to last timestamp', () => {
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, undefined, '2026-01-01T10:00:00Z'],
+          [48, 11.01, undefined, '2026-01-01T10:02:00Z'],
+        ]),
+      );
+      expect(result.durationSeconds).toBe(120);
+    });
+
+    it('excludes a stop from moving time and average speed', () => {
+      // Same 48,11 -> 49,12 pair as the great-circle distance test
+      // (133.3878 km), timed to cover that leg in exactly one hour — so
+      // avgSpeed (km per hour of moving time) lands on that same reference
+      // value without amplifying its rounding.
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, undefined, '2026-01-01T10:00:00Z'],
+          [48, 11, undefined, '2026-01-01T10:01:00Z'], // same spot: a 60s stop
+          [49, 12, undefined, '2026-01-01T11:01:00Z'], // then a 1h hop
+        ]),
+      );
+      expect(result.durationSeconds).toBe(3660);
+      expect(result.movingSeconds).toBe(3600);
+      expect(result.avgSpeed).toBeCloseTo(133.3878, 2);
+    });
+
+    it('returns null duration/speed when no trackpoint has <time>', () => {
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11],
+          [48, 11.001],
+        ]),
+      );
+      expect(result.durationSeconds).toBeNull();
+      expect(result.movingSeconds).toBeNull();
+      expect(result.avgSpeed).toBeNull();
+    });
+
+    it('returns null duration/speed for a single timed point', () => {
+      const result = parseGpx(makeGpxWithExtras([[48, 11, undefined, '2026-01-01T10:00:00Z']]));
+      expect(result.durationSeconds).toBeNull();
+      expect(result.movingSeconds).toBeNull();
+      expect(result.avgSpeed).toBeNull();
+    });
+
+    it('returns null average speed when every segment is a stop', () => {
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, undefined, '2026-01-01T10:00:00Z'],
+          [48, 11, undefined, '2026-01-01T10:01:00Z'],
+        ]),
+      );
+      expect(result.movingSeconds).toBe(0);
+      expect(result.avgSpeed).toBeNull();
+    });
   });
 });
