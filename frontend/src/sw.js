@@ -99,7 +99,11 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // map tiles, the API — network only, never cached
+  if (url.origin !== self.location.origin) return; // map tiles — network only, never cached
+  // The API is same-origin when Azure Static Web Apps proxies it (see
+  // ui/auth.js's API_BASE), so it isn't ruled out by the origin check above —
+  // responses must always be live, never served from the shell cache.
+  if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
     // Network-first so a signed-in user always gets a fresh shell when
