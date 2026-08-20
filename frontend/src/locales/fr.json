@@ -12,6 +12,7 @@
   "sidebar.loading": "Chargement de tes sorties…",
   "sidebar.searchPlaceholder": "Rechercher des sorties…",
   "sidebar.searchAria": "Rechercher des sorties",
+  "sidebar.searchClearAria": "Effacer la recherche",
   "sidebar.sortAria": "Trier les sorties",
   "sidebar.noToursYet": "Aucune sortie pour l'instant.",
   "sidebar.uploadFirst": "Importe ton premier GPX",

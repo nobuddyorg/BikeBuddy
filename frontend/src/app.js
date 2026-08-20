@@ -21,6 +21,7 @@ import {
   elEditForm,
   elUploadForm,
   elTourSearch,
+  elTourSearchClear,
   elTourSort,
   elFilterInViewInput,
   elTourPagerPrev,
@@ -43,6 +44,7 @@ import {
   elDropzone,
   elUploadFile,
   elLightbox,
+  show,
 } from './ui/dom.js';
 import { signIn, signOut, initAuth } from './ui/auth.js';
 import {
@@ -90,6 +92,7 @@ const t = i18n.t;
 // URL rather than their HTML defaults on a reload or a shared link (#443).
 readInitialUrl();
 elTourSearch.value = state.search;
+show(elTourSearchClear, state.search.length > 0);
 elTourSort.value = state.sort;
 initHistory();
 
@@ -119,8 +122,18 @@ elUploadForm.addEventListener('submit', submitUpload);
 elTourSearch.addEventListener('input', () => {
   state.search = elTourSearch.value;
   state.page = 1;
+  show(elTourSearchClear, state.search.length > 0);
   renderSidebar();
   syncUrl();
+});
+elTourSearchClear.addEventListener('click', () => {
+  elTourSearch.value = '';
+  state.search = '';
+  state.page = 1;
+  show(elTourSearchClear, false);
+  renderSidebar();
+  syncUrl();
+  elTourSearch.focus();
 });
 elTourSort.addEventListener('change', () => {
   state.sort = elTourSort.value;

@@ -12,6 +12,7 @@
   "sidebar.loading": "A carregar os teus percursos…",
   "sidebar.searchPlaceholder": "Pesquisar percursos…",
   "sidebar.searchAria": "Pesquisar percursos",
+  "sidebar.searchClearAria": "Limpar pesquisa",
   "sidebar.sortAria": "Ordenar percursos",
   "sidebar.noToursYet": "Ainda não há percursos.",
   "sidebar.uploadFirst": "Carrega o teu primeiro GPX",

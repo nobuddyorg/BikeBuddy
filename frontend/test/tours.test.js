@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   fuzzyMatch,
   fuzzyMatchIndices,
+  matchScore,
   visibleTours,
   toursInView,
   paginate,
@@ -52,6 +53,32 @@ describe('fuzzyMatchIndices', () => {
   });
 });
 
+describe('matchScore', () => {
+  it('scores an exact match highest, then prefix, then word-boundary, then a plain substring', () => {
+    expect(matchScore('beach ride', 'Beach Ride')).toBeGreaterThan(
+      matchScore('beach', 'Beach Ride'),
+    );
+    expect(matchScore('beach', 'Beach Ride')).toBeGreaterThan(matchScore('ride', 'Beach Ride'));
+    expect(matchScore('ride', 'Beach Ride')).toBeGreaterThan(matchScore('each', 'Beach Ride'));
+  });
+
+  it('scores a contiguous substring above a scattered subsequence for a related query', () => {
+    expect(matchScore('ride', 'Beach Ride')).toBeGreaterThan(matchScore('rde', 'Beach Ride'));
+  });
+
+  it('scores a tighter scattered match above a sprawling one', () => {
+    expect(matchScore('ab', 'a1b')).toBeGreaterThan(matchScore('ab', 'a123b'));
+  });
+
+  it('returns null when the query does not match at all', () => {
+    expect(matchScore('xyz', 'Beach Ride')).toBeNull();
+  });
+
+  it('treats an empty query as a neutral match', () => {
+    expect(matchScore('', 'Beach Ride')).toBe(0);
+  });
+});
+
 describe('visibleTours', () => {
   it('sorts by newest first by default (unknown sort falls back)', () => {
     const ids = visibleTours(tours, 'bogus', '').map((t) => t.id);
@@ -68,10 +95,35 @@ describe('visibleTours', () => {
     expect(res.map((t) => t.id)).toEqual(['b']);
   });
 
+  it('ranks a contiguous name match above a scattered one', () => {
+    const named = [
+      { id: 'p', name: 'Beach Ride', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'q', name: 'Roadside Deer', createdAt: '2026-01-02T00:00:00Z' },
+    ];
+    expect(visibleTours(named, 'date-desc', 'ride').map((t) => t.id)).toEqual(['p', 'q']);
+  });
+
+  it('searches the description too, but ranks it below any name match', () => {
+    const withDesc = [
+      ...tours,
+      {
+        id: 'd',
+        name: 'Forest Loop',
+        createdAt: '2026-04-01T00:00:00Z',
+        description: 'A ride along the beach',
+      },
+    ];
+    expect(visibleTours(withDesc, 'date-desc', 'beach').map((t) => t.id)).toEqual(['b', 'd']);
+  });
+
   it('does not mutate the input array', () => {
     const copy = [...tours];
     visibleTours(tours, 'name-desc', '');
     expect(tours).toEqual(copy);
+  });
+
+  it('falls back to the chosen sort when the query is cleared', () => {
+    expect(visibleTours(tours, 'name-asc', '').map((t) => t.id)).toEqual(['a', 'b', 'c']);
   });
 });
 
