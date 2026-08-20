@@ -41,7 +41,8 @@ buddyTest.describe('tour list: sort + fuzzy search', () => {
     await expect(list).not.toContainText('Coastal Run');
 
     await on(page).main.do.search('cstrn'); // subsequence of "Coastal Run"
-    expect(await on(page).main.do.tourNames()).toEqual(['Coastal Run']);
+    // Search re-renders on a debounce, so poll rather than read a single snapshot.
+    await expect.poll(() => on(page).main.do.tourNames()).toEqual(['Coastal Run']);
 
     await on(page).main.do.search('zzz'); // no match
     await expect(list).toContainText('No tours match');
