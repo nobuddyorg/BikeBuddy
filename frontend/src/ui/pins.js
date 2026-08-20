@@ -30,10 +30,14 @@ function geotaggedImages() {
 // L.divIcon's element form, not its string form: img.src is a property write
 // rather than parsed markup. The URLs are safe today, but only because of how
 // the backend names blobs.
-function photoPinIcon(url) {
+function photoPinIcon(thumbUrl, fullUrl) {
   const img = document.createElement('img');
-  img.src = url;
+  img.src = thumbUrl || fullUrl;
   img.alt = t('lightbox.imgAlt');
+  // thumbUrl 404s for photos that predate #466's real-thumbnail work (no
+  // thumb blob yet, but SAS signing doesn't check existence) — fall back to
+  // the full image rather than leaving the pin blank.
+  if (thumbUrl) img.addEventListener('error', () => (img.src = fullUrl), { once: true });
   return L.divIcon({
     className: 'photo-pin',
     html: img,
@@ -57,7 +61,9 @@ export function clearPins() {
 function makePinMarker(img, latlng) {
   // The pin icon is 28px — no reason to ship the same up-to-2000px image the
   // lightbox needs just to paint a marker (#466).
-  const marker = L.marker(latlng, { icon: photoPinIcon(img.thumbUrl || img.url) });
+  const marker = L.marker(latlng, {
+    icon: photoPinIcon(img.thumbUrl, img.url),
+  });
   marker.on('click', () => {
     const images = geotaggedImages();
     const index = images.findIndex((i) => i.id === img.id);
