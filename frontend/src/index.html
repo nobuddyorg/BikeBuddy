@@ -571,6 +571,37 @@
             </div>
           </dd>
         </dl>
+        <div id="profile-stats" class="profile-stats">
+          <h3 data-i18n="stats.title">Your stats</h3>
+          <dl class="stats-grid">
+            <div class="stat-tile">
+              <dt data-i18n="stats.totalDistance">Total distance</dt>
+              <dd id="stats-total-distance">—</dd>
+            </div>
+            <div class="stat-tile">
+              <dt data-i18n="stats.totalRides">Total rides</dt>
+              <dd id="stats-total-count">—</dd>
+            </div>
+            <div class="stat-tile">
+              <dt data-i18n="stats.thisYear">This year</dt>
+              <dd id="stats-this-year">—</dd>
+            </div>
+            <div class="stat-tile">
+              <dt data-i18n="stats.lastYear">Last year</dt>
+              <dd id="stats-last-year">—</dd>
+            </div>
+            <div class="stat-tile">
+              <dt data-i18n="stats.average">Average ride</dt>
+              <dd id="stats-average">—</dd>
+            </div>
+          </dl>
+          <button id="btn-stats-longest" type="button" class="stats-longest hidden">
+            <span data-i18n="stats.longest">Longest ride</span>
+            <span id="stats-longest-detail"></span>
+          </button>
+          <p id="stats-empty" class="stats-empty hidden" data-i18n="stats.noRides">No rides yet.</p>
+          <ul id="stats-per-year" class="stats-per-year"></ul>
+        </div>
         <form id="profile-name-form" class="upload-form">
           <label class="field">
             <span data-i18n="profile.displayName">Display name</span>

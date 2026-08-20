@@ -1,8 +1,9 @@
 'use strict';
 
 import * as i18n from '../lib/i18n.js';
-import { initials, formatDate } from '../lib/format.js';
+import { initials, formatDate, formatDistance } from '../lib/format.js';
 import { parseErrorMessage } from '../lib/upload.js';
+import { computeTourStats } from '../lib/stats.js';
 import { state } from './state.js';
 import { apiFetch, refreshUser, renderNavAuth, signOut } from './auth.js';
 import { toast } from './toast.js';
@@ -20,6 +21,15 @@ import {
   elDeleteAccountHint,
   elDeleteAccountInput,
   elBtnDeleteAccountConfirm,
+  elStatsTotalDistance,
+  elStatsTotalCount,
+  elStatsThisYear,
+  elStatsLastYear,
+  elStatsAverage,
+  elBtnStatsLongest,
+  elStatsLongestDetail,
+  elStatsEmpty,
+  elStatsPerYear,
 } from './dom.js';
 
 const t = i18n.t;
@@ -38,9 +48,39 @@ function renderProfile() {
   elProfileNameInput.value = state.user.name || '';
 }
 
+function renderStats() {
+  const stats = computeTourStats(state.tours);
+  elStatsTotalDistance.textContent = formatDistance(stats.totalDistance);
+  elStatsTotalCount.textContent = String(stats.totalCount);
+  elStatsThisYear.textContent = formatDistance(stats.distanceThisYear);
+  elStatsLastYear.textContent = formatDistance(stats.distanceLastYear);
+  elStatsAverage.textContent = formatDistance(stats.averageDistance);
+
+  show(elBtnStatsLongest, !!stats.longestTour);
+  if (stats.longestTour) {
+    elBtnStatsLongest.dataset.tourId = stats.longestTour.id;
+    elStatsLongestDetail.textContent =
+      `${stats.longestTour.name || ''} · ${formatDistance(stats.longestTour.distance)}`.trim();
+  }
+
+  show(elStatsEmpty, stats.totalCount === 0);
+  elStatsPerYear.innerHTML = '';
+  stats.perYear.forEach(({ year, distance, count }) => {
+    const li = document.createElement('li');
+    const yearSpan = document.createElement('span');
+    yearSpan.className = 'stats-year';
+    yearSpan.textContent = String(year);
+    const detailSpan = document.createElement('span');
+    detailSpan.textContent = t('stats.perYearRow', { distance: formatDistance(distance), count });
+    li.append(yearSpan, detailSpan);
+    elStatsPerYear.appendChild(li);
+  });
+}
+
 export async function openProfile() {
   if (!state.user) return;
   renderProfile();
+  renderStats();
   openModal(elProfileModal);
 
   // Join date lives on the user doc, which the login session may not have.

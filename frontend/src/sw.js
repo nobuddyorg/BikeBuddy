@@ -37,6 +37,7 @@ const PRECACHE_URLS = [
   'lib/mapData.js',
   'lib/pinLayout.js',
   'lib/sasCache.js',
+  'lib/stats.js',
   'lib/tours.js',
   'lib/upload.js',
   'lib/url.js',

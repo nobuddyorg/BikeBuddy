@@ -100,6 +100,16 @@
   "profile.dangerZone": "Zona pericolosa",
   "profile.yourAccount": "Il tuo account",
 
+  "stats.title": "Le tue statistiche",
+  "stats.totalDistance": "Distanza totale",
+  "stats.totalRides": "Giri totali",
+  "stats.thisYear": "Quest'anno",
+  "stats.lastYear": "L'anno scorso",
+  "stats.average": "Giro medio",
+  "stats.longest": "Giro più lungo",
+  "stats.noRides": "Ancora nessun giro.",
+  "stats.perYearRow": "{distance} · {count} giri",
+
   "upload.title": "Carica un giro",
   "upload.name": "Nome",
   "upload.namePlaceholder": "es. Anello alpino",

@@ -100,6 +100,16 @@
   "profile.dangerZone": "Zona de perigo",
   "profile.yourAccount": "A tua conta",
 
+  "stats.title": "As tuas estatísticas",
+  "stats.totalDistance": "Distância total",
+  "stats.totalRides": "Percursos totais",
+  "stats.thisYear": "Este ano",
+  "stats.lastYear": "Ano passado",
+  "stats.average": "Percurso médio",
+  "stats.longest": "Percurso mais longo",
+  "stats.noRides": "Ainda não há percursos.",
+  "stats.perYearRow": "{distance} · {count} percursos",
+
   "upload.title": "Carregar um percurso",
   "upload.name": "Nome",
   "upload.namePlaceholder": "ex. Volta alpina",
