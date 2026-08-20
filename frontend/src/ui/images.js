@@ -78,7 +78,7 @@ export function createImageTile(image) {
   del.textContent = '✕';
   del.addEventListener('click', (e) => {
     e.stopPropagation();
-    deleteImage(image.id, fig);
+    deleteImage(image, fig);
   });
 
   fig.append(img, del);
@@ -303,34 +303,63 @@ export async function retryLightboxImage() {
   renderLightbox();
 }
 
-// Shared by the gallery tile's delete button and the lightbox's: confirms,
-// deletes via the API, and updates the in-memory tour. Returns null if the
-// user cancelled, otherwise whether the delete succeeded — kept distinct so
-// callers don't treat a cancel as a failure worth surfacing.
-async function deletePhoto(imageId, tourId) {
-  const ok = await confirmDialog({
+const PHOTO_DELETE_GRACE_MS = 6000;
+
+async function confirmDeletePhoto() {
+  return confirmDialog({
     title: t('confirm.deletePhotoTitle'),
     message: t('confirm.deletePhotoMessage'),
     confirmLabel: t('common.delete'),
   });
-  if (!ok) return null;
-  try {
-    const res = await apiFetch(`/api/tours/${tourId}/images/${imageId}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error('delete failed');
-    const tour = state.tours.find((t) => t.id === tourId);
-    if (tour?.images) tour.images = tour.images.filter((i) => i.id !== imageId);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
-async function deleteImage(imageId, tileEl) {
-  const result = await deletePhoto(imageId, state.selectedTourId);
-  if (result === true) tileEl.remove();
-  else if (result === false) showImageError(t('toast.photoDeleteError'));
+// Mirrors tour-detail.js's scheduleTourRemoval: the real DELETE call is
+// deferred until the grace window elapses, so Undo just cancels the timer
+// and puts the photo back — no server-side restore needed. Only touches
+// tour.images and the gallery/pins; callers own the UI they deleted from
+// (gallery tile removal, or advancing the lightbox) since a photo can be
+// deleted from either.
+function scheduleImageRemoval(image, tourId) {
+  const tour = state.tours.find((t) => t.id === tourId);
+  if (tour?.images) tour.images = tour.images.filter((i) => i.id !== image.id);
+  renderPins();
+
+  const restore = () => {
+    if (tour?.images && !tour.images.some((i) => i.id === image.id)) tour.images.push(image);
+    if (tour?.id === state.selectedTourId) renderGallery(tour);
+    renderPins();
+  };
+
+  let undone = false;
+  const timer = setTimeout(async () => {
+    try {
+      const res = await apiFetch(`/api/tours/${tourId}/images/${image.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('delete failed');
+    } catch {
+      // A failed background delete must not leave the photo missing from the UI.
+      restore();
+      toast(t('toast.photoDeleteError'), 'error');
+    }
+  }, PHOTO_DELETE_GRACE_MS);
+
+  toast(t('toast.photoDeleted'), 'success', PHOTO_DELETE_GRACE_MS, {
+    label: t('toast.undo'),
+    onClick: () => {
+      if (undone) return;
+      undone = true;
+      clearTimeout(timer);
+      restore();
+    },
+  });
+}
+
+async function deleteImage(image, tileEl) {
+  const ok = await confirmDeletePhoto();
+  if (!ok) return;
+  tileEl.remove();
+  scheduleImageRemoval(image, state.selectedTourId);
 }
 
 // Deletes the photo currently shown, then clamps the index into whatever
@@ -338,17 +367,11 @@ async function deleteImage(imageId, tileEl) {
 async function deleteCurrentLightboxPhoto() {
   const image = currentLightboxImage();
   if (!image) return;
-  const result = await deletePhoto(image.id, image.tourId);
-  if (result === false) {
-    toast(t('toast.photoDeleteError'), 'error');
-    return;
-  }
-  if (result !== true) return; // cancelled
+  const ok = await confirmDeletePhoto();
+  if (!ok) return;
 
+  scheduleImageRemoval(image, image.tourId);
   lightboxImages.splice(lightboxIndex, 1);
-  renderPins();
-  const tour = state.tours.find((t) => t.id === image.tourId);
-  if (tour && tour.id === state.selectedTourId) renderGallery(tour);
 
   if (lightboxImages.length === 0) {
     closeLightbox();
