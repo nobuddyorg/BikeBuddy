@@ -166,6 +166,7 @@
   "toast.gpxDownloadError": "GPX-Datei konnte nicht heruntergeladen werden.",
   "toast.toursDeleted": "{count} Touren gelöscht.",
   "toast.toursDeletedPartial": "{deleted} von {total} Touren gelöscht.",
+  "toast.photoDeleted": "Foto gelöscht.",
   "toast.photoDeleteError": "Foto konnte nicht gelöscht werden.",
   "toast.nameUpdated": "Name aktualisiert.",
   "toast.exportDone": "Dein Datenexport wurde heruntergeladen.",

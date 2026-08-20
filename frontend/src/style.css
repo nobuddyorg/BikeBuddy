@@ -940,15 +940,15 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
 }
 
 .navbar-reload svg {
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .btn-full {
@@ -1856,6 +1856,12 @@ body:not(.i18n-loading) .app-skeleton {
 
   .navbar-reload {
     display: inline-flex;
+  }
+
+  /* "?" glyph reads too small at .btn's 13px base font-size next to the
+     44px tap target it already sits in. */
+  #btn-help {
+    font-size: 20px;
   }
 
   /* .sidebar clips overflow (see rule above) and is height-capped on mobile,

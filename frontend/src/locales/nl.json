@@ -166,6 +166,7 @@
   "toast.gpxDownloadError": "GPX-bestand kon niet worden gedownload.",
   "toast.toursDeleted": "{count} ritten verwijderd.",
   "toast.toursDeletedPartial": "{deleted} van {total} ritten verwijderd.",
+  "toast.photoDeleted": "Foto verwijderd.",
   "toast.photoDeleteError": "Foto kon niet worden verwijderd.",
   "toast.nameUpdated": "Naam bijgewerkt.",
   "toast.exportDone": "Je gegevensexport is gedownload.",

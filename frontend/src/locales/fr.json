@@ -166,6 +166,7 @@
   "toast.gpxDownloadError": "Impossible de télécharger le fichier GPX.",
   "toast.toursDeleted": "{count} sorties supprimées.",
   "toast.toursDeletedPartial": "{deleted} sur {total} sorties supprimées.",
+  "toast.photoDeleted": "Photo supprimée.",
   "toast.photoDeleteError": "Impossible de supprimer la photo.",
   "toast.nameUpdated": "Nom mis à jour.",
   "toast.exportDone": "L'export de tes données a été téléchargé.",
