@@ -20,22 +20,22 @@
   --color-surface: #ffffff;
   --color-surface-2: #f1f5f9;
   --color-border: #e2e8f0;
-  --color-primary: #f97316;
-  --color-primary-hover: #ea6c0a;
-  /* White text on --color-primary is only ~2.8:1, short of the 4.5:1 AA
+  --color-primary: #d97a36;
+  --color-primary-hover: #cd6c27;
+  /* White text on --color-primary is only ~3:1, short of the 4.5:1 AA
      floor — filled buttons that carry text use this darker shade instead. */
-  --color-primary-strong: #c2410c;
-  --color-primary-strong-hover: #9a3412;
+  --color-primary-strong: #ad5b21;
+  --color-primary-strong-hover: #904c1b;
   --color-text: #1e293b;
   --color-text-muted: #64748b;
   --color-danger: #ef4444;
   /* Same AA gap as --color-primary above, for filled danger buttons. */
   --color-danger-strong: #b91c1c;
   --color-danger-strong-hover: #991b1b;
-  /* --color-primary (#f97316) is only ~2.8:1 on a light surface, short of the
+  /* --color-primary (#d97a36) is only ~3:1 on a light surface, short of the
      4.5:1 normal-text AA floor — this darker shade covers orange text sitting
      directly on a surface background (wordmark, search highlight, buttons). */
-  --color-primary-text: #ae4a04;
+  --color-primary-text: #964f1c;
   --navbar-height: 56px;
   --detail-width: 320px;
   /* Wider than --detail-width: at 320px the selection bar's count
@@ -54,8 +54,8 @@
     --color-text-muted: #8892a4;
     /* The light-theme shade above is too dark to read against the dark
        surface, so dark mode gets its own lighter value rather than reusing
-       it — --color-primary already clears 6:1+ here. */
-    --color-primary-text: #f97316;
+       it — this clears 6:1+ here. */
+    --color-primary-text: #e0954f;
   }
 
   /* Leaflet's own stylesheet (vendored via CDN, index.html) hardcodes its
