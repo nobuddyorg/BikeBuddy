@@ -3,7 +3,7 @@
 // Dependency-free line-style preference. The pure helpers are unit-tested; the
 // localStorage reads/writes below are covered by e2e.
 
-export const DEFAULT_LINE_STYLE = { color: '#f97316', weight: 3, opacity: 0.75 };
+export const DEFAULT_LINE_STYLE = { color: '#d97a36', weight: 3, opacity: 0.75 };
 export const STORAGE_KEY = 'bikebuddy-line-style';
 
 export const WEIGHT_MIN = 1;
