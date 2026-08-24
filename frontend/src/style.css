@@ -412,11 +412,9 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 
-/* Each half sits behind the row and is only revealed by its own drag
-   direction (bindTourSwipe): the left half by swiping right (delete, #289),
-   the right half by swiping left (view details, #308). overflow:hidden on
-   .tour-item clips both to the row's own bounds so neither spills over
-   neighboring rows. */
+/* Sits behind the row and is only revealed by swiping right (bindTourSwipe,
+   delete). overflow:hidden on .tour-item clips it to the row's own bounds so
+   it doesn't spill over neighboring rows. */
 .tour-item-delete-bg {
   position: absolute;
   inset: 0 50% 0 0;
@@ -426,30 +424,19 @@ body {
   background: var(--color-danger);
 }
 
-.tour-item-detail-bg {
-  position: absolute;
-  inset: 0 0 0 50%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 20px;
-  background: var(--color-primary);
-}
-
-.tour-item-delete-icon,
-.tour-item-detail-icon {
+.tour-item-delete-icon {
   width: 20px;
   height: 20px;
   flex: none;
 }
 
 /* The actual visible/interactive row. position:relative (stacked after
-   .tour-item-delete-bg/.tour-item-detail-bg in the DOM) makes it paint above
-   those absolutely positioned layers at rest — an opaque background is
-   required for that, not just paint order, since it's what visually hides
-   them until the user drags it aside. touch-action:pan-y leaves vertical
-   scrolling to the browser but lets bindTourSwipe's pointer handlers own
-   horizontal movement instead of the browser trying to pan there too. */
+   .tour-item-delete-bg in the DOM) makes it paint above that absolutely
+   positioned layer at rest — an opaque background is required for that, not
+   just paint order, since it's what visually hides it until the user drags it
+   aside. touch-action:pan-y leaves vertical scrolling to the browser but lets
+   bindTourSwipe's pointer handlers own horizontal movement instead of the
+   browser trying to pan there too. */
 .tour-item-content {
   position: relative;
   z-index: 1;
@@ -764,13 +751,17 @@ body {
 }
 
 /* Hit area is 44x44 (WCAG 2.5.5) even though the painted glyph stays small —
-   this is the only way off the full-screen mobile detail panel. */
+   this is the only way off the full-screen mobile detail panel. z-index must
+   clear the map preview's own top-controls (.map-top-controls, z-index 600)
+   and Leaflet's zoom control (z-index 1000) on mobile, where both now share
+   the same top-right corner once .map-container is reparented in here. */
 .detail-close {
   position: absolute;
   top: 6px;
   right: 6px;
   width: 44px;
   height: 44px;
+  z-index: 2000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1665,6 +1656,28 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* Desktop never shows this — it exists only so mobile's list-only home screen
+   has a way to reach the map, which sits off-screen there (see the mobile
+   media query below). */
+.mobile-map-fab {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.mobile-map-fab svg {
+  width: 24px;
+  height: 24px;
+}
+
 .app-layout.map-expanded .sidebar,
 .app-layout.map-expanded .detail-panel {
   display: none;
@@ -1790,26 +1803,57 @@ body:not(.i18n-loading) .app-skeleton {
 
   .skeleton-sidebar {
     width: 100%;
-    max-height: 55vh;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
+  }
+
+  .skeleton-map {
+    display: none;
   }
 }
 
 /* ── Responsive (mobile / tablet) ────────────────── */
 
 @media (max-width: 768px) {
-  .app-layout {
-    flex-direction: column;
+  /* The list is the whole home screen now — let the page itself scroll
+     instead of capping .app-layout to the viewport and scrolling panes
+     internally (the desktop single-screen approach, still true above this
+     breakpoint — see the body/.app-layout base rules). */
+  body {
+    overflow-y: auto;
   }
 
-  /* Sidebar is a scrollable strip above the map; give the tour list enough
-     room to show several tours (the expand button still expands the map full-screen). */
+  .app-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - var(--navbar-height));
+  }
+
+  /* Sidebar is the whole screen and scrolls with the page; the map lives
+     off-screen until the FAB (.mobile-map-fab) or a tour's own preview button
+     brings it up full-screen (see .map-container below). */
   .sidebar {
     width: 100%;
-    max-height: 55vh;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
+    overflow: visible;
+  }
+
+  /* Let the list grow with the page instead of scrolling in its own capped
+     box (min-height:0/flex:1 in the base rule exist for exactly that capped
+     box, which no longer applies here). */
+  .tour-list {
+    flex: none;
+    min-height: auto;
+    overflow-y: visible;
+  }
+
+  .mobile-map-fab {
+    display: flex;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 900;
   }
 
   /* No spare row for a title/count/Select-button header on mobile —
@@ -1847,11 +1891,9 @@ body:not(.i18n-loading) .app-skeleton {
     font-size: 18px;
   }
 
-  /* .sidebar clips overflow (see rule above) and is height-capped on mobile,
-     so the popover's own z-index can't rescue it once it extends past that
-     boundary — the clipped part reveals the map underneath. Escape the
-     clipping ancestor the same way .lang-menu does; top/right are computed in
-     JS from the button's actual position (setupSortMenu in app.js) since,
+  /* position:fixed, like .lang-menu, so it's positioned against the
+     viewport rather than a scrolling ancestor; top/right are computed in JS
+     from the button's actual position (setupSortMenu in app.js) since,
      unlike the navbar-anchored lang switcher, this row isn't always at a
      fixed viewport offset. */
   .sort-menu-list {
@@ -1864,10 +1906,10 @@ body:not(.i18n-loading) .app-skeleton {
     display: none;
   }
 
-  /* Same treatment for the map's In view / Photo pins toggles — the map
-     itself shrinks on mobile (below), leaving no room for label text next
-     to the expand button. data-i18n-aria-label on each <label> keeps them
-     accessible once .toggle-label-text is hidden. */
+  /* Same treatment for the map's In view / Photo pins toggles — no room for
+     label text next to the expand button in the map's narrow top-controls
+     row. data-i18n-aria-label on each <label> keeps them accessible once
+     .toggle-label-text is hidden. */
   .toggle-label-text {
     display: none;
   }
@@ -1883,13 +1925,30 @@ body:not(.i18n-loading) .app-skeleton {
     padding: 0;
   }
 
+  /* Off-screen by default — the list is the home screen. Brought back either
+     full-screen (.map-expanded, same mechanism as desktop's expand button) or
+     as a tour's small live preview once reparented into #detail-panel
+     (.in-detail, see moveMapIntoDetailPanel in ui/map.js). */
   .map-container {
-    flex: 1;
-    /* Lowered from 40vh: combined with the sidebar's 55vh cap, the old
-       95vh floor left almost no slack inside calc(100vh - navbar-height). The
-       map stays visible by default (not fully hidden) — only shrunk; the
-       existing fullscreen toggle still expands it fully. */
-    min-height: 20vh;
+    display: none;
+  }
+
+  .app-layout.map-expanded .map-container {
+    display: flex;
+    position: fixed;
+    inset: var(--navbar-height) 0 0 0;
+    z-index: 1050;
+  }
+
+  .map-container.in-detail {
+    display: block;
+    height: 200px;
+    /* Top clearance keeps its own .map-top-controls out from under
+       .detail-close, which sits in the same corner (both are absolutely
+       positioned against #detail-panel/.map-container respectively). */
+    margin: 32px 0 16px;
+    border-radius: 8px;
+    overflow: hidden;
   }
 
   /* Detail panel takes over the whole area below the header, like the
@@ -1905,6 +1964,13 @@ body:not(.i18n-loading) .app-skeleton {
        competes directly here) or the map's +/- zoom buttons poke through.
        Must stay below .navbar (1100), which is fixed/always-visible. */
     z-index: 1050;
+  }
+
+  /* The map is never persistently focused on one tour on mobile the way it is
+     on desktop (see closeDetailPanel's mobile branch in ui/tour-detail.js) —
+     there's nothing for this button to reset back to "all" from. */
+  .show-all-btn {
+    display: none;
   }
 
   .navbar {

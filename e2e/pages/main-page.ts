@@ -17,6 +17,7 @@ interface MainPage {
     downloadGpx(): Promise<void>;
     logout(): Promise<void>;
     toggleSidebar(): Promise<void>;
+    openMobileMap(): Promise<void>;
     search(query: string): Promise<void>;
     sortBy(option: string): Promise<void>;
     filterInView(on: boolean): Promise<void>;
@@ -60,6 +61,7 @@ interface MainPage {
       profile: Locator;
       help: Locator;
       mapExpand: Locator;
+      mobileMapFab: Locator;
       editTour: Locator;
       downloadGpx: Locator;
       deleteTour: Locator;
@@ -148,6 +150,7 @@ export function initMainPage(page: Page): MainPage {
       profile: page.locator('#btn-profile'),
       help: page.locator('#btn-help'),
       mapExpand: page.locator('#btn-map-expand'),
+      mobileMapFab: page.locator('#btn-mobile-map-fab'),
       editTour: page.locator('#btn-edit-tour'),
       downloadGpx: page.locator('#btn-download-gpx'),
       deleteTour: page.locator('#btn-delete-tour'),
@@ -231,6 +234,7 @@ export function initMainPage(page: Page): MainPage {
       await locators.buttons.logout.click();
     },
     toggleSidebar: async () => locators.buttons.mapExpand.click(),
+    openMobileMap: async () => locators.buttons.mobileMapFab.click(),
     search: async (query: string) => locators.search.fill(query),
     sortBy: async (option: string) => {
       await locators.sort.selectOption(option);
@@ -279,8 +283,9 @@ export function initMainPage(page: Page): MainPage {
       // even had its chance to fire. 500ms clears the app's 400ms window.
       await page.waitForTimeout(500);
     },
-    // Positive dx swipes right (delete, #289), negative left (detail, #308).
-    // The intermediate touchMove events mirror how a finger delivers a drag;
+    // Positive dx swipes right (delete, #289); negative left is now a no-op
+    // (swipe-left-to-open-details was removed — tap opens it directly). The
+    // intermediate touchMove events mirror how a finger delivers a drag;
     // bindTourSwipe reads real touch pointerType, so a mouse drag won't do.
     swipeTour: async (name: string, dx: number) => {
       const row = locators.list.container.locator('.tour-item', { hasText: name });

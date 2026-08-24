@@ -8,11 +8,12 @@ import { state } from './state.js';
 import { mapBoundsPlain } from './map.js';
 import { apiFetch } from './auth.js';
 import { renderAllRoutes, renderSelectedToursRoutes } from './routes.js';
-import { deleteTourById, selectTour, closeDetailPanel, focusTourOnMap } from './tour-detail.js';
+import { deleteTourById, selectTour } from './tour-detail.js';
 import { consumeDeepLinkTourId, syncUrl } from './router.js';
 import { toast } from './toast.js';
 import {
   show,
+  elAppLayout,
   elSidebar,
   elTourList,
   elTourCount,
@@ -24,6 +25,7 @@ import {
   elLineStyleWrap,
   elBtnShowAll,
   elBtnSelectMode,
+  elBtnMobileMapFab,
   elSelectionBar,
   elSelectionCount,
   elBtnDeleteSelected,
@@ -180,11 +182,10 @@ function bindLongPress(el, onLongPress) {
   el.addEventListener('pointerleave', cancel);
 }
 
-// Touch-only, like bindLongPress. Dragging contentEl uncovers whichever of its
-// two sibling backgrounds the direction points at; past
-// SWIPE_ACTION_THRESHOLD_PX on release, right deletes and left opens the
-// detail panel. Anything less snaps back — release only ever looks at the
-// final dx, so a drag-back needs no cancelled state of its own.
+// Touch-only, like bindLongPress. Dragging contentEl right uncovers the
+// delete background; past SWIPE_ACTION_THRESHOLD_PX on release, it deletes.
+// Anything less snaps back — release only ever looks at the final dx, so a
+// drag-back needs no cancelled state of its own.
 function bindTourSwipe(contentEl, tour) {
   let start = null;
   let dragging = false;
@@ -212,10 +213,10 @@ function bindTourSwipe(contentEl, tour) {
     }
     dragging = true;
     contentEl.style.transition = 'none';
-    // Half the row's width: each background occupies one half, and an overshoot
-    // past that starts revealing the other action's on the far edge.
+    // Only the delete background exists now, so leftward drags are clamped
+    // to 0 instead of revealing anything on that side.
     const maxDx = contentEl.offsetWidth / 2;
-    const clampedDx = Math.max(-maxDx, Math.min(maxDx, dx));
+    const clampedDx = Math.max(0, Math.min(maxDx, dx));
     contentEl.style.transform = `translateX(${clampedDx}px)`;
   });
 
@@ -231,10 +232,6 @@ function bindTourSwipe(contentEl, tour) {
       // would land on whatever row took its place.
       suppressNextTourClickOnce();
       await deleteTourById(tour.id);
-    } else if (dx <= -SWIPE_ACTION_THRESHOLD_PX) {
-      // No suppression needed here: nothing shifts, so the ghost click lands
-      // back on this row, where highlightTour's same-tour guard eats it.
-      selectTour(tour.id);
     }
   });
 
@@ -276,11 +273,6 @@ const TRASH_ICON_SVG =
   '<path fill="#000" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>' +
   '</svg>';
 
-const DETAIL_ICON_SVG =
-  '<svg class="tour-item-detail-icon" viewBox="0 0 24 24" aria-hidden="true">' +
-  '<path fill="#000" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>' +
-  '</svg>';
-
 function createTourItem(tour) {
   const li = document.createElement('li');
   li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
@@ -289,11 +281,6 @@ function createTourItem(tour) {
   deleteBg.className = 'tour-item-delete-bg';
   deleteBg.setAttribute('aria-hidden', 'true');
   deleteBg.innerHTML = TRASH_ICON_SVG;
-
-  const detailBg = document.createElement('div');
-  detailBg.className = 'tour-item-detail-bg';
-  detailBg.setAttribute('aria-hidden', 'true');
-  detailBg.innerHTML = DETAIL_ICON_SVG;
 
   const content = document.createElement('div');
   content.className = 'tour-item-content';
@@ -332,22 +319,9 @@ function createTourItem(tour) {
   );
 
   content.append(checkbox, details);
-  // A click event isn't reliably a PointerEvent across browsers, so the input
-  // type has to come from the preceding pointerdown.
-  let lastPointerType = null;
-  content.addEventListener('pointerdown', (e) => {
-    lastPointerType = e.pointerType;
-  });
   content.addEventListener('click', () => {
-    if (state.selectMode) {
-      toggleTourSelection(tour.id);
-    } else if (lastPointerType === 'touch') {
-      // On touch the panel is swipe-left's job and select mode is
-      // long-press's, so a tap only highlights.
-      highlightTour(tour.id);
-    } else {
-      selectTour(tour.id);
-    }
+    if (state.selectMode) toggleTourSelection(tour.id);
+    else selectTour(tour.id);
   });
   content.addEventListener('keydown', (e) => {
     // Space also scrolls the list by default; only suppress that once this
@@ -363,7 +337,7 @@ function createTourItem(tour) {
   });
   bindTourSwipe(content, tour);
 
-  li.append(deleteBg, detailBg, content);
+  li.append(deleteBg, content);
   return li;
 }
 
@@ -383,6 +357,10 @@ export function renderSidebar() {
   show(elTourList, hasTours);
   show(elBtnShowAll, hasTours);
   show(elBtnSelectMode, hasTours);
+  // Guarded against the fullscreen map, whose own toggle owns this button's
+  // visibility while active — an async render landing mid-expand must not
+  // pop it back up behind/over the map.
+  show(elBtnMobileMapFab, hasTours && !elAppLayout.classList.contains('map-expanded'));
   show(elSelectionBar, hasTours && state.selectMode);
   const selectedTour = hasTours && state.tours.find((tour) => tour.id === state.selectedTourId);
   elBtnShowAll.classList.toggle('active', !!selectedTour);
@@ -436,26 +414,10 @@ export function enterSelectMode() {
   renderSidebar();
 }
 
-// Long-press only — a plain tap highlights instead.
+// Long-press only — a plain tap opens the detail panel instead.
 function enterSingleSelect(tourId) {
   enterSelectMode();
   toggleTourSelection(tourId);
-}
-
-// A tap's half of what a desktop click does: select and focus the map, but
-// leave the panel to swipe-left. Any panel already open belongs to another
-// tour, and its actions all read selectedTourId, so it has to close.
-//
-// The same-tour early return is load-bearing, not just an optimisation: it is
-// what stops a swipe-left's own trailing ghost click from closing the panel
-// that swipe just opened.
-export function highlightTour(tourId) {
-  if (state.selectedTourId === tourId) return;
-  closeDetailPanel();
-  state.selectedTourId = tourId;
-  renderSidebar();
-  focusTourOnMap(tourId); // a plain tap must focus the map like a click does
-  syncUrl();
 }
 
 export function exitSelectMode() {

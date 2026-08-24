@@ -2,7 +2,7 @@
 
 import * as i18n from './lib/i18n.js';
 import { state } from './ui/state.js';
-import { map, refreshMapSize } from './ui/map.js';
+import { map, refreshMapSize, moveMapIntoDetailPanel, restoreMapToAppLayout } from './ui/map.js';
 import {
   $,
   elBtnLogin,
@@ -32,6 +32,8 @@ import {
   elBtnDeleteSelected,
   elPinToggleInput,
   elBtnMapExpand,
+  elBtnMobileMapFab,
+  elMapContainer,
   elAppLayout,
   elBtnHelp,
   elBtnBrandReload,
@@ -86,7 +88,7 @@ import {
   retryLightboxImage,
 } from './ui/images.js';
 import { renderSidebar, loadTours, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
-import { renderAllRoutes } from './ui/routes.js';
+import { renderAllRoutes, renderSelectedToursRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
 import { debounce } from './lib/debounce.js';
 import { setupLanguageSwitcher, setupSortMenu, setupLineStyleMenu } from './ui/menus.js';
@@ -99,7 +101,7 @@ import {
   wireDropzone,
 } from './ui/modal.js';
 import { cancelConfirm } from './ui/confirm.js';
-import { readInitialUrl, initHistory, syncUrl } from './ui/router.js';
+import { readInitialUrl, initHistory, syncUrl, pushLayer } from './ui/router.js';
 
 const t = i18n.t;
 
@@ -215,12 +217,43 @@ elPinToggleInput.addEventListener('change', () => {
 // so without this the pins need an off/on toggle to reappear.
 elPinToggleInput.checked = state.showPins;
 
-// Expand the map by collapsing the side panels.
+// Expand the map by collapsing the side panels. On mobile the map may
+// currently be the detail panel's preview (see moveMapIntoDetailPanel) —
+// expanding it has to pull it back into .app-layout first, since
+// .map-expanded hides .detail-panel entirely, and collapsing again has to
+// put it back once done.
+let mapExpandedFromDetail = false;
 elBtnMapExpand.addEventListener('click', () => {
+  const wasInDetail = elMapContainer.classList.contains('in-detail');
+  if (wasInDetail) restoreMapToAppLayout();
   const expanded = elAppLayout.classList.toggle('map-expanded');
   elBtnMapExpand.setAttribute('aria-pressed', String(expanded));
   elBtnMapExpand.title = expanded ? t('map.restoreTitle') : t('map.expandTitle');
+  if (expanded) {
+    mapExpandedFromDetail = wasInDetail;
+    show(elBtnMobileMapFab, false);
+  } else if (mapExpandedFromDetail) {
+    moveMapIntoDetailPanel();
+    mapExpandedFromDetail = false;
+  } else {
+    show(elBtnMobileMapFab, true);
+  }
   refreshMapSize();
+});
+
+// Mobile-only entry point to the same fullscreen map, from the list screen
+// where .map-container is hidden and its own expand button isn't reachable.
+function closeMobileMap() {
+  if (elAppLayout.classList.contains('map-expanded')) elBtnMapExpand.click();
+}
+elBtnMobileMapFab.addEventListener('click', () => {
+  pushLayer(closeMobileMap);
+  elBtnMapExpand.click();
+  // .map-container is display:none on mobile until now, so the fitBounds()
+  // that ran at load time (or the last selection change) sized against a
+  // hidden 0-size container — invalidateSize() alone won't refit, only
+  // re-center, so the zoom needs recomputing now that it's actually visible.
+  renderSelectedToursRoutes();
 });
 
 elBtnHelp.addEventListener('click', () => openModal(elHelpModal));

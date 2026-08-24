@@ -2,8 +2,10 @@ import { buddyTest, expect } from '../pages/buddy-test';
 
 // Regression guard for #239: the mobile full-screen tour detail must not be the
 // only place pins live — the "Photo pins" toggle sits on the map and has to stay
-// visible and tappable on the mobile map view. The full-stack photo-pins spec
-// only runs at desktop width, so this stubs the API and drives a phone viewport.
+// visible and tappable on the mobile map view, reached via the FAB now that the
+// map is off-screen by default on the mobile list home screen. The full-stack
+// photo-pins spec only runs at desktop width, so this stubs the API and drives
+// a phone viewport.
 
 const TID = '22222222-2222-4222-8222-222222222222';
 // 1x1 transparent PNG — the marker only needs a valid <img> src, not a real blob.
@@ -62,6 +64,8 @@ buddyTest.describe('photo pins (mobile)', () => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).main.locators.list.container).toContainText('Geotagged Tour');
+
+    await on(page).main.do.openMobileMap();
 
     // The toggle appears once geotagged images are loaded, and must be tappable
     // (not covered) on the phone-width map view.
