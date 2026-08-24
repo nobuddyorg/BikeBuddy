@@ -93,4 +93,14 @@ buddyTest.describe('closing the detail panel', () => {
     await expect(on(page).main.locators.list.active).toHaveCount(0);
     await expect(on(page).main.locators.pins.markers).toHaveCount(2);
   });
+
+  buddyTest('clicking the already-open tour again closes it', async ({ on, page }) => {
+    await on(page).main.do.selectTour('Alpine Loop');
+    await expect(on(page).main.locators.detail.name).toHaveText('Alpine Loop');
+
+    await on(page).main.do.selectTour('Alpine Loop');
+
+    await expect(on(page).main.locators.detail.panel).toBeHidden();
+    await expect(on(page).main.locators.list.active).toHaveCount(0);
+  });
 });
