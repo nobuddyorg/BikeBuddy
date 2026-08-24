@@ -95,6 +95,13 @@ body {
   overflow: hidden;
 }
 
+/* Redundant with the rule above on desktop, but mobile's body does scroll
+   (see the mobile media query) — this stops the list behind a modal's
+   backdrop from scrolling too (ui/modal.js's openModal/closeModal). */
+body.modal-open {
+  overflow: hidden;
+}
+
 /* ── Navbar ─────────────────────────────────────── */
 
 .navbar {
@@ -1970,6 +1977,12 @@ body:not(.i18n-loading) .app-skeleton {
      on desktop (see closeDetailPanel's mobile branch in ui/tour-detail.js) —
      there's nothing for this button to reset back to "all" from. */
   .show-all-btn {
+    display: none;
+  }
+
+  /* The map isn't beside the list to pan/zoom while watching it filter on
+     mobile (see the inViewActive guard in ui/sidebar.js's renderSidebar). */
+  #filter-in-view-toggle {
     display: none;
   }
 

@@ -1,10 +1,9 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 
-// #378: closing the detail panel must not drop the selection. The map is always
-// showing either one tour with its own photos, or every tour with all of them.
-// Before the fix, closing the panel cleared state.selectedTourId while leaving
-// the single tour's route on the map — so the pins widened to every tour's
-// photos while the track stayed scoped to one, and no row was active.
+// Closing the detail panel drops the selection and widens the map back to
+// every tour's routes and pins — but on desktop it does so without re-fitting
+// the camera (renderAllRoutes(undefined, false) in ui/tour-detail.js), so
+// closing doesn't yank the view around. Only "Show all tours" re-fits.
 
 // 1x1 transparent PNG — the marker only needs a valid <img> src, not a real blob.
 const PX =
@@ -80,7 +79,7 @@ buddyTest.describe('closing the detail panel', () => {
     await expect(on(page).main.locators.userMenu).toBeVisible();
   });
 
-  buddyTest('keeps the tour selected, and its pins scoped to it', async ({ on, page }) => {
+  buddyTest('drops the selection and widens pins back to every tour', async ({ on, page }) => {
     await on(page).main.do.showPins(true);
     await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
@@ -91,20 +90,6 @@ buddyTest.describe('closing the detail panel', () => {
     await on(page).main.do.closeDetail();
 
     await expect(on(page).main.locators.detail.panel).toBeHidden();
-    await expect(on(page).main.locators.list.active).toHaveCount(1);
-    await expect(on(page).main.locators.list.active).toContainText('Alpine Loop');
-    await expect(on(page).main.locators.pins.markers).toHaveCount(1);
-  });
-
-  buddyTest('"Show All Tours" is what returns to the whole map', async ({ on, page }) => {
-    await on(page).main.do.showPins(true);
-    await on(page).main.do.selectTour('Alpine Loop');
-    await on(page).main.do.closeDetail();
-
-    await expect(on(page).main.locators.buttons.showAll).toContainText('Alpine Loop');
-
-    await on(page).main.do.showAllTours();
-
     await expect(on(page).main.locators.list.active).toHaveCount(0);
     await expect(on(page).main.locators.pins.markers).toHaveCount(2);
   });

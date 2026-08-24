@@ -79,17 +79,22 @@ export async function selectTour(tourId) {
   }
 }
 
+// Neither surface leaves the map/pins scoped to the just-closed tour, and
+// neither leaves its row looking "active" — only the explicit "Show all
+// tours" button (desktop) or reopening the map (mobile) should single out a
+// tour again.
 export function closeDetailPanel() {
   show(elDetailPanel, false);
-  if (isMobileLayout()) {
-    restoreMapToAppLayout();
-    // Unlike desktop, mobile never leaves the map focused on one tour in the
-    // background — there's no "current tour" to stay highlighted once its
-    // detail closes.
-    state.selectedTourId = null;
-    renderSidebar();
-    syncUrl();
-  }
+  const wasMobile = isMobileLayout();
+  if (wasMobile) restoreMapToAppLayout();
+  state.selectedTourId = null;
+  renderSidebar();
+  syncUrl();
+  // Desktop's map is always visible, so it redraws immediately — every
+  // route, but without re-fitting the camera, so closing the panel doesn't
+  // yank the view around; only "Show all tours" does that. Mobile's map is
+  // off-screen until reopened, which draws fresh then (renderSelectedToursRoutes).
+  if (!wasMobile) renderAllRoutes(undefined, false);
   show(elBtnMobileMapFab, true);
   refreshMapSize();
 }

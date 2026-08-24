@@ -7,11 +7,24 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 let modalReturnFocus = null;
 
+// Desktop's body never scrolls anyway (see style.css), but mobile's does now
+// that the list is a normal scrolling page — without this a modal's backdrop
+// no longer stops the list behind it from scrolling too. Counted (not just a
+// toggle) so one modal closing doesn't unlock scroll while another is still
+// open; guarded on the modal's own hidden state so a stray double-close (the
+// back-button layer left over after an explicit close, same as elsewhere in
+// this app) can't decrement twice.
+let openModalCount = 0;
+
 // onHistoryClose lets a caller with extra close-time cleanup (the lightbox)
 // run its real close function when Back pops this modal, instead of the
 // plain show(modal, false) closeModal() would otherwise do.
 export function openModal(modal, onHistoryClose) {
   modalReturnFocus = document.activeElement;
+  if (modal.classList.contains('hidden')) {
+    openModalCount++;
+    document.body.classList.add('modal-open');
+  }
   show(modal, true);
   const focusables = modal.querySelectorAll(FOCUSABLE);
   (focusables[focusables.length > 1 ? 1 : 0] || modal).focus();
@@ -19,6 +32,10 @@ export function openModal(modal, onHistoryClose) {
 }
 
 export function closeModal(modal) {
+  if (!modal.classList.contains('hidden')) {
+    openModalCount = Math.max(0, openModalCount - 1);
+    if (openModalCount === 0) document.body.classList.remove('modal-open');
+  }
   show(modal, false);
   if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
   modalReturnFocus = null;
