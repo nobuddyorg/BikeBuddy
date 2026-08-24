@@ -150,10 +150,10 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
   );
 });
 
-// #331: a tap must focus the map, not just highlight the row. Pins are the
-// observable proxy — the scoping reads state.selectedTourId, which before the
-// fix never re-rendered on a plain tap.
-buddyTest.describe('mobile tap focuses the map, not just the row', () => {
+// #331: a tap must focus the map, not just highlight the row (tap now opens
+// the detail panel directly, same as a click — see long-press-select.spec.ts).
+// Pins are the observable proxy — the scoping reads state.selectedTourId.
+buddyTest.describe('a tap scopes pins to just that tour', () => {
   buddyTest.use({ hasTouch: true });
 
   buddyTest.beforeEach(async () => {
@@ -199,9 +199,9 @@ buddyTest.describe('mobile tap focuses the map, not just the row', () => {
     await on(page).main.do.showPins(true);
     await expect(on(page).main.locators.pins.markers).toHaveCount(2);
 
-    // A tap, not a click: the panel must stay closed.
+    // A tap, like a click, opens the detail panel directly.
     await on(page).main.do.tapTour('Tour A');
-    await expect(on(page).main.locators.detail.panel).toBeHidden();
+    await expect(on(page).main.locators.detail.name).toHaveText('Tour A');
     await expect(
       on(page).main.locators.list.container.locator('.tour-item.active', { hasText: 'Tour A' }),
     ).toBeVisible();
