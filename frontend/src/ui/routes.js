@@ -34,9 +34,13 @@ export function redrawRoutes() {
   state.routeLayer?.eachLayer((layer) => layer.setStyle(state.lineStyle));
 }
 
-export function renderRoutes(pointSets, padding) {
+// fit=false redraws without touching pan/zoom — used when closing a tour's
+// detail on desktop, where the camera should stay put and only the explicit
+// "Show all tours" button re-fits (otherwise every close yanks the view).
+export function renderRoutes(pointSets, padding, fit = true) {
   state.routePointSets = pointSets;
   drawRoutes(pointSets);
+  if (!fit) return;
   const allPoints = pointSets.flat();
   if (allPoints.length === 0) return;
   // Tours finish loading asynchronously, by which point the container may
@@ -47,12 +51,12 @@ export function renderRoutes(pointSets, padding) {
   map.fitBounds(L.latLngBounds(allPoints), { padding: [padding, padding] });
 }
 
-export async function renderAllRoutes(mapDataPromise) {
+export async function renderAllRoutes(mapDataPromise, fit = true) {
   show(elMapLoading, true);
   await ensureMapData(apiFetch, state.tours, mapDataPromise);
   show(elMapLoading, false);
   const pointSets = state.tours.map((t) => t.heatmapData || []);
-  renderRoutes(pointSets, 40);
+  renderRoutes(pointSets, 40, fit);
   const empty = pointSets.every((pts) => pts.length === 0);
   show(elMapLoadError, empty && state.toursLoadFailed);
   show(elMapEmpty, empty && !state.toursLoadFailed);

@@ -5,7 +5,7 @@ import { formatDate, formatDistance } from '../lib/format.js';
 import { visibleTours, toursInView, paginate, PAGE_SIZE, fuzzyMatchIndices } from '../lib/tours.js';
 import { isStale, markFetched } from '../lib/sasCache.js';
 import { state } from './state.js';
-import { mapBoundsPlain } from './map.js';
+import { mapBoundsPlain, isMobileLayout } from './map.js';
 import { apiFetch } from './auth.js';
 import { renderAllRoutes, renderSelectedToursRoutes } from './routes.js';
 import { deleteTourById, selectTour } from './tour-detail.js';
@@ -377,9 +377,14 @@ export function renderSidebar() {
     return;
   }
 
-  const scoped = state.filterInView ? toursInView(state.tours, mapBoundsPlain()) : state.tours;
+  // The map isn't beside the list on mobile to pan/zoom while watching it
+  // filter, and the toggle is hidden there — ignore a stray filterInView=true
+  // left over from a desktop session or a shared/bookmarked ?inView=1 URL,
+  // or the list would filter itself with no visible control to undo it.
+  const inViewActive = state.filterInView && !isMobileLayout();
+  const scoped = inViewActive ? toursInView(state.tours, mapBoundsPlain()) : state.tours;
   const visible = visibleTours(scoped, state.sort, state.search);
-  const filterActive = state.filterInView || state.search.trim() !== '';
+  const filterActive = inViewActive || state.search.trim() !== '';
   elTourCount.textContent = filterActive
     ? t('sidebar.filteredCount', { count: visible.length, total: state.tours.length })
     : String(state.tours.length);
