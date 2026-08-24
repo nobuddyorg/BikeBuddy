@@ -25,5 +25,8 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      stryker-mutator:
+        patterns:
+          - "@stryker-mutator/*"
     cooldown:
       default-days: 7
