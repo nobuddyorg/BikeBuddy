@@ -8,7 +8,7 @@ import { state } from './state.js';
 import { mapBoundsPlain, isMobileLayout } from './map.js';
 import { apiFetch } from './auth.js';
 import { renderAllRoutes, renderSelectedToursRoutes } from './routes.js';
-import { deleteTourById, selectTour } from './tour-detail.js';
+import { deleteTourById, selectTour, closeDetailPanel } from './tour-detail.js';
 import { consumeDeepLinkTourId, syncUrl } from './router.js';
 import { toast } from './toast.js';
 import {
@@ -321,6 +321,7 @@ function createTourItem(tour) {
   content.append(checkbox, details);
   content.addEventListener('click', () => {
     if (state.selectMode) toggleTourSelection(tour.id);
+    else if (state.selectedTourId === tour.id) closeDetailPanel();
     else selectTour(tour.id);
   });
   content.addEventListener('keydown', (e) => {
