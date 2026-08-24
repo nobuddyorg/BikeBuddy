@@ -492,6 +492,27 @@
           </button>
         </div>
       </aside>
+
+      <!-- Mobile-only: opens the map full-screen (see .map-expanded) without it
+           occupying space on the list screen. -->
+      <button
+        id="btn-mobile-map-fab"
+        class="mobile-map-fab hidden"
+        data-i18n-aria-label="map.expandAria"
+        data-i18n-title="map.expandTitle"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M9 3v15l-6 3V6l6-3zm0 0 6 3m-6-3 6 18m0-18 6-3v15l-6 3m0-18v18" />
+        </svg>
+      </button>
     </div>
 
     <!-- Toast notifications -->

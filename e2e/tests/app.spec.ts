@@ -131,7 +131,11 @@ buddyTest.describe('BikeBuddy static UI', () => {
     async ({ on, page }) => {
       await page.setViewportSize({ width: 375, height: 720 });
       await page.goto('/');
-      await expect(on(page).main.locators.map).toBeVisible();
+      // The list (here, its empty state — this describe block mocks no
+      // tours) is the mobile home screen now; the map lives off-screen
+      // behind the FAB until opened.
+      await expect(on(page).main.locators.sidebar).toBeVisible();
+      await expect(on(page).main.locators.list.empty).toBeVisible();
       await expect(on(page).main.locators.userMenu).toBeVisible();
       const overflows = await page.evaluate(
         () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,

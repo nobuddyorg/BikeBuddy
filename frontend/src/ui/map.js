@@ -1,5 +1,7 @@
 'use strict';
 
+import { elMapContainer, elAppLayout, elDetailPanel } from './dom.js';
+
 const L = window.L;
 
 export const map = L.map('map', { center: [48.5, 10.5], zoom: 6 });
@@ -64,3 +66,28 @@ window.addEventListener('resize', refreshMapSize);
 // unhandled, Leaflet keeps panning/zooming against its stale cached size,
 // which is what made the map look off-center on first load on mobile.
 new ResizeObserver(refreshMapSize).observe(map.getContainer());
+
+// Matches style.css's mobile breakpoint. Checked only at the moments below
+// (detail open/close, expand toggle), not live on resize.
+export function isMobileLayout() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+// There is only ever one Leaflet instance. On mobile its container
+// (.map-container, with the shared top-controls bar) is physically moved
+// into the detail panel to act as that tour's preview, instead of spinning up
+// a second map — moving Leaflet's container and calling invalidateSize() is
+// all it needs to keep working.
+export function moveMapIntoDetailPanel() {
+  if (elMapContainer.classList.contains('in-detail')) return;
+  elMapContainer.classList.add('in-detail');
+  elDetailPanel.insertBefore(elMapContainer, elDetailPanel.firstChild);
+  refreshMapSize();
+}
+
+export function restoreMapToAppLayout() {
+  if (!elMapContainer.classList.contains('in-detail')) return;
+  elMapContainer.classList.remove('in-detail');
+  elAppLayout.insertBefore(elMapContainer, elDetailPanel);
+  refreshMapSize();
+}

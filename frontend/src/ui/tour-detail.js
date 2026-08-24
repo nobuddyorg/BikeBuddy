@@ -18,10 +18,16 @@ import { renderAllRoutes, renderRoutes } from './routes.js';
 import { renderPins } from './pins.js';
 import { renderSidebar, ensureDetail } from './sidebar.js';
 import { resetImageSection, renderGallery } from './images.js';
-import { refreshMapSize } from './map.js';
+import {
+  refreshMapSize,
+  isMobileLayout,
+  moveMapIntoDetailPanel,
+  restoreMapToAppLayout,
+} from './map.js';
 import {
   show,
   elMapEmpty,
+  elBtnMobileMapFab,
   elDetailPanel,
   elDetailName,
   elDetailDate,
@@ -43,9 +49,8 @@ import { pushLayer, syncUrl } from './router.js';
 const t = i18n.t;
 const tApi = i18n.tApi;
 
-// The map half of selecting a tour, shared by selectTour and highlightTour so
-// a plain tap isn't left on a stale full-map view. Returns null if the
-// selection moved on while detail was loading.
+// The map half of selecting a tour. Returns null if the selection moved on
+// while detail was loading.
 export async function focusTourOnMap(tourId) {
   const tour = state.tours.find((t) => t.id === tourId);
   if (!tour) return null;
@@ -76,6 +81,16 @@ export async function selectTour(tourId) {
 
 export function closeDetailPanel() {
   show(elDetailPanel, false);
+  if (isMobileLayout()) {
+    restoreMapToAppLayout();
+    // Unlike desktop, mobile never leaves the map focused on one tour in the
+    // background — there's no "current tour" to stay highlighted once its
+    // detail closes.
+    state.selectedTourId = null;
+    renderSidebar();
+    syncUrl();
+  }
+  show(elBtnMobileMapFab, true);
   refreshMapSize();
 }
 
@@ -246,6 +261,10 @@ function renderDetailPanel(tour) {
   renderDetailMeta(tour);
   resetImageSection();
   show(elDetailPanel, true);
+  if (isMobileLayout()) moveMapIntoDetailPanel();
+  // Otherwise it stays keyboard-focusable behind the full-screen mobile
+  // panel even though the panel's opaque background covers it visually.
+  show(elBtnMobileMapFab, false);
   refreshMapSize();
 }
 
