@@ -250,7 +250,12 @@ jobs:
             functions/package-lock.json
             e2e/package-lock.json
 
-      - run: npm install -g azure-functions-core-tools@4 @azure/static-web-apps-cli
+      # Pinned: azure-functions-core-tools@4.14.0 ships a bundled npm-shrinkwrap.json
+      # that resolves chalk@6.0.0 from Microsoft's internal Azure DevOps Artifacts feed
+      # (pkgs.dev.azure.com/azfunc/...) instead of the public npm registry, which returns
+      # 401/403 for anyone outside Microsoft's network. 4.13.0 predates that broken
+      # shrinkwrap and isn't deprecated. Bump once a fixed >=4.14.1 is released.
+      - run: npm install -g azure-functions-core-tools@4.13.0 @azure/static-web-apps-cli
 
       - run: ./buddy.sh development start-cosmos
       - run: ./buddy.sh development start-azurite
@@ -312,7 +317,8 @@ jobs:
           cache: npm
           cache-dependency-path: functions/package-lock.json
 
-      - run: npm install -g azure-functions-core-tools@4
+      # Pinned: see comment on the same install step in the e2e-fullstack job above.
+      - run: npm install -g azure-functions-core-tools@4.13.0
 
       - run: ./buddy.sh development start-cosmos
       - run: ./buddy.sh development start-azurite
