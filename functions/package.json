@@ -26,18 +26,18 @@
     "@azure/storage-blob": "^12.33.0",
     "busboy": "^1.6.0",
     "exif-reader": "^2.0.3",
-    "fast-xml-parser": "^5.11.0",
+    "fast-xml-parser": "^5.11.1",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^4.1.0",
-    "sharp": "^0.35.3",
-    "zod": "^4.4.3"
+    "sharp": "^0.35.4",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@vitest/coverage-v8": "^4.1.11",
-    "eslint": "^10.9.0",
+    "eslint": "^10.9.1",
     "eslint-plugin-n": "^18.3.0",
     "globals": "^17.11.0",
     "prettier": "^3.9.6",
