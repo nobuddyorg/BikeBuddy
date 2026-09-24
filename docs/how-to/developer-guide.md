@@ -333,7 +333,7 @@ cd frontend && npm run mutate      # one package
 
 | Package      | Break threshold | Measured when introduced |
 | ------------ | --------------- | ------------------------ |
-| `functions/` | 95 %            | 96.34 %                  |
+| `functions/` | 95 %            | 96.46 %                  |
 | `frontend/`  | 83 %            | 84.76 %                  |
 
 - **Incremental**: results are kept in `reports/stryker-incremental.json`; a
