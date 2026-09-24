@@ -268,3 +268,26 @@ service-worker registration), `e2e/serve.mjs` (a Playwright `webServer`
 command), and global CLIs such as `func` (`ignoreBinaries`). Anything else it
 reports is removed, not ignored: an export used only in its own file loses
 `export`. Runs as a pre-commit hook and in CI's `architecture` job.
+
+## Infrastructure checks (TFLint + Trivy)
+
+`infrastructure/` is checked beyond `tofu fmt`/`tofu validate` by one script,
+used by the pre-commit hook and CI's `iac` job:
+
+```bash
+./buddy.sh quality iac   # installs pinned, checksum-verified TFLint and Trivy on first run
+```
+
+- **TFLint** ([`.tflint.hcl`](../../.tflint.hcl)) with the `azurerm` ruleset:
+  deprecated arguments, invalid SKUs/locations, unused declarations.
+- **Trivy config** scans for misconfigurations (TLS, HTTPS-only, public
+  access, encryption, logging) and fails on **HIGH/CRITICAL**. It uses the
+  checks embedded in the pinned binary, so a result does not change with the
+  day it runs.
+- **Exceptions**: an accepted finding goes into
+  [`.trivyignore.yaml`](../../.trivyignore.yaml) (Trivy) or `.tflint.hcl`
+  (TFLint), one entry per finding with its reason and the issue that would
+  lift it; never an inline suppression. See the design decision "IaC scan
+  exceptions".
+- CI uploads both SARIF files to code scanning (categories `iac`,
+  `iac-tflint`) and puts both reports in the job summary.

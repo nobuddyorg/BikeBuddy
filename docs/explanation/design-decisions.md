@@ -120,6 +120,27 @@ markup with `innerHTML`; it now uses `textContent`) and one is suppressed
 inline: `applyI18n`'s `data-i18n-html` sink renders repo-owned translation
 markup by design.
 
+## IaC scan exceptions
+
+TFLint and Trivy lint what defines production: `infrastructure/`. Every
+accepted finding is listed in `.trivyignore.yaml` or `.tflint.hcl` with its
+reason, instead of an inline suppression, so the list of trade-offs is one
+file long:
+
+| Finding                                | Why it is accepted                                                                                           | Lifted by |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| AZU-0012 storage network default allow | browsers load photos by SAS URL, and Flex Consumption without paid VNet integration uses the public endpoint | #556      |
+| AZU-0057 storage logging               | billed per GB, read by nobody today                                                                          | #541      |
+| AZU-0058 no geo-redundant replication  | LRS keeps the cost target; backup is the answer to region loss                                               | #541      |
+| AZU-0060 no customer-managed key       | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
+| AZU-0061 no infrastructure encryption  | fixed at account creation, not retrofitted                                                                   | —         |
+| TFLint `…_missing_prevent_destroy`     | also blocks `destroy.yml`; decided together with a destroy path                                              | #543      |
+
+The tools are installed from GitHub releases by version and SHA-256 (in
+`scripts/quality/iac.sh`), not through third-party install actions: Trivy's
+distribution channels were compromised once, and a hash pin is what a
+repointed tag cannot move.
+
 ## Cost
 
 Everything targets the free/serverless tier (< €5/month), enforced by a budget

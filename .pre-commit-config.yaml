@@ -242,6 +242,18 @@ repos:
         files: ^infrastructure/.*\.tf$
         stages: [pre-commit]
 
+  # TFLint (azurerm ruleset) + Trivy config scan of infrastructure/, pinned and
+  # checksum-verified by the script. CI runs it in its own iac job (SARIF upload).
+  - repo: local
+    hooks:
+      - id: iac
+        name: TFLint + Trivy (infrastructure)
+        entry: scripts/quality/iac.sh
+        language: system
+        pass_filenames: false
+        files: ^(infrastructure/.*\.tf|\.tflint\.hcl|\.trivyignore\.yaml|scripts/quality/iac\.sh)$
+        stages: [pre-commit]
+
   # OpenGrep SAST, the same pinned version and rule packs as gate.yml's opengrep
   # job (which is the CI gate, so CI's prek job skips this hook). No --autofix:
   # findings are fixed by hand. Exclusions: .semgrepignore.

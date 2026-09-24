@@ -39,7 +39,7 @@ jobs:
           extra-args: "--all-files"
         env:
           # opengrep and the architecture checks have their own jobs below.
-          SKIP: no-commit-to-branch,opengrep,depcruise,knip
+          SKIP: no-commit-to-branch,opengrep,depcruise,knip,iac
 
   # A push to main forces every job: it is the event that deploys, and a merge
   # may combine unrelated changes. Skipped jobs report success to required checks.
@@ -88,6 +88,9 @@ jobs:
             infrastructure:
               - *ci
               - 'infrastructure/**'
+              - '.tflint.hcl'
+              - '.trivyignore.yaml'
+              - 'scripts/quality/iac.sh'
             # The JS/TS module graph and the configs of the checks that read it.
             code:
               - *ci
@@ -459,3 +462,54 @@ jobs:
             exit 1
           fi
           echo "No error-severity findings."
+
+  # TFLint + Trivy config over infrastructure/ (scripts/quality/iac.sh, the same
+  # command as the pre-commit hook). Accepted findings: .trivyignore.yaml.
+  iac:
+    needs: [prek, changes]
+    if: needs.changes.outputs.infrastructure == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # GITHUB_TOKEN: `tflint --init` fetches the azurerm ruleset through the GitHub API.
+      - name: Run TFLint and Trivy
+        id: iac
+        run: ./buddy.sh quality iac --report iac-reports
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Upload TFLint SARIF to code scanning
+        if: ${{ !cancelled() && hashFiles('iac-reports/tflint.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          sarif_file: iac-reports/tflint.sarif
+          category: iac-tflint
+
+      - name: Upload Trivy SARIF to code scanning
+        if: ${{ !cancelled() && hashFiles('iac-reports/trivy.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          sarif_file: iac-reports/trivy.sarif
+          category: iac
+
+      - name: Add TFLint results to job summary
+        if: ${{ !cancelled() && steps.iac.outcome != 'skipped' }}
+        uses: ./.github/actions/summary-section
+        with:
+          title: "🧱 TFLint (infrastructure)"
+          file: iac-reports/tflint.txt
+          empty-message: "✅ No TFLint issues."
+
+      - name: Add Trivy results to job summary
+        if: ${{ !cancelled() && steps.iac.outcome != 'skipped' }}
+        uses: ./.github/actions/summary-section
+        with:
+          title: "🛡️ Trivy config scan (infrastructure; fails on HIGH/CRITICAL)"
+          file: iac-reports/trivy.txt
