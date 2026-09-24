@@ -129,3 +129,18 @@ The Cosmos emulator key is the only allowlisted value, matched by its content.
 with `targetRules` and matched by content, with a one-line reason. Never
 `--no-verify`, never a path-wide exclusion. **A real secret** that reached a
 commit is compromised: rotate it first (Azure portal / `az`), then remove it.
+
+## Workflow linting
+
+Two pre-commit hooks check `.github/workflows/` and `.github/actions/`:
+[zizmor](https://docs.zizmor.sh) for security (config:
+[`.github/zizmor.yml`](../../.github/zizmor.yml)) and
+[actionlint](https://github.com/rhysd/actionlint) for correctness (YAML schema,
+`${{ }}` expression types, `needs`/`outputs` references, composite-action
+inputs, and ShellCheck on every `run:` block when `shellcheck` is installed).
+
+```bash
+prek run zizmor --all-files
+prek run actionlint --all-files
+zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only reports
+```
