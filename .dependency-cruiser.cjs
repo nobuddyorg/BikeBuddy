@@ -50,13 +50,15 @@ module.exports = {
       comment:
         'Cosmos is reached only through functions/src/lib/db.js: one place for RU, retries and ' +
         'the 404 normalisation. Exceptions: the operator scripts (init, backfills, the deletion ' +
-        'job) run outside the Functions host with their own client, and the full-stack e2e ' +
-        'cleanup talks to the emulator directly.',
+        'job) run outside the Functions host with their own client, the full-stack e2e ' +
+        'cleanup talks to the emulator directly, and the query-cost guard needs its own client ' +
+        'with a request plugin to observe what db.js sends.',
       from: {
         pathNot: [
           '^functions/src/lib/db\\.js$',
           '^functions/scripts/',
           '^e2e/tests-fullstack/usersDb\\.ts$',
+          '^functions/test/integration/query-cost\\.test\\.js$',
         ],
       },
       to: { dependencyTypes: ['npm', 'npm-dev', 'npm-no-pkg'], path: '@azure/cosmos' },

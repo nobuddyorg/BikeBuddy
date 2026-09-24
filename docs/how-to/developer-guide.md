@@ -260,19 +260,19 @@ it exists:
 cd functions && npm run depcruise
 ```
 
-| Rule                                | Holds that                                                                                             |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `no-circular`                       | no import cycles                                                                                       |
-| `cosmos-only-in-db`                 | only `functions/src/lib/db.js` imports `@azure/cosmos` (operator scripts and the e2e cleanup excepted) |
-| `blob-only-in-blob-storage`         | only `functions/src/lib/blobStorage.js` imports `@azure/storage-blob` (backfill scripts excepted)      |
-| `handlers-share-through-lib`        | a Function handler never imports another handler                                                       |
-| `backend-lib-is-a-leaf`             | `lib/` and `middleware/` never import a handler                                                        |
-| `frontend-lib-is-pure`              | `frontend/src/lib/` never imports `ui/` or `app.js`                                                    |
-| `vendor-is-script-tags-only`        | nothing imports `frontend/src/vendor/` (classic scripts from `index.html`)                             |
-| `no-test-code-in-production`        | production code never imports a test or test helper                                                    |
-| `e2e-is-black-box`                  | `e2e/` never imports app code                                                                          |
-| `frontend-and-backend-are-separate` | the two never import each other                                                                        |
-| `no-orphans`, `not-to-unresolvable` | no dead modules, no unresolvable imports                                                               |
+| Rule                                | Holds that                                                                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `no-circular`                       | no import cycles                                                                                                             |
+| `cosmos-only-in-db`                 | only `functions/src/lib/db.js` imports `@azure/cosmos` (operator scripts, the e2e cleanup and the query-cost guard excepted) |
+| `blob-only-in-blob-storage`         | only `functions/src/lib/blobStorage.js` imports `@azure/storage-blob` (backfill scripts excepted)                            |
+| `handlers-share-through-lib`        | a Function handler never imports another handler                                                                             |
+| `backend-lib-is-a-leaf`             | `lib/` and `middleware/` never import a handler                                                                              |
+| `frontend-lib-is-pure`              | `frontend/src/lib/` never imports `ui/` or `app.js`                                                                          |
+| `vendor-is-script-tags-only`        | nothing imports `frontend/src/vendor/` (classic scripts from `index.html`)                                                   |
+| `no-test-code-in-production`        | production code never imports a test or test helper                                                                          |
+| `e2e-is-black-box`                  | `e2e/` never imports app code                                                                                                |
+| `frontend-and-backend-are-separate` | the two never import each other                                                                                              |
+| `no-orphans`, `not-to-unresolvable` | no dead modules, no unresolvable imports                                                                                     |
 
 **Known violations**: the frontend `ui/` import cycles reported in #579 are
 recorded in `.dependency-cruiser-known-violations.json` and ignored; any new
