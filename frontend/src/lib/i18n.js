@@ -66,8 +66,11 @@ export function getLocale() {
   return currentLocale;
 }
 
+// currentLocale only ever holds a supported code (pickLocale / DEFAULT_LOCALE).
 export function getLocaleMeta() {
-  return SUPPORTED_LOCALES.find((l) => l.code === currentLocale) || SUPPORTED_LOCALES[0];
+  return /** @type {(typeof SUPPORTED_LOCALES)[number]} */ (
+    SUPPORTED_LOCALES.find((l) => l.code === currentLocale)
+  );
 }
 
 export function dateLocale() {

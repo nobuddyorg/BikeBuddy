@@ -360,6 +360,21 @@ describe('parseGpx', () => {
       expect(result.avgSpeed).toBeNull();
     });
 
+    it('skips a segment whose timestamp does not advance (no infinite speed)', () => {
+      // A repeated timestamp at a new position would be 0 s for 133 km: the
+      // segment is dropped instead of counting as an infinitely fast move.
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, undefined, '2026-01-01T10:00:00Z'],
+          [49, 12, undefined, '2026-01-01T10:00:00Z'],
+          [49, 12.001, undefined, '2026-01-01T10:00:10Z'],
+        ]),
+      );
+      expect(result.durationSeconds).toBe(10);
+      expect(result.movingSeconds).toBe(10);
+      expect(Number.isFinite(result.avgSpeed)).toBe(true);
+    });
+
     it('returns null average speed when every segment is a stop', () => {
       const result = parseGpx(
         makeGpxWithExtras([

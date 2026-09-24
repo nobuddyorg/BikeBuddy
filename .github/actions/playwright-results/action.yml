@@ -17,6 +17,14 @@ inputs:
   job-status:
     description: The calling job's `job.status`; status functions inside a composite action see only its own steps.
     required: true
+  coverage-dir:
+    description: e2e coverage report directory (e2e/coverage.ts), relative to the workspace. Empty when the run collects none.
+    required: false
+    default: ""
+  coverage-artifact-name:
+    description: Name of the e2e coverage artifact, uploaded on every run.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -39,3 +47,27 @@ runs:
         name: ${{ inputs.artifact-name }}
         path: ${{ inputs.report-dir }}
         retention-days: 7
+
+    # The report is written before the floor check can throw, so it exists on failed runs too. Missing on a passing run means coverage never ran.
+    - name: Add e2e coverage report to job summary
+      if: always() && inputs.coverage-dir != ''
+      shell: bash
+      env:
+        JOB_STATUS: ${{ inputs.job-status }}
+        COVERAGE_DIR: ${{ inputs.coverage-dir }}
+      run: |
+        if [ ! -f "$COVERAGE_DIR/coverage-summary.md" ]; then
+          [ "$JOB_STATUS" = 'success' ] || exit 0
+          echo "::error::$COVERAGE_DIR/coverage-summary.md is missing on a passing run, so the e2e coverage gate did not execute."
+          exit 1
+        fi
+        cat "$COVERAGE_DIR/coverage-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Keep the e2e coverage report
+      if: always() && inputs.coverage-artifact-name != ''
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.coverage-artifact-name }}
+        path: ${{ inputs.coverage-dir }}
+        retention-days: 7
+        if-no-files-found: ignore

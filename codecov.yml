@@ -1,6 +1,12 @@
 # The same numbers are in the CI job summary already; Codecov's commit statuses stay on.
 comment: false
 
+# One flag per unit suite. Carryforward: a PR that skips a suite (path filters
+# in gate.yml) keeps that flag's last coverage instead of reporting it missing.
+flag_management:
+  default_rules:
+    carryforward: true
+
 ignore:
   # Infrastructure files exercised by Azurite integration tests, not unit tests.
   - "functions/src/lib/db.js"

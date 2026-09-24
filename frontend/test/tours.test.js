@@ -88,6 +88,11 @@ describe('visibleTours', () => {
   it('sorts by name and by distance', () => {
     expect(visibleTours(tours, 'name-asc', '').map((t) => t.id)).toEqual(['a', 'b', 'c']);
     expect(visibleTours(tours, 'length-desc', '').map((t) => t.id)).toEqual(['a', 'c', 'b']);
+    expect(visibleTours(tours, 'length-asc', '').map((t) => t.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('sorts oldest first', () => {
+    expect(visibleTours(tours, 'date-asc', '').map((t) => t.id)).toEqual(['a', 'c', 'b']);
   });
 
   it('filters by the fuzzy search before sorting', () => {
@@ -120,6 +125,38 @@ describe('visibleTours', () => {
     const copy = [...tours];
     visibleTours(tours, 'name-desc', '');
     expect(tours).toEqual(copy);
+  });
+
+  it('sorts tours with a missing name, date or distance as empty/zero, without throwing', () => {
+    const full = { id: 'full', name: 'Zeta', createdAt: '2026-01-01T00:00:00Z', distance: 10 };
+    const bare = { id: 'bare' };
+    // Both argument orders, so each side of every comparator meets a missing field.
+    for (const sparse of [
+      [full, bare],
+      [bare, full],
+    ]) {
+      const order = (sort) => visibleTours(sparse, sort, undefined).map((t) => t.id);
+      expect(order('name-asc')).toEqual(['bare', 'full']);
+      expect(order('name-desc')).toEqual(['full', 'bare']);
+      expect(order('date-asc')).toEqual(['bare', 'full']);
+      expect(order('date-desc')).toEqual(['full', 'bare']);
+      expect(order('length-asc')).toEqual(['bare', 'full']);
+      expect(order('length-desc')).toEqual(['full', 'bare']);
+    }
+  });
+
+  it('searches a tour without a name by its description only', () => {
+    const unnamed = [{ id: 'u', description: 'coastal ride', createdAt: '2026-01-01T00:00:00Z' }];
+    expect(visibleTours(unnamed, 'date-desc', 'coast').map((t) => t.id)).toEqual(['u']);
+  });
+
+  it('breaks a relevance tie with the chosen sort', () => {
+    const twins = [
+      { id: 'old', name: 'Loop', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'new', name: 'Loop', createdAt: '2026-02-01T00:00:00Z' },
+    ];
+    expect(visibleTours(twins, 'date-desc', 'loop').map((t) => t.id)).toEqual(['new', 'old']);
+    expect(visibleTours(twins, 'date-asc', 'loop').map((t) => t.id)).toEqual(['old', 'new']);
   });
 
   it('falls back to the chosen sort when the query is cleared', () => {

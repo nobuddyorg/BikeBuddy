@@ -291,3 +291,29 @@ used by the pre-commit hook and CI's `iac` job:
   exceptions".
 - CI uploads both SARIF files to code scanning (categories `iac`,
   `iac-tflint`) and puts both reports in the job summary.
+
+## Coverage
+
+```bash
+./buddy.sh test unit       # functions/: Vitest with coverage and its thresholds
+./buddy.sh test frontend   # frontend/src/lib: the same
+E2E_COVERAGE=1 ./buddy.sh test e2e             # static journeys, V8 JS coverage of the app
+E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack   # full-stack journeys
+```
+
+- **Unit**: Vitest's own thresholds are the gate: 99 % globally, and **100 %
+  per file** for every module in [`mutation-targets.mjs`](../../mutation-targets.mjs),
+  the same list Stryker mutates, so coverage floors and mutation scope cannot
+  drift. `autoUpdate` is off. The Cosmos/Blob adapters are left to the
+  integration suite; `frontend/src/ui/` to Playwright.
+- **E2E**: with `E2E_COVERAGE=1`, an automatic fixture in `e2e/pages/buddy-test.ts`
+  collects V8 JS coverage of the app's own modules (`app.js`, `lib/`, `ui/`)
+  from every test's page, and `e2e/global-teardown.ts` writes the report to
+  `e2e/coverage-e2e/<suite>/` (HTML, `coverage-summary.md`) and fails the run
+  below the suite's floor in `e2e/coverage.ts`. CI sets it for both suites.
+- **Rules**: never lower a threshold or a floor, never auto-ratchet one, no
+  `/* v8 ignore */`. A gap is closed with a test, or the logic is extracted
+  until it can be tested; unreachable code is removed.
+- **Reporting**: each job's summary shows the coverage table; Codecov gets the
+  lcov files with the flags `functions` and `frontend` (carried forward when a
+  path filter skips a suite) and keeps its commit status, without PR comments.

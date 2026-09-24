@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Read by coverage.ts in the runner and every worker.
+process.env.E2E_SUITE = 'fullstack';
+
 // Full-stack config: assumes the Functions host is already running on :7071
 // (started by the workflow / buddy.sh). The SWA CLI serves the frontend and
 // proxies /api → :7071, so the app talks to the real backend.
@@ -9,6 +12,7 @@ const isCI = !!process.env.CI;
 export default defineConfig({
   testDir: './tests-fullstack',
   globalSetup: './global-setup.ts',
+  globalTeardown: './global-teardown.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,

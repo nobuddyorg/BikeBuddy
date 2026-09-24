@@ -76,3 +76,4 @@ infrastructure/terraform.tfstate
 infrastructure/terraform.tfstate.backup
 func.zip
 iac-reports/
+coverage-e2e/

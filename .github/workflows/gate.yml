@@ -78,10 +78,12 @@ jobs:
             functions:
               - *ci
               - 'functions/**'
+              - 'mutation-targets.mjs'
               - 'scripts/development/**'
             frontend:
               - *ci
               - 'frontend/**'
+              - 'mutation-targets.mjs'
             e2e:
               - *ci
               - 'e2e/**'
@@ -124,12 +126,9 @@ jobs:
         with:
           packages: functions
 
+      # Vitest's own thresholds (global + a 100 % floor per file in mutation-targets.mjs) are the gate.
       - name: Run tests with coverage
         run: npm run test:ci
-        working-directory: functions
-
-      - name: Enforce local coverage threshold
-        run: npm run check:coverage
         working-directory: functions
 
       - name: Add test results to job summary
@@ -143,8 +142,7 @@ jobs:
           check_run: false
           test_changes_limit: 0
 
-      # Reads the json-summary reporter vitest.config.js adds for this step. Informational;
-      # "Enforce local coverage threshold" above is the gate.
+      # Reads the json-summary reporter vitest.config.js adds for this step.
       - name: Add coverage report to job summary
         if: ${{ !cancelled() && !env.ACT }}
         uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2
@@ -153,12 +151,14 @@ jobs:
           vite-config-path: vitest.config.js
           file-coverage-mode: none
           comment-on: "none"
+          name: functions
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         if: ${{ !env.ACT }}
         with:
-          files: functions/coverage/cobertura-coverage.xml
+          files: functions/coverage/lcov.info
+          flags: functions
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: nobuddyorg/BikeBuddy
           fail_ci_if_error: true
@@ -211,6 +211,8 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # CODECOV_TOKEN is stored as an environment secret on the "ci" environment
+    environment: ci
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -235,6 +237,26 @@ jobs:
           check_run: false
           test_changes_limit: 0
 
+      - name: Add coverage report to job summary
+        if: ${{ !cancelled() && !env.ACT }}
+        uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2
+        with:
+          working-directory: frontend
+          vite-config-path: vitest.config.js
+          file-coverage-mode: none
+          comment-on: "none"
+          name: frontend
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        if: ${{ !env.ACT }}
+        with:
+          files: frontend/coverage/lcov.info
+          flags: frontend
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: nobuddyorg/BikeBuddy
+          fail_ci_if_error: true
+
   e2e:
     needs: [prek, changes]
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.e2e == 'true'
@@ -256,6 +278,8 @@ jobs:
       - name: Run static UI tests (Playwright)
         run: npm run test:ci
         working-directory: e2e
+        env:
+          E2E_COVERAGE: "1"
 
       - name: Publish the end-to-end results
         if: ${{ !cancelled() && !env.ACT }}
@@ -266,6 +290,8 @@ jobs:
           report-dir: e2e/playwright-report
           artifact-name: playwright-report
           job-status: ${{ job.status }}
+          coverage-dir: e2e/coverage-e2e/static
+          coverage-artifact-name: e2e-coverage-static
 
   mutation:
     needs: [prek, changes]
@@ -327,6 +353,8 @@ jobs:
 
       - run: npm run test:fullstack
         working-directory: e2e
+        env:
+          E2E_COVERAGE: "1"
 
       - if: ${{ failure() }}
         run: cat /tmp/func.log || true
@@ -340,6 +368,8 @@ jobs:
           report-dir: e2e/playwright-report-fullstack
           artifact-name: playwright-report-fullstack
           job-status: ${{ job.status }}
+          coverage-dir: e2e/coverage-e2e/fullstack
+          coverage-artifact-name: e2e-coverage-fullstack
 
   integration:
     needs: [prek, changes]

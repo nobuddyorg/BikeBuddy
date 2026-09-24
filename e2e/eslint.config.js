@@ -5,7 +5,9 @@ import playwright from 'eslint-plugin-playwright';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig([
-  { ignores: ['reports/**', 'playwright-report*/**', 'test-results/**', '.local-*.config.ts'] },
+  {
+    ignores: ['reports/**', 'playwright-report*/**', 'test-results/**', 'coverage-e2e/**'],
+  },
   js.configs.recommended,
   // Type-aware: the page objects' types are the contract every spec relies on.
   ...tseslint.configs.recommendedTypeChecked,

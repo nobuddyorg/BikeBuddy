@@ -6,10 +6,12 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "test:ci": "vitest run --reporter=default --reporter=junit --outputFile=reports/unit-results.xml",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile=reports/unit-results.xml",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.11",
     "vitest": "^4.1.11"
   }
 }
