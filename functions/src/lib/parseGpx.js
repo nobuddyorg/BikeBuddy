@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const { XMLParser } = require('fast-xml-parser');

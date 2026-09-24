@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const error = (status, message) => ({ status, jsonBody: { error: message } });

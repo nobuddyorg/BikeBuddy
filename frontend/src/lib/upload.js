@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Falls back when the body isn't JSON.

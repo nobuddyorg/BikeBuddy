@@ -1,10 +1,11 @@
+// @ts-check
 'use strict';
 
 const { CosmosClient } = require('@azure/cosmos');
 
 let cosmosClient;
 function getClient() {
-  if (!cosmosClient) cosmosClient = new CosmosClient(process.env.COSMOS_CONNECTION_STRING);
+  if (!cosmosClient) cosmosClient = new CosmosClient(process.env.COSMOS_CONNECTION_STRING ?? '');
   return cosmosClient;
 }
 
@@ -15,7 +16,7 @@ async function readItem(container, id, partitionKey) {
     const { resource } = await container.item(id, partitionKey).read();
     return resource;
   } catch (err) {
-    if (err.code !== 404) throw err;
+    if (/** @type {{ code?: number }} */ (err).code !== 404) throw err;
     return undefined;
   }
 }

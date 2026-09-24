@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Flat-earth approximation, fine at track scale.

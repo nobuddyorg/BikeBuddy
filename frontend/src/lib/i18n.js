@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Dependency-free i18n. The pure helpers are unit-tested; the browser runtime
@@ -28,6 +29,7 @@ export function normalizeLocale(raw) {
 }
 
 // Stored override → first matching browser language → fallback.
+/** @param {{ stored?: string | null, languages?: readonly string[], fallback?: string }} [options] */
 export function pickLocale({ stored, languages = [], fallback = DEFAULT_LOCALE } = {}) {
   const fromStore = normalizeLocale(stored);
   if (fromStore) return fromStore;
@@ -132,12 +134,14 @@ export const I18N_ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
 // The two content sinks stay written out rather than joining the table above:
 // folding them in would bury which of the two interprets markup.
 export function applyI18n(root = document) {
-  root.querySelectorAll('[data-i18n]').forEach((el) => {
+  /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-i18n]')).forEach((el) => {
     el.textContent = t(el.dataset.i18n);
   });
-  root.querySelectorAll('[data-i18n-html]').forEach((el) => {
-    el.innerHTML = t(el.dataset.i18nHtml); // nosemgrep: insecure-document-method, insecure-innerhtml -- the markup sink by design: data-i18n-html keys resolve to repo-owned locale strings, never user input
-  });
+  /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-i18n-html]')).forEach(
+    (el) => {
+      el.innerHTML = t(el.dataset.i18nHtml); // nosemgrep: insecure-document-method, insecure-innerhtml -- the markup sink by design: data-i18n-html keys resolve to repo-owned locale strings, never user input
+    },
+  );
   for (const attr of I18N_ATTRS) {
     const dataAttr = `data-i18n-${attr}`;
     root.querySelectorAll(`[${dataAttr}]`).forEach((el) => {

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Pure tour-list logic: sorting, fuzzy search, paging.

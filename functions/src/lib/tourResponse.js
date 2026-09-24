@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Cosmos returns its system properties on every resource, and the document also

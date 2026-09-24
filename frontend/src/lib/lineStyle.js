@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Dependency-free line-style preference. The pure helpers are unit-tested; the

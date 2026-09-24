@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Trailing-edge debounce: fires once, delayMs after the last call, so a burst

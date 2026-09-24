@@ -190,3 +190,25 @@ ESLint runs with `--max-warnings 0` everywhere, as pre-commit hooks and in CI's
   animations, each disabled on its line with the reason.
 - **Suppressions**: `// eslint-disable-next-line <rule> -- <reason>`, the
   reason on the same line; never a file-wide or blanket disable.
+
+## Type checks
+
+```bash
+cd functions && npm run typecheck   # functions/ and frontend/ (@ts-check files)
+cd e2e && npm run typecheck         # tsc --noEmit over the whole e2e suite
+```
+
+- `e2e/` is TypeScript; Playwright strips types without checking them, so
+  `tsc --noEmit` is the only thing that catches a type error in a page object.
+- `functions/` and `frontend/` stay plain JavaScript. Their `tsconfig.json`
+  (`allowJs`, `checkJs: false`, `noEmit`, `strict`) checks only files that
+  opt in with `// @ts-check` on their first line: today every module in
+  `functions/src/lib/` and `frontend/src/lib/`. Types come from JSDoc
+  (`/** @param {...} */`, `/** @type {...} */ (expr)` casts). frontend/'s check
+  runs with functions' TypeScript install, like its ESLint.
+- **Widening**: add `// @ts-check` to the next file and fix what it reports.
+  The next strictness step is `noImplicitAny` (off today): turning it on means
+  writing the JSDoc parameter types first.
+- No `@ts-ignore`/`@ts-expect-error` without the reason on the same line.
+
+All three run as pre-commit hooks and in CI's `prek` job.

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // The thumbnail lives alongside the full image under a deterministic name —

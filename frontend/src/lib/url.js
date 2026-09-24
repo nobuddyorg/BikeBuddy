@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Pure URL <-> state-patch mapping, kept separate from the history.pushState/

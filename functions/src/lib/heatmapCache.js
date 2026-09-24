@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const DEFAULT_MAX_ENTRIES = 500;

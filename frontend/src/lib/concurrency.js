@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // A rejecting worker is swallowed so one bad item can't halt the batch; callers

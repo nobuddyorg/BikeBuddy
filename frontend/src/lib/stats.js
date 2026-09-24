@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Pure aggregate-statistics computation over the full tour list — no DOM, no

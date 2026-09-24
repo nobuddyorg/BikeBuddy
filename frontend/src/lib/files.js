@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Fast UX feedback only — the backend re-validates by magic bytes.
