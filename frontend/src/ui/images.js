@@ -393,6 +393,10 @@ export async function uploadImages(files) {
   show(elImageError, false);
   const tourId = state.selectedTourId;
   if (!tourId || files.length === 0) return;
+  // The panel shows the tour's name before its detail (and gallery) has loaded;
+  // tiles added before that render would be wiped by it.
+  await state.detailLoading;
+  if (state.selectedTourId !== tourId) return;
 
   const batchError = validateImageBatch(files);
   if (batchError) {
