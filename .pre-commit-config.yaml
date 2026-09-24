@@ -122,12 +122,12 @@ repos:
         stages: [pre-commit]
 
   # Type checks: tsc --noEmit for e2e/, and the `// @ts-check` files of
-  # functions/ and frontend/ (functions' TypeScript install checks both).
+  # functions/ and frontend/.
   - repo: local
     hooks:
       - id: tsc
         name: TypeScript (functions + frontend @ts-check)
-        entry: bash -c 'cd functions && npm run typecheck'
+        entry: bash -c 'cd functions && npm run typecheck && cd ../frontend && npm run typecheck'
         language: system
         pass_filenames: false
         files: ^(functions|frontend)/(src/.*\.js|scripts/.*\.js|tsconfig\.json)$

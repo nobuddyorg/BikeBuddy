@@ -141,6 +141,24 @@ The tools are installed from GitHub releases by version and SHA-256 (in
 distribution channels were compromised once, and a hash pin is what a
 repointed tag cannot move.
 
+## Mutation scope
+
+Mutation testing runs on an explicit list of modules (`mutation-targets.mjs`),
+not on a glob: the pure logic whose behaviour unit tests can pin down, the
+Function handlers (called directly with fake requests) and `frontend/src/lib/`.
+Off the list: the Cosmos/Blob adapters and the multipart stream parser, which
+the integration suite exercises against the emulators, and the DOM layer
+`frontend/src/ui/`, which Playwright exercises; mutating those would measure
+the mocks. The same list sets the 100 % per-file coverage floor, so a module
+cannot be mutation-tested without being fully covered, or the reverse.
+
+`ignoreStatic` (functions) skips mutants that only run at module load
+(`app.http()` registration, top-level schema constants): handlers are
+imported once per test file, so those mutants cannot be killed without
+reloading the module per mutant. Break thresholds start one point below the
+measured score and only move up; known equivalent mutants are listed here when
+one blocks a raise.
+
 ## Cost
 
 Everything targets the free/serverless tier (< €5/month), enforced by a budget

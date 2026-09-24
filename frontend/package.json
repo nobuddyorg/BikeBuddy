@@ -8,10 +8,19 @@
     "test": "vitest run",
     "test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile=reports/unit-results.xml",
     "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc -p .",
+    "mutate": "stryker run",
+    "mutation:summary": "node ../functions/scripts/mutation-summary.mjs --title 'Mutation testing (frontend)' --artifact mutation-report-frontend"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@vitest/coverage-v8": "^4.1.11",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
   }
 }

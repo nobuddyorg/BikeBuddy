@@ -24,10 +24,11 @@ jobs:
         with:
           persist-credentials: false
 
-      # functions/ holds the shared ESLint/Prettier install; e2e/ lints with its own.
+      # functions/ holds the shared ESLint/Prettier install; frontend/ and e2e/ type-check
+      # (and e2e/ lints) with their own.
       - uses: ./.github/actions/setup-node-packages
         with:
-          packages: functions e2e
+          packages: functions frontend e2e
 
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
@@ -293,11 +294,17 @@ jobs:
           coverage-dir: e2e/coverage-e2e/static
           coverage-artifact-name: e2e-coverage-static
 
+  # Scoped to mutation-targets.mjs. PRs run incrementally on main's cached results;
+  # main reruns every mutant (--force) and seeds the cache every PR restores.
   mutation:
     needs: [prek, changes]
-    if: needs.changes.outputs.functions == 'true'
+    if: needs.changes.outputs.functions == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [functions, frontend]
     # STRYKER_DASHBOARD_API_KEY is stored as an environment secret on the "ci" environment
     environment: ci
     steps:
@@ -305,28 +312,39 @@ jobs:
         with:
           persist-credentials: false
 
+      # frontend/'s summary script lives in functions/scripts (mutation-testing-metrics).
       - uses: ./.github/actions/setup-node-packages
         with:
-          packages: functions
+          packages: ${{ matrix.package == 'functions' && 'functions' || 'functions frontend' }}
 
+      # Keyed on what incremental mode cannot see: dependencies and the test/mutation config.
+      - name: Restore the incremental mutation report
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ matrix.package }}/reports/stryker-incremental.json
+          key: stryker-incremental-${{ matrix.package }}-${{ hashFiles(format('{0}/package-lock.json', matrix.package), format('{0}/stryker.config.mjs', matrix.package), format('{0}/vitest.mutation.config.js', matrix.package), 'mutation-targets.mjs') }}-${{ github.run_id }}
+          restore-keys: stryker-incremental-${{ matrix.package }}-${{ hashFiles(format('{0}/package-lock.json', matrix.package), format('{0}/stryker.config.mjs', matrix.package), format('{0}/vitest.mutation.config.js', matrix.package), 'mutation-targets.mjs') }}-
+
+      # Dashboard key only on main, so the published report and badge track one branch.
       - name: Run Stryker mutation tests
-        run: npm run mutate
-        working-directory: functions
+        run: npx stryker run ${FULL_RUN:+--force}
+        working-directory: ${{ matrix.package }}
         env:
-          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
+          FULL_RUN: ${{ github.ref == 'refs/heads/main' && 'true' || '' }}
+          STRYKER_DASHBOARD_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.STRYKER_DASHBOARD_API_KEY || '' }}
 
       # Built from reports/mutation/mutation.json; the console log is mostly expected per-mutant failures.
       - name: Add mutation report to job summary
         if: ${{ !cancelled() }}
         run: npm run mutation:summary
-        working-directory: functions
+        working-directory: ${{ matrix.package }}
 
       - name: Upload mutation report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: mutation-report
-          path: functions/reports/mutation
+          name: mutation-report-${{ matrix.package }}
+          path: ${{ matrix.package }}/reports/mutation
           retention-days: 30
 
   e2e-fullstack:

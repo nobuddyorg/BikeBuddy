@@ -2,6 +2,8 @@
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   // Only what Knip's static analysis cannot follow, each with its reason.
   "entry": [
+    // Named only as a string in stryker.config.mjs (vitest.configFile).
+    "vitest.mutation.config.js",
     // Loaded by index.html's <script type="module">; no bundler resolves it.
     "src/app.js",
     // Registered by string in navigator.serviceWorker.register().

@@ -16,12 +16,12 @@
     "test:integration": "vitest run --config vitest.integration.config.js",
     "test:integration:ci": "vitest run --config vitest.integration.config.js --reporter=default --reporter=junit --outputFile.junit=reports/integration-results.xml",
     "lint": "eslint src/ test/ scripts/ --max-warnings 0",
-    "typecheck": "tsc -p . && tsc -p ../frontend",
+    "typecheck": "tsc -p .",
     "knip": "knip --no-progress && knip --no-progress --directory ../frontend && knip --no-progress --directory ../e2e",
     "depcruise": "cd .. && depcruise --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json functions/src functions/scripts functions/test frontend/src frontend/test e2e",
     "format": "prettier --write 'src/**/*.js' 'test/**/*.js'",
     "mutate": "stryker run",
-    "mutation:summary": "node scripts/mutation-summary.mjs --title 'Mutation testing (functions)'"
+    "mutation:summary": "node scripts/mutation-summary.mjs --title 'Mutation testing (functions)' --artifact mutation-report-functions"
   },
   "dependencies": {
     "@azure/cosmos": "^4.10.0",

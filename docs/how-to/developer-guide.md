@@ -194,7 +194,8 @@ ESLint runs with `--max-warnings 0` everywhere, as pre-commit hooks and in CI's
 ## Type checks
 
 ```bash
-cd functions && npm run typecheck   # functions/ and frontend/ (@ts-check files)
+cd functions && npm run typecheck   # functions/ (@ts-check files)
+cd frontend && npm run typecheck    # frontend/ (@ts-check files)
 cd e2e && npm run typecheck         # tsc --noEmit over the whole e2e suite
 ```
 
@@ -204,8 +205,7 @@ cd e2e && npm run typecheck         # tsc --noEmit over the whole e2e suite
   (`allowJs`, `checkJs: false`, `noEmit`, `strict`) checks only files that
   opt in with `// @ts-check` on their first line: today every module in
   `functions/src/lib/` and `frontend/src/lib/`. Types come from JSDoc
-  (`/** @param {...} */`, `/** @type {...} */ (expr)` casts). frontend/'s check
-  runs with functions' TypeScript install, like its ESLint.
+  (`/** @param {...} */`, `/** @type {...} */ (expr)` casts).
 - **Widening**: add `// @ts-check` to the next file and fix what it reports.
   The next strictness step is `noImplicitAny` (off today): turning it on means
   writing the JSDoc parameter types first.
@@ -317,3 +317,37 @@ E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack   # full-stack journeys
 - **Reporting**: each job's summary shows the coverage table; Codecov gets the
   lcov files with the flags `functions` and `frontend` (carried forward when a
   path filter skips a suite) and keeps its commit status, without PR comments.
+
+## Mutation testing
+
+[Stryker](https://stryker-mutator.io) mutates the modules listed in
+[`mutation-targets.mjs`](../../mutation-targets.mjs) (functions: handlers,
+`lib/`, `middleware/`; frontend: `lib/`) and fails below each package's break
+threshold:
+
+```bash
+./buddy.sh test mutation           # both packages, incremental
+./buddy.sh test mutation --force   # both packages, every mutant
+cd frontend && npm run mutate      # one package
+```
+
+| Package      | Break threshold | Measured when introduced |
+| ------------ | --------------- | ------------------------ |
+| `functions/` | 95 %            | 96.34 %                  |
+| `frontend/`  | 83 %            | 84.76 %                  |
+
+- **Incremental**: results are kept in `reports/stryker-incremental.json`; a
+  rerun only tests mutants in changed code or covered by changed tests. CI
+  restores `main`'s file on PRs (actions/cache) and runs `--force` on `main`,
+  because incremental mode cannot see a change in a module a target imports.
+  Measured on an unchanged tree: functions 2 min 36 s → 15 s, frontend
+  62 s → 7.5 s.
+- **Reports**: the job summary lists every file worst score first
+  (`scripts/mutation-summary.mjs`); the HTML report is the
+  `mutation-report-<package>` artifact; the Stryker dashboard (badge) is fed
+  from `main` only, the frontend as module `frontend`.
+- **Rules**: thresholds go up as survivors are killed, never down; no
+  `// Stryker disable`. A survivor no test can kill (an equivalent mutant) is
+  written down in the design decision "Mutation scope".
+- Stryker runs Vitest through `vitest.mutation.config.js` (dot reporter, no
+  coverage), so killed mutants do not show up as CI annotations.
