@@ -14,8 +14,8 @@ export const SUPPORTED_LOCALES = [
   { code: 'pt', label: 'Português', flag: '🇵🇹', short: 'PT', dateLocale: 'pt-PT' },
 ];
 
-export const DEFAULT_LOCALE = 'en';
-export const STORAGE_KEY = 'bikebuddy-lang';
+const DEFAULT_LOCALE = 'en';
+const STORAGE_KEY = 'bikebuddy-lang';
 
 export function isSupported(code) {
   return SUPPORTED_LOCALES.some((l) => l.code === code);

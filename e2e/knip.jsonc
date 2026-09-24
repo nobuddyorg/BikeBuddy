@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Only what Knip's static analysis cannot follow, each with its reason.
+  "entry": [
+    // Started by playwright.config.ts's webServer.command, a shell string.
+    "serve.mjs",
+  ],
+}

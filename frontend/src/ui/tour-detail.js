@@ -51,7 +51,7 @@ const tApi = i18n.tApi;
 
 // The map half of selecting a tour. Returns null if the selection moved on
 // while detail was loading.
-export async function focusTourOnMap(tourId) {
+async function focusTourOnMap(tourId) {
   const tour = state.tours.find((t) => t.id === tourId);
   if (!tour) return null;
   await ensureDetail(tour);

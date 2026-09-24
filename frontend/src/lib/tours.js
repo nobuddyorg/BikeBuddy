@@ -5,7 +5,7 @@
 
 const tourTime = (t) => new Date(t.createdAt).getTime() || 0;
 
-export const SORTERS = {
+const SORTERS = {
   'date-desc': (a, b) => tourTime(b) - tourTime(a),
   'date-asc': (a, b) => tourTime(a) - tourTime(b),
   'name-asc': (a, b) => (a.name || '').localeCompare(b.name || ''),

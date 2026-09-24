@@ -39,7 +39,7 @@ jobs:
           extra-args: "--all-files"
         env:
           # opengrep and the architecture checks have their own jobs below.
-          SKIP: no-commit-to-branch,opengrep,depcruise
+          SKIP: no-commit-to-branch,opengrep,depcruise,knip
 
   # A push to main forces every job: it is the event that deploys, and a merge
   # may combine unrelated changes. Skipped jobs report success to required checks.
@@ -187,6 +187,21 @@ jobs:
         with:
           title: "🏗️ Architectural boundaries (dependency-cruiser)"
           file: functions/depcruise-output.txt
+
+      # `--silent` drops npm's banner: Knip prints nothing when clean, so an empty file means clean.
+      - name: Check for dead code and unused dependencies
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: npm run --silent knip 2>&1 | tee knip-output.txt
+        working-directory: functions
+
+      - name: Add dead-code check to job summary
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/summary-section
+        with:
+          title: "🧹 Dead code and unused dependencies (Knip)"
+          file: functions/knip-output.txt
+          empty-message: "✅ No unused files, exports or dependencies."
 
   frontend:
     needs: [prek, changes]

@@ -33,7 +33,7 @@ export function resetImageSection() {
   elImageDropzone.classList.remove('dragover');
 }
 
-export function createImageTile(image) {
+function createImageTile(image) {
   const fig = document.createElement('figure');
   fig.className = 'image-tile';
 

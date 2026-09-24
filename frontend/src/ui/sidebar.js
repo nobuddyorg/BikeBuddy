@@ -411,7 +411,7 @@ function renderTourList({ signedIn, loading, hasTours }) {
   elTourPagerNext.disabled = page >= totalPages;
 }
 
-export function toggleTourSelection(tourId) {
+function toggleTourSelection(tourId) {
   if (state.selectedIds.has(tourId)) {
     state.selectedIds.delete(tourId);
   } else {

@@ -22,7 +22,7 @@ function db() {
   return client.database(DATABASE);
 }
 
-export function usersContainer(): Container {
+function usersContainer(): Container {
   return db().container('users');
 }
 
