@@ -74,7 +74,9 @@ describe('GET /api/tours/{tourId}', () => {
     // TOUR.name is 'Alps' — the SAS carries a Content-Disposition so a plain
     // <a href> download gets the right filename without a same-origin fetch.
     expect(generateSasUrl).toHaveBeenCalledWith(
-      expect.objectContaining({ contentDisposition: 'attachment; filename="Alps.gpx"' }),
+      expect.objectContaining({
+        contentDisposition: 'attachment; filename="Alps.gpx"; filename*=UTF-8\'\'Alps.gpx',
+      }),
     );
     expect(res.jsonBody.gpxFileUrl).toBe(`https://blob/u1/${TID}.gpx?sig=x`);
   });
@@ -91,7 +93,66 @@ describe('GET /api/tours/{tourId}', () => {
     // A naive per-character regex (no `+`) would emit "My__Alps__"; dropping
     // disallowed chars entirely (instead of "_") would emit "MyAlps".
     expect(generateSasUrl).toHaveBeenCalledWith(
-      expect.objectContaining({ contentDisposition: 'attachment; filename="My_Alps_.gpx"' }),
+      expect.objectContaining({
+        contentDisposition:
+          'attachment; filename="My_Alps_.gpx"; filename*=UTF-8\'\'My%20%20Alps%21%21.gpx',
+      }),
+    );
+  });
+
+  it('keeps non-ASCII names intact via the RFC 5987 filename* parameter', async () => {
+    const tour = { ...TOUR, name: 'Départ', gpxFileUrl: 'https://blob/gpx-files/u1/t1.gpx' };
+    const { container } = makeContainer(async () => ({ resource: tour }));
+    const generateSasUrl = vi.fn(async () => `https://blob/u1/${TID}.gpx?sig=x`);
+    const getBlockBlobClient = vi.fn(() => ({ generateSasUrl }));
+    const gpxContainer = () => Promise.resolve({ getBlockBlobClient });
+
+    await getTour(reqWith(TID), mockAuth, () => container, undefined, gpxContainer);
+
+    // Accented names must survive percent-encoded in filename*, while the
+    // ASCII fallback stays conservative for clients that ignore filename*.
+    expect(generateSasUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentDisposition: 'attachment; filename="D_part.gpx"; filename*=UTF-8\'\'D%C3%A9part.gpx',
+      }),
+    );
+  });
+
+  it('does not mangle non-Latin names in filename*', async () => {
+    const tour = { ...TOUR, name: 'ツーリング', gpxFileUrl: 'https://blob/gpx-files/u1/t1.gpx' };
+    const { container } = makeContainer(async () => ({ resource: tour }));
+    const generateSasUrl = vi.fn(async () => `https://blob/u1/${TID}.gpx?sig=x`);
+    const getBlockBlobClient = vi.fn(() => ({ generateSasUrl }));
+    const gpxContainer = () => Promise.resolve({ getBlockBlobClient });
+
+    await getTour(reqWith(TID), mockAuth, () => container, undefined, gpxContainer);
+
+    expect(generateSasUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentDisposition:
+          'attachment; filename="_.gpx"; ' +
+          "filename*=UTF-8''%E3%83%84%E3%83%BC%E3%83%AA%E3%83%B3%E3%82%B0.gpx",
+      }),
+    );
+  });
+
+  it('strips path separators, quotes and control characters from the filename', async () => {
+    const tour = {
+      ...TOUR,
+      name: 'a/b"c\'\u0001e',
+      gpxFileUrl: 'https://blob/gpx-files/u1/t1.gpx',
+    };
+    const { container } = makeContainer(async () => ({ resource: tour }));
+    const generateSasUrl = vi.fn(async () => `https://blob/u1/${TID}.gpx?sig=x`);
+    const getBlockBlobClient = vi.fn(() => ({ generateSasUrl }));
+    const gpxContainer = () => Promise.resolve({ getBlockBlobClient });
+
+    await getTour(reqWith(TID), mockAuth, () => container, undefined, gpxContainer);
+
+    expect(generateSasUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentDisposition: 'attachment; filename="a_b_c__e.gpx"; filename*=UTF-8\'\'a_b_c__e.gpx',
+      }),
     );
   });
 
@@ -105,7 +166,9 @@ describe('GET /api/tours/{tourId}', () => {
     await getTour(reqWith(TID), mockAuth, () => container, undefined, gpxContainer);
 
     expect(generateSasUrl).toHaveBeenCalledWith(
-      expect.objectContaining({ contentDisposition: 'attachment; filename="tour.gpx"' }),
+      expect.objectContaining({
+        contentDisposition: 'attachment; filename="tour.gpx"; filename*=UTF-8\'\'tour.gpx',
+      }),
     );
   });
 

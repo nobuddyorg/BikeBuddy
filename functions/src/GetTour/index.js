@@ -8,6 +8,23 @@ const { thumbBlobName } = require('../lib/thumbBlobName');
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { toTourResponse } = require('../lib/tourResponse');
 
+// RFC 8187 attr-char excludes ! ' ( ), which encodeURIComponent keeps.
+function encodeFilenameExt(name) {
+  return encodeURIComponent(name).replace(
+    /[!'()]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
+// Non-ASCII tour names are normal in the shipped locales, so the real name
+// goes out as filename* (percent-encoded UTF-8) and the mangled ASCII form
+// stays only as a fallback for clients that ignore filename*.
+function gpxContentDisposition(name) {
+  const safe = (name || 'tour').replace(/[\\/"']|[\p{Cc}\p{Cf}]/gu, '_');
+  const fallback = safe.replace(/[^a-z0-9-_]+/gi, '_');
+  return `attachment; filename="${fallback}.gpx"; filename*=UTF-8''${encodeFilenameExt(safe)}.gpx`;
+}
+
 // GET /api/tours/{tourId} — the full document, with every stored blobName
 // swapped for a short-lived signed URL so the private container can be read
 // directly by the browser.
@@ -44,11 +61,10 @@ async function getTour(
 
   if (tour.gpxFileUrl) {
     const container = await getGpxContainer();
-    const filename = `${(tour.name || 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
     tour.gpxFileUrl = await readSasUrl(
       container.getBlockBlobClient(`${tour.userId}/${tour.id}.gpx`),
       {
-        contentDisposition: `attachment; filename="${filename}"`,
+        contentDisposition: gpxContentDisposition(tour.name),
       },
     );
   }
