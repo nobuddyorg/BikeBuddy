@@ -80,3 +80,7 @@ func.zip
 iac-reports/
 coverage-e2e/
 frontend/.stryker-tmp/
+zap-reports/
+report_json.json
+report_html.html
+report_md.md

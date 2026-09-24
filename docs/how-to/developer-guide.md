@@ -427,3 +427,30 @@ cd e2e && npm run lighthouse:summary         # the table CI puts in the job summ
 - **Reports**: HTML/JSON under `e2e/lighthouse-reports/<state>/` (the
   `lighthouse-reports` artifact in CI); no LHCI server, no GitHub App, no PR
   comment.
+
+## Run the OWASP ZAP scans
+
+[OWASP ZAP](https://www.zaproxy.org) runs two **passive** scans in CI's `zap`
+job (on changes to `frontend/`, `functions/` or `.zap/`) and locally with Docker:
+
+```bash
+./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
+./buddy.sh quality zap   # both passes; reports in zap-reports/<pass>/
+```
+
+- **Frontend pass**: `zap-baseline.py` against `frontend/src` served as GitHub
+  Pages serves it (`e2e/lighthouse/serve-pages.mjs`, base path `/BikeBuddy/`,
+  the meta CSP included). Rules: [`.zap/rules-frontend.tsv`](../../.zap/rules-frontend.tsv).
+- **API pass**: `zap-api-scan.py -S` (safe mode: no active attacks) over the
+  read-only operations in [`.zap/openapi.yaml`](../../.zap/openapi.yaml) on the
+  local Functions host. Rules: [`.zap/rules-api.tsv`](../../.zap/rules-api.tsv).
+- **Gate**: `-I`, so only a rule promoted to `FAIL` breaks the job: error
+  disclosure (a stack trace in a response fails the API pass), CORS
+  misconfiguration, cookie flags. Everything else is reported for triage.
+  Header rules a static host cannot meet are `IGNORE` for the frontend only,
+  each with its reason; the API can send headers, so there they stay `WARN`
+  (#558, #560).
+- **Reporting**: both tables in the job summary
+  (`scripts/quality/zap-summary.mjs`), full reports as the `zap-report-*`
+  artifacts. `allow_issue_writing: false`: the actions never open issues or
+  comment.

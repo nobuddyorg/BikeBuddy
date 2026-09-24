@@ -1,0 +1,17 @@
+# Rule overrides for the frontend pass of gate.yml's zap job (frontend/src served as GitHub
+# Pages serves it, e2e/lighthouse/serve-pages.mjs). Format: <rule id><TAB><FAIL|WARN|INFO|IGNORE><TAB># <reason>.
+# Unlisted rules default to WARN and never fail the job (-I); only FAIL blocks.
+
+# GitHub Pages sends no custom headers, so the CSP is a <meta> tag (#560) and these header-only rules cannot be met by a static host.
+10020	IGNORE	# X-Frame-Options Header Not Set -- static host, no custom headers; frame-ancestors needs a header too
+10038	IGNORE	# Content-Security-Policy Header Not Set -- meta CSP only (index.html), see #560
+10035	IGNORE	# Strict-Transport-Security Header Not Set -- added at the Pages edge, invisible to a plain-HTTP local scan
+10021	IGNORE	# X-Content-Type-Options Header Missing -- header only, no static-host equivalent
+10063	IGNORE	# Permissions Policy Header Not Set -- header only, no static-host equivalent
+90004	IGNORE	# Cross-Origin-{Embedder,Opener,Resource}-Policy Header Missing -- header only, no static-host equivalent
+
+# Leaflet sets inline style attributes on every map element; scripts are still confined to 'self'.
+10055	IGNORE	# CSP: style-src unsafe-inline -- Leaflet positions tiles and markers with inline styles
+
+# Content-based, so a static site can fix it: firing means debug or error output reached shipped HTML/JS.
+90022	FAIL	# Application Error Disclosure

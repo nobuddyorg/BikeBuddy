@@ -1,0 +1,11 @@
+# Rule overrides for the API pass of gate.yml's zap job (the Functions host from
+# start-local-stack, SKIP_AUTH, operations from .zap/openapi.yaml). Format as in rules-frontend.tsv.
+# Header findings stay WARN on purpose: unlike the static frontend, the API can send headers (#558, #560).
+
+# What a handler must never do, whatever the input.
+90022	FAIL	# Application Error Disclosure -- a stack trace or runtime error text in a response body
+10023	FAIL	# Information Disclosure - Debug Error Messages
+10098	FAIL	# Cross-Domain Misconfiguration -- a permissive CORS response (#558)
+10010	FAIL	# Cookie No HttpOnly Flag -- the API sets no cookies; one appearing is a regression
+10011	FAIL	# Cookie Without Secure Flag
+10054	FAIL	# Cookie without SameSite Attribute

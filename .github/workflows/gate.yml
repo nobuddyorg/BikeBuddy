@@ -80,11 +80,13 @@ jobs:
               - *ci
               - 'functions/**'
               - 'mutation-targets.mjs'
+              - '.zap/**'
               - 'scripts/development/**'
             frontend:
               - *ci
               - 'frontend/**'
               - 'mutation-targets.mjs'
+              - '.zap/**'
             e2e:
               - *ci
               - 'e2e/**'
@@ -429,6 +431,66 @@ jobs:
           name: lighthouse-reports
           path: e2e/lighthouse-reports
           retention-days: 30
+
+  # Passive scans only: the frontend served as GitHub Pages serves it, and the API's
+  # read-only surface (.zap/openapi.yaml) on the local Functions host. Only rules
+  # promoted to FAIL in .zap/rules-*.tsv break the job (-I). Local: ./buddy.sh quality zap.
+  zap:
+    needs: [prek, changes]
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.functions == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-node-packages
+        with:
+          packages: functions
+
+      - uses: ./.github/actions/start-local-stack
+        with:
+          start-backend: "true"
+
+      - name: Serve the frontend as GitHub Pages does
+        run: |
+          node e2e/lighthouse/serve-pages.mjs 4175 signed-out &
+          timeout 30 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:4175/BikeBuddy/; do sleep 1; done'
+
+      - name: ZAP baseline scan -- frontend
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: "http://127.0.0.1:4175/BikeBuddy/"
+          rules_file_name: ".zap/rules-frontend.tsv"
+          cmd_options: "-I"
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: "zap-report-frontend"
+
+      # The action writes report_json.json into the workspace root; rendered before the API pass overwrites it.
+      - name: Add the frontend ZAP results to the job summary
+        if: ${{ !cancelled() }}
+        run: node scripts/quality/zap-summary.mjs --title '🕷️ OWASP ZAP baseline -- frontend' --rules .zap/rules-frontend.tsv report_json.json
+
+      # -S: safe mode, no active scan. The workspace is mounted at /zap/wrk in the ZAP container.
+      - name: ZAP API scan (passive) -- Functions host
+        uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
+        with:
+          target: "/zap/wrk/.zap/openapi.yaml"
+          format: openapi
+          rules_file_name: ".zap/rules-api.tsv"
+          cmd_options: "-S -I"
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: "zap-report-api"
+
+      - name: Add the API ZAP results to the job summary
+        if: ${{ !cancelled() }}
+        run: node scripts/quality/zap-summary.mjs --title '🕷️ OWASP ZAP API scan (passive) -- Functions host' --rules .zap/rules-api.tsv report_json.json
+
+      - if: ${{ failure() }}
+        run: cat /tmp/func.log || true
 
   integration:
     needs: [prek, changes]
