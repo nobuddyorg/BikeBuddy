@@ -28,6 +28,8 @@ module.exports = {
           '^functions/scripts/',
           '^frontend/src/(app|sw|config)\\.js$',
           '^e2e/(playwright(\\.fullstack)?\\.config|global-setup|serve)\\.(ts|mjs)$',
+          // Lighthouse CI tooling, started by name (lhci, npm scripts).
+          '^e2e/lighthouse/',
           '(^|/)(vitest|stryker)[^/]*\\.(c|m)?js$',
           // Classic scripts loaded by index.html (see vendor-is-script-tags-only).
           '^frontend/src/vendor/',

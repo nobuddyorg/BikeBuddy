@@ -402,3 +402,28 @@ await on(page).a11y.check('upload modal with a file error');
   `e2e/axe.ts`; there are none today. Never disable a rule.
 - `frontend/test/contrast.test.js` pins the colour tokens' contrast ratios
   (both themes), so a token change fails before any browser runs.
+
+## Run Lighthouse
+
+[Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci) measures the
+page users load, served the way GitHub Pages serves it (under `/BikeBuddy/`,
+gzip, `max-age=600`) by `e2e/lighthouse/serve-pages.mjs`, never a dev server:
+
+```bash
+cd e2e && npm run lighthouse -- signed-out   # no backend needed
+./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
+cd e2e && npm run lighthouse -- signed-in    # seeds 12 tours, then measures
+cd e2e && npm run lighthouse:summary         # the table CI puts in the job summary
+```
+
+- **States**: signed out (a production-shaped `config.js` with MSAL configured
+  and nobody signed in) and signed in (`devMode` against the local Functions
+  host, proxied at `/api`, with seeded tours of 2,000 points each).
+- **Assertions** (`e2e/lighthouse/lighthouserc.<state>.json`), median of three
+  runs: performance, accessibility = 100, best practices, SEO, LCP, TBT and
+  CLS, set from runner measurements with margin (numbers and reasons in the
+  files and the table below). Raised when a change makes room, never lowered to
+  let a regression through.
+- **Reports**: HTML/JSON under `e2e/lighthouse-reports/<state>/` (the
+  `lighthouse-reports` artifact in CI); no LHCI server, no GitHub App, no PR
+  comment.

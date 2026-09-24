@@ -389,6 +389,47 @@ jobs:
           coverage-dir: e2e/coverage-e2e/fullstack
           coverage-artifact-name: e2e-coverage-fullstack
 
+  # Against frontend/src served as GitHub Pages serves it (e2e/lighthouse/serve-pages.mjs),
+  # signed out and signed in (devMode, seeded local stack). Accessibility is axe's gate
+  # (e2e/axe.ts); Lighthouse asserts it too, as a second lens.
+  lighthouse:
+    needs: [prek, changes]
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-node-packages
+        with:
+          packages: functions e2e
+
+      - uses: ./.github/actions/start-local-stack
+        with:
+          start-backend: "true"
+
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      - name: Run Lighthouse CI
+        run: npm run lighthouse
+        working-directory: e2e
+
+      - name: Add Lighthouse scores to job summary
+        if: ${{ !cancelled() }}
+        run: npm run lighthouse:summary
+        working-directory: e2e
+
+      - name: Upload Lighthouse reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lighthouse-reports
+          path: e2e/lighthouse-reports
+          retention-days: 30
+
   integration:
     needs: [prek, changes]
     if: needs.changes.outputs.functions == 'true'

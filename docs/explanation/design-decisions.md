@@ -101,9 +101,17 @@ https with an integrity hash (lockfile-lint, pre-commit).
 Never `npm audit fix --force` (it jumps majors) and never a from-scratch
 lockfile regeneration (it moves every transitive dependency at once).
 
-Current overrides: `functions/` pins `qs` to `^6.16.0`, because Stryker's
-`typed-rest-client` pins a vulnerable `qs` exactly (GHSA-x5fp-wj9c-mxmx,
-GHSA-4mjr-xmp4-gh2g). Accepted risk: none.
+Current overrides: `functions/` and `frontend/` pin `qs` to `^6.16.0`,
+because Stryker's `typed-rest-client` pins a vulnerable `qs` exactly
+(GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g). `e2e/` pins `tmp` to `0.2.7` and
+`uuid` to `^14.0.2` for `@lhci/cli` (GHSA-52f5-9888-hmc6, GHSA-w5hq-g745-h8pq).
+
+Accepted risk: `extract-zip` (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3; no
+fixed release) under `@lhci/cli` → `lighthouse` → `puppeteer-core` →
+`@puppeteer/browsers`. It unpacks downloaded browser archives, and Lighthouse CI
+never downloads one here: it runs the Chromium Playwright installs
+(`CHROME_PATH`), on a CI runner or a developer machine, never in production.
+Look again when `@lhci/cli` or `lighthouse` bumps `puppeteer-core`.
 
 ## SAST rule packs
 

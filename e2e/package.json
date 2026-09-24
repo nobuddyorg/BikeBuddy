@@ -11,12 +11,15 @@
     "format": "prettier --write '**/*.ts'",
     "format:check": "prettier --check '**/*.ts'",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "lighthouse": "node lighthouse/run.mjs",
+    "lighthouse:summary": "node lighthouse/summary.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@azure/cosmos": "^4.1.1",
     "@eslint/js": "^10.0.1",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.49.0",
     "@types/node": "^24.0.0",
     "eslint": "^10.11.0",
@@ -26,5 +29,9 @@
     "prettier": "^3.4.2",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.70.1"
+  },
+  "overrides": {
+    "tmp": "0.2.7",
+    "uuid": "^14.0.2"
   }
 }
