@@ -1,0 +1,64 @@
+name: Start the local stack
+description: >-
+  Cosmos emulator + Azurite + database/containers, and optionally the Functions host
+  (SKIP_AUTH, :7071), exactly as `buddy.sh development` starts them. Exports the
+  emulator connection settings to the rest of the job. Needs `functions/` installed
+  first (setup-node-packages).
+
+inputs:
+  start-backend:
+    description: Also start the Functions host in the background (log at /tmp/func.log).
+    required: false
+    default: "false"
+  swa-cli:
+    description: Also install the Static Web Apps CLI (serves the frontend and proxies /api).
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # The emulator key and UseDevelopmentStorage are public by design (.gitleaks.toml allowlists them).
+    - name: Export the local-stack settings
+      shell: bash
+      run: |
+        {
+          echo "COSMOS_CONNECTION_STRING=AccountEndpoint=http://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw=="
+          echo "COSMOS_DATABASE=bikebuddy"
+          echo "BLOB_CONNECTION_STRING=UseDevelopmentStorage=true"
+          echo "SKIP_AUTH=true"
+          echo "FUNCTIONS_WORKER_RUNTIME=node"
+          echo "AzureWebJobsStorage=UseDevelopmentStorage=true"
+        } >> "$GITHUB_ENV"
+
+    # Pinned: azure-functions-core-tools@4.14.0 ships a bundled npm-shrinkwrap.json
+    # that resolves chalk@6.0.0 from Microsoft's internal Azure DevOps Artifacts feed
+    # (pkgs.dev.azure.com/azfunc/...) instead of the public npm registry, which returns
+    # 401/403 for anyone outside Microsoft's network. 4.13.0 predates that broken
+    # shrinkwrap and isn't deprecated. Bump once a fixed >=4.14.1 is released.
+    - name: Install Azure Functions Core Tools
+      shell: bash
+      run: npm install -g azure-functions-core-tools@4.13.0 # zizmor: ignore[adhoc-packages] global CLI, no lockfile; pinned above
+
+    - name: Install the Static Web Apps CLI
+      if: inputs.swa-cli == 'true'
+      shell: bash
+      run: npm install -g @azure/static-web-apps-cli # zizmor: ignore[adhoc-packages] global CLI, no lockfile
+
+    - name: Start Cosmos and Azurite
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        ./buddy.sh development start-cosmos
+        ./buddy.sh development start-azurite
+
+    - name: Create the database and containers
+      shell: bash
+      working-directory: ${{ github.workspace }}/functions
+      run: node scripts/init-cosmos.js
+
+    - name: Start the Functions host
+      if: inputs.start-backend == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: ./buddy.sh development start-backend

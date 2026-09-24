@@ -62,6 +62,18 @@ PR only shows each job's pass/fail status. Everything else is in the Actions run
 
 Codecov keeps its commit status (`codecov.yml` has `comment: false`).
 
+### Which jobs run
+
+The `changes` job in `gate.yml` maps a PR's changed paths to areas
+(`functions`, `frontend`, `e2e`, `infrastructure`) and each job runs only for
+the areas it tests; a docs-only PR runs `prek` alone. `prek` always runs
+(hygiene and secret scanning must see every file), a push to `main` runs every
+job, and a change to `gate.yml` or `.github/actions/**` counts as every area.
+A job skipped by its filter reports success, so required checks stay
+satisfiable. Shared setup lives in composite actions under `.github/actions/`
+(`setup-node-packages`, `start-local-stack`, `summary-section`,
+`playwright-results`); a step repeated a third time becomes one.
+
 ## Authentication & tokens
 
 Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:

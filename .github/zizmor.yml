@@ -1,9 +1,8 @@
-# CI installs unpinned global tooling (Functions Core Tools, Azurite, SWA CLI)
-# that has no lockfile; allow it in the workflows that need it.
+# deploy.yml installs Functions Core Tools globally (no lockfile); the gate's
+# global CLIs are in .github/actions/start-local-stack, suppressed inline there.
 rules:
   adhoc-packages:
     ignore:
-      - gate.yml
       - deploy.yml
   # actionlint 1.7.12 rejects the `$/` self-repository syntax ("ref is missing")
   # and checks a composite action's inputs only for `./` paths. Re-enable once
