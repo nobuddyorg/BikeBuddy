@@ -168,3 +168,25 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
   visible in code scanning as suppressed.
 - No `--autofix`: a fix made in CI is discarded, and a rewrite is reviewed like
   any other change.
+
+## Lint
+
+ESLint runs with `--max-warnings 0` everywhere, as pre-commit hooks and in CI's
+`prek` job:
+
+| Package      | Config                                                                | Command                                                                                                                       |
+| ------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `functions/` | `functions/eslint.config.js`: recommended, `eslint-plugin-n`, SonarJS | `cd functions && npm run lint`                                                                                                |
+| `frontend/`  | `functions/eslint.frontend.config.js`: recommended, SonarJS           | `functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js --max-warnings 0 frontend/src frontend/test` |
+| `e2e/`       | `e2e/eslint.config.js`: typescript-eslint type-checked, Playwright    | `cd e2e && npm run lint`                                                                                                      |
+
+- **SonarJS** (`eslint-plugin-sonarjs`, recommended) checks non-test source for
+  code smells; tests are exempt (a test's job is to be exhaustive, not
+  non-repetitive). `sonarjs/cognitive-complexity` is set to **11**, the lowest
+  value that leaves the code clean when it was introduced. A function above it
+  is split, not the number raised.
+- **Playwright rules** flag fixed sleeps (`waitForTimeout`) and weak
+  assertions. The remaining sleeps are timed touch gestures and Leaflet zoom
+  animations, each disabled on its line with the reason.
+- **Suppressions**: `// eslint-disable-next-line <rule> -- <reason>`, the
+  reason on the same line; never a file-wide or blanket disable.

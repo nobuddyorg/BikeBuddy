@@ -113,7 +113,10 @@ const isValidPoint = ([lat, lon]) =>
 
 // fast-xml-parser yields an object, an array, or undefined for a repeated
 // element.
-const toArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+function toArray(v) {
+  if (Array.isArray(v)) return v;
+  return v == null ? [] : [v];
+}
 
 /**
  * Parse a GPX string or Buffer and return tour metadata + heatmap points.

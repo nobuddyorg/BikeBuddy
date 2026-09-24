@@ -49,7 +49,7 @@ buddyTest.describe('long-press to enter select mode', () => {
       await expect(on(page).main.locators.selection.bar).toBeVisible();
       await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
       // A long-press, not a tap: the panel must stay shut.
-      await expect(on(page).main.locators.detail.name).not.toBeVisible();
+      await expect(on(page).main.locators.detail.name).toBeHidden();
     },
   );
 
@@ -93,6 +93,7 @@ buddyTest.describe('long-press to enter select mode', () => {
       // Chromium's gesture recognizer needs settle time *before* a new touch
       // sequence that follows a raw-CDP tap. Nothing else here chains two
       // independent touch gestures back to back.
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- Chromium's gesture recognizer needs settle time between two raw-CDP touch sequences
       await page.waitForTimeout(500);
       await on(page).main.do.tapTour('Long Press Tour A');
 

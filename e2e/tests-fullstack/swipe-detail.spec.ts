@@ -31,6 +31,7 @@ buddyTest.describe('swiping left on a tour row', () => {
     // Chromium's gesture recognizer needs settle time *before* a new touch
     // sequence that follows a raw-CDP drag, or the next tap's compatibility
     // click can fail to arrive (see long-press-select.spec.ts).
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- Chromium's gesture recognizer needs settle time between two raw-CDP touch sequences
     await page.waitForTimeout(500);
     // The row must still open normally afterwards — the swipe shouldn't
     // leave it in a stuck or half-transformed state.

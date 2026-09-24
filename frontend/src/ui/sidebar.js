@@ -371,6 +371,12 @@ export function renderSidebar() {
   elSelectionCount.textContent = t('sidebar.selectedCount', { count: state.selectedIds.size });
   elBtnDeleteSelected.disabled = state.selectedIds.size === 0;
 
+  renderTourList({ signedIn, loading, hasTours });
+}
+
+// The list, its count and the pager: the part of renderSidebar that depends on
+// the sort, search and "in view" filter.
+function renderTourList({ signedIn, loading, hasTours }) {
   elTourList.innerHTML = '';
   if (!hasTours) {
     elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
