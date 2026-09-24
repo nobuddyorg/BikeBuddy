@@ -107,3 +107,25 @@ by hand: `./buddy.sh infrastructure provision`, `./buddy.sh infrastructure publi
 `./buddy.sh infrastructure generate-config` (see [Infrastructure](infrastructure.md)).
 
 `destroy.yml` (manual) tears the infrastructure down.
+
+## Secret scanning
+
+[gitleaks](https://github.com/gitleaks/gitleaks) runs as two pre-commit hooks
+(config: [`.gitleaks.toml`](../../.gitleaks.toml)): `gitleaks` scans the staged
+changes on every commit, `gitleaks-history` every commit reachable from `HEAD`
+(in CI's depth-1 checkout, the full tree of the tested commit). On top of
+gitleaks' default rules (including Azure AD client secrets) it has rules for
+Cosmos DB connection strings with a hosted endpoint, Storage connection strings
+with an account key, and Storage SAS signatures.
+
+```bash
+prek run gitleaks-history --all-files   # the CI check
+gitleaks git --redact --verbose          # the same, with a local gitleaks binary
+```
+
+The Cosmos emulator key is the only allowlisted value, matched by its content.
+
+**A false positive** gets an `[[allowlists]]` entry in `.gitleaks.toml`, scoped
+with `targetRules` and matched by content, with a one-line reason. Never
+`--no-verify`, never a path-wide exclusion. **A real secret** that reached a
+commit is compromised: rotate it first (Azure portal / `az`), then remove it.
