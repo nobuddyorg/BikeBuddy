@@ -212,3 +212,41 @@ cd e2e && npm run typecheck         # tsc --noEmit over the whole e2e suite
 - No `@ts-ignore`/`@ts-expect-error` without the reason on the same line.
 
 All three run as pre-commit hooks and in CI's `prek` job.
+
+## Architecture checks
+
+[dependency-cruiser](https://github.com/sverweij/dependency-cruiser) walks the
+module graph of `functions/`, `frontend/` and `e2e/` and enforces the rules in
+[`.dependency-cruiser.cjs`](../../.dependency-cruiser.cjs), each with the reason
+it exists:
+
+```bash
+cd functions && npm run depcruise
+```
+
+| Rule                                | Holds that                                                                                             |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `no-circular`                       | no import cycles                                                                                       |
+| `cosmos-only-in-db`                 | only `functions/src/lib/db.js` imports `@azure/cosmos` (operator scripts and the e2e cleanup excepted) |
+| `blob-only-in-blob-storage`         | only `functions/src/lib/blobStorage.js` imports `@azure/storage-blob` (backfill scripts excepted)      |
+| `handlers-share-through-lib`        | a Function handler never imports another handler                                                       |
+| `backend-lib-is-a-leaf`             | `lib/` and `middleware/` never import a handler                                                        |
+| `frontend-lib-is-pure`              | `frontend/src/lib/` never imports `ui/` or `app.js`                                                    |
+| `vendor-is-script-tags-only`        | nothing imports `frontend/src/vendor/` (classic scripts from `index.html`)                             |
+| `no-test-code-in-production`        | production code never imports a test or test helper                                                    |
+| `e2e-is-black-box`                  | `e2e/` never imports app code                                                                          |
+| `frontend-and-backend-are-separate` | the two never import each other                                                                        |
+| `no-orphans`, `not-to-unresolvable` | no dead modules, no unresolvable imports                                                               |
+
+**Known violations**: the frontend `ui/` import cycles reported in #579 are
+recorded in `.dependency-cruiser-known-violations.json` and ignored; any new
+violation fails. When a cycle is broken, shrink the baseline (never grow it):
+
+```bash
+functions/node_modules/.bin/depcruise --config .dependency-cruiser.cjs \
+  --baseline --baseline-mode shrink-only \
+  functions/src functions/scripts functions/test frontend/src frontend/test e2e
+```
+
+It runs as a pre-commit hook and in CI's `architecture` job (output in the job
+summary).

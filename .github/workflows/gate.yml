@@ -38,8 +38,8 @@ jobs:
         with:
           extra-args: "--all-files"
         env:
-          # opengrep has its own job below.
-          SKIP: no-commit-to-branch,opengrep
+          # opengrep and the architecture checks have their own jobs below.
+          SKIP: no-commit-to-branch,opengrep,depcruise
 
   # A push to main forces every job: it is the event that deploys, and a merge
   # may combine unrelated changes. Skipped jobs report success to required checks.
@@ -55,6 +55,7 @@ jobs:
       e2e: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.e2e == 'true' }}
       infrastructure: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.infrastructure == 'true' }}
       sast: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.sast == 'true' }}
+      code: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.code == 'true' }}
     steps:
       - name: Force a full run on pushes to main
         id: force
@@ -87,6 +88,13 @@ jobs:
             infrastructure:
               - *ci
               - 'infrastructure/**'
+            # The JS/TS module graph and the configs of the checks that read it.
+            code:
+              - *ci
+              - 'functions/**'
+              - 'frontend/**'
+              - 'e2e/**'
+              - '.dependency-cruiser*'
             # Everything scripts/quality/opengrep.sh scans, and its config.
             sast:
               - *ci
@@ -151,6 +159,34 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: nobuddyorg/BikeBuddy
           fail_ci_if_error: true
+
+  # Whole-graph checks over functions/, frontend/ and e2e/; each output is a job-summary section.
+  architecture:
+    needs: [prek, changes]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-node-packages
+        with:
+          packages: functions frontend e2e
+
+      # `shell: bash` adds pipefail; the implicit `bash -e` would report tee's status, not the command's.
+      - name: Check architectural boundaries
+        shell: bash
+        run: npm run --silent depcruise 2>&1 | tee depcruise-output.txt
+        working-directory: functions
+
+      - name: Add architecture check to job summary
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/summary-section
+        with:
+          title: "🏗️ Architectural boundaries (dependency-cruiser)"
+          file: functions/depcruise-output.txt
 
   frontend:
     needs: [prek, changes]

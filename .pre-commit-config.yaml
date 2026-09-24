@@ -141,6 +141,19 @@ repos:
         files: ^e2e/(.*\.ts|tsconfig\.json)$
         stages: [pre-commit]
 
+  # dependency-cruiser: layer boundaries and cycles over the whole graph (a
+  # few seconds), so it runs whole. Rules: .dependency-cruiser.cjs.
+  - repo: local
+    hooks:
+      - id: depcruise
+        name: dependency-cruiser
+        entry: bash -c 'cd functions && npm run --silent depcruise'
+        language: system
+        pass_filenames: false
+        files: ^((functions|frontend)/(src|scripts|test)/.*\.(js|mjs)|e2e/.*\.(ts|mjs)|\.dependency-cruiser(-known-violations)?\.(cjs|json))$
+        exclude: ^frontend/src/vendor/
+        stages: [pre-commit]
+
   # ESLint (frontend/) — browser + ESM; reuses functions' eslint install. Runs
   # from the repo root so the files are inside ESLint's base path.
   - repo: local

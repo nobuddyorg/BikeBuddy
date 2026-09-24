@@ -1,0 +1,314 @@
+[
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/auth.js",
+    "to": "frontend/src/ui/pins.js",
+    "unresolvedTo": "./pins.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/pins.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/images.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/auth.js",
+    "to": "frontend/src/ui/routes.js",
+    "unresolvedTo": "./routes.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/routes.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/auth.js",
+    "to": "frontend/src/ui/sidebar.js",
+    "unresolvedTo": "./sidebar.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/sidebar.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/images.js",
+    "to": "frontend/src/ui/pins.js",
+    "unresolvedTo": "./pins.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/pins.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/images.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/images.js",
+    "to": "frontend/src/ui/sidebar.js",
+    "unresolvedTo": "./sidebar.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/sidebar.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/pins.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/images.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/routes.js",
+    "to": "frontend/src/ui/pins.js",
+    "unresolvedTo": "./pins.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/pins.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/images.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/routes.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/sidebar.js",
+    "to": "frontend/src/ui/routes.js",
+    "unresolvedTo": "./routes.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/routes.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/sidebar.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/sidebar.js",
+    "to": "frontend/src/ui/tour-detail.js",
+    "unresolvedTo": "./tour-detail.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/tour-detail.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/sidebar.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/tour-detail.js",
+    "to": "frontend/src/ui/auth.js",
+    "unresolvedTo": "./auth.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/sidebar.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/tour-detail.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/tour-detail.js",
+    "to": "frontend/src/ui/images.js",
+    "unresolvedTo": "./images.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/images.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/sidebar.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/tour-detail.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/tour-detail.js",
+    "to": "frontend/src/ui/pins.js",
+    "unresolvedTo": "./pins.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/pins.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/images.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/sidebar.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/tour-detail.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "frontend/src/ui/tour-detail.js",
+    "to": "frontend/src/ui/routes.js",
+    "unresolvedTo": "./routes.js",
+    "dependencyTypes": ["local", "import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "frontend/src/ui/routes.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/auth.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/pins.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/images.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/sidebar.js",
+        "dependencyTypes": ["local", "import"]
+      },
+      {
+        "name": "frontend/src/ui/tour-detail.js",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  }
+]
