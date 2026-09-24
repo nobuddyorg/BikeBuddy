@@ -144,3 +144,27 @@ prek run zizmor --all-files
 prek run actionlint --all-files
 zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only reports
 ```
+
+## Run OpenGrep
+
+[OpenGrep](https://github.com/opengrep/opengrep) (SAST) runs in its own
+`opengrep` job in `gate.yml` and as a pre-commit hook, both through one script:
+
+```bash
+./buddy.sh quality opengrep   # installs the pinned version on first run
+```
+
+- **Rule packs**: `--config auto` (the community rules for the languages
+  found) plus `--config p/security-audit` (the audit pack BikeBuddy used
+  before). The union is the gate; see the design decision "SAST rule packs".
+- **Gate**: CI fails only on **error**-severity findings, with an annotation
+  per finding; warnings and infos are report-only. Every finding goes to the job
+  summary and to the Security tab (code scanning, category `opengrep`), together
+  with any file OpenGrep could only partially parse. Locally, any finding fails.
+- **Suppressing**: a path goes into [`.semgrepignore`](../../.semgrepignore)
+  with its reason (today only the vendored bundles and generated output). A
+  single line gets `// nosemgrep: <rule-id> -- <reason>` on the same line; an
+  inline suppression without a reason is not merged. Suppressed findings stay
+  visible in code scanning as suppressed.
+- No `--autofix`: a fix made in CI is discarded, and a rewrite is reviewed like
+  any other change.

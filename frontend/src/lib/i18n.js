@@ -136,7 +136,7 @@ export function applyI18n(root = document) {
     el.textContent = t(el.dataset.i18n);
   });
   root.querySelectorAll('[data-i18n-html]').forEach((el) => {
-    el.innerHTML = t(el.dataset.i18nHtml);
+    el.innerHTML = t(el.dataset.i18nHtml); // nosemgrep: insecure-document-method, insecure-innerhtml -- the markup sink by design: data-i18n-html keys resolve to repo-owned locale strings, never user input
   });
   for (const attr of I18N_ATTRS) {
     const dataAttr = `data-i18n-${attr}`;

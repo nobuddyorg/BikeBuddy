@@ -185,19 +185,14 @@ repos:
         files: ^infrastructure/.*\.tf$
         stages: [pre-commit]
 
-  # OpenGrep SAST — install auto-bootstrapped on first run (local and CI).
+  # OpenGrep SAST, the same pinned version and rule packs as gate.yml's opengrep
+  # job (which is the CI gate, so CI's prek job skips this hook). No --autofix:
+  # findings are fixed by hand. Exclusions: .semgrepignore.
   - repo: local
     hooks:
-      - id: opengrep-check
+      - id: opengrep
         name: OpenGrep
-        entry: >-
-          bash -lc '
-          if ! command -v opengrep &>/dev/null &&
-             [ ! -f "$HOME/.opengrep/cli/latest/opengrep" ]; then
-            curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh \
-              -o /tmp/opengrep-install.sh && bash /tmp/opengrep-install.sh; fi &&
-          ${HOME}/.opengrep/cli/latest/opengrep \
-            --config p/security-audit --error --autofix'
+        entry: scripts/quality/opengrep.sh
         language: system
         pass_filenames: false
         stages: [pre-commit]

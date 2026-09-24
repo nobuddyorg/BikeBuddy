@@ -105,6 +105,21 @@ Current overrides: `functions/` pins `qs` to `^6.16.0`, because Stryker's
 `typed-rest-client` pins a vulnerable `qs` exactly (GHSA-x5fp-wj9c-mxmx,
 GHSA-4mjr-xmp4-gh2g). Accepted risk: none.
 
+## SAST rule packs
+
+OpenGrep runs `--config auto` and `--config p/security-audit` together.
+`auto` is what CollectionBuddy runs: the community rules for every language in
+the tree (JavaScript, TypeScript, HCL, Bash, HTML, JSON), including the
+taint rules that catch `eval(req.body)`-style injections at error severity.
+`p/security-audit` is the narrower audit pack the pre-commit hook ran before;
+keeping it means the switch cannot lose a rule that was already enforced. Only
+error severity fails the job: the warning-level packs (i18n key formats, Azure
+hardening advice) are reported for triage, and the IaC ones are owned by the
+IaC scanner. Two findings were fixed on adoption (the language menu built
+markup with `innerHTML`; it now uses `textContent`) and one is suppressed
+inline: `applyI18n`'s `data-i18n-html` sink renders repo-owned translation
+markup by design.
+
 ## Cost
 
 Everything targets the free/serverless tier (< €5/month), enforced by a budget

@@ -37,7 +37,8 @@ jobs:
         with:
           extra-args: "--all-files"
         env:
-          SKIP: no-commit-to-branch
+          # opengrep has its own job below.
+          SKIP: no-commit-to-branch,opengrep
 
   # A push to main forces every job: it is the event that deploys, and a merge
   # may combine unrelated changes. Skipped jobs report success to required checks.
@@ -52,6 +53,7 @@ jobs:
       frontend: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.frontend == 'true' }}
       e2e: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.e2e == 'true' }}
       infrastructure: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.infrastructure == 'true' }}
+      sast: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.sast == 'true' }}
     steps:
       - name: Force a full run on pushes to main
         id: force
@@ -84,6 +86,15 @@ jobs:
             infrastructure:
               - *ci
               - 'infrastructure/**'
+            # Everything scripts/quality/opengrep.sh scans, and its config.
+            sast:
+              - *ci
+              - 'functions/**'
+              - 'frontend/**'
+              - 'e2e/**'
+              - 'scripts/**'
+              - 'infrastructure/**'
+              - '.semgrepignore'
 
   unit:
     needs: [prek, changes]
@@ -305,3 +316,94 @@ jobs:
           comment_mode: off
           check_run: false
           test_changes_limit: 0
+
+  # Needs no node_modules, so it is its own job; the only job allowed to write
+  # code-scanning results. Local equivalent: ./buddy.sh quality opengrep.
+  opengrep:
+    needs: [prek, changes]
+    if: needs.changes.outputs.sast == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `shell: bash` adds pipefail, so a failed download cannot pass.
+      - name: Run OpenGrep
+        shell: bash
+        run: ./buddy.sh quality opengrep --sarif-output=opengrep-results.sarif --json-output=opengrep-results.json
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          sarif_file: opengrep-results.sarif
+          category: opengrep
+
+      # OpenGrep's SARIF leaves a result's `level` unset; severity lives on the rule.
+      # An inline `nosemgrep` stays in the SARIF with `suppressions` set; it is dropped here.
+      - name: Join findings to their rule's severity
+        run: |
+          jq '
+            (reduce (.runs[].tool.driver.rules[]) as $rule ({}; .[$rule.id] = ($rule.defaultConfiguration.level // "warning"))) as $levelById
+            | [.runs[].results[] | select((.suppressions // []) | length == 0) | {
+                level: ($levelById[.ruleId] // "warning"),
+                ruleId,
+                message: .message.text,
+                file: (.locations[0].physicalLocation.artifactLocation.uri // "?"),
+                line: (.locations[0].physicalLocation.region.startLine // 1)
+              }]
+          ' opengrep-results.sarif > opengrep-findings.json
+
+      - name: Add scan results to job summary
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo '## 🔍 SAST (OpenGrep)'
+            echo
+            jq -r '
+              length as $total
+              | (map(select(.level == "error")) | length) as $errors
+              | "**Total findings:** \($total) (\($errors) at error severity, blocking; full detail in the Security tab, category `opengrep`)\n"
+              + (if $total > 0
+                 then "\n| Severity | Rule | Location |\n|---|---|---|\n" + (
+                   sort_by(.level != "error", .level != "warning")
+                   | map("| \(.level) | `\(.ruleId)` | \(.file):\(.line) |")
+                   | join("\n")
+                 )
+                 else "" end)
+            ' opengrep-findings.json
+            # SARIF carries a parse error as free text only; the JSON output names its file.
+            jq -r '
+              [.errors[] | select(.path) | {
+                path,
+                line: (.spans[0].start.line // "?"),
+                kind: (.type | if type == "array" then .[0] else . end)
+              }]
+              | sort_by(.line)
+              | unique_by(.path)
+              | length as $count
+              | "\n**Partially analyzed files:** \($count) (no finding in their unparsed lines is reported)\n"
+              + (if $count > 0
+                 then "\n| File | First error at line | Error |\n|---|---|---|\n"
+                   + (map("| \(.path) | \(.line) | \(.kind) |") | join("\n"))
+                 else "" end)
+            ' opengrep-results.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # After the upload, so the Security tab stays populated either way. WARNING/INFO stay report-only.
+      - name: Fail on error-severity findings
+        run: |
+          count=$(jq 'map(select(.level == "error")) | length' opengrep-findings.json)
+          if [ "$count" -gt 0 ]; then
+            jq -r '
+              map(select(.level == "error"))[]
+              | "::error file=\(.file),line=\(.line)::\(.ruleId): \(.message)"
+            ' opengrep-findings.json
+            echo "$count error-severity OpenGrep finding(s): see the annotations above, the job summary, or the Security tab (category opengrep)."
+            exit 1
+          fi
+          echo "No error-severity findings."
