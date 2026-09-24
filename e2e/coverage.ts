@@ -13,7 +13,8 @@ export const coverageEnabled = () => process.env.E2E_COVERAGE === '1';
 const FLOORS: Record<Suite, { lines: number; functions: number }> = {
   // Measured 57.86 % lines / 49.58 % functions; the margin absorbs a retried test.
   static: { lines: 55, functions: 47 },
-  fullstack: { lines: 0, functions: 0 },
+  // Measured 76.48 % lines / 75.49 % functions on CI (run 36062531313).
+  fullstack: { lines: 73, functions: 72 },
 };
 
 // Only the app's own modules: not the vendored bundles, not the config shim.
