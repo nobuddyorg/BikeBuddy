@@ -77,6 +77,34 @@ would add an Azure Key Vault (cost + operational overhead) and push past the
 account creation, so it isn't retrofitted to the existing storage account; it
 could be enabled on a fresh deployment if ever required.
 
+## Dependency updates and npm audit
+
+Dependabot opens weekly, grouped PRs for npm (`functions/`, `frontend/`,
+`e2e/`), GitHub Actions and pre-commit hooks, each with a 7-day cooldown. Only
+**patch updates of direct devDependencies** merge themselves
+(`dependabot-auto-merge.yml`): a devDependency reaches the CI runner, a runtime
+dependency (`sharp`, `jsonwebtoken`, `jwks-rsa`, `@azure/*`) reaches
+production, and an action reaches the deploy credentials. Groups are split by
+dependency type, because a mixed group reports as `direct:production` and would
+never qualify. Every lockfile entry must resolve from the npm registry over
+https with an integrity hash (lockfile-lint, pre-commit).
+
+`npm audit` findings are handled with the smallest change that removes them:
+
+1. An in-range lockfile update (`npm update <pkg>` or a plain `npm audit fix`)
+   when the parent's semver range already allows the fixed version.
+2. Otherwise a targeted `overrides` entry with a floor at the fixed version,
+   and a line in the PR saying which parent pins the vulnerable one.
+3. When no fix exists, the risk is written down here: package, advisory, why it
+   is not reachable (e.g. dev tooling only), and when to look again.
+
+Never `npm audit fix --force` (it jumps majors) and never a from-scratch
+lockfile regeneration (it moves every transitive dependency at once).
+
+Current overrides: `functions/` pins `qs` to `^6.16.0`, because Stryker's
+`typed-rest-client` pins a vulnerable `qs` exactly (GHSA-x5fp-wj9c-mxmx,
+GHSA-4mjr-xmp4-gh2g). Accepted risk: none.
+
 ## Cost
 
 Everything targets the free/serverless tier (< €5/month), enforced by a budget

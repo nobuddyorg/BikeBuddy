@@ -66,6 +66,17 @@ repos:
         files: ^\.github/(workflows|actions)/
         pass_filenames: false
 
+  # lockfile-lint: every lockfile resolves from the npm registry over https with
+  # integrity hashes. Its own pinned install, so CI's prek job needs no node_modules.
+  - repo: local
+    hooks:
+      - id: lockfile-lint
+        name: lockfile-lint
+        entry: bash -c 'for lockfile in "$@"; do lockfile-lint --path "$lockfile" --type npm --allowed-hosts npm --validate-https --validate-integrity --validate-package-names || exit 1; done' --
+        language: node
+        additional_dependencies: ["lockfile-lint@5.0.1"]
+        files: ^(functions|frontend|e2e)/package-lock\.json$
+
   # ESLint (functions/)
   - repo: local
     hooks:

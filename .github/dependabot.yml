@@ -1,12 +1,16 @@
 version: 2
 updates:
+  # Actions are pinned by commit hash, so a repointed tag never moves them; these bumps are the only thing that does.
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
     cooldown:
       default-days: 7
 
+  # .pre-commit-config.yaml pins its hook revisions the same way.
   - package-ecosystem: "pre-commit"
     directory: "/"
     schedule:
@@ -14,19 +18,56 @@ updates:
     cooldown:
       default-days: 7
 
+  # Groups are split by dependency type: a mixed group reports as
+  # direct:production, which dependabot-auto-merge.yml always leaves to a human.
   - package-ecosystem: "npm"
     directory: "/functions"
     schedule:
       interval: "weekly"
     groups:
-      minor-and-patch:
+      # @stryker-mutator/vitest-runner needs a matching core; listed first because Dependabot uses the first matching group.
+      stryker-mutator:
+        patterns:
+          - "@stryker-mutator/*"
+      patch-updates-dev:
+        dependency-type: "development"
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      patch-updates-prod:
+        dependency-type: "production"
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor-updates:
         patterns:
           - "*"
         update-types:
           - "minor"
-          - "patch"
-      stryker-mutator:
+    cooldown:
+      default-days: 7
+
+  # frontend/ and e2e/ hold dev tooling only (the frontend ships without a bundler;
+  # the vendored MSAL/Leaflet under frontend/src/vendor/ are updated by hand, #564).
+  - package-ecosystem: "npm"
+    directories:
+      - "/frontend"
+      - "/e2e"
+    schedule:
+      interval: "weekly"
+    groups:
+      patch-updates-dev:
+        dependency-type: "development"
         patterns:
-          - "@stryker-mutator/*"
+          - "*"
+        update-types:
+          - "patch"
+      minor-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
     cooldown:
       default-days: 7
