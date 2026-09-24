@@ -7,7 +7,7 @@ each with a distinct purpose:
 | ----------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Tutorials**     | Learning by doing         | [Getting started](tutorials/getting-started.md)                                                                                                                                |
 | **How-to guides** | Achieving a specific goal | [User guide](how-to/user-guide.md) · [Developer guide](how-to/developer-guide.md) · [Infrastructure](how-to/infrastructure.md) · [Add a language](how-to/adding-a-language.md) |
-| **Reference**     | Looking things up         | [Architecture](reference/architecture.md) · [Configuration](reference/configuration.md)                                                                                        |
+| **Reference**     | Looking things up         | [Architecture](reference/architecture.md) · [Configuration](reference/configuration.md) · [Testing](reference/testing.md)                                                      |
 | **Explanation**   | Understanding the why     | [Design decisions](explanation/design-decisions.md) · [Security](explanation/security.md) · [Cost model](cost-report.md)                                                       |
 
 New here? Read the [README](../README.md) for the one-paragraph overview, then do
