@@ -9,9 +9,12 @@
     <!-- GitHub Pages cannot set response headers, so the policy ships in the
        document. A meta CSP cannot express frame-ancestors, HSTS or
        Permissions-Policy — see docs/explanation/security.md. -->
+    <!-- CSP: Azure hosts are injected by generate-config.sh from environment variables.
+         In production: API_HOST and STORAGE_HOST are the specific Azure endpoints.
+         In dev: API_HOST=127.0.0.1:7071 (SWA proxy), STORAGE_HOST=127.0.0.1:10000 (Azurite). -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.blob.core.windows.net http://127.0.0.1:10000; connect-src 'self' https://*.ciamlogin.com https://login.microsoftonline.com https://*.azurewebsites.net https://*.blob.core.windows.net http://127.0.0.1:10000; frame-src https://*.ciamlogin.com https://login.microsoftonline.com; font-src 'self'"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://{{STORAGE_HOST}}; connect-src 'self' https://*.ciamlogin.com https://login.microsoftonline.com https://{{API_HOST}} https://{{STORAGE_HOST}}; frame-src https://*.ciamlogin.com https://login.microsoftonline.com; font-src 'self'"
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>BikeBuddy</title>
