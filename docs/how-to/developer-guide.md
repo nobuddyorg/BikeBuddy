@@ -351,3 +351,32 @@ cd frontend && npm run mutate      # one package
   written down in the design decision "Mutation scope".
 - Stryker runs Vitest through `vitest.mutation.config.js` (dot reporter, no
   coverage), so killed mutants do not show up as CI annotations.
+
+## Property tests
+
+[fast-check](https://fast-check.dev) property tests run inside the normal
+Vitest suites (`*.property.test.js` in `functions/src/lib/`,
+`frontend/test/properties.test.js`), 200 runs per property:
+
+| Module                                   | Properties                                                                                                                          |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `functions/src/lib/parseGpx.js`          | finite, non-negative stats; in-order subset within the 5,000-point budget; only its own error on arbitrary text; 150k+ point tracks |
+| `functions/src/lib/simplify.js`          | ordered subset keeping first/last; idempotent; point budget respected                                                               |
+| `functions/src/lib/validation.js`        | accepted names are 1–200 chars without `<>`; `stripHtml` idempotent; valid DTOs round-trip; UUIDs                                   |
+| `functions/src/lib/extractGps.js`        | coordinates in range or absent, never NaN; hemisphere sets the sign                                                                 |
+| `frontend/src/lib/stats.js`, `format.js` | totals are sums of parts; formatted values parse back within their rounding                                                         |
+| `frontend/src/lib/url.js`, `tours.js`    | URL state round-trips; sorting is a permutation; pages cover every item once                                                        |
+
+### Replay a property-test failure
+
+A failure prints the shrunk counterexample and a line like
+`{ seed: 1480771125, path: "29:9", endOnFailure: true }`. Replay exactly that
+run, locally or from a CI log:
+
+```bash
+cd functions && FC_SEED=1480771125 FC_PATH=29:9 npx vitest run src/lib/parseGpx.property.test.js
+```
+
+(`test/fast-check.setup.js` in each package reads `FC_SEED`/`FC_PATH`.) A
+counterexample that exposes a bug becomes an example test next to the module's
+other tests, linking the bug's issue, before the fix.

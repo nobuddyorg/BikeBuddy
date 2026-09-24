@@ -21,6 +21,11 @@ module.exports = [
       },
     },
   },
+  // Unit tests and their setup run in Node (Vitest), not the browser.
+  {
+    files: ['frontend/test/**/*.js'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+  },
   // Code-smell analysis for non-test source: a test's job is to be exhaustive, not non-repetitive.
   {
     ...sonarjs.configs.recommended,

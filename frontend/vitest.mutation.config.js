@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.js'],
+    setupFiles: ['test/fast-check.setup.js'],
     // Vitest adds its `github-actions` reporter under GITHUB_ACTIONS; a killed
     // mutant is an expected failure, not an annotation.
     reporters: ['dot'],

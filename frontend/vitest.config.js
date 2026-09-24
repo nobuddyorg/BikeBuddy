@@ -15,6 +15,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.js'],
+    setupFiles: ['test/fast-check.setup.js'],
     coverage: {
       provider: 'v8',
       // lcov → Codecov; json-summary → CI job summary; text → CI log

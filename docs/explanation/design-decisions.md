@@ -159,6 +159,18 @@ reloading the module per mutant. Break thresholds start one point below the
 measured score and only move up; known equivalent mutants are listed here when
 one blocks a raise.
 
+## Property tests
+
+Property tests are for functions whose input space is too large for examples
+and whose invariant is easy to state: the GPX parser and simplifier take
+arbitrary user files, and the open bug list is mostly edge cases examples
+missed (#575, #548, #552, #554). The first run found three: fast-xml-parser's
+internal error escaping `parseGpx` on malformed markup, `Math.min(...)`
+overflowing the stack on a 150,000-point track (#575), and a test assumption
+(`-0` does not survive being written into XML). The first two are fixed and
+kept as example tests. Out-of-order timestamps (negative duration, #575) are
+not a property yet: what the duration should be is still that issue's call.
+
 ## Cost
 
 Everything targets the free/serverless tier (< €5/month), enforced by a budget

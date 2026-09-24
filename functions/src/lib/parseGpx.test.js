@@ -313,6 +313,24 @@ describe('parseGpx', () => {
     });
   });
 
+  // Shrunk counterexamples from parseGpx.property.test.js, kept as examples.
+  describe('property-test regressions', () => {
+    it('reports malformed markup as an invalid GPX file, not a parser internal', () => {
+      expect(() => parseGpx('<')).toThrow('Not a valid GPX file');
+    });
+
+    it('computes min/max elevation of a 150,000-point track without a stack overflow (#575)', () => {
+      const points = Array.from({ length: 150_000 }, (_, i) => [
+        48 + i * 1e-6,
+        11,
+        500 + (i % 100),
+      ]);
+      const result = parseGpx(makeGpxWithExtras(points));
+      expect(result.minElevation).toBe(500);
+      expect(result.maxElevation).toBe(599);
+    }, 30_000); // a 150,000-point document takes seconds to build and parse
+  });
+
   describe('duration and speed stats', () => {
     it('returns elapsed duration spanning the first to last timestamp', () => {
       const result = parseGpx(

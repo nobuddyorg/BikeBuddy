@@ -19,6 +19,7 @@ export default defineConfig({
     // Unit tests live next to the modules; integration tests (test/integration)
     // need a running func host and run via vitest.integration.config.js.
     include: ['src/**/*.test.js'],
+    setupFiles: ['test/fast-check.setup.js'],
     coverage: {
       provider: 'v8',
       // lcov → Codecov; json-summary → CI job summary; text → CI log
