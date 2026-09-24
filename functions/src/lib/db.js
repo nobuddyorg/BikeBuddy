@@ -2,10 +2,22 @@
 'use strict';
 
 const { CosmosClient } = require('@azure/cosmos');
+const { enabled: profilingEnabled, cosmosPlugin } = require('./profiling');
 
 let cosmosClient;
 function getClient() {
-  if (!cosmosClient) cosmosClient = new CosmosClient(process.env.COSMOS_CONNECTION_STRING ?? '');
+  if (!cosmosClient) {
+    // `plugins` is a supported but untyped CosmosClientOptions field; it is only
+    // set for a load-test run (LOAD_PROFILING=true), never in production.
+    cosmosClient = new CosmosClient(
+      /** @type {import('@azure/cosmos').CosmosClientOptions} */ ({
+        connectionString: process.env.COSMOS_CONNECTION_STRING ?? '',
+        ...(profilingEnabled() && {
+          plugins: [{ on: 'request', plugin: cosmosPlugin() }],
+        }),
+      }),
+    );
+  }
   return cosmosClient;
 }
 

@@ -67,7 +67,7 @@ All helper scripts run through a single entry point, `./buddy.sh <group> <comman
 Full docs live in [`docs/`](docs/README.md), organised by [Diátaxis](https://diataxis.fr):
 
 - **Tutorial** — [Getting started](docs/tutorials/getting-started.md)
-- **How-to** — [User guide](docs/how-to/user-guide.md) · [Developer guide](docs/how-to/developer-guide.md) (local dev, auth/tokens, deploy)
+- **How-to** — [User guide](docs/how-to/user-guide.md) · [Developer guide](docs/how-to/developer-guide.md) (local dev, auth/tokens, deploy) · [Load testing](docs/how-to/load-testing.md)
 - **Reference** — [Architecture](docs/reference/architecture.md) · [Configuration](docs/reference/configuration.md)
 - **Explanation** — [Design decisions](docs/explanation/design-decisions.md) · [Cost report](docs/cost-report.md)
 

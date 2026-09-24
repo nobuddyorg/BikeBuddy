@@ -200,6 +200,29 @@ overflowing the stack on a 150,000-point track (#575), and a test assumption
 kept as example tests. Out-of-order timestamps (negative duration, #575) are
 not a property yet: what the duration should be is still that issue's call.
 
+## Why load testing is manual and local by default
+
+The k6 flows ([load testing](../how-to/load-testing.md)) run on demand
+(`./buddy.sh test load`, or the `Load test (k6)` workflow's Run button), never
+on push or pull request, and against the local stack unless a run explicitly
+targets production.
+
+- **A measurement, not a gate.** A shared runner's latency varies by more than
+  most regressions a gate would catch, so a p95 threshold on every PR would
+  either flap or be set so loose it never fails. What must not regress is
+  asserted deterministically instead: RU per request, operations per request,
+  single-partition queries and response size in the integration suite
+  ("Deterministic guards" in the guide).
+- **Local by default.** The local stack has the same code, queries and
+  document shapes as production, costs nothing, and can be profiled
+  (`LOAD_PROFILING=true`); the emulator's request charges are nominal, so RU
+  are compared as operation counts, not absolute cost.
+- **Production only on purpose.** Cosmos DB Serverless bills every request and
+  real users share the capacity, and there is no staging environment. A hosted
+  run needs `confirm_production`, is refused before any secret is read
+  otherwise, runs one at a time, and uses a dedicated account's token
+  (`LOAD_ACCESS_TOKEN`), since the auth bypass never exists there (#545).
+
 ## Cost
 
 Everything targets the free/serverless tier (< €5/month), enforced by a budget

@@ -9,7 +9,7 @@ VERSION="v1.30.0"
 # `auto` picks the community packs for the languages found; `p/security-audit`
 # keeps the audit rules BikeBuddy used before. Both are fetched anonymously.
 CONFIGS=(--config auto --config p/security-audit)
-PATHS=(functions/src functions/scripts frontend/src e2e scripts infrastructure)
+PATHS=(functions/src functions/scripts frontend/src e2e load scripts infrastructure)
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
