@@ -77,6 +77,27 @@ would add an Azure Key Vault (cost + operational overhead) and push past the
 account creation, so it isn't retrofitted to the existing storage account; it
 could be enabled on a fresh deployment if ever required.
 
+## No CI output on pull requests
+
+The gate writes nothing into a pull request: no bot comments, no issues, no
+check runs of reporting actions (`comment: false` for Codecov, `check_run:
+false` for the JUnit reporter, `allow_issue_writing: false` for ZAP). The
+exceptions are statuses GitHub or Codecov attach to the commit, not text:
+code scanning's per-tool checks for the SARIF uploads, and Codecov's patch and
+project statuses. Beyond those, each job's pass/fail is the signal; tables and
+numbers go to the run's job summary, reports to artifacts, and SARIF findings
+to code scanning ([Where to find CI results](../how-to/developer-guide.md#where-to-find-ci-results)).
+
+Why: comments pile up with every push and go stale, a second check run per tool
+doubles the list a reviewer scans, and a reporting action that can write to the
+PR needs `pull-requests: write`, a permission an untrusted PR's workflow should
+not hold. The summary is one click away and always matches the commit it ran
+on.
+
+The same rule keeps every check runnable locally: a job's command is a
+`buddy.sh` or `npm` script a contributor runs as is, and the summary step only
+formats its output ([Run the checks CI runs, locally](../how-to/developer-guide.md#run-the-checks-ci-runs-locally)).
+
 ## Dependency updates and npm audit
 
 Dependabot opens weekly, grouped PRs for npm (`functions/`, `frontend/`,

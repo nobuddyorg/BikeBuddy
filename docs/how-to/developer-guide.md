@@ -44,6 +44,7 @@ Every gate job is reachable through `buddy.sh` (raw `npm`/`prek` still work too)
 ./buddy.sh test mutation        # Stryker mutation tests
 
 ./buddy.sh quality hooks        # all lint/format/security hooks (the CI `prek` gate)
+./buddy.sh quality check        # the Definition of done in order (--stack: with the local stack)
 ./buddy.sh quality format       # auto-format with Prettier
 ```
 
@@ -73,6 +74,41 @@ A job skipped by its filter reports success, so required checks stay
 satisfiable. Shared setup lives in composite actions under `.github/actions/`
 (`setup-node-packages`, `start-local-stack`, `summary-section`,
 `playwright-results`); a step repeated a third time becomes one.
+
+## Run the checks CI runs, locally
+
+Every job in [`gate.yml`](../../.github/workflows/gate.yml) runs a command you
+can run yourself; CI calls the same `buddy.sh` or `npm` script, with only
+reporter flags added. The ordered checklist is the
+[Definition of done](../../CLAUDE.md#definition-of-done), and one command runs
+it:
+
+```bash
+./buddy.sh quality check           # hooks, unit, frontend, static e2e: no services needed
+./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
+./buddy.sh quality check --stack   # the above, then integration, full-stack e2e, Lighthouse, ZAP
+```
+
+It stops at the first red step. Mutation testing is left out (it is only
+required when you changed a file in `mutation-targets.mjs`); run
+`./buddy.sh test mutation` for it.
+
+| CI job                | Local command                                                           | Needs                                                       |
+| --------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `prek`                | `./buddy.sh quality hooks` (CI skips the hooks that have their own job) | —                                                           |
+| `unit`                | `./buddy.sh test unit`                                                  | —                                                           |
+| `frontend`            | `./buddy.sh test frontend`                                              | —                                                           |
+| `architecture`        | `cd functions && npm run depcruise && npm run knip`                     | —                                                           |
+| `opengrep`            | `./buddy.sh quality opengrep`                                           | Docker or the pinned binary ([Run OpenGrep](#run-opengrep)) |
+| `iac`                 | `./buddy.sh quality iac`                                                | — (downloads pinned TFLint and Trivy)                       |
+| `e2e`                 | `E2E_COVERAGE=1 ./buddy.sh test e2e`                                    | Chromium                                                    |
+| `mutation`            | `./buddy.sh test mutation` (`--force` for a full run, as on `main`)     | —                                                           |
+| `integration`         | `./buddy.sh test integration`                                           | Cosmos emulator, Azurite                                    |
+| `e2e-fullstack`       | `E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack`                          | Cosmos emulator, backend                                    |
+| `lighthouse`          | `cd e2e && npm run lighthouse -- signed-out` / `-- signed-in`           | backend for `signed-in`                                     |
+| `zap`                 | `./buddy.sh quality zap`                                                | Docker, backend                                             |
+| CodeQL (own workflow) | none locally; results under Security → Code scanning                    | —                                                           |
+| Load test (manual)    | `./buddy.sh test load <flow>` ([load testing](load-testing.md))         | backend, k6                                                 |
 
 ## Authentication & tokens
 
