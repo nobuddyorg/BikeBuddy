@@ -142,7 +142,11 @@ module.exports = {
     },
     // Tool configs are not app architecture (and e2e's ESLint config imports ESM-only packages).
     exclude: {
-      path: ['(^|/)(coverage|reports|\\.stryker-tmp)/', '(^|/)eslint[^/]*\\.(c|m)?js$'],
+      path: [
+        // Generated output (coverage, test and Lighthouse reports), never app code.
+        '(^|/)(coverage|coverage-e2e|reports|lighthouse-reports|playwright-report[^/]*|test-results|\\.lighthouseci|\\.stryker-tmp)/',
+        '(^|/)eslint[^/]*\\.(c|m)?js$',
+      ],
     },
     tsPreCompilationDeps: true,
     progress: { type: 'none' },
