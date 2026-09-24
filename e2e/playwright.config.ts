@@ -14,8 +14,9 @@ export default defineConfig({
   reporter: isCI
     ? [
         ['github'],
-        ['junit', { outputFile: 'reports/e2e-results.xml' }],
-        ['html', { open: 'never' }],
+        // JSON feeds the job summary (.github/actions/playwright-results); HTML is the failure artifact.
+        ['json', { outputFile: 'reports/e2e-results.json' }],
+        ['html', { open: 'never', outputFolder: 'playwright-report' }],
       ]
     : [['list']],
   use: {

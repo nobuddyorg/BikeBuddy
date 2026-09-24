@@ -18,7 +18,8 @@
     "test:integration:ci": "vitest run --config vitest.integration.config.js --reporter=default --reporter=junit --outputFile.junit=reports/integration-results.xml",
     "lint": "eslint src/ test/ --no-error-on-unmatched-pattern",
     "format": "prettier --write 'src/**/*.js' 'test/**/*.js'",
-    "mutate": "stryker run"
+    "mutate": "stryker run",
+    "mutation:summary": "node scripts/mutation-summary.mjs --title 'Mutation testing (functions)'"
   },
   "dependencies": {
     "@azure/cosmos": "^4.10.0",
@@ -40,6 +41,7 @@
     "eslint": "^10.10.0",
     "eslint-plugin-n": "^18.3.0",
     "globals": "^17.12.0",
+    "mutation-testing-metrics": "^3.9.0",
     "prettier": "^3.9.6",
     "vitest": "^4.1.9"
   },

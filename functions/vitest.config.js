@@ -10,8 +10,8 @@ export default defineConfig({
     include: ['src/**/*.test.js'],
     coverage: {
       provider: 'v8',
-      // cobertura → CodeCoverageSummary (PR comment); lcov → Codecov; text → CI log
-      reporter: ['text', 'cobertura', 'lcov'],
+      // cobertura → check-coverage.js; lcov → Codecov; json-summary → CI job summary; text → CI log
+      reporter: ['text', 'cobertura', 'lcov', 'json-summary'],
       include: ['src/**/*.js'],
       exclude: [
         'src/**/*.test.js',

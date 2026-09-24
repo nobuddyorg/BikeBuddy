@@ -5,3 +5,8 @@ rules:
     ignore:
       - gate.yml
       - deploy.yml
+  # actionlint 1.7.12 rejects the `$/` self-repository syntax ("ref is missing")
+  # and checks a composite action's inputs only for `./` paths. Re-enable once
+  # actionlint understands `$/`.
+  self-repository:
+    disable: true

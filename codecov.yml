@@ -1,3 +1,6 @@
+# The same numbers are in the CI job summary already; Codecov's commit statuses stay on.
+comment: false
+
 ignore:
   # Infrastructure files exercised by Azurite integration tests, not unit tests.
   - "functions/src/lib/db.js"

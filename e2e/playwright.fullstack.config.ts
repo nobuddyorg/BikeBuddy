@@ -14,7 +14,13 @@ export default defineConfig({
   retries: isCI ? 1 : 0,
   workers: 1, // backend writes — keep deterministic
   reporter: isCI
-    ? [['github'], ['junit', { outputFile: 'reports/e2e-fullstack-results.xml' }], ['list']]
+    ? [
+        ['github'],
+        // JSON feeds the job summary (.github/actions/playwright-results); HTML is the failure artifact.
+        ['json', { outputFile: 'reports/e2e-fullstack-results.json' }],
+        ['html', { open: 'never', outputFolder: 'playwright-report-fullstack' }],
+        ['list'],
+      ]
     : [['list']],
   use: {
     baseURL: `http://localhost:${PORT}`,

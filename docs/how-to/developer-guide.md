@@ -49,6 +49,19 @@ Every gate job is reachable through `buddy.sh` (raw `npm`/`prek` still work too)
 
 CI gates: see the [gate workflow](../../.github/workflows/gate.yml).
 
+### Where to find CI results
+
+CI never writes into a pull request: no bot comments, no extra check runs. The
+PR only shows each job's pass/fail status. Everything else is in the Actions run:
+
+- **Summary tab** of the run: one section per job (test results, coverage
+  tables, mutation score, and the output of every static check).
+- **Artifacts** at the bottom of the Summary tab: the Playwright HTML report
+  (only when the run failed) and the Stryker HTML report.
+- **Security tab → Code scanning**: SAST and IaC findings (SARIF uploads).
+
+Codecov keeps its commit status (`codecov.yml` has `comment: false`).
+
 ## Authentication & tokens
 
 Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
