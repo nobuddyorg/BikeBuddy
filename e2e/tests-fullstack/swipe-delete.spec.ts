@@ -47,6 +47,8 @@ buddyTest.describe('swipe to delete a tour', () => {
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
     await on(page).main.do.swipeTour('Swipe Tour A', 120);
+    await expect(on(page).main.locators.confirmModal.cancel).toBeVisible();
+    await on(page).a11y.check('delete confirm dialog');
     await on(page).main.locators.confirmModal.cancel.click();
 
     await expect(on(page).main.locators.list.names).toHaveCount(2);

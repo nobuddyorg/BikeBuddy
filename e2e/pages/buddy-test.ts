@@ -1,4 +1,5 @@
 import test, { Page } from '@playwright/test';
+import { expectNoAxeViolations } from '../axe';
 import { coverageEnabled, coverageReport, type Suite } from '../coverage';
 import { initMainPage } from './main-page';
 import { initUploadModal } from './upload-modal';
@@ -9,6 +10,10 @@ import { initHelpModal } from './help-modal';
 // Lazy getters: only the page objects a test actually touches get constructed.
 function createPageTree(page: Page) {
   return {
+    // WCAG 2.x A/AA scan of the page as it is now (e2e/axe.ts).
+    a11y: {
+      check: (context: string) => expectNoAxeViolations(page, context),
+    },
     get main() {
       return initMainPage(page);
     },

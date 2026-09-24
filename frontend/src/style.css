@@ -27,10 +27,13 @@
   --color-primary-strong: #ad5b21;
   --color-primary-strong-hover: #904c1b;
   --color-text: #1e293b;
-  --color-text-muted: #64748b;
+  /* 5:1 on --color-surface-2 (the selected row, code chips); slate-500 was 4.3:1. */
+  --color-text-muted: #5e6a7d;
   --color-danger: #ef4444;
   /* Same AA gap as --color-primary above, for filled danger buttons. */
   --color-danger-strong: #b91c1c;
+  /* Red text (not fills): --color-danger is 3.8:1 on white, below AA for 12px text. */
+  --color-danger-text: #b91c1c;
   --color-danger-strong-hover: #991b1b;
   /* --color-primary (#d97a36) is only ~3:1 on a light surface, short of the
      4.5:1 normal-text AA floor — this darker shade covers orange text sitting
@@ -56,6 +59,8 @@
        surface, so dark mode gets its own lighter value rather than reusing
        it — this clears 6:1+ here. */
     --color-primary-text: #e0954f;
+    /* The light value is too dark on the dark surface; this clears 6:1. */
+    --color-danger-text: #f87171;
   }
 
   /* Leaflet's own stylesheet (vendored via CDN, index.html) hardcodes its
@@ -1018,6 +1023,8 @@ body.modal-open {
 }
 
 .help-content code {
+  /* Full-strength text: the paragraph's muted colour is below 4.5:1 on the chip. */
+  color: var(--color-text);
   background: var(--color-surface-2);
   border-radius: 4px;
   padding: 1px 5px;
@@ -1165,7 +1172,7 @@ body.modal-open {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 .confirm-modal-actions {
@@ -1257,7 +1264,7 @@ body.modal-open {
 }
 
 .upload-error {
-  color: var(--color-danger);
+  color: var(--color-danger-text);
   font-size: 13px;
 }
 
@@ -1440,7 +1447,7 @@ body.modal-open {
 
 .image-tile-error-message {
   font-size: 10px;
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 .image-tile-actions {
@@ -1639,14 +1646,15 @@ body.modal-open {
   height: 34px;
   padding: 0;
   border-radius: 50%;
-  background: var(--color-primary);
+  /* The strong shade, as for .btn-primary: white on --color-primary is 3.1:1. */
+  background: var(--color-primary-strong);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
 }
 
 .btn-avatar:hover:not(:disabled) {
-  background: var(--color-primary-hover);
+  background: var(--color-primary-strong-hover);
 }
 
 .map-expand-btn {
@@ -2119,4 +2127,17 @@ body:not(.i18n-loading) .app-skeleton {
 
 .hidden {
   display: none !important;
+}
+
+/* Read by screen readers, not shown: the page's <h1>. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

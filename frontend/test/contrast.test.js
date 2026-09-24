@@ -65,4 +65,21 @@ describe('WCAG AA contrast (issue #438)', () => {
     const surface = readVar('color-surface', darkBlock);
     expect(contrastRatio(fg, surface)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
+
+  it('--color-danger-text (the profile danger-zone heading) clears 4.5:1 in both themes', () => {
+    expect(
+      contrastRatio(readVar('color-danger-text', rootBlock), readVar('color-surface', rootBlock)),
+    ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    expect(
+      contrastRatio(readVar('color-danger-text', darkBlock), readVar('color-surface', darkBlock)),
+    ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+  });
+
+  it('--color-text-muted clears 4.5:1 on --color-surface-2 (selected row, chips) in both themes', () => {
+    for (const block of [rootBlock, darkBlock]) {
+      const muted = readVar('color-text-muted', block);
+      const surface2 = readVar('color-surface-2', block);
+      expect(contrastRatio(muted, surface2)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    }
+  });
 });

@@ -380,3 +380,25 @@ cd functions && FC_SEED=1480771125 FC_PATH=29:9 npx vitest run src/lib/parseGpx.
 (`test/fast-check.setup.js` in each package reads `FC_SEED`/`FC_PATH`.) A
 counterexample that exposes a bug becomes an example test next to the module's
 other tests, linking the bug's issue, before the fix.
+
+## Accessibility (axe-core)
+
+Every Playwright journey checks the page with
+[axe-core](https://github.com/dequelabs/axe-core) at each meaningful state:
+page loaded, signed out, load error, every modal open, an upload error, the
+detail panel, both colour schemes and the mobile layouts. The rules are WCAG
+2.x A/AA plus axe's best practices (a dialog without a name, a missing
+`<main>` or `<h1>`), and the gate is zero violations.
+
+```ts
+await on(page).a11y.check('upload modal with a file error');
+```
+
+- The helper is [`e2e/axe.ts`](../../e2e/axe.ts), reached through the page-object
+  tree (`on(page).a11y`). A failure lists rule, element and axe's explanation
+  (for contrast, the measured ratio) and attaches the full result to the
+  Playwright report as `axe-<context>.json`.
+- An accepted exclusion is a selector plus its reason in `EXCLUDED` in
+  `e2e/axe.ts`; there are none today. Never disable a rule.
+- `frontend/test/contrast.test.js` pins the colour tokens' contrast ratios
+  (both themes), so a token change fails before any browser runs.
