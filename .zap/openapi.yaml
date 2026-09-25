@@ -20,7 +20,7 @@ paths:
   /me/export:
     get:
       responses:
-        "200": { description: All of the user's data as JSON }
+        "200": { description: "All of the user's data as JSON, with signed links to their files" }
   /tours:
     get:
       responses:

@@ -1,6 +1,6 @@
 'use strict';
 
-const { app } = require('@azure/functions');
+const { app } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');

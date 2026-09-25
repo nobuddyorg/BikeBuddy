@@ -64,6 +64,15 @@ module.exports = {
       to: { dependencyTypes: ['npm', 'npm-dev', 'npm-no-pkg'], path: '@azure/cosmos' },
     },
     {
+      name: 'handlers-register-through-functions-app',
+      severity: 'error',
+      comment:
+        'Handlers take `app` from functions/src/lib/functionsApp.js, which turns on HTTP ' +
+        'streaming before any route exists; without it the host buffers every upload whole.',
+      from: { path: '^functions/src/[^/]+/index\\.js$' },
+      to: { dependencyTypes: ['npm', 'npm-dev', 'npm-no-pkg'], path: '@azure/functions' },
+    },
+    {
       name: 'blob-only-in-blob-storage',
       severity: 'error',
       comment:

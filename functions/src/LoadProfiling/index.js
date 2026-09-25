@@ -1,7 +1,7 @@
 'use strict';
 
 // Not an endpoint: loaded with the handlers, it switches on the load-test instrumentation.
-const { app } = require('@azure/functions');
+const { app } = require('../lib/functionsApp');
 const profiling = require('../lib/profiling');
 
 function setUp({ functionsApp, environment, instrumentation }) {

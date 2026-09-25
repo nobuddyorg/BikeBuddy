@@ -1,8 +1,13 @@
 'use strict';
 
-const { parseGpx, InvalidGpxError } = require('./parseGpx');
+const { parseGpx, InvalidGpxError, NoTrackPointsError } = require('./parseGpx');
 
-function makeGpx({ name = 'Test Tour', time = '2024-06-01T10:00:00Z', points = [] } = {}) {
+const TWO_POINTS = [
+  [48.1351, 11.582],
+  [48.1361, 11.583],
+];
+
+function makeGpx({ name = 'Test Tour', time = '2024-06-01T10:00:00Z', points = TWO_POINTS } = {}) {
   const trackPoints = points
     .map(([latitude, longitude]) => `<trkpt lat="${latitude}" lon="${longitude}"/>`)
     .join('\n');
@@ -27,11 +32,6 @@ function makeGpxWithExtras(points) {
   <trk><trkseg>${trackPoints}</trkseg></trk>
 </gpx>`;
 }
-
-const TWO_POINTS = [
-  [48.1351, 11.582],
-  [48.1361, 11.583],
-];
 
 describe('parseGpx', () => {
   it('extracts name and date from metadata', () => {
@@ -134,27 +134,132 @@ describe('parseGpx', () => {
       [48.0, 11.01],
       [48.0, 11.02],
     ]);
-    expect(result.distanceKm).toBeGreaterThan(0);
+    // Only the first track's leg: a lone point in the second track adds no distance.
+    expect(result.distanceKm).toBeCloseTo(0.744, 3);
   });
 
-  it('returns zero distance and empty heatmap when there are no trackpoints', () => {
+  it.each([
+    ['no track at all', ''],
+    ['a track without segments', '<trk><name>Solo</name></trk>'],
+    ['an empty segment', '<trk><trkseg></trkseg></trk>'],
+    ['only invalid points', '<trk><trkseg><trkpt/><trkpt lat="abc" lon="def"/></trkseg></trk>'],
+    ['only waypoints', '<wpt lat="48" lon="11"/>'],
+    ['only invalid route points', '<rte><rtept lat="abc" lon="11"/></rte><rte/>'],
+  ])('throws NoTrackPointsError for a file with %s (#554)', (_label, body) => {
+    const gpx = `<?xml version="1.0"?><gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">${body}</gpx>`;
+    expect(() => parseGpx(gpx)).toThrow(NoTrackPointsError);
+  });
+
+  it.each(['<gpx/>', '<gpx>text</gpx>'])('throws NoTrackPointsError for %s', (gpx) => {
+    expect(() => parseGpx(gpx)).toThrow(NoTrackPointsError);
+  });
+
+  it('reports no track points as an invalid GPX file', () => {
+    const error = new NoTrackPointsError();
+    expect(error).toBeInstanceOf(InvalidGpxError);
+    expect(error.name).toBe('NoTrackPointsError');
+    expect(error.message).toBe('GPX file has no track points');
+  });
+
+  it('reads the points of a route-only file, one line per route (#554)', () => {
     const gpx = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
-  <trk><trkseg></trkseg></trk>
+  <rte><name>Planned</name><rtept lat="48" lon="11"/><rtept lat="49" lon="12"/></rte>
+  <rte><rtept lat="50" lon="12"/><rtept lat="abc" lon="12"/></rte>
+  <rte><rtept/></rte>
 </gpx>`;
     const result = parseGpx(gpx);
-    expect(result.distanceKm).toBe(0);
-    expect(result.heatmapData).toEqual([]);
+    expect(result.heatmapData).toEqual([
+      [48, 11],
+      [49, 12],
+      [50, 12],
+    ]);
+    expect(result.distanceKm).toBeCloseTo(133.3878, 2);
   });
 
-  it('handles a GPX file with no <trk> element at all', () => {
+  it('ignores the routes of a file that also holds a track', () => {
     const gpx = `<?xml version="1.0"?>
-<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"></gpx>`;
-    const result = parseGpx(gpx);
-    expect(result.name).toBeNull();
-    expect(result.date).toBeNull();
-    expect(result.distanceKm).toBe(0);
-    expect(result.heatmapData).toEqual([]);
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <rte><rtept lat="10" lon="10"/><rtept lat="11" lon="11"/></rte>
+  <trk><trkseg><trkpt lat="48" lon="11"/><trkpt lat="49" lon="12"/></trkseg></trk>
+</gpx>`;
+    expect(parseGpx(gpx).heatmapData).toEqual([
+      [48, 11],
+      [49, 12],
+    ]);
+  });
+
+  describe('gaps between segments (#552)', () => {
+    // Two rides a day apart, Munich area then Berlin: the train between them is not riding.
+    const TWO_RIDES = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <trkseg>
+      <trkpt lat="48" lon="11"><ele>500</ele><time>2026-01-01T10:00:00Z</time></trkpt>
+      <trkpt lat="49" lon="12"><ele>510</ele><time>2026-01-01T12:00:00Z</time></trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="52" lon="13"><ele>40</ele><time>2026-01-02T10:00:00Z</time></trkpt>
+      <trkpt lat="52" lon="13.01"><ele>60</ele><time>2026-01-02T10:02:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`;
+    const SECOND_SEGMENT_KM = 0.6846;
+
+    it('adds up distance within each segment, never across the gap', () => {
+      expect(parseGpx(TWO_RIDES).distanceKm).toBeCloseTo(133.3878 + SECOND_SEGMENT_KM, 3);
+    });
+
+    it('counts only the ridden legs as moving time, and elapsed from first to last', () => {
+      const result = parseGpx(TWO_RIDES);
+      expect(result.movingSeconds).toBe(7200 + 120);
+      expect(result.durationSeconds).toBe(24 * 3600 + 120);
+      expect(result.avgSpeed).toBeCloseTo((133.3878 + SECOND_SEGMENT_KM) / (7320 / 3600), 2);
+    });
+
+    it('counts the climb within each segment, not the drop between them', () => {
+      const result = parseGpx(TWO_RIDES);
+      expect(result.elevationGain).toBe(30);
+      expect(result.elevationLoss).toBe(0);
+      expect(result.minElevation).toBe(40);
+      expect(result.maxElevation).toBe(510);
+    });
+
+    it('treats each <trk> as its own line too', () => {
+      const split = TWO_RIDES.replace(
+        '</trkseg>\n    <trkseg>',
+        '</trkseg>\n  </trk>\n  <trk>\n    <trkseg>',
+      );
+      expect(split).not.toBe(TWO_RIDES);
+      expect(parseGpx(split)).toEqual(parseGpx(TWO_RIDES));
+    });
+  });
+
+  it.each([
+    ['a numeric name as text (#548)', '<name>20240512</name>', '20240512'],
+    ['the text of a name with attributes', '<name lang="de">Isartal</name>', 'Isartal'],
+    ['decoded entities', '<name>Ride &amp; Coffee</name>', 'Ride & Coffee'],
+    ['null for a name with only child elements', '<name><b>x</b></name>', null],
+  ])('returns %s', (_label, nameTag, expected) => {
+    const gpx = `<gpx><metadata>${nameTag}</metadata><trk><trkseg><trkpt lat="48" lon="11"/></trkseg></trk></gpx>`;
+    expect(parseGpx(gpx).name).toBe(expected);
+  });
+
+  it('falls back to the earliest point time when the metadata time is unreadable (#575)', () => {
+    const gpx = `<gpx><metadata><time>not a date</time></metadata><trk><trkseg>
+      <trkpt lat="48" lon="11"><time>2026-01-01T10:05:00Z</time></trkpt>
+      <trkpt lat="48" lon="11.01"><time>2026-01-01T10:00:00Z</time></trkpt>
+      <trkpt lat="48" lon="11.02"><time>garbage</time></trkpt>
+    </trkseg></trk></gpx>`;
+    expect(parseGpx(gpx).date).toBe('2026-01-01T10:00:00.000Z');
+  });
+
+  it('takes the date from a valid point when the first point is invalid', () => {
+    const gpx = `<gpx><trk><trkseg>
+      <trkpt lat="abc" lon="11"><time>2020-01-01T00:00:00Z</time></trkpt>
+      <trkpt lat="48" lon="11"><time>2026-01-01T10:00:00Z</time></trkpt>
+    </trkseg></trk></gpx>`;
+    expect(parseGpx(gpx).date).toBe('2026-01-01T10:00:00.000Z');
   });
 
   it('skips trackpoints with missing lat/lon without corrupting distance', () => {
@@ -232,28 +337,6 @@ describe('parseGpx', () => {
       [90, 180],
       [-90, -180],
     ]);
-  });
-
-  it('returns zero distance and empty heatmap when every trackpoint is invalid', () => {
-    const gpx = `<?xml version="1.0"?>
-<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
-  <trk><trkseg><trkpt/><trkpt lat="abc" lon="def"/></trkseg></trk>
-</gpx>`;
-    const result = parseGpx(gpx);
-    expect(result.distanceKm).toBe(0);
-    expect(result.heatmapData).toEqual([]);
-  });
-
-  it('handles a <trk> with no <trkseg> child at all', () => {
-    const gpx = `<?xml version="1.0"?>
-<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
-  <trk><name>Solo</name></trk>
-</gpx>`;
-    const result = parseGpx(gpx);
-    expect(result.name).toBe('Solo');
-    expect(result.date).toBeNull();
-    expect(result.distanceKm).toBe(0);
-    expect(result.heatmapData).toEqual([]);
   });
 
   describe('elevation stats', () => {
@@ -380,6 +463,17 @@ describe('parseGpx', () => {
       expect(result.avgSpeed).toBeCloseTo(133.3878 / 2, 2);
     });
 
+    it('never reports a negative duration for timestamps out of file order (#575)', () => {
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, undefined, '2026-01-01T12:00:00Z'],
+          [48, 11.01, undefined, '2026-01-01T10:00:00Z'],
+          [48, 11.02, undefined, '2026-01-01T11:00:00Z'],
+        ]),
+      );
+      expect(result.durationSeconds).toBe(7200);
+    });
+
     it('returns null duration/speed when no trackpoint has <time>', () => {
       const result = parseGpx(
         makeGpxWithExtras([
@@ -411,6 +505,18 @@ describe('parseGpx', () => {
       expect(result.movingSeconds).toBe(10);
       // Only the last 73 m leg counts: 73 m in 10 s is about 26.3 km/h.
       expect(result.avgSpeed).toBeCloseTo(26.3, 0);
+    });
+
+    it('counts a leg at exactly the 1 km/h floor as moving', () => {
+      // 1 km exactly (as the parser computes it) in one hour.
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [0, 0, undefined, '2026-01-01T10:00:00Z'],
+          [0, 0.008993216059187308, undefined, '2026-01-01T11:00:00Z'],
+        ]),
+      );
+      expect(result.movingSeconds).toBe(3600);
+      expect(result.avgSpeed).toBe(1);
     });
 
     it('returns null average speed when every segment is a stop', () => {

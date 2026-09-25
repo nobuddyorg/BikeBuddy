@@ -117,6 +117,25 @@ describe('POST /api/tours/upload', () => {
     expect(storedTour().createdAt).toBe(NOW.toISOString());
   });
 
+  it.each([
+    ['a numeric name as text (#548)', '<name>20240512</name>', '20240512'],
+    ['the text of a name with attributes', '<name lang="de">Isartal</name>', 'Isartal'],
+    ['a name with its angle brackets removed', '<name>&lt;b&gt;Alps&lt;/b&gt;</name>', 'bAlps/b'],
+    [
+      '"Untitled Tour" for a name over 200 characters',
+      `<name>${'a'.repeat(201)}</name>`,
+      'Untitled Tour',
+    ],
+    ['"Untitled Tour" for a name that is only markup', '<name>&lt;&gt;</name>', 'Untitled Tour'],
+  ])('stores %s from the GPX', async (_label, nameTag, expected) => {
+    const gpx = `<gpx><metadata>${nameTag}</metadata><trk><trkseg><trkpt lat="48" lon="11"/></trkseg></trk></gpx>`;
+    const { run, storedTour } = setUp({ parseFile: fileOf(gpx) });
+
+    await run();
+
+    expect(storedTour().name).toBe(expected);
+  });
+
   it('accepts a file behind a UTF-8 byte order mark', async () => {
     const withMark = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(GPX, 'utf8')]);
     const { run } = setUp({ parseFile: fileOf(withMark) });
@@ -200,6 +219,11 @@ describe('POST /api/tours/upload', () => {
       'XML that is not GPX',
       { parseFile: fileOf('<?xml version="1.0"?><notgpx/>') },
       'Could not parse GPX file',
+    ],
+    [
+      'a GPX file without a single track or route point',
+      { parseFile: fileOf('<?xml version="1.0"?><gpx><trk><trkseg/></trk></gpx>') },
+      'errors.gpxNoTrack',
     ],
     [
       'an upload the parser refuses',

@@ -71,6 +71,15 @@ describe('toTourResponse', () => {
     expect(toTourResponse({ ...STORED, heatmapData: undefined }).heatmapData).toEqual([]);
   });
 
+  it.each([
+    [20240512, '20240512'],
+    [{ '#text': 'x' }, 'Untitled Tour'],
+    [null, 'Untitled Tour'],
+    ['', 'Untitled Tour'],
+  ])('answers a text name for the stored name %j, as uploads before #548 wrote', (name, text) => {
+    expect(toTourResponse({ ...STORED, name }).name).toBe(text);
+  });
+
   it('ignores fields it does not know about', () => {
     expect(toTourResponse({ ...STORED, internalNote: 'secret' })).not.toHaveProperty(
       'internalNote',
@@ -124,5 +133,10 @@ describe('gpxDownloadDisposition', () => {
   it('falls back to "tour" for a tour without a name', () => {
     expect(gpxDownloadDisposition(undefined)).toBe('attachment; filename="tour.gpx"');
     expect(gpxDownloadDisposition('')).toBe('attachment; filename="tour.gpx"');
+    expect(gpxDownloadDisposition({ '#text': 'x' })).toBe('attachment; filename="tour.gpx"');
+  });
+
+  it('names the download after a numeric name stored before #548', () => {
+    expect(gpxDownloadDisposition(20240512)).toBe('attachment; filename="20240512.gpx"');
   });
 });

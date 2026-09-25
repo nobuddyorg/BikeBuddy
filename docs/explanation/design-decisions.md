@@ -61,8 +61,13 @@ short-lived **SAS URLs** rather than public containers.
 - The 100-megapixel input limit sits far below `sharp`'s ~268 MP default, so a
   decompression bomb is refused before it allocates.
 - Multipart bodies are streamed with a byte limit instead of read with
-  `arrayBuffer()`: `Content-Length` can be absent or attacker-controlled (#550
-  tracks that the host still buffers the request first).
+  `arrayBuffer()`: `Content-Length` can be absent or attacker-controlled. HTTP
+  streaming is on (`app.setup({ enableHttpStream: true })` in
+  `functions/src/lib/functionsApp.js`, which every handler takes `app` from, a
+  dependency-cruiser rule), so the host hands the body over as it arrives and
+  the 10 MB limit bounds memory rather than applying after the host has
+  buffered the whole request (#550). Streaming needs Functions host 4.28 or
+  later.
 - Blob names are built from the token's user id and the ids in the route, never
   read back from a stored `blobName`, so a document can never point a request at
   another user's blob.
@@ -115,6 +120,12 @@ warm instance from growing. The frontend fetches `/api/map` in parallel with
   a typed safety check, identical in every language.
 - Icons are inline SVG from one sprite (`icons.svg`), not emoji, so they render
   the same on every platform.
+- The service worker fetches every same-origin file network-first and keeps
+  its cache current, so a deploy reaches returning users on their next load
+  and the page never runs one deploy's HTML with another's modules. The cache
+  is only the offline copy. Cache-first behind a hand-bumped `CACHE_NAME` was
+  dropped after a missed bump left users on stale code (#544); the name now
+  changes only to discard an old cache.
 
 ## Account deletion (GDPR), out-of-band
 
@@ -128,6 +139,11 @@ Why out-of-band: deleting a directory user needs a tenant-wide
 internet-facing Functions app) means a compromise of the web app can't delete
 arbitrary users. GDPR allows the identity removal to complete shortly after (the
 app data — the bulk of personal data — is already gone).
+
+Deleted data stays in the backups for a bounded time and then expires on its
+own: Cosmos continuous backup can restore it for 7 days, and blob soft delete
+and previous versions keep it for 14 (#541). That window is what makes an
+accidental or malicious delete recoverable; nothing outlives it.
 
 What the job accepts (`functions/scripts/lib/deletionJob.js`, unit-tested with
 fakes; a change to it is security-relevant):
@@ -169,7 +185,14 @@ bootstrap prerequisite (it can't create itself).
 
 The Cosmos account is not zone-redundant: at this scale the cost target wins,
 and zone-redundant accounts are capacity-constrained in West Europe. Backup,
-not redundancy, is the answer to losing data (#541).
+not redundancy, is the answer to losing data (#541): Cosmos runs continuous
+backup at the free 7-day tier (point-in-time restore into a new account), and
+the storage account keeps deleted blobs and containers for 14 days, with
+versioning so an overwrite is recoverable too; a lifecycle rule expires
+previous versions after the same 14 days. Neither protects against losing the
+region, which LRS and a single-region Cosmos account accept for the cost
+target. The restore steps are in the
+[infrastructure guide](../how-to/infrastructure.md#restore-user-data).
 
 ## Encryption at rest
 
@@ -275,8 +298,8 @@ line:
 | Finding                                                           | Why it is accepted                                                                                           | Lifted by |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
 | AZU-0012 storage network default allow                            | browsers load photos by SAS URL, and Flex Consumption without paid VNet integration uses the public endpoint | #556      |
-| AZU-0057 storage logging                                          | billed per GB, read by nobody today                                                                          | #541      |
-| AZU-0058 no geo-redundant replication                             | LRS keeps the cost target; backup is the answer to region loss                                               | #541      |
+| AZU-0057 storage logging                                          | billed per GB, read by nobody today; recovery relies on soft delete and versioning, not logs                 | —         |
+| AZU-0058 no geo-redundant replication                             | LRS keeps the cost target; soft delete and versioning cover deletes and overwrites, not region loss          | —         |
 | AZU-0060 no customer-managed key                                  | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
 | AZU-0061 no infrastructure encryption                             | fixed at account creation, not retrofitted                                                                   | —         |
 | TFLint `…_missing_prevent_destroy` on the `images` container      | unused and empty; photos live in the unmanaged `tour-images` container                                       | #568      |
@@ -328,8 +351,27 @@ missed (#575, #548, #552, #554). The first run found three: fast-xml-parser's
 internal error escaping `parseGpx` on malformed markup, `Math.min(...)`
 overflowing the stack on a 150,000-point track (#575), and a test assumption
 (`-0` does not survive being written into XML). The first two are fixed and
-kept as example tests. Out-of-order timestamps (negative duration, #575) are
-not a property yet: what the duration should be is still that issue's call.
+kept as example tests. Duration spans the earliest to the latest timestamp, so
+out-of-order timestamps are a property too: the duration is never negative.
+
+## GPX parsing: segments, names and empty files
+
+- Distance, moving time and climb add up **within** each `<trkseg>` (and each
+  `<trk>`), never across the gap between two: a train ride between two
+  segments is not riding (#552). Elapsed duration still spans the earliest to
+  the latest timestamp. The stored `heatmapData` stays one flat line, so the
+  map still draws a straight line across the gap; splitting it is a
+  document-shape change for another issue.
+- A file without a valid track point falls back to its `<rte>` points (a
+  planner's export); with none of either, the upload is refused with
+  `errors.gpxNoTrack` instead of storing an empty 0 km tour (#554).
+- Text stays text (`parseTagValue: false`), and a name taken from the file
+  passes the same `nameSchema` as a typed one, falling back to "Untitled Tour"
+  (#548). Tours stored before that may hold a numeric name; the responses read
+  it as text, so no backfill is needed.
+- An unreadable `<time>` no longer rejects the file: the date falls back to the
+  earliest valid point time (#575). The magic-byte check skips leading
+  whitespace and XML comments.
 
 ## Why load testing is manual and local by default
 

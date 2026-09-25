@@ -18,7 +18,7 @@ interface SeedTour {
   name: string;
   /** The ride's start (GPX metadata time), which becomes the tour's date and list order. */
   time: string;
-  /** Track points as [latitude, longitude]; none gives a tour without a track. */
+  /** Track points as [latitude, longitude]; a short default, as the API refuses a GPX without a track. */
   points?: [number, number][];
 }
 
@@ -29,7 +29,12 @@ export interface Seeder {
   photo(photo: { tourId: string; path: string }): Promise<void>;
 }
 
-const gpx = ({ time, points = [] }: SeedTour) =>
+const DEFAULT_TRACK: [number, number][] = [
+  [48.137, 11.575],
+  [48.138, 11.576],
+];
+
+const gpx = ({ time, points = DEFAULT_TRACK }: SeedTour) =>
   '<?xml version="1.0"?><gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">' +
   `<metadata><time>${time}</time></metadata><trk><trkseg>` +
   points.map(([latitude, longitude]) => `<trkpt lat="${latitude}" lon="${longitude}"/>`).join('') +

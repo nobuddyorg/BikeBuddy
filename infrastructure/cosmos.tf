@@ -19,6 +19,12 @@ resource "azurerm_cosmosdb_account" "main" {
     name = "EnableServerless"
   }
 
+  # Point-in-time restore for 7 days, free at this tier. Periodic -> Continuous is one-way, in place.
+  backup {
+    type = "Continuous"
+    tier = "Continuous7Days"
+  }
+
   tags = local.tags
 
   lifecycle {

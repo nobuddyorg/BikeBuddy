@@ -4,7 +4,7 @@ variable "location" {
   default     = "northeurope"
 }
 
-# Microsoft Entra External ID; deploy.yml passes the repository variables, empty means no-auth mode.
+# Microsoft Entra External ID; deploy.yml passes the repository variables. The Function App refuses empty ones.
 variable "entra_tenant_subdomain" {
   description = "External ID tenant subdomain, e.g. \"bikebuddy\" for bikebuddy.ciamlogin.com."
   type        = string

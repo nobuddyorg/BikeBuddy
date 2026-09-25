@@ -65,6 +65,43 @@ describe('tours HTTP lifecycle', () => {
     expect(await rider.api.readJson('/tours')).toEqual(before);
   });
 
+  it('refuses a chunked upload over 10 MB, which carries no Content-Length, with 400 (#550)', async () => {
+    const before = await rider.api.readJson('/tours');
+    const boundary = 'bikebuddy-integration-boundary';
+    const megabyte = Buffer.alloc(1024 * 1024, ' ');
+    let megabytesSent = 0;
+    const body = new ReadableStream({
+      pull(controller) {
+        if (megabytesSent === 0) {
+          controller.enqueue(
+            Buffer.from(
+              `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="big.gpx"\r\n` +
+                'Content-Type: application/gpx+xml\r\n\r\n',
+            ),
+          );
+        }
+        if (megabytesSent < 11) {
+          controller.enqueue(megabyte);
+          megabytesSent += 1;
+          return;
+        }
+        controller.enqueue(Buffer.from(`\r\n--${boundary}--\r\n`));
+        controller.close();
+      },
+    });
+
+    const response = await rider.api.request('/tours/upload?name=Big', {
+      method: 'POST',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+      body,
+      duplex: 'half',
+    });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('File exceeds 10 MB limit');
+    expect(await rider.api.readJson('/tours')).toEqual(before);
+  });
+
   it('rejects an edit with a body that is not JSON with 400', async () => {
     const tourId = await rider.api.createTour({ name: `Edit ${randomUUID()}` });
 

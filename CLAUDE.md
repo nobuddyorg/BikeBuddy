@@ -50,8 +50,9 @@ design-decisions.md and the linked issues, not here.
   only ever tightened. It does not yet reject an ID token for the same client
   id (#569); never add code that relies on the audience check alone.
 - `SKIP_AUTH` is local-only and fails closed: the middleware refuses it when
-  Entra is configured. Never widen it (no per-request user override). #545
-  tracks keeping it out of the deployed app settings.
+  Entra is configured, and the deployed app never gets it: the Function App's
+  precondition refuses empty Entra variables (#545). Never widen it (no
+  per-request user override).
 - Responses are projected DTOs (`lib/tourResponse.js`), never raw Cosmos
   documents. `heatmapData` stays out of list responses and out of the index
   ("Cosmos partitioning & payload hygiene").

@@ -80,7 +80,10 @@ Two data containers: `gpx-files` and `tour-images` (plus `deployments` for the
 Functions package). Images are resized to ≤ 2000 px JPEG before storage, and
 originals are never kept, so a few hundred photos and GPX files come to a few
 hundred MB. They are served through short-lived SAS URLs, never a public
-container.
+container. Soft delete and versioning (#541) bill deleted and
+overwritten blobs at the same rate for their 14 days; the blobs are written
+once, so that is a small multiple of what users delete. Cosmos continuous
+backup at the 7-day tier carries no backup-storage charge.
 
 ### Telemetry — not provisioned
 

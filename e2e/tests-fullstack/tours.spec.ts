@@ -42,6 +42,33 @@ fullstackTest('tour lifecycle: upload → list → detail → photo → delete',
   await expect.poll(devUserBlobNames, AFTER_UNDO_WINDOW).toEqual([]);
 });
 
+fullstackTest.describe('a GPX file without track points', () => {
+  // The refused upload's 400 is the expected answer, which the browser logs as a console error.
+  fullstackTest.use({
+    allowedConsoleErrors: { matching: [/status of 400 .*\/api\/tours\/upload/] },
+  });
+
+  fullstackTest('is refused, storing nothing', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+
+    await on(page).main.locators.buttons.upload.click();
+    await on(page).modal.upload.do.setName('Waypoints only');
+    await on(page).modal.upload.do.pickFile({
+      name: 'waypoints.gpx',
+      mimeType: 'application/gpx+xml',
+      buffer: Buffer.from('<?xml version="1.0"?><gpx version="1.1"><wpt lat="48" lon="11"/></gpx>'),
+    });
+    await on(page).modal.upload.do.submit();
+
+    await expect(on(page).modal.upload.locators.error).toHaveText(
+      'This GPX file contains no track or route points.',
+    );
+    expect(await devUserTours()).toEqual([]);
+    expect(await devUserBlobNames()).toEqual([]);
+  });
+});
+
 fullstackTest('download GPX from the detail panel', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();

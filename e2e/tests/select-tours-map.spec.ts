@@ -1,22 +1,31 @@
-import { expect, fullstackTest } from './fullstack-test';
+import { expect, mockTour, staticTest } from '../fixtures/api-mocks';
 
 // The empty-map overlay is the proxy for the map showing exactly the checked tours.
+// Static, not full stack: the API refuses a GPX without a track, so only a tour stored before that has none.
 
-fullstackTest.describe('selecting tours drives the map', () => {
-  fullstackTest.beforeEach(async ({ seed }) => {
-    await seed.tour({
-      name: 'MapSelect Tour With Data',
-      time: '2026-06-02T08:00:00Z',
-      points: [
-        [48.1, 11.5],
-        [48.11, 11.51],
+staticTest.describe('selecting tours drives the map', () => {
+  staticTest.use({
+    mockAccount: {
+      tours: [
+        mockTour({
+          id: '77777777-7777-4777-8777-777777777777',
+          name: 'MapSelect Tour With Data',
+          createdAt: '2026-06-02T08:00:00.000Z',
+          heatmapData: [
+            [48.1, 11.5],
+            [48.11, 11.51],
+          ],
+        }),
+        mockTour({
+          id: '88888888-8888-4888-8888-888888888888',
+          name: 'MapSelect Tour No Data',
+          createdAt: '2026-06-01T08:00:00.000Z',
+        }),
       ],
-    });
-    // A GPX without track points: a tour with nothing to draw.
-    await seed.tour({ name: 'MapSelect Tour No Data', time: '2026-06-01T08:00:00Z' });
+    },
   });
 
-  fullstackTest('map reflects exactly the checked tours', async ({ on, page }) => {
+  staticTest('map reflects exactly the checked tours', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).list.locators.count).toHaveText('2');
