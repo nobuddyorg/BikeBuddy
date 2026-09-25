@@ -163,6 +163,10 @@ one source of truth. Globally-unique names carry a random suffix so the config
 applies cleanly in any subscription. The state-backend storage account is the one
 bootstrap prerequisite (it can't create itself).
 
+The Cosmos account is not zone-redundant: at this scale the cost target wins,
+and zone-redundant accounts are capacity-constrained in West Europe. Backup,
+not redundancy, is the answer to losing data (#541).
+
 ## Encryption at rest
 
 All stored data is encrypted at rest with **Microsoft-managed keys** (AES-256),
@@ -234,6 +238,11 @@ fixed release) under `@lhci/cli` → `lighthouse` → `puppeteer-core` →
 never downloads one here: it runs the Chromium Playwright installs
 (`CHROME_PATH`), on a CI runner or a developer machine, never in production.
 Look again when `@lhci/cli` or `lighthouse` bumps `puppeteer-core`.
+
+Pinned tools outside a lockfile: Azure Functions Core Tools is installed as
+`azure-functions-core-tools@4.13.0` in CI and deploy, because 4.14.0 ships an
+`npm-shrinkwrap.json` that resolves a dependency from Microsoft's internal
+package feed (401 outside their network). Bump it once a fixed release exists.
 
 ## SAST rule packs
 
