@@ -115,8 +115,8 @@ it leaves behind. A change to it is security-relevant (see above).
 - Locally only `tofu fmt`, `tofu validate`, `tofu plan`, `./buddy.sh quality
 iac`. Never `tofu apply` against production by hand; `deploy.yml` does it.
 - A plan that destroys or replaces a stateful resource (Cosmos account,
-  storage account) is a stop-and-ask. Their `prevent_destroy` guards are #543;
-  once added, they are never removed.
+  storage account) is a stop-and-ask. They carry `prevent_destroy`
+  guards (#543), which are never removed.
 - Call out any change under `infrastructure/**` in the PR with the plan's
   destroy/replace lines. A new scanner exception goes in `.trivyignore.yaml`
   with its reason and in design-decisions.md, "IaC scan exceptions".

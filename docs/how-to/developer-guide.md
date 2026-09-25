@@ -149,7 +149,9 @@ Functions publish (Flex, remote build), and GitHub Pages. Each job calls a
 `generate-config`); never run them against production by hand, the workflow is
 the only path there (see [Infrastructure](infrastructure.md)).
 
-`destroy.yml` (manual) tears the infrastructure down.
+`destroy.yml` (manual, typed confirmation) runs `tofu destroy`; the destroy
+guards make it fail on the data resources by design
+([Teardown](infrastructure.md#teardown)).
 
 ## Secret scanning
 

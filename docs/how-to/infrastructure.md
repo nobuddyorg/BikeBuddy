@@ -34,7 +34,8 @@ A new scanner exception goes in `.trivyignore.yaml` with its reason and in
 
 ## Destroy guards
 
-The Cosmos account, its containers, the storage account and the resource group
+The resource group, the Cosmos account, its database and its `users`, `tours`
+and `deletions` containers, the storage account and its `gpx-files` container
 carry `lifecycle { prevent_destroy = true }` (#543). A change that would
 replace or delete one fails at plan time instead of deleting user data. The
 guards are never removed; a change that needs one gone is redesigned, or raised
@@ -95,7 +96,9 @@ mails at 80 % forecast and 100 % actual spend. See the [cost report](../cost-rep
 
 ## Teardown
 
-`.github/workflows/destroy.yml` (manual) runs `tofu destroy`. It asks for a
-typed confirmation and shares the deploy concurrency group. With the destroy
+`.github/workflows/destroy.yml` (manual) runs `tofu destroy`. It fails unless
+the `confirm` input is exactly `destroy bikebuddy-rg`, runs in the `destroy`
+environment (add required reviewers to it under Settings → Environments), and
+shares deploy's concurrency group. With the destroy
 guards in place it cannot delete the data resources; that is the point. The
 state-backend resource group (`bikebuddy-tfstate-rg`) is never touched by it.

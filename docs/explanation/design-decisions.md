@@ -7,9 +7,18 @@ The _why_ behind the architecture. For _what_, see [Architecture](../reference/a
 Plain HTML/CSS/JS keeps the site truly static (no build pipeline) and trivially
 hostable on GitHub Pages. Every third-party script is **vendored** in
 `frontend/src/vendor/`: MSAL because loading it cross-origin from a CDN was
-blocked by the browser (ORB) on GitHub Pages, Leaflet and Leaflet.heat because a
-CDN that serves altered bytes would execute in the app's origin, where the Entra
-access tokens live. Vendoring lets `script-src` stay at `'self'`.
+blocked by the browser (ORB) on GitHub Pages, Leaflet because a CDN that serves
+altered bytes would execute in the app's origin, where the Entra access tokens
+live. Vendoring lets `script-src` stay at `'self'`.
+
+The vendored files stay byte-identical to the npm packages pinned as exact
+`devDependencies` in `frontend/package.json` (`@azure/msal-browser`,
+`leaflet`), so Dependabot proposes their updates (#564). The `verify-vendor`
+hook (`scripts/quality/verify-vendor.mjs`) fails while `vendor/` differs from
+`node_modules`; after a bump, `node scripts/quality/verify-vendor.mjs --write`
+re-copies the files and rewrites the `.msal-source`/`.leaflet-source`
+provenance with their SHA-256. A bump PR therefore cannot merge with stale
+vendored code.
 
 ## Node.js Functions on Flex Consumption
 
@@ -153,17 +162,19 @@ markup by design.
 
 TFLint and Trivy lint what defines production: `infrastructure/`. Every
 accepted finding is listed in `.trivyignore.yaml` or `.tflint.hcl` with its
-reason, instead of an inline suppression, so the list of trade-offs is one
-file long:
+reason, so the list of trade-offs stays short; the only inline suppressions
+are the two per-resource `prevent_destroy` exceptions below, reason on the same
+line:
 
-| Finding                                | Why it is accepted                                                                                           | Lifted by |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
-| AZU-0012 storage network default allow | browsers load photos by SAS URL, and Flex Consumption without paid VNet integration uses the public endpoint | #556      |
-| AZU-0057 storage logging               | billed per GB, read by nobody today                                                                          | #541      |
-| AZU-0058 no geo-redundant replication  | LRS keeps the cost target; backup is the answer to region loss                                               | #541      |
-| AZU-0060 no customer-managed key       | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
-| AZU-0061 no infrastructure encryption  | fixed at account creation, not retrofitted                                                                   | —         |
-| TFLint `…_missing_prevent_destroy`     | also blocks `destroy.yml`; decided together with a destroy path                                              | #543      |
+| Finding                                                           | Why it is accepted                                                                                           | Lifted by |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| AZU-0012 storage network default allow                            | browsers load photos by SAS URL, and Flex Consumption without paid VNet integration uses the public endpoint | #556      |
+| AZU-0057 storage logging                                          | billed per GB, read by nobody today                                                                          | #541      |
+| AZU-0058 no geo-redundant replication                             | LRS keeps the cost target; backup is the answer to region loss                                               | #541      |
+| AZU-0060 no customer-managed key                                  | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
+| AZU-0061 no infrastructure encryption                             | fixed at account creation, not retrofitted                                                                   | —         |
+| TFLint `…_missing_prevent_destroy` on the `images` container      | unused and empty; photos live in the unmanaged `tour-images` container                                       | #568      |
+| TFLint `…_missing_prevent_destroy` on the `deployments` container | holds only the Functions package, which every deploy re-uploads                                              | —         |
 
 The tools are installed from GitHub releases by version and SHA-256 (in
 `scripts/quality/iac.sh`), not through third-party install actions: Trivy's
