@@ -101,17 +101,21 @@ export async function signIn() {
   await renderSignedIn();
 }
 
-export async function signOut() {
+async function endProviderSession() {
   if (AUTH_CONFIG.useDevAuth) {
     localStorage.setItem(DEV_SIGNED_OUT_KEY, '1');
-  } else {
-    try {
-      await msalClient.logoutPopup({ account: msalClient.getAllAccounts()[0] });
-    } catch (error) {
-      // The local session ends regardless; only the provider's cookie may outlive it.
-      console.warn(error);
-    }
+    return;
   }
+  try {
+    await msalClient.logoutPopup({ account: msalClient.getAllAccounts()[0] });
+  } catch (error) {
+    // The local session ends regardless; only the provider's cookie may outlive it.
+    console.warn(error);
+  }
+}
+
+export async function signOut() {
+  await endProviderSession();
   state.user = null;
   state.tours = [];
   state.selectedTourId = null;
