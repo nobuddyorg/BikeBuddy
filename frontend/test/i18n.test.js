@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
-  normalizeLocale,
+  localeMeta,
   pickLocale,
+  supportedLocaleCodes,
   translate,
-  translateApiMessage,
   isSupported,
   SUPPORTED_LOCALES,
 } from '../src/lib/i18n.js';
@@ -15,17 +15,23 @@ const here = dirname(fileURLToPath(import.meta.url));
 const load = (code) =>
   JSON.parse(readFileSync(resolve(here, `../src/locales/${code}.json`), 'utf8'));
 
-describe('normalizeLocale', () => {
+describe('supportedLocaleCodes', () => {
   it('maps region tags to the supported base language', () => {
-    expect(normalizeLocale('de-DE')).toBe('de');
-    expect(normalizeLocale('ES')).toBe('es');
-    expect(normalizeLocale('en-GB')).toBe('en');
+    expect(supportedLocaleCodes(['de-DE', 'ES', 'en-GB'])).toEqual(['de', 'es', 'en']);
   });
 
-  it('returns null for unsupported or empty input', () => {
-    expect(normalizeLocale('ja')).toBeNull();
-    expect(normalizeLocale('')).toBeNull();
-    expect(normalizeLocale(undefined)).toBeNull();
+  it('drops unsupported and empty candidates', () => {
+    expect(supportedLocaleCodes(['ja', '', undefined, null, 'fr'])).toEqual(['fr']);
+  });
+});
+
+describe('localeMeta', () => {
+  it('describes a supported locale', () => {
+    expect(localeMeta('de')).toMatchObject({ code: 'de', intlLocale: 'de-DE' });
+  });
+
+  it('falls back to English for an unknown code', () => {
+    expect(localeMeta('xx')).toMatchObject({ code: 'en', intlLocale: 'en-GB' });
   });
 });
 
@@ -40,45 +46,81 @@ describe('pickLocale', () => {
 
   it('falls back to en when nothing matches', () => {
     expect(pickLocale({ stored: 'xx', languages: ['ja', 'ko'] })).toBe('en');
+    expect(pickLocale({ stored: null })).toBe('en');
   });
 });
 
 describe('translate', () => {
-  const messages = { greet: 'Hallo {name}', plain: 'Tour' };
+  const messages = { greet: 'Hallo {name}', plain: 'Tour', total: '{count} gesamt' };
+  const de = (key, params) => translate({ messages, key, params, locale: 'de-DE' });
 
   it('looks up a key and interpolates params', () => {
-    expect(translate(messages, 'greet', { name: 'Ada' })).toBe('Hallo Ada');
+    expect(de('greet', { name: 'Ada' })).toBe('Hallo Ada');
+    expect(de('plain')).toBe('Tour');
   });
 
   it('falls back to the fallback messages, then the key itself', () => {
-    expect(translate(messages, 'missing', {}, { missing: 'Fallback' })).toBe('Fallback');
-    expect(translate(messages, 'unknown.key')).toBe('unknown.key');
+    const fallbackMessages = { missing: 'Fallback' };
+    expect(translate({ messages, fallbackMessages, key: 'missing', locale: 'de-DE' })).toBe(
+      'Fallback',
+    );
+    expect(de('unknown.key')).toBe('unknown.key');
   });
 
   it('leaves unknown placeholders intact', () => {
-    expect(translate(messages, 'greet', {})).toBe('Hallo {name}');
-  });
-});
-
-describe('translateApiMessage', () => {
-  const messages = { 'errors.tourName': 'Bitte gib einen Namen an.' };
-
-  it('localises an error key returned by the API', () => {
-    expect(translateApiMessage(messages, 'errors.tourName')).toBe('Bitte gib einen Namen an.');
+    expect(de('greet', {})).toBe('Hallo {name}');
   });
 
-  it('passes prose from the API through untouched', () => {
-    expect(translateApiMessage(messages, 'Tour not found')).toBe('Tour not found');
-  });
-
-  it('falls back to English for a key the active locale is missing', () => {
-    expect(translateApiMessage({}, 'errors.tourDate', { 'errors.tourDate': 'Bad date.' })).toBe(
-      'Bad date.',
+  it('formats numeric params for the locale', () => {
+    expect(de('total', { count: 12345 })).toBe('12.345 gesamt');
+    expect(translate({ messages, key: 'total', params: { count: 12345 }, locale: 'en-GB' })).toBe(
+      '12,345 gesamt',
     );
   });
 
-  it('shows an unknown key rather than nothing', () => {
-    expect(translateApiMessage({}, 'errors.somethingNew')).toBe('errors.somethingNew');
+  it('passes an API sentence (not a key) through untouched', () => {
+    expect(de('Tour not found')).toBe('Tour not found');
+  });
+
+  describe('plural forms', () => {
+    const plural = {
+      'tours.one': '{count} tour',
+      'tours.other': '{count} tours',
+    };
+    const tours = ({ count, locale = 'en-GB', table = plural }) =>
+      translate({ messages: table, key: 'tours', params: { count }, locale });
+
+    it('picks the form the locale’s plural rules name for the count', () => {
+      expect(tours({ count: 1 })).toBe('1 tour');
+      expect(tours({ count: 0 })).toBe('0 tours');
+      expect(tours({ count: 2 })).toBe('2 tours');
+      // French puts 0 in the singular.
+      expect(tours({ count: 0, locale: 'fr-FR' })).toBe('0 tour');
+    });
+
+    it('uses `other` for a category the locale file leaves out', () => {
+      // 1,000,000 is Spanish `many`; only one/other are written.
+      expect(tours({ count: 1000000, locale: 'es-ES' })).toBe('1.000.000 tours');
+    });
+
+    it('falls back to the English plural forms, then a plain key', () => {
+      expect(
+        translate({
+          messages: {},
+          fallbackMessages: plural,
+          key: 'tours',
+          params: { count: 1 },
+          locale: 'en-GB',
+        }),
+      ).toBe('1 tour');
+      expect(tours({ count: 3, table: { tours: '{count} rides' } })).toBe('3 rides');
+    });
+
+    it('does not pluralise when count is not a number', () => {
+      expect(
+        translate({ messages: plural, key: 'tours', params: { count: '2' }, locale: 'en-GB' }),
+      ).toBe('tours');
+    });
   });
 });
 
@@ -110,6 +152,18 @@ describe('locale files', () => {
     const messages = load(code);
     for (const key of API_ERROR_KEYS) expect(messages[key]).toBeTruthy();
   });
+
+  // translate falls back to `other` for any category a locale file leaves out,
+  // so every plural key must at least have that form.
+  it.each(SUPPORTED_LOCALES.map((l) => l.code))(
+    '%s gives every plural key an `other` form',
+    (code) => {
+      const keys = Object.keys(load(code));
+      const pluralBases = keys.filter((key) => key.endsWith('.one')).map((key) => key.slice(0, -4));
+      expect(pluralBases.length).toBeGreaterThan(0);
+      for (const base of pluralBases) expect(keys).toContain(`${base}.other`);
+    },
+  );
 
   it('isSupported reflects SUPPORTED_LOCALES', () => {
     expect(isSupported('en')).toBe(true);

@@ -186,27 +186,22 @@ function scheduleTourRemoval(tours) {
     toast(
       succeeded.length === 0
         ? t('toast.tourDeleteError')
-        : t('toast.toursDeletedPartial', { deleted: succeeded.length, total: ids.length }),
+        : t('toast.toursDeletedPartial', { deleted: succeeded.length, count: ids.length }),
       'error',
     );
   }, DELETE_GRACE_MS);
 
-  toast(
-    ids.length === 1 ? t('toast.tourDeleted') : t('toast.toursDeleted', { count: ids.length }),
-    'success',
-    DELETE_GRACE_MS,
-    {
-      label: t('toast.undo'),
-      onClick: () => {
-        if (undone) return;
-        undone = true;
-        clearTimeout(timer);
-        state.tours.push(...tours);
-        renderSidebar();
-        renderAllRoutes();
-      },
+  toast(t('toast.toursDeleted', { count: ids.length }), 'success', DELETE_GRACE_MS, {
+    label: t('toast.undo'),
+    onClick: () => {
+      if (undone) return;
+      undone = true;
+      clearTimeout(timer);
+      state.tours.push(...tours);
+      renderSidebar();
+      renderAllRoutes();
     },
-  );
+  });
 }
 
 export async function deleteTourById(id) {
@@ -243,11 +238,12 @@ export async function deleteSelectedTours() {
 // aren't in the list payload, only the single-tour one.
 function renderDetailMeta(tour) {
   elDetailName.textContent = tour.name;
-  elDetailDate.textContent = formatDate(tour.createdAt, i18n.dateLocale());
-  elDetailDist.textContent = formatDistance(tour.distance);
-  elDetailElevationGain.textContent = formatElevation(tour.elevationGain);
-  elDetailDuration.textContent = formatDuration(tour.durationSeconds);
-  elDetailAvgSpeed.textContent = formatSpeed(tour.avgSpeed);
+  const locale = i18n.intlLocale();
+  elDetailDate.textContent = formatDate(tour.createdAt, locale);
+  elDetailDist.textContent = formatDistance(tour.distance, locale);
+  elDetailElevationGain.textContent = formatElevation(tour.elevationGain, locale);
+  elDetailDuration.textContent = formatDuration(tour.durationSeconds, locale);
+  elDetailAvgSpeed.textContent = formatSpeed(tour.avgSpeed, locale);
   elDetailDesc.textContent = tour.description || '';
 }
 

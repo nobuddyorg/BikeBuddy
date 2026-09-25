@@ -199,6 +199,8 @@ export function renderNavAuth() {
   show(elBtnLogin, !signedIn);
   show(elUserMenu, signedIn);
   elBtnUpload.disabled = !signedIn;
+  if (signedIn) elBtnUpload.removeAttribute('title');
+  else elBtnUpload.title = t('nav.uploadDisabledTitle');
   if (signedIn) {
     elBtnProfile.textContent = initials(state.user.name || state.user.email);
     elBtnProfile.classList.add('btn-avatar');

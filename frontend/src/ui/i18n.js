@@ -1,11 +1,4 @@
-import {
-  SUPPORTED_LOCALES,
-  DEFAULT_LOCALE,
-  isSupported,
-  pickLocale,
-  translate,
-  translateApiMessage,
-} from '../lib/i18n.js';
+import { DEFAULT_LOCALE, isSupported, localeMeta, pickLocale, translate } from '../lib/i18n.js';
 
 const STORAGE_KEY = 'bikebuddy-lang';
 
@@ -17,23 +10,22 @@ export function getLocale() {
   return currentLocale;
 }
 
-// currentLocale only ever holds a supported code (pickLocale / DEFAULT_LOCALE).
 export function getLocaleMeta() {
-  return /** @type {(typeof SUPPORTED_LOCALES)[number]} */ (
-    SUPPORTED_LOCALES.find((l) => l.code === currentLocale)
-  );
+  return localeMeta(currentLocale);
 }
 
-export function dateLocale() {
-  return getLocaleMeta().dateLocale;
+export function intlLocale() {
+  return getLocaleMeta().intlLocale;
 }
 
 export function t(key, params) {
-  return translate(messages, key, params, fallbackMessages);
+  return translate({ messages, fallbackMessages, key, params, locale: intlLocale() });
 }
 
+// The API sends either an i18n key or a finished English sentence; a sentence
+// is not a key, so it resolves to itself.
 export function tApi(message) {
-  return translateApiMessage(messages, message, fallbackMessages);
+  return t(message);
 }
 
 async function loadMessages(code) {

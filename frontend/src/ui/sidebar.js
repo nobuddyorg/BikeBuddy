@@ -1,5 +1,5 @@
 import * as i18n from './i18n.js';
-import { formatDate, formatDistance } from '../lib/format.js';
+import { formatCount, formatDate, formatDistance } from '../lib/format.js';
 import { visibleTours, toursInView, paginate, PAGE_SIZE, fuzzyMatchIndices } from '../lib/tours.js';
 import { isStale, markFetched } from '../lib/sasCache.js';
 import { state } from './state.js';
@@ -283,8 +283,8 @@ function createTourItem(tour) {
     'aria-label',
     t('sidebar.tourItemAria', {
       name: tour.name || '',
-      date: formatDate(tour.createdAt, i18n.dateLocale()),
-      distance: formatDistance(tour.distance),
+      date: formatDate(tour.createdAt, i18n.intlLocale()),
+      distance: formatDistance(tour.distance, i18n.intlLocale()),
     }),
   );
   if (state.selectMode) {
@@ -308,7 +308,10 @@ function createTourItem(tour) {
     highlightedNameNode(tour.name, fuzzyMatchIndices(state.search, tour.name)),
     textDiv(
       'tour-item-meta',
-      `${formatDate(tour.createdAt, i18n.dateLocale())} · ${formatDistance(tour.distance)}`,
+      t('sidebar.tourItemMeta', {
+        date: formatDate(tour.createdAt, i18n.intlLocale()),
+        distance: formatDistance(tour.distance, i18n.intlLocale()),
+      }),
     ),
   );
 
@@ -373,7 +376,10 @@ export function renderSidebar() {
 function renderTourList({ signedIn, loading, hasTours }) {
   elTourList.innerHTML = '';
   if (!hasTours) {
-    elTourCount.textContent = signedIn && !loading ? state.tours.length : '0';
+    elTourCount.textContent = formatCount(
+      signedIn && !loading ? state.tours.length : 0,
+      i18n.intlLocale(),
+    );
     show(elTourPager, false);
     return;
   }
@@ -384,11 +390,16 @@ function renderTourList({ signedIn, loading, hasTours }) {
   // or the list would filter itself with no visible control to undo it.
   const inViewActive = state.filterInView && !isMobileLayout();
   const scoped = inViewActive ? toursInView(state.tours, mapBoundsPlain()) : state.tours;
-  const visible = visibleTours(scoped, state.sort, state.search);
+  const visible = visibleTours({
+    tours: scoped,
+    sort: state.sort,
+    search: state.search,
+    locale: i18n.intlLocale(),
+  });
   const filterActive = inViewActive || state.search.trim() !== '';
   elTourCount.textContent = filterActive
     ? t('sidebar.filteredCount', { count: visible.length, total: state.tours.length })
-    : String(state.tours.length);
+    : formatCount(state.tours.length, i18n.intlLocale());
   if (visible.length === 0) {
     elTourList.appendChild(textDiv('tour-empty', t('tours.noMatch')));
     show(elTourPager, false);

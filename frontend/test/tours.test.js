@@ -8,6 +8,9 @@ import {
   withUpdatedDate,
 } from '../src/lib/tours.js';
 
+const visibleIds = ({ tours, sort, search }) =>
+  visibleTours({ tours, sort, search, locale: 'en-GB' }).map((tour) => tour.id);
+
 const tours = [
   { id: 'a', name: 'Alps Tour', createdAt: '2026-01-01T00:00:00Z', distance: 120 },
   { id: 'b', name: 'Beach Ride', createdAt: '2026-03-01T00:00:00Z', distance: 30 },
@@ -63,22 +66,22 @@ describe('matchScore', () => {
 
 describe('visibleTours', () => {
   it('sorts by newest first by default (unknown sort falls back)', () => {
-    const ids = visibleTours(tours, 'bogus', '').map((t) => t.id);
+    const ids = visibleIds({ tours, sort: 'bogus', search: '' });
     expect(ids).toEqual(['b', 'c', 'a']);
   });
 
   it('sorts by name and by distance', () => {
-    expect(visibleTours(tours, 'name-asc', '').map((t) => t.id)).toEqual(['a', 'b', 'c']);
-    expect(visibleTours(tours, 'length-desc', '').map((t) => t.id)).toEqual(['a', 'c', 'b']);
-    expect(visibleTours(tours, 'length-asc', '').map((t) => t.id)).toEqual(['b', 'c', 'a']);
+    expect(visibleIds({ tours, sort: 'name-asc', search: '' })).toEqual(['a', 'b', 'c']);
+    expect(visibleIds({ tours, sort: 'length-desc', search: '' })).toEqual(['a', 'c', 'b']);
+    expect(visibleIds({ tours, sort: 'length-asc', search: '' })).toEqual(['b', 'c', 'a']);
   });
 
   it('sorts oldest first', () => {
-    expect(visibleTours(tours, 'date-asc', '').map((t) => t.id)).toEqual(['a', 'c', 'b']);
+    expect(visibleIds({ tours, sort: 'date-asc', search: '' })).toEqual(['a', 'c', 'b']);
   });
 
   it('filters by the fuzzy search before sorting', () => {
-    const res = visibleTours(tours, 'name-asc', 'beach');
+    const res = visibleTours({ tours, sort: 'name-asc', search: 'beach', locale: 'en-GB' });
     expect(res.map((t) => t.id)).toEqual(['b']);
   });
 
@@ -87,7 +90,7 @@ describe('visibleTours', () => {
       { id: 'p', name: 'Beach Ride', createdAt: '2026-01-01T00:00:00Z' },
       { id: 'q', name: 'Roadside Deer', createdAt: '2026-01-02T00:00:00Z' },
     ];
-    expect(visibleTours(named, 'date-desc', 'ride').map((t) => t.id)).toEqual(['p', 'q']);
+    expect(visibleIds({ tours: named, sort: 'date-desc', search: 'ride' })).toEqual(['p', 'q']);
   });
 
   it('searches the description too, but ranks it below any name match', () => {
@@ -100,12 +103,12 @@ describe('visibleTours', () => {
         description: 'A ride along the beach',
       },
     ];
-    expect(visibleTours(withDesc, 'date-desc', 'beach').map((t) => t.id)).toEqual(['b', 'd']);
+    expect(visibleIds({ tours: withDesc, sort: 'date-desc', search: 'beach' })).toEqual(['b', 'd']);
   });
 
   it('does not mutate the input array', () => {
     const copy = [...tours];
-    visibleTours(tours, 'name-desc', '');
+    visibleTours({ tours, sort: 'name-desc', search: '', locale: 'en-GB' });
     expect(tours).toEqual(copy);
   });
 
@@ -117,7 +120,7 @@ describe('visibleTours', () => {
       [full, bare],
       [bare, full],
     ]) {
-      const order = (sort) => visibleTours(sparse, sort, undefined).map((t) => t.id);
+      const order = (sort) => visibleIds({ tours: sparse, sort, search: undefined });
       expect(order('name-asc')).toEqual(['bare', 'full']);
       expect(order('name-desc')).toEqual(['full', 'bare']);
       expect(order('date-asc')).toEqual(['bare', 'full']);
@@ -129,7 +132,7 @@ describe('visibleTours', () => {
 
   it('searches a tour without a name by its description only', () => {
     const unnamed = [{ id: 'u', description: 'coastal ride', createdAt: '2026-01-01T00:00:00Z' }];
-    expect(visibleTours(unnamed, 'date-desc', 'coast').map((t) => t.id)).toEqual(['u']);
+    expect(visibleIds({ tours: unnamed, sort: 'date-desc', search: 'coast' })).toEqual(['u']);
   });
 
   it('breaks a relevance tie with the chosen sort', () => {
@@ -137,12 +140,29 @@ describe('visibleTours', () => {
       { id: 'old', name: 'Loop', createdAt: '2026-01-01T00:00:00Z' },
       { id: 'new', name: 'Loop', createdAt: '2026-02-01T00:00:00Z' },
     ];
-    expect(visibleTours(twins, 'date-desc', 'loop').map((t) => t.id)).toEqual(['new', 'old']);
-    expect(visibleTours(twins, 'date-asc', 'loop').map((t) => t.id)).toEqual(['old', 'new']);
+    expect(visibleIds({ tours: twins, sort: 'date-desc', search: 'loop' })).toEqual(['new', 'old']);
+    expect(visibleIds({ tours: twins, sort: 'date-asc', search: 'loop' })).toEqual(['old', 'new']);
+  });
+
+  it('orders names by the given locale', () => {
+    const named = [
+      { id: 'z', name: 'Zebra' },
+      { id: 'a', name: 'Äpple' },
+    ];
+    expect(
+      visibleTours({ tours: named, sort: 'name-asc', search: '', locale: 'de-DE' }).map(
+        (tour) => tour.id,
+      ),
+    ).toEqual(['a', 'z']);
+    expect(
+      visibleTours({ tours: named, sort: 'name-asc', search: '', locale: 'sv-SE' }).map(
+        (tour) => tour.id,
+      ),
+    ).toEqual(['z', 'a']);
   });
 
   it('falls back to the chosen sort when the query is cleared', () => {
-    expect(visibleTours(tours, 'name-asc', '').map((t) => t.id)).toEqual(['a', 'b', 'c']);
+    expect(visibleIds({ tours, sort: 'name-asc', search: '' })).toEqual(['a', 'b', 'c']);
   });
 });
 

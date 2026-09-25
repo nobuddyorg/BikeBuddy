@@ -13,12 +13,12 @@ export function parseErrorMessage(text, fallback) {
 // a failure whose body may carry the reason.
 export function readUploadResponse({ status, responseText }) {
   if (status !== 201) {
-    return { ok: false, message: parseErrorMessage(responseText, 'Upload failed.') };
+    return { ok: false, message: parseErrorMessage(responseText, 'errors.uploadFailed') };
   }
   try {
     return { ok: true, body: JSON.parse(responseText) };
   } catch {
     // The upload itself succeeded — retrying would create a duplicate.
-    return { ok: false, message: 'Upload finished but the response could not be read.' };
+    return { ok: false, message: 'errors.uploadUnreadable' };
   }
 }

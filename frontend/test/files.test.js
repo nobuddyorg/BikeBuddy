@@ -39,51 +39,66 @@ describe('isImageFile', () => {
 });
 
 describe('validateGpxUpload', () => {
-  it('returns null for a valid file', () => {
-    expect(validateGpxUpload(file('ride.gpx', '', 1000))).toBeNull();
+  it('accepts a valid file', () => {
+    expect(validateGpxUpload(file('ride.gpx', '', 1000))).toEqual([]);
   });
 
-  it('returns the i18n key for the wrong extension', () => {
-    expect(validateGpxUpload(file('ride.txt'))).toBe('errors.gpxType');
+  it('reports the wrong extension', () => {
+    expect(validateGpxUpload(file('ride.txt'))).toEqual([{ key: 'errors.gpxType', params: {} }]);
   });
 
-  it('returns the i18n key for files over the size limit', () => {
-    expect(validateGpxUpload(file('ride.gpx', '', MAX_UPLOAD_BYTES + 1))).toBe('errors.gpxSize');
+  it('reports a file over the size limit, with the limit in megabytes', () => {
+    expect(validateGpxUpload(file('ride.gpx', '', MAX_UPLOAD_BYTES + 1))).toEqual([
+      { key: 'errors.gpxSize', params: { maxMegabytes: 10 } },
+    ]);
+  });
+
+  it('accepts a file exactly at the size limit', () => {
+    expect(validateGpxUpload(file('ride.gpx', '', MAX_UPLOAD_BYTES))).toEqual([]);
   });
 });
 
 describe('validateImageUpload', () => {
-  it('returns null for a valid image', () => {
-    expect(validateImageUpload(file('p.jpg', 'image/jpeg', 1000))).toBeNull();
+  it('accepts a valid image', () => {
+    expect(validateImageUpload(file('p.jpg', 'image/jpeg', 1000))).toEqual([]);
   });
 
-  it('returns i18n keys for non-images and oversized images', () => {
-    expect(validateImageUpload(file('p.gif', 'image/gif'))).toBe('errors.imageType');
-    expect(validateImageUpload(file('p.png', 'image/png', 11 * 1024 * 1024))).toBe(
-      'errors.imageSize',
-    );
+  it('reports non-images and oversized images', () => {
+    expect(validateImageUpload(file('p.gif', 'image/gif'))).toEqual([
+      { key: 'errors.imageType', params: {} },
+    ]);
+    expect(validateImageUpload(file('p.png', 'image/png', 10 * 1024 * 1024 + 1))).toEqual([
+      { key: 'errors.imageSize', params: { maxMegabytes: 10 } },
+    ]);
+  });
+
+  it('accepts an image exactly at the size limit', () => {
+    expect(validateImageUpload(file('p.png', 'image/png', 10 * 1024 * 1024))).toEqual([]);
   });
 });
 
 describe('validateImageBatch', () => {
-  it('returns null at or under the cap', () => {
+  it('accepts a batch at the cap', () => {
     const files = Array.from({ length: MAX_IMAGE_BATCH }, (_, i) => file(`p${i}.jpg`));
-    expect(validateImageBatch(files)).toBeNull();
+    expect(validateImageBatch(files)).toEqual([]);
   });
 
-  it('returns the i18n key over the cap', () => {
+  it('reports a batch over the cap', () => {
     const files = Array.from({ length: MAX_IMAGE_BATCH + 1 }, (_, i) => file(`p${i}.jpg`));
-    expect(validateImageBatch(files)).toBe('errors.tooManyImages');
+    expect(validateImageBatch(files)).toEqual([
+      { key: 'errors.tooManyImages', params: { max: MAX_IMAGE_BATCH } },
+    ]);
   });
 });
 
 describe('validateImageQuota', () => {
-  it('returns null under the cap', () => {
-    expect(validateImageQuota(MAX_TOUR_IMAGES - 1)).toBeNull();
+  it('accepts a tour under the cap', () => {
+    expect(validateImageQuota(MAX_TOUR_IMAGES - 1)).toEqual([]);
   });
 
-  it('returns the i18n key at or over the cap', () => {
-    expect(validateImageQuota(MAX_TOUR_IMAGES)).toBe('errors.tourImageLimit');
-    expect(validateImageQuota(MAX_TOUR_IMAGES + 1)).toBe('errors.tourImageLimit');
+  it('reports a tour at or over the cap', () => {
+    const limitReached = [{ key: 'errors.tourImageLimit', params: { max: MAX_TOUR_IMAGES } }];
+    expect(validateImageQuota(MAX_TOUR_IMAGES)).toEqual(limitReached);
+    expect(validateImageQuota(MAX_TOUR_IMAGES + 1)).toEqual(limitReached);
   });
 });

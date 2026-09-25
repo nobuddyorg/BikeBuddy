@@ -4,14 +4,17 @@
 
 const tourTime = (t) => new Date(t.createdAt).getTime() || 0;
 
-const SORTERS = {
-  'date-desc': (a, b) => tourTime(b) - tourTime(a),
-  'date-asc': (a, b) => tourTime(a) - tourTime(b),
-  'name-asc': (a, b) => (a.name || '').localeCompare(b.name || ''),
-  'name-desc': (a, b) => (b.name || '').localeCompare(a.name || ''),
-  'length-desc': (a, b) => (b.distance || 0) - (a.distance || 0),
-  'length-asc': (a, b) => (a.distance || 0) - (b.distance || 0),
-};
+function sorters(locale) {
+  const collator = new Intl.Collator(locale);
+  return {
+    'date-desc': (a, b) => tourTime(b) - tourTime(a),
+    'date-asc': (a, b) => tourTime(a) - tourTime(b),
+    'name-asc': (a, b) => collator.compare(a.name || '', b.name || ''),
+    'name-desc': (a, b) => collator.compare(b.name || '', a.name || ''),
+    'length-desc': (a, b) => (b.distance || 0) - (a.distance || 0),
+    'length-asc': (a, b) => (a.distance || 0) - (b.distance || 0),
+  };
+}
 
 // Subsequence match: every char of the query appears in order. Returns the
 // matched indices into `text`, or null when it doesn't fully match.
@@ -55,8 +58,9 @@ export function matchScore(query, text) {
 
 // Ranks by relevance when searching name and description; falls back to the
 // chosen sort (as tiebreaker, and outright when the box is empty).
-export function visibleTours(tours, sort, search) {
-  const sorter = SORTERS[sort] || SORTERS['date-desc'];
+export function visibleTours({ tours, sort, search, locale }) {
+  const byKey = sorters(locale);
+  const sorter = byKey[sort] || byKey['date-desc'];
   const q = (search || '').trim();
   if (!q) return [...tours].sort(sorter);
   return tours

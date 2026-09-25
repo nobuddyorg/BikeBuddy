@@ -31,7 +31,7 @@ function renderProfile() {
   elProfileAvatar.textContent = initials(state.user.name || state.user.email);
   elProfileEmail.textContent = state.user.email || '—';
   elProfileSince.textContent = state.user.createdAt
-    ? formatDate(state.user.createdAt, i18n.dateLocale())
+    ? formatDate(state.user.createdAt, i18n.intlLocale())
     : '—';
   elProfileNameInput.value = state.user.name || '';
 }
@@ -63,7 +63,9 @@ export async function saveProfileName(e) {
       body: JSON.stringify({ name }),
     });
     if (!res.ok) {
-      elProfileNameError.textContent = parseErrorMessage(await res.text(), t('errors.saveName'));
+      elProfileNameError.textContent = i18n.tApi(
+        parseErrorMessage(await res.text(), t('errors.saveName')),
+      );
       show(elProfileNameError, true);
       return;
     }
@@ -87,7 +89,7 @@ export async function selectLanguage(code) {
       body: JSON.stringify({ language: code }),
     });
     if (!res.ok) {
-      toast(parseErrorMessage(await res.text(), t('errors.saveLanguage')), 'error');
+      toast(i18n.tApi(parseErrorMessage(await res.text(), t('errors.saveLanguage'))), 'error');
       return;
     }
     i18n.setLanguage(code);

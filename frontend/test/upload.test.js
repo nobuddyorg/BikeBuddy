@@ -15,7 +15,6 @@ describe('parseErrorMessage', () => {
   });
 });
 
-
 describe('readUploadResponse', () => {
   it('returns the parsed body of a 201', () => {
     expect(readUploadResponse({ status: 201, responseText: '{"id":"img-1"}' })).toEqual({
@@ -34,7 +33,7 @@ describe('readUploadResponse', () => {
   it('falls back to a generic message when a failure body has no reason', () => {
     expect(readUploadResponse({ status: 500, responseText: '' })).toEqual({
       ok: false,
-      message: 'Upload failed.',
+      message: 'errors.uploadFailed',
     });
   });
 
@@ -42,7 +41,7 @@ describe('readUploadResponse', () => {
   it('reports an unreadable 201 body as its own failure', () => {
     expect(readUploadResponse({ status: 201, responseText: '<html>proxy</html>' })).toEqual({
       ok: false,
-      message: 'Upload finished but the response could not be read.',
+      message: 'errors.uploadUnreadable',
     });
   });
 });

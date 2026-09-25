@@ -48,7 +48,7 @@ describe('i18n runtime', () => {
     const i18n = await freshI18n();
     expect(i18n.getLocale()).toBe('en');
     expect(i18n.getLocaleMeta().code).toBe('en');
-    expect(i18n.dateLocale()).toBe('en-GB');
+    expect(i18n.intlLocale()).toBe('en-GB');
   });
 
   it('picks the browser language, falls back to English per key, and reveals the page', async () => {
@@ -56,7 +56,7 @@ describe('i18n runtime', () => {
     const i18n = await freshI18n();
     await i18n.init();
     expect(i18n.getLocale()).toBe('de');
-    expect(i18n.dateLocale()).toBe('de-DE');
+    expect(i18n.intlLocale()).toBe('de-DE');
     expect(document.documentElement.lang).toBe('de');
     expect(i18n.t('greeting', { name: 'Ada' })).toBe('Hallo Ada');
     expect(i18n.t('onlyEnglish')).toBe('Fallback');
@@ -184,7 +184,9 @@ describe('applyI18n', () => {
   });
 
   it('translates every supported attribute', () => {
-    const elements = i18n.I18N_ATTRS.map((attr) => makeEl({ [`data-i18n-${attr}`]: `key.${attr}` }));
+    const elements = i18n.I18N_ATTRS.map((attr) =>
+      makeEl({ [`data-i18n-${attr}`]: `key.${attr}` }),
+    );
 
     i18n.applyI18n(makeRoot(elements));
 

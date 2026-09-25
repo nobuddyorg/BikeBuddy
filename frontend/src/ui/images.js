@@ -397,9 +397,9 @@ export async function uploadImages(files) {
   await state.detailLoading;
   if (state.selectedTourId !== tourId) return;
 
-  const batchError = validateImageBatch(files);
-  if (batchError) {
-    showImageError(t(batchError));
+  const [batchProblem] = validateImageBatch(files);
+  if (batchProblem) {
+    showImageError(t(batchProblem.key, batchProblem.params));
     return;
   }
 
@@ -411,15 +411,9 @@ export async function uploadImages(files) {
     const tile = createPendingImageTile(file);
     elImageGrid.appendChild(tile.el);
 
-    const quotaError = validateImageQuota(imageCount);
-    if (quotaError) {
-      tile.setError(t(quotaError), false);
-      continue;
-    }
-
-    const fileError = validateImageUpload(file);
-    if (fileError) {
-      tile.setError(t(fileError), false);
+    const [problem] = [...validateImageQuota(imageCount), ...validateImageUpload(file)];
+    if (problem) {
+      tile.setError(t(problem.key, problem.params), false);
       continue;
     }
     imageCount++;
@@ -439,7 +433,7 @@ export async function uploadImages(files) {
       job.tile.setDone(image);
       renderPins(); // a newly uploaded geotagged photo may add a marker
     } catch (err) {
-      job.tile.setError(err.message, true);
+      job.tile.setError(i18n.tApi(err.message), true);
     }
   };
   jobs.forEach((job) => {

@@ -1,6 +1,7 @@
 import { SUPPORTED_LOCALES } from '../lib/i18n.js';
 import * as i18n from './i18n.js';
 import { WEIGHT_MIN, WEIGHT_MAX, OPACITY_MIN, OPACITY_MAX } from '../lib/lineStyle.js';
+import { formatPercent } from '../lib/format.js';
 import { saveLineStyle } from './lineStyleStorage.js';
 import { state } from './state.js';
 import { redrawRoutes } from './routes.js';
@@ -177,9 +178,8 @@ export function setupLineStyleMenu() {
     elLineStyleColor.value = state.lineStyle.color;
     elLineStyleWidth.value = String(state.lineStyle.weight);
     elLineStyleWidthValue.textContent = `${state.lineStyle.weight}px`;
-    const opacityPct = Math.round(state.lineStyle.opacity * 100);
-    elLineStyleOpacity.value = String(opacityPct);
-    elLineStyleOpacityValue.textContent = `${opacityPct}%`;
+    elLineStyleOpacity.value = String(Math.round(state.lineStyle.opacity * 100));
+    elLineStyleOpacityValue.textContent = formatPercent(state.lineStyle.opacity, i18n.intlLocale());
   };
   applyControls();
 

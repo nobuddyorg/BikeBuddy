@@ -62,14 +62,14 @@ describe('xhrUpload', () => {
     const { FakeXhr } = makeXhr({ status: 201, responseText: '<html>proxy</html>' });
 
     await expect(xhrUpload('/api/x', file(), null, noop, FakeXhr)).rejects.toThrow(
-      'Upload finished but the response could not be read.',
+      'errors.uploadUnreadable',
     );
   });
 
   it.each([
-    ['error', 'Network error during upload.'],
-    ['abort', 'Upload was cancelled.'],
-    ['timeout', 'Upload timed out.'],
+    ['error', 'errors.uploadNetwork'],
+    ['abort', 'errors.uploadCancelled'],
+    ['timeout', 'errors.uploadTimeout'],
   ])('settles on %s', async (event, message) => {
     const { FakeXhr } = makeXhr({ event });
 

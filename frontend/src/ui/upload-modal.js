@@ -55,9 +55,9 @@ function showUploadError(message) {
 export function selectFile(file) {
   show(elUploadError, false);
   if (!file) return;
-  const uploadError = validateGpxUpload(file);
-  if (uploadError) {
-    showUploadError(t(uploadError));
+  const [problem] = validateGpxUpload(file);
+  if (problem) {
+    showUploadError(t(problem.key, problem.params));
     return;
   }
   selectedFile = file;

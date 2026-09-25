@@ -268,7 +268,9 @@
           </button>
         </div>
 
-        <button id="btn-show-all" class="show-all-btn hidden">Show All Tours</button>
+        <button id="btn-show-all" class="show-all-btn hidden" data-i18n="tours.showAll">
+          Show All Tours
+        </button>
 
         <div id="no-tours" class="empty-state hidden">
           <p data-i18n="sidebar.noToursYet">No tours yet.</p>
@@ -557,8 +559,9 @@
           </p>
           <h3 data-i18n="help.q4">🔍 Find your tours</h3>
           <p data-i18n-html="help.a4">
-            Use the search box to filter by name and the sort menu to order by date, name, or
-            length. Toggle <strong>In view</strong> to show only tours visible on the current map.
+            Use the search box to filter by name or description and the sort menu to order by date,
+            name, or length. Toggle <strong>In view</strong> to show only tours visible on the
+            current map.
           </p>
           <h3 data-i18n="help.q5">🗑️ Select & delete multiple</h3>
           <p data-i18n-html="help.a5">
@@ -576,7 +579,10 @@
             <strong>Photo pins</strong> on the map to show geotagged photos where they were taken.
           </p>
           <h3 data-i18n="help.q8">📱 On mobile</h3>
-          <p data-i18n="help.a8">Swipe a tour right to delete it, or left to open its details.</p>
+          <p data-i18n="help.a8">
+            Tap a tour to open its details, swipe it right to delete it, or press and hold it to
+            select several.
+          </p>
         </div>
       </div>
     </div>
@@ -610,7 +616,12 @@
                 aria-expanded="false"
                 data-i18n-aria-label="profile.langAria"
               ></button>
-              <div id="lang-menu" class="lang-menu hidden" role="dialog" aria-label="Language">
+              <div
+                id="lang-menu"
+                class="lang-menu hidden"
+                role="dialog"
+                data-i18n-aria-label="profile.language"
+              >
                 <input
                   id="lang-search"
                   class="lang-search"

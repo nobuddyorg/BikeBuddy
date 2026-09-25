@@ -59,7 +59,7 @@ describe('format (properties)', () => {
   it('formatDuration rounds to minutes and splits them into hours and minutes', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 10 * 24 * 3600 }), (seconds) => {
-        const text = formatDuration(seconds);
+        const text = formatDuration(seconds, 'en-GB');
         const match = /^(?:(\d+)h )?(\d+)m$/.exec(text);
         expect(match).not.toBeNull();
         const [, h = '0', m] = match;
@@ -72,7 +72,8 @@ describe('format (properties)', () => {
   it('formatDistance parses back to within its rounding', () => {
     fc.assert(
       fc.property(fc.double({ min: 0, max: 100_000, noNaN: true }), (km) => {
-        const shown = Number.parseFloat(formatDistance(km));
+        // en-GB groups thousands with commas; strip them to read the number back.
+        const shown = Number.parseFloat(formatDistance(km, 'en-GB').replaceAll(',', ''));
         expect(Math.abs(shown - km)).toBeLessThanOrEqual(km < 10 ? 0.05 + 1e-9 : 0.5 + 1e-9);
       }),
     );
@@ -111,7 +112,7 @@ describe('tour list (properties)', () => {
   it('sorting without a query is a permutation of the input', () => {
     fc.assert(
       fc.property(tours, sortKey, (list, sort) => {
-        const out = visibleTours(list, sort, '');
+        const out = visibleTours({ tours: list, sort, search: '', locale: 'en-GB' });
         expect(out).toHaveLength(list.length);
         expect(new Set(out)).toEqual(new Set(list));
       }),

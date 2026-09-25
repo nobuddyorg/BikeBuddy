@@ -22,9 +22,9 @@ export function xhrUpload(url, file, token, onProgress, XhrCtor = globalThis.XML
       if (result.ok) resolve(result.body);
       else reject(new Error(result.message));
     };
-    xhr.onerror = () => reject(new Error('Network error during upload.'));
-    xhr.onabort = () => reject(new Error('Upload was cancelled.'));
-    xhr.ontimeout = () => reject(new Error('Upload timed out.'));
+    xhr.onerror = () => reject(new Error('errors.uploadNetwork'));
+    xhr.onabort = () => reject(new Error('errors.uploadCancelled'));
+    xhr.ontimeout = () => reject(new Error('errors.uploadTimeout'));
     xhr.send(fd);
   });
 }
