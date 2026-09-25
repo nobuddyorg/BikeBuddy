@@ -30,12 +30,13 @@ variable "budget_amount" {
 }
 
 variable "budget_contact_email" {
-  description = "Email that receives budget threshold alerts; CI passes the BUDGET_CONTACT_EMAIL repository variable."
+  description = "Email that receives budget threshold alerts."
   type        = string
+  default     = "nobuddyorgcloud@outlook.com"
 
   validation {
     condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.budget_contact_email))
-    error_message = "budget_contact_email must be an email address (set the BUDGET_CONTACT_EMAIL repository variable)."
+    error_message = "budget_contact_email must be an email address."
   }
 }
 

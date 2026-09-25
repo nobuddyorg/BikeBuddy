@@ -91,8 +91,7 @@ keeping it out of the deployed settings entirely).
 ## Budget
 
 `budget.tf` creates a monthly consumption budget on the resource group
-(`budget_amount`, default 5; `budget_contact_email`, required, from the
-`BUDGET_CONTACT_EMAIL` repository variable in CI; `budget_start_date`) that
+(`budget_amount`, default 5; `budget_contact_email`; `budget_start_date`) that
 mails at 80 % forecast and 100 % actual spend. See the [cost report](../cost-report.md).
 
 ## Teardown

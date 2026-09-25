@@ -47,11 +47,9 @@ from `config.js.example`.
 - **`ci` environment secrets:** `CODECOV_TOKEN`, `STRYKER_DASHBOARD_API_KEY`.
 - **Variables** (public, optional — unset = no-auth): `ENTRA_SUBDOMAIN`,
   `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`; `LOAD_API_URL` (k6 hosted target).
-- **Required variable:** `BUDGET_CONTACT_EMAIL`, where budget alerts go;
-  deploy and destroy fail while it is unset.
 
 ## Infrastructure variables (`infrastructure/variables.tf`)
 
 `location` (default `northeurope`), `entra_*`, `budget_amount` (default 5),
-`budget_contact_email` (required, no default; CI passes the
-`BUDGET_CONTACT_EMAIL` repository variable), `budget_start_date`.
+`budget_contact_email` (default in `variables.tf`; moving it to a repository
+variable is #636), `budget_start_date`.
