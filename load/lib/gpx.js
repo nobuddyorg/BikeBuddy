@@ -31,4 +31,5 @@ export function gpxTrack(index, points) {
   return `<?xml version="1.0"?><gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>${parts.join('')}</trkseg></trk></gpx>`;
 }
 
-export const SIZES = { typical: 2000, long: 10000 };
+// huge: about 9.5 MB, the largest ride under the 10 MB upload limit.
+export const SIZES = { typical: 2000, long: 10000, huge: 100000 };

@@ -11,13 +11,13 @@ testing is manual and local by default").
 One [k6](https://grafana.com/docs/k6/) script per journey in [`load/`](../../load),
 each spelling out as HTTP what the frontend sends:
 
-| Flow     | Scenarios                       | Endpoints                                                                             |
-| -------- | ------------------------------- | ------------------------------------------------------------------------------------- |
-| `smoke`  | every scenario below, 1 VU once | all of them: proves the scripts and the target work                                   |
-| `browse` | `list`, `detail`, `map`         | `GET /api/tours`, `GET /api/tours/{id}`, `GET /api/map`                               |
-| `upload` | `upload_tour`, `upload_image`   | `POST /api/tours/upload` (2,000- and 10,000-point GPX), `POST /api/tours/{id}/images` |
-| `edit`   | `edit`                          | `PATCH /api/tours/{id}` (rename, date), `DELETE /api/tours/{id}`                      |
-| `export` | `export`                        | `GET /api/me/export` for the seeded account                                           |
+| Flow     | Scenarios                       | Endpoints                                                                                                  |
+| -------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `smoke`  | every scenario below, 1 VU once | all of them: proves the scripts and the target work                                                        |
+| `browse` | `list`, `detail`, `map`         | `GET /api/tours`, `GET /api/tours/{id}`, `GET /api/map`                                                    |
+| `upload` | `upload_tour`, `upload_image`   | `POST /api/tours/upload` (2,000-, 10,000- and 100,000-point GPX, 80/15/5 %), `POST /api/tours/{id}/images` |
+| `edit`   | `edit`                          | `PATCH /api/tours/{id}` (rename, date), `DELETE /api/tours/{id}`                                           |
+| `export` | `export`                        | `GET /api/me/export` for the seeded account                                                                |
 
 | Profile  | Users        | Seed                                       | Meant for                          |
 | -------- | ------------ | ------------------------------------------ | ---------------------------------- |
