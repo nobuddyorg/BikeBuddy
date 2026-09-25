@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 // Image and GPX URLs are SAS links storage stops honouring after an hour
 // (SAS_TTL_MS in functions/src/lib/blobStorage.js), and a map tab stays open far

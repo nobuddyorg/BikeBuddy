@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 // Fast UX feedback only — the backend re-validates by magic bytes.
 // Each check returns an i18n message key, or null when the upload is fine.

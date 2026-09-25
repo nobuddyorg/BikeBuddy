@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 import { isStale, markFetched } from './sasCache.js';
 

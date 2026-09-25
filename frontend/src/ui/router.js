@@ -1,5 +1,3 @@
-'use strict';
-
 import { state } from './state.js';
 import { parseAppUrl, buildAppUrl } from '../lib/url.js';
 

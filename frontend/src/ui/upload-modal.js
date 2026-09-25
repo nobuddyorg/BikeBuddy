@@ -1,5 +1,3 @@
-'use strict';
-
 import * as i18n from '../lib/i18n.js';
 import { validateGpxUpload } from '../lib/files.js';
 import { xhrUpload } from '../lib/upload.js';

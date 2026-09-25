@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 // Pure tour-list logic: sorting, fuzzy search, paging.
 
@@ -29,10 +28,6 @@ export function fuzzyMatchIndices(query, text) {
     }
   }
   return i === q.length ? indices : null;
-}
-
-export function fuzzyMatch(query, text) {
-  return fuzzyMatchIndices(query, text) !== null;
 }
 
 // Higher is better; null means no match. Ranks an exact/prefix/word-boundary

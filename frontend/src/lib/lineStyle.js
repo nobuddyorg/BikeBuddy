@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 // Dependency-free line-style preference. The pure helpers are unit-tested; the
 // localStorage reads/writes below are covered by e2e.

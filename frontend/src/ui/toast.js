@@ -1,5 +1,3 @@
-'use strict';
-
 import { elToasts } from './dom.js';
 
 // `action` (optional): { label, onClick } renders a button that runs onClick

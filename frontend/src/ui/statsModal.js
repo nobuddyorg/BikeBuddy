@@ -1,5 +1,3 @@
-'use strict';
-
 import * as i18n from '../lib/i18n.js';
 import { formatDistance } from '../lib/format.js';
 import { computeTourStats } from '../lib/stats.js';

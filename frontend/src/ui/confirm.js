@@ -1,5 +1,3 @@
-'use strict';
-
 import { openModal, closeModal, wireModalClose } from './modal.js';
 import {
   elConfirmModal,

@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 // Pure URL <-> state-patch mapping, kept separate from the history.pushState/
 // popstate wiring in ui/router.js so it's unit-testable without a DOM/window.

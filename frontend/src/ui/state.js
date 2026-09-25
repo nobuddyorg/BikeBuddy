@@ -1,5 +1,3 @@
-'use strict';
-
 import { loadLineStyle } from '../lib/lineStyle.js';
 
 export const state = {
@@ -11,7 +9,6 @@ export const state = {
   // would wipe the upload's tiles.
   detailLoading: Promise.resolve(),
   routeLayer: null,
-  routePointSets: [],
   lineStyle: loadLineStyle(),
   pinLayer: null,
   showPins: false,

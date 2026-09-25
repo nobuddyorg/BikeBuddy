@@ -1,5 +1,3 @@
-'use strict';
-
 import { show } from './dom.js';
 import { pushLayer } from './router.js';
 

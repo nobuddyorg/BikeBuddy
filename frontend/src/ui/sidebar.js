@@ -1,5 +1,3 @@
-'use strict';
-
 import * as i18n from '../lib/i18n.js';
 import { formatDate, formatDistance } from '../lib/format.js';
 import { visibleTours, toursInView, paginate, PAGE_SIZE, fuzzyMatchIndices } from '../lib/tours.js';
@@ -81,11 +79,7 @@ export async function ensureDetail(tour) {
       tour.images = detail.images || [];
       tour.gpxFileUrl = detail.gpxFileUrl;
       tour.elevationGain = detail.elevationGain ?? null;
-      tour.elevationLoss = detail.elevationLoss ?? null;
-      tour.minElevation = detail.minElevation ?? null;
-      tour.maxElevation = detail.maxElevation ?? null;
       tour.durationSeconds = detail.durationSeconds ?? null;
-      tour.movingSeconds = detail.movingSeconds ?? null;
       tour.avgSpeed = detail.avgSpeed ?? null;
     }
   } catch {

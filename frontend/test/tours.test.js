@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  fuzzyMatch,
   fuzzyMatchIndices,
   matchScore,
   visibleTours,
@@ -14,23 +13,6 @@ const tours = [
   { id: 'b', name: 'Beach Ride', createdAt: '2026-03-01T00:00:00Z', distance: 30 },
   { id: 'c', name: 'City Loop', createdAt: '2026-02-01T00:00:00Z', distance: 75 },
 ];
-
-describe('fuzzyMatch', () => {
-  it('matches an in-order subsequence, case-insensitively', () => {
-    expect(fuzzyMatch('alp', 'Alps Tour')).toBe(true);
-    expect(fuzzyMatch('atr', 'Alps Tour')).toBe(true); // A..T..(ou)R
-  });
-
-  it('rejects characters out of order or absent', () => {
-    expect(fuzzyMatch('xyz', 'Alps Tour')).toBe(false);
-    expect(fuzzyMatch('rua', 'Alps Tour')).toBe(false);
-  });
-
-  it('treats an empty query as a match', () => {
-    expect(fuzzyMatch('', 'anything')).toBe(true);
-    expect(fuzzyMatch('   ', 'anything')).toBe(true);
-  });
-});
 
 describe('fuzzyMatchIndices', () => {
   it('returns the matched character positions for an in-order subsequence', () => {

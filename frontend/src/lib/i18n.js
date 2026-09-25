@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 // Dependency-free i18n. The pure helpers are unit-tested; the browser runtime
 // below is covered by e2e.

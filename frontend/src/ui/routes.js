@@ -1,5 +1,3 @@
-'use strict';
-
 import { ensureMapData } from '../lib/mapData.js';
 import { state } from './state.js';
 import { map } from './map.js';
@@ -38,7 +36,6 @@ export function redrawRoutes() {
 // detail on desktop, where the camera should stay put and only the explicit
 // "Show all tours" button re-fits (otherwise every close yanks the view).
 export function renderRoutes(pointSets, padding, fit = true) {
-  state.routePointSets = pointSets;
   drawRoutes(pointSets);
   if (!fit) return;
   const allPoints = pointSets.flat();

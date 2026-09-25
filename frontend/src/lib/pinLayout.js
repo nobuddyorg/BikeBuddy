@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 // Groups points whose pixel distance to some existing group member is
 // <= thresholdPx. Single pass: each point joins the first group containing

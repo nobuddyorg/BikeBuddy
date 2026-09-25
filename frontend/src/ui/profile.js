@@ -1,5 +1,3 @@
-'use strict';
-
 import * as i18n from '../lib/i18n.js';
 import { initials, formatDate } from '../lib/format.js';
 import { parseErrorMessage } from '../lib/upload.js';

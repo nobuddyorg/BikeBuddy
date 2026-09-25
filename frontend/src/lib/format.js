@@ -1,5 +1,4 @@
 // @ts-check
-'use strict';
 
 export function formatDate(iso, locale = 'en-GB') {
   if (!iso) return '—';

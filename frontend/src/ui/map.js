@@ -1,5 +1,3 @@
-'use strict';
-
 import { elMapContainer, elAppLayout, elDetailPanel } from './dom.js';
 
 const L = window.L;

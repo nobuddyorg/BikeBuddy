@@ -1,5 +1,3 @@
-'use strict';
-
 import * as i18n from './lib/i18n.js';
 import { state } from './ui/state.js';
 import { map, refreshMapSize, moveMapIntoDetailPanel, restoreMapToAppLayout } from './ui/map.js';
@@ -70,7 +68,6 @@ import {
 import { openStatsModal, closeStatsModal } from './ui/statsModal.js';
 import {
   closeDetailPanel,
-  deselectTour,
   selectTour,
   deleteSelectedTour,
   deleteSelectedTours,
@@ -200,7 +197,7 @@ elTourPagerNext.addEventListener('click', () => {
   renderSidebar();
 });
 elBtnShowAll.addEventListener('click', () => {
-  deselectTour();
+  closeDetailPanel();
   renderAllRoutes();
 });
 $('btn-retry-tours').addEventListener('click', loadTours);

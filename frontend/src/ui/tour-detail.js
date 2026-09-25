@@ -1,5 +1,3 @@
-'use strict';
-
 import * as i18n from '../lib/i18n.js';
 import {
   formatDate,
@@ -100,16 +98,6 @@ export function closeDetailPanel() {
   refreshMapSize();
 }
 
-// Ends the selection itself. Every caller renders the all-tours map after,
-// which is what keeps the map off a tour that is no longer selected.
-export function deselectTour() {
-  state.selectedTourId = null;
-  closeDetailPanel();
-  renderSidebar();
-  renderPins();
-  syncUrl();
-}
-
 export function openEdit() {
   const tour = state.tours.find((t) => t.id === state.selectedTourId);
   if (!tour) return;
@@ -172,7 +160,7 @@ function scheduleTourRemoval(tours) {
   const ids = tours.map((tour) => tour.id);
   state.tours = state.tours.filter((tour) => !ids.includes(tour.id));
   ids.forEach((id) => state.selectedIds.delete(id));
-  if (ids.includes(state.selectedTourId)) deselectTour();
+  if (ids.includes(state.selectedTourId)) closeDetailPanel();
   state.selectMode = false;
   renderSidebar();
   renderAllRoutes();
