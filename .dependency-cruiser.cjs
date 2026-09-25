@@ -49,14 +49,14 @@ module.exports = {
       severity: 'error',
       comment:
         'Cosmos is reached only through functions/src/lib/db.js: one place for RU, retries and ' +
-        'the 404 normalisation. Exceptions: the operator scripts (init, backfills, the deletion ' +
-        'job) run outside the Functions host with their own client, the full-stack e2e ' +
+        'the 404 normalisation. Exceptions: init-cosmos, which creates the emulator database ' +
+        'db.js later opens, the full-stack e2e ' +
         'cleanup talks to the emulator directly, and the query-cost guard needs its own client ' +
         'with a request plugin to observe what db.js sends.',
       from: {
         pathNot: [
           '^functions/src/lib/db\\.js$',
-          '^functions/scripts/',
+          '^functions/scripts/init-cosmos\\.js$',
           '^e2e/tests-fullstack/usersDb\\.ts$',
           '^functions/test/integration/query-cost\\.test\\.js$',
         ],
@@ -68,9 +68,10 @@ module.exports = {
       severity: 'error',
       comment:
         'Blob Storage is reached only through functions/src/lib/blobStorage.js (SAS, container ' +
-        'creation). Exception: the backfill scripts, as for Cosmos.',
+        "creation). Exception: the adapter's own test, which signs URLs with a real " +
+        'shared-key credential to check their scope.',
       from: {
-        pathNot: ['^functions/src/lib/blobStorage\\.js$', '^functions/scripts/'],
+        pathNot: ['^functions/src/lib/blobStorage\\.(test\\.)?js$'],
       },
       to: { path: '@azure/storage-blob' },
     },

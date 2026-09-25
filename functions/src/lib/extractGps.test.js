@@ -24,7 +24,7 @@ describe('toDecimal', () => {
   });
 
   it('includes the seconds term', () => {
-    // 48 + 30/60 + 36/3600 = 48.51 — pins the s/3600 contribution and its sign.
+    // 48 + 30/60 + 36/3600
     expect(toDecimal([48, 30, 36], 'N')).toBeCloseTo(48.51, 5);
   });
 
@@ -66,142 +66,149 @@ describe('gpsFromExifTags', () => {
     expect(gpsFromExifTags(tags)).toBeNull();
   });
 
-  const gpsTags = (lat, latRef, lon, lonRef) => ({
+  const gpsTags = ({ latitude, north = 'N', longitude, east = 'E' }) => ({
     GPSInfo: {
-      GPSLatitude: lat,
-      GPSLatitudeRef: latRef,
-      GPSLongitude: lon,
-      GPSLongitudeRef: lonRef,
+      GPSLatitude: latitude,
+      GPSLatitudeRef: north,
+      GPSLongitude: longitude,
+      GPSLongitudeRef: east,
     },
   });
 
   it('returns null when only one coordinate is unreadable', () => {
-    expect(gpsFromExifTags(gpsTags([48, 8, 0], 'N', undefined, 'E'))).toBeNull();
-    expect(gpsFromExifTags(gpsTags(undefined, 'N', [11, 34, 0], 'E'))).toBeNull();
+    expect(gpsFromExifTags(gpsTags({ latitude: [48, 8, 0] }))).toBeNull();
+    expect(gpsFromExifTags(gpsTags({ longitude: [11, 34, 0] }))).toBeNull();
   });
 
   it('rejects each coordinate just outside its range', () => {
-    expect(gpsFromExifTags(gpsTags([100, 0, 0], 'S', [11, 0, 0], 'E'))).toBeNull(); // lat < -90
-    expect(gpsFromExifTags(gpsTags([200, 0, 0], 'N', [11, 0, 0], 'E'))).toBeNull(); // lat > 90
-    expect(gpsFromExifTags(gpsTags([48, 0, 0], 'N', [200, 0, 0], 'W'))).toBeNull(); // lon < -180
-    expect(gpsFromExifTags(gpsTags([48, 0, 0], 'N', [200, 0, 0], 'E'))).toBeNull(); // lon > 180
+    const inRange = { latitude: [48, 0, 0], longitude: [11, 0, 0] };
+    const outside = [
+      { ...inRange, latitude: [100, 0, 0], north: 'S' },
+      { ...inRange, latitude: [200, 0, 0] },
+      { ...inRange, longitude: [200, 0, 0], east: 'W' },
+      { ...inRange, longitude: [200, 0, 0] },
+    ];
+    for (const coordinates of outside) {
+      expect(gpsFromExifTags(gpsTags(coordinates))).toBeNull();
+    }
   });
 
   it('accepts the exact ±90 / ±180 boundaries', () => {
-    expect(gpsFromExifTags(gpsTags([90, 0, 0], 'S', [180, 0, 0], 'W'))).toEqual({
+    const edge = { latitude: [90, 0, 0], longitude: [180, 0, 0] };
+    expect(gpsFromExifTags(gpsTags({ ...edge, north: 'S', east: 'W' }))).toEqual({
       lat: -90,
       lon: -180,
     });
-    expect(gpsFromExifTags(gpsTags([90, 0, 0], 'N', [180, 0, 0], 'E'))).toEqual({
-      lat: 90,
-      lon: 180,
-    });
+    expect(gpsFromExifTags(gpsTags(edge))).toEqual({ lat: 90, lon: 180 });
   });
 });
 
-function u16(n) {
-  const b = Buffer.alloc(2);
-  b.writeUInt16LE(n);
-  return b;
+function uint16LittleEndian(value) {
+  const bytes = Buffer.alloc(2);
+  bytes.writeUInt16LE(value);
+  return bytes;
 }
-function u32(n) {
-  const b = Buffer.alloc(4);
-  b.writeUInt32LE(n);
-  return b;
+function uint32LittleEndian(value) {
+  const bytes = Buffer.alloc(4);
+  bytes.writeUInt32LE(value);
+  return bytes;
 }
-function rational(num, den) {
-  return Buffer.concat([u32(num), u32(den)]);
+function uint16BigEndian(value) {
+  const bytes = Buffer.alloc(2);
+  bytes.writeUInt16BE(value);
+  return bytes;
 }
+const rational = (whole) => Buffer.concat([uint32LittleEndian(whole), uint32LittleEndian(1)]);
 
-// Hand-built minimal TIFF/EXIF blob carrying a GPS IFD: sharp's withExif()
-// only writes flat IFD0 string tags, so a real round-trip through the GPS
-// branch needs the raw bytes rather than sharp's high-level API.
-function buildGpsExif({ lat = [48, 8, 0], latRef = 'N', lon = [11, 34, 0], lonRef = 'E' } = {}) {
-  const header = Buffer.concat([Buffer.from('II'), u16(42), u32(8)]);
-  const ifd0Offset = 8;
-  const gpsIfdOffset = ifd0Offset + 2 + 12 + 4;
+// Raw TIFF bytes with a GPS IFD: sharp's withExif() only writes flat IFD0 string tags.
+function buildGpsExif() {
+  const header = Buffer.concat([Buffer.from('II'), uint16LittleEndian(42), uint32LittleEndian(8)]);
+  const gpsIfdOffset = 8 + 2 + 12 + 4;
   const ifd0 = Buffer.concat([
-    u16(1),
-    u16(0x8825),
-    u16(4),
-    u32(1),
-    u32(gpsIfdOffset), // GPSTag -> GPS IFD
-    u32(0),
+    uint16LittleEndian(1),
+    uint16LittleEndian(0x8825),
+    uint16LittleEndian(4),
+    uint32LittleEndian(1),
+    uint32LittleEndian(gpsIfdOffset),
+    uint32LittleEndian(0),
   ]);
 
-  const gpsDataStart = gpsIfdOffset + 2 + 4 * 12 + 4;
-  const latDataOffset = gpsDataStart;
-  const lonDataOffset = gpsDataStart + 24;
+  const latitudeDataOffset = gpsIfdOffset + 2 + 4 * 12 + 4;
+  const longitudeDataOffset = latitudeDataOffset + 24;
+  const asciiEntry = (tag, letter) =>
+    Buffer.concat([
+      uint16LittleEndian(tag),
+      uint16LittleEndian(2),
+      uint32LittleEndian(2),
+      Buffer.from([letter.charCodeAt(0), 0x00, 0x00, 0x00]),
+    ]);
+  const rationalEntry = (tag, offset) =>
+    Buffer.concat([
+      uint16LittleEndian(tag),
+      uint16LittleEndian(5),
+      uint32LittleEndian(3),
+      uint32LittleEndian(offset),
+    ]);
   const gpsIfd = Buffer.concat([
-    u16(4),
-    u16(0x0001),
-    u16(2),
-    u32(2),
-    Buffer.from([latRef.charCodeAt(0), 0x00, 0x00, 0x00]),
-    u16(0x0002),
-    u16(5),
-    u32(3),
-    u32(latDataOffset),
-    u16(0x0003),
-    u16(2),
-    u32(2),
-    Buffer.from([lonRef.charCodeAt(0), 0x00, 0x00, 0x00]),
-    u16(0x0004),
-    u16(5),
-    u32(3),
-    u32(lonDataOffset),
-    u32(0),
+    uint16LittleEndian(4),
+    asciiEntry(0x0001, 'N'),
+    rationalEntry(0x0002, latitudeDataOffset),
+    asciiEntry(0x0003, 'E'),
+    rationalEntry(0x0004, longitudeDataOffset),
+    uint32LittleEndian(0),
   ]);
 
-  const latData = Buffer.concat(lat.map((v) => rational(v, 1)));
-  const lonData = Buffer.concat(lon.map((v) => rational(v, 1)));
-  return Buffer.concat([header, ifd0, gpsIfd, latData, lonData]);
+  const latitudeData = Buffer.concat([48, 8, 0].map(rational));
+  const longitudeData = Buffer.concat([11, 34, 0].map(rational));
+  return Buffer.concat([header, ifd0, gpsIfd, latitudeData, longitudeData]);
 }
 
-function u16be(n) {
-  const b = Buffer.alloc(2);
-  b.writeUInt16BE(n);
-  return b;
-}
-
-async function jpegWithGpsExif(overrides) {
-  const jpeg = await sharp({
-    create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
-  })
+const plainJpeg = () =>
+  sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } } })
     .jpeg()
     .toBuffer();
-  const exif = buildGpsExif(overrides);
+
+async function jpegWithExifPayload(exif) {
+  const jpeg = await plainJpeg();
   const app1Payload = Buffer.concat([Buffer.from('Exif\0\0'), exif]);
   const app1 = Buffer.concat([
     Buffer.from([0xff, 0xe1]),
-    u16be(app1Payload.length + 2),
+    uint16BigEndian(app1Payload.length + 2),
     app1Payload,
   ]);
-  return Buffer.concat([jpeg.slice(0, 2), app1, jpeg.slice(2)]);
+  return Buffer.concat([jpeg.subarray(0, 2), app1, jpeg.subarray(2)]);
 }
 
 describe('extractGps', () => {
-  // Without this, a mutant that skips straight past the `if (!exif) return
-  // null` guard (e.g. always returning null early) still passes every other
-  // test here, since they all expect null anyway.
   it('extracts real lat/lon from an image with GPS EXIF', async () => {
-    const buffer = await jpegWithGpsExif();
-    const gps = await extractGps(buffer);
+    const gps = await extractGps(await jpegWithExifPayload(buildGpsExif()));
     expect(gps.lat).toBeCloseTo(48.1333, 3);
     expect(gps.lon).toBeCloseTo(11.5667, 3);
   });
 
-  it('returns null for an image with no EXIF', async () => {
-    const buffer = await sharp({
-      create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
-    })
-      .jpeg()
-      .toBuffer();
-    expect(await extractGps(buffer)).toBeNull();
+  it('returns null for an image with no EXIF, without a warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(await extractGps(await plainJpeg())).toBeNull();
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
-  it('returns null for a non-image buffer', async () => {
-    expect(await extractGps(Buffer.from('not an image'))).toBeNull();
+  it('returns null and warns for an image whose EXIF block is malformed', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const buffer = await jpegWithExifPayload(Buffer.from('not a TIFF header at all'));
+      expect(await extractGps(buffer)).toBeNull();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('unreadable EXIF'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('rejects a buffer that is not an image at all', async () => {
+    await expect(extractGps(Buffer.from('not an image'))).rejects.toThrow();
   });
 
   it('returns null for an image with EXIF but no GPS block', async () => {

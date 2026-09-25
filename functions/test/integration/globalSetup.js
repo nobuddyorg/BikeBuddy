@@ -3,16 +3,19 @@
 const { spawn } = require('node:child_process');
 const { setTimeout: sleep } = require('node:timers/promises');
 const { resolve } = require('node:path');
+const { assertEmulatorTargets } = require('./emulatorGuard');
 
 const HEALTH_URL = 'http://localhost:7071/api/health';
-const functionsDir = resolve(__dirname, '..', '..');
+const functionsDirectory = resolve(__dirname, '..', '..');
 
 async function isUp() {
   try {
-    const res = await fetch(HEALTH_URL);
-    return res.ok;
-  } catch {
-    return false;
+    const response = await fetch(HEALTH_URL);
+    return response.ok;
+  } catch (error) {
+    // Nothing listening yet: fetch rejects with a TypeError whose cause is the socket error.
+    if (error instanceof TypeError) return false;
+    throw error;
   }
 }
 
@@ -25,34 +28,30 @@ async function waitForHealth(timeoutMs) {
   return false;
 }
 
-// Start the Azure Functions host for the integration run and stop it after.
-// If a host is already listening (e.g. a local dev stack), reuse it untouched.
-// Cosmos + Azurite must already be running (CI starts them; locally use buddy.sh).
+function stopProcessGroup(child) {
+  try {
+    process.kill(-child.pid, 'SIGTERM');
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+}
+
+// Starts the host for the run, or reuses one already listening; Cosmos and Azurite must run.
 module.exports = async function setup() {
+  assertEmulatorTargets();
   if (await isUp()) return () => {};
 
   const child = spawn('func', ['start'], {
-    cwd: functionsDir,
+    cwd: functionsDirectory,
     env: process.env,
     stdio: 'inherit',
     detached: true,
   });
 
-  const healthy = await waitForHealth(150_000);
-  if (!healthy) {
-    try {
-      process.kill(-child.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+  if (!(await waitForHealth(150_000))) {
+    stopProcessGroup(child);
     throw new Error('Functions host did not become healthy on :7071 within 150s');
   }
 
-  return async () => {
-    try {
-      process.kill(-child.pid, 'SIGTERM'); // kill the detached process group
-    } catch {
-      /* already gone */
-    }
-  };
+  return async () => stopProcessGroup(child);
 };

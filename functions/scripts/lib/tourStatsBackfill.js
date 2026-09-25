@@ -1,6 +1,7 @@
 'use strict';
 
 const { parseGpx } = require('../../src/lib/parseGpx');
+const { gpxBlobName } = require('../../src/lib/blobNames');
 const { queryItems } = require('./queryItems');
 const { runBackfill } = require('./cli');
 
@@ -22,7 +23,9 @@ function statPatchOperations(stats) {
 }
 
 async function readStats({ tour, gpxContainer }) {
-  const gpxBlob = gpxContainer.getBlockBlobClient(`${tour.userId}/${tour.id}.gpx`);
+  const gpxBlob = gpxContainer.getBlockBlobClient(
+    gpxBlobName({ userId: tour.userId, tourId: tour.id }),
+  );
   return parseGpx(await gpxBlob.downloadToBuffer());
 }
 

@@ -1,67 +1,72 @@
 'use strict';
 
-const BASE = 'http://localhost:7071/api';
-
-const GPX = `<?xml version="1.0"?>
-<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>Integration Tour</name><time>2026-06-01T10:00:00Z</time></metadata>
-  <trk><trkseg>
-    <trkpt lat="48.1351" lon="11.5820"/>
-    <trkpt lat="48.1361" lon="11.5830"/>
-    <trkpt lat="48.1371" lon="11.5840"/>
-  </trkseg></trk>
-</gpx>`;
-
-async function uploadTour(name) {
-  const form = new FormData();
-  form.append('file', new Blob([GPX], { type: 'application/gpx+xml' }), 'ride.gpx');
-  return fetch(`${BASE}/tours/upload?name=${encodeURIComponent(name)}`, {
-    method: 'POST',
-    body: form,
-  });
-}
+const { randomUUID } = require('node:crypto');
+const { BASE, UUID_PATTERN, ISO_TIMESTAMP_PATTERN, uploadTour, deleteTour } = require('./api');
 
 describe('tours HTTP lifecycle', () => {
-  it('uploads → lists → reads → deletes a tour', async () => {
-    const name = `Integration ${Date.now()}`;
+  const created = [];
 
-    const up = await uploadTour(name);
-    expect(up.status).toBe(201);
-    const created = await up.json();
-    expect(created.tourId).toBeTruthy();
-    expect(created.name).toBe(name);
+  afterEach(async () => {
+    while (created.length > 0) await deleteTour(created.pop());
+  });
+
+  it('uploads → lists → reads → deletes a tour', async () => {
+    const name = `Integration ${randomUUID()}`;
+
+    const upload = await uploadTour({ name });
+    expect(upload.status).toBe(201);
+    const { tourId, ...summary } = await upload.json();
+    created.push(tourId);
+    expect(tourId).toMatch(UUID_PATTERN);
+    expect(summary).toMatchObject({ name, createdAt: '2026-06-01T10:00:00.000Z' });
+    expect(summary).not.toHaveProperty('gpxFileUrl');
 
     const list = await fetch(`${BASE}/tours`);
     expect(list.status).toBe(200);
-    const tours = await list.json();
-    expect(Array.isArray(tours)).toBe(true);
-    expect(tours.some((t) => t.id === created.tourId)).toBe(true);
-    // List payloads stay small — heatmapData is detail-only.
-    expect(tours.every((t) => t.heatmapData === undefined)).toBe(true);
+    const listed = (await list.json()).find((tour) => tour.id === tourId);
+    expect(listed).toMatchObject({ id: tourId, name });
+    expect(listed.createdAt).toMatch(ISO_TIMESTAMP_PATTERN);
+    // List payloads stay small: the track is detail-only.
+    expect(listed).not.toHaveProperty('heatmapData');
 
-    const detail = await fetch(`${BASE}/tours/${created.tourId}`);
+    const detail = await fetch(`${BASE}/tours/${tourId}`);
     expect(detail.status).toBe(200);
     const tour = await detail.json();
     expect(tour.name).toBe(name);
-    expect(Array.isArray(tour.heatmapData)).toBe(true);
-    expect(tour.heatmapData.length).toBeGreaterThan(0);
+    expect(tour.heatmapData).toHaveLength(3);
+    expect(tour.images).toEqual([]);
+    for (const key of ['userId', '_rid', '_self', '_etag', '_ts']) {
+      expect(tour).not.toHaveProperty(key);
+    }
 
-    const del = await fetch(`${BASE}/tours/${created.tourId}`, { method: 'DELETE' });
-    expect(del.status).toBe(204);
-
-    const gone = await fetch(`${BASE}/tours/${created.tourId}`);
-    expect(gone.status).toBe(404);
+    expect(await deleteTour(tourId)).toBe(204);
+    expect((await fetch(`${BASE}/tours/${tourId}`)).status).toBe(404);
   });
 
   it('rejects a non-UUID tour id with 400', async () => {
-    const res = await fetch(`${BASE}/tours/not-a-uuid`);
-    expect(res.status).toBe(400);
+    const response = await fetch(`${BASE}/tours/not-a-uuid`);
+    expect(response.status).toBe(400);
   });
 
   it('rejects a non-GPX upload with 400', async () => {
     const form = new FormData();
     form.append('file', new Blob(['not xml at all'], { type: 'text/plain' }), 'notes.txt');
-    const res = await fetch(`${BASE}/tours/upload?name=Bad`, { method: 'POST', body: form });
-    expect(res.status).toBe(400);
+    const response = await fetch(`${BASE}/tours/upload?name=Bad`, { method: 'POST', body: form });
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects an edit with a body that is not JSON with 400', async () => {
+    const upload = await uploadTour({ name: `Edit ${randomUUID()}` });
+    expect(upload.status).toBe(201);
+    const { tourId } = await upload.json();
+    created.push(tourId);
+
+    const response = await fetch(`${BASE}/tours/${tourId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"name": ',
+    });
+
+    expect(response.status).toBe(400);
   });
 });

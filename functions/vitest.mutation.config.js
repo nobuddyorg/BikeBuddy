@@ -9,7 +9,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'forks',
-    include: ['src/**/*.test.js', 'scripts/**/*.test.{js,mjs}'],
+    include: ['src/**/*.test.js', 'test/unit/**/*.test.js', 'scripts/**/*.test.{js,mjs}'],
     setupFiles: ['test/fast-check.setup.js'],
     // Vitest adds its `github-actions` reporter under GITHUB_ACTIONS; a killed
     // mutant is an expected failure, not an annotation.

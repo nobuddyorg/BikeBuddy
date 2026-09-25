@@ -1,163 +1,179 @@
 'use strict';
 
 const { getMe } = require('./index');
+const { fakeUsersContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const { signedInAs, signedOut, fixedClock, NOW } = require('../../test/fakes/collaborators');
 
-const STORED_USER = {
+const CLAIMS = { userName: 'Ada', userEmail: 'ada@example.com' };
+const STORED = {
   id: 'u1',
   name: 'Ada',
   email: 'ada@example.com',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
+const OTHER_USER = { id: 'u2', name: 'Grace', email: 'grace@example.com', createdAt: 'x' };
 
-const mockAuth = async () => ({ userId: 'u1', userEmail: 'ada@example.com', userName: 'Ada' });
-const req = {};
-
-function makeContainer(overrides = {}) {
-  return {
-    item: vi.fn().mockReturnValue({ read: async () => ({ resource: STORED_USER }) }),
-    items: {
-      create: vi.fn().mockResolvedValue({ resource: STORED_USER }),
-      upsert: vi.fn((doc) => Promise.resolve({ resource: doc })),
-    },
-    ...overrides,
-  };
+function setUp({ profiles = [STORED, OTHER_USER], authenticate = signedInAs('u1', CLAIMS) } = {}) {
+  const users = fakeUsersContainer(profiles);
+  const run = () => getMe({}, { authenticate, usersContainer: () => users, now: fixedClock });
+  const writes = () => users.calls.filter((call) => call.operation !== 'read');
+  return { users, run, writes };
 }
 
 describe('GET /api/me', () => {
-  test('returns existing user document', async () => {
-    const container = makeContainer();
-    const res = await getMe(req, mockAuth, () => container);
+  it('returns the stored profile without storage fields', async () => {
+    const { run, writes } = setUp();
 
-    expect(res.status).toBe(200);
-    expect(res.jsonBody).toEqual(STORED_USER);
+    const response = await run();
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody).toStrictEqual({ ...STORED, language: undefined });
+    expect(writes()).toEqual([]);
   });
 
-  test('returns the language field when the stored doc has one', async () => {
-    const withLanguage = { ...STORED_USER, language: 'de' };
-    const container = makeContainer({
-      item: vi.fn().mockReturnValue({ read: async () => ({ resource: withLanguage }) }),
-    });
-    const res = await getMe(req, mockAuth, () => container);
+  it('returns the language the user chose', async () => {
+    const { run } = setUp({ profiles: [{ ...STORED, language: 'de' }] });
 
-    expect(res.jsonBody.language).toBe('de');
+    expect((await run()).jsonBody.language).toBe('de');
   });
 
-  test('creates user document on first login (404 thrown)', async () => {
-    const err = Object.assign(new Error('Not found'), { code: 404 });
-    const container = makeContainer({
-      item: vi.fn().mockReturnValue({
-        read: async () => {
-          throw err;
-        },
-      }),
-    });
-    const res = await getMe(req, mockAuth, () => container);
+  it("reads the token user's own profile only", async () => {
+    const { users, run } = setUp({ authenticate: signedInAs('u2', CLAIMS) });
 
-    expect(container.items.create).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: 'Ada', email: 'ada@example.com' }),
-    );
-    expect(res.status).toBe(200);
-    expect(res.jsonBody.id).toBe('u1');
+    const response = await run();
+
+    expect(response.jsonBody.name).toBe('Grace');
+    expect(users.calls).toEqual([{ operation: 'read', id: 'u2', partitionKey: 'u2' }]);
   });
 
-  test('creates user when read returns resource undefined (no throw)', async () => {
-    const container = makeContainer({
-      item: vi.fn().mockReturnValue({
-        read: async () => ({ statusCode: 404, resource: undefined }),
-      }),
-    });
-    const res = await getMe(req, mockAuth, () => container);
+  it('creates the profile from the token on first sign-in', async () => {
+    const { users, run } = setUp({ profiles: [] });
 
-    expect(container.items.create).toHaveBeenCalled();
-    expect(res.status).toBe(200);
-  });
+    const response = await run();
 
-  test('backfills name/email when the token now carries them', async () => {
-    const stored = { id: 'u1', name: null, email: null, createdAt: STORED_USER.createdAt };
-    const container = makeContainer({
-      item: vi.fn().mockReturnValue({ read: async () => ({ resource: stored }) }),
-    });
-    const res = await getMe(req, mockAuth, () => container);
-
-    expect(container.items.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: 'Ada', email: 'ada@example.com' }),
-    );
-    expect(container.items.create).not.toHaveBeenCalled();
-    expect(res.jsonBody).toEqual({
+    expect(response.status).toBe(200);
+    expect(response.jsonBody).toMatchObject({
       id: 'u1',
       name: 'Ada',
       email: 'ada@example.com',
-      createdAt: STORED_USER.createdAt,
+      createdAt: NOW.toISOString(),
+    });
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: 'Ada', createdAt: NOW.toISOString() });
+  });
+
+  it('creates the profile when the read throws a 404, as real Cosmos does', async () => {
+    const { users, run } = setUp({ profiles: [] });
+    users.failOn('read', { error: cosmosError(404, 'Not found') });
+
+    expect((await run()).status).toBe(200);
+    expect(users.stored('u1', 'u1')).toBeDefined();
+  });
+
+  it('returns the profile a concurrent first request created instead of failing', async () => {
+    const { users, run } = setUp({ profiles: [] });
+    const winner = { ...STORED, name: 'Created first' };
+    users.beforeNext('create', () => users.seed(winner));
+
+    const response = await run();
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.name).toBe('Created first');
+    expect(users.stored('u1', 'u1').name).toBe('Created first');
+  });
+
+  it('cleans token claims like a typed name before storing them', async () => {
+    const { users, run } = setUp({
+      profiles: [],
+      authenticate: signedInAs('u1', { userName: `<b>${'a'.repeat(250)}`, userEmail: '  ' }),
+    });
+
+    await run();
+
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: `b${'a'.repeat(199)}`, email: null });
+  });
+
+  it('backfills an empty name and email once the token carries them', async () => {
+    const { users, run } = setUp({ profiles: [{ ...STORED, name: null, email: '' }] });
+
+    const response = await run();
+
+    expect(response.jsonBody).toMatchObject({ name: 'Ada', email: 'ada@example.com' });
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: 'Ada', email: 'ada@example.com' });
+  });
+
+  it('never overwrites a name or email the user set with the token values (#551)', async () => {
+    const chosen = { ...STORED, name: 'Chosen Name', email: 'chosen@example.com' };
+    const { users, run, writes } = setUp({
+      profiles: [chosen],
+      authenticate: signedInAs('u1', { userName: 'Token Name', userEmail: 'token@example.com' }),
+    });
+
+    const response = await run();
+
+    expect(response.jsonBody).toMatchObject({ name: 'Chosen Name', email: 'chosen@example.com' });
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: 'Chosen Name' });
+    expect(writes()).toEqual([]);
+  });
+
+  it('fills only the empty field, keeping the one the user set', async () => {
+    const { users, run } = setUp({ profiles: [{ ...STORED, name: 'Chosen Name', email: null }] });
+
+    await run();
+
+    expect(users.stored('u1', 'u1')).toMatchObject({
+      name: 'Chosen Name',
+      email: 'ada@example.com',
     });
   });
 
-  test('backfills email only, keeping the stored name when the token has no name', async () => {
-    const stored = {
-      id: 'u1',
-      name: 'Stored Name',
-      email: 'old@example.com',
-      createdAt: STORED_USER.createdAt,
-    };
-    const container = makeContainer({
-      item: vi.fn().mockReturnValue({ read: async () => ({ resource: stored }) }),
-    });
-    const noNameAuth = async () => ({ userId: 'u1', userEmail: 'new@example.com', userName: null });
-    const res = await getMe(req, noNameAuth, () => container);
+  it('keeps a name the user chose while the backfill was in flight', async () => {
+    const { users, run } = setUp({ profiles: [{ ...STORED, name: null }] });
+    users.beforeNext('replace', () => users.seed({ ...STORED, name: 'Just chosen' }));
 
-    expect(container.items.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: 'Stored Name', email: 'new@example.com' }),
-    );
-    expect(res.jsonBody.name).toBe('Stored Name');
-    expect(res.jsonBody.email).toBe('new@example.com');
+    const response = await run();
+
+    expect(response.jsonBody.name).toBe('Just chosen');
+    expect(users.stored('u1', 'u1').name).toBe('Just chosen');
   });
 
-  test('backfills name only, keeping the stored email when the token has no email', async () => {
-    const stored = {
-      id: 'u1',
-      name: 'Old Name',
-      email: 'stored@example.com',
-      createdAt: STORED_USER.createdAt,
-    };
-    const container = makeContainer({
-      item: vi.fn().mockReturnValue({ read: async () => ({ resource: stored }) }),
-    });
-    const noEmailAuth = async () => ({ userId: 'u1', userEmail: null, userName: 'New Name' });
-    const res = await getMe(req, noEmailAuth, () => container);
+  it('answers with the profile as read when it vanished during a conflicting backfill', async () => {
+    const { users, run } = setUp({ profiles: [{ ...STORED, name: null }] });
+    users.failOn('replace', { error: cosmosError(412, 'Precondition failed') });
+    users.beforeNext('replace', () => users.item('u1', 'u1').delete());
 
-    expect(container.items.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: 'New Name', email: 'stored@example.com' }),
-    );
-    expect(res.jsonBody.name).toBe('New Name');
-    expect(res.jsonBody.email).toBe('stored@example.com');
+    const response = await run();
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.name).toBeNull();
   });
 
-  test('does not upsert when stored name/email already match the token', async () => {
-    const container = makeContainer();
-    await getMe(req, mockAuth, () => container);
+  it('re-throws a failed backfill that is not a conflict', async () => {
+    const { users, run } = setUp({ profiles: [{ ...STORED, name: null }] });
+    users.failOn('replace', { error: cosmosError(503, 'Service unavailable') });
 
-    expect(container.items.upsert).not.toHaveBeenCalled();
-    expect(container.items.create).not.toHaveBeenCalled();
+    await expect(run()).rejects.toThrow('Service unavailable');
   });
 
-  test('re-throws non-404 Cosmos errors', async () => {
-    const err = Object.assign(new Error('Service unavailable'), { code: 503 });
-    const container = makeContainer({
-      item: vi.fn().mockReturnValue({
-        read: async () => {
-          throw err;
-        },
-      }),
-    });
+  it('re-throws read errors other than 404', async () => {
+    const { users, run } = setUp();
+    users.failOn('read', { error: cosmosError(503, 'Service unavailable') });
 
-    await expect(getMe(req, mockAuth, () => container)).rejects.toThrow('Service unavailable');
+    await expect(run()).rejects.toThrow('Service unavailable');
   });
 
-  test('returns 401 when auth fails', async () => {
-    const authFail = async () => null;
-    const container = makeContainer();
-    const res = await getMe(req, authFail, () => container);
+  it('re-throws a failed create that is not a conflict', async () => {
+    const { users, run } = setUp({ profiles: [] });
+    users.failOn('create', { error: cosmosError(503, 'Service unavailable') });
 
-    expect(res.status).toBe(401);
-    expect(container.item).not.toHaveBeenCalled();
+    await expect(run()).rejects.toThrow('Service unavailable');
+  });
+
+  it('returns 401 without reading or writing when the caller is not signed in', async () => {
+    const { users, run } = setUp({ authenticate: signedOut });
+
+    const response = await run();
+
+    expect(response.status).toBe(401);
+    expect(users.calls).toEqual([]);
   });
 });

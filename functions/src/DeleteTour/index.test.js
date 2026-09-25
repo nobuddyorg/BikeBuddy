@@ -1,143 +1,161 @@
 'use strict';
 
 const { deleteTour } = require('./index');
+const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const { fakeImagesContainer, fakeGpxContainer } = require('../../test/fakes/blobContainer');
+const { signedInAs, signedOut } = require('../../test/fakes/collaborators');
 
-const TID = '11111111-1111-4111-8111-111111111111';
-const TOUR = { id: TID, userId: 'u1', name: 'Alps' };
+const TOUR_ID = '11111111-1111-4111-8111-111111111111';
+const SIBLING_ID = '22222222-2222-4222-8222-222222222222';
+const OTHER_TOUR_ID = '99999999-9999-4999-8999-999999999999';
 
-const mockAuth = async () => ({ userId: 'u1' });
+const TOUR = {
+  id: TOUR_ID,
+  userId: 'u1',
+  name: 'Alps',
+  images: [{ id: 'img1', blobName: `u1/${TOUR_ID}/img1.jpg` }, { id: 'img2' }],
+};
+const SIBLING = { id: SIBLING_ID, userId: 'u1', name: 'Kept', images: [{ id: 'img3' }] };
+const OTHER_USERS_TOUR = { id: OTHER_TOUR_ID, userId: 'u2', name: 'Not yours', images: [] };
 
-function makeToursContainer(readImpl) {
-  const read = vi.fn(readImpl);
-  const del = vi.fn().mockResolvedValue({});
-  const item = vi.fn().mockReturnValue({ read, delete: del });
-  return { container: { item }, item, read, del };
+const TOUR_BLOBS = {
+  gpx: [`u1/${TOUR_ID}.gpx`],
+  images: [
+    `u1/${TOUR_ID}/img1.jpg`,
+    `u1/${TOUR_ID}/img1_thumb.jpg`,
+    `u1/${TOUR_ID}/img2.jpg`,
+    `u1/${TOUR_ID}/img2_thumb.jpg`,
+  ],
+};
+const SURVIVING_BLOBS = {
+  gpx: [`u1/${SIBLING_ID}.gpx`, `u2/${OTHER_TOUR_ID}.gpx`, `u2/${TOUR_ID}.gpx`],
+  images: [
+    `u1/${SIBLING_ID}/img3.jpg`,
+    `u1/${SIBLING_ID}/img3_thumb.jpg`,
+    `u2/${TOUR_ID}/img1.jpg`,
+    `u2/${TOUR_ID}/img1_thumb.jpg`,
+  ],
+};
+
+function setUp({ authenticate = signedInAs('u1') } = {}) {
+  const tours = fakeToursContainer([TOUR, SIBLING, OTHER_USERS_TOUR]);
+  const gpx = fakeGpxContainer([...TOUR_BLOBS.gpx, ...SURVIVING_BLOBS.gpx]);
+  const images = fakeImagesContainer([...TOUR_BLOBS.images, ...SURVIVING_BLOBS.images]);
+  const run = (tourId) =>
+    deleteTour(
+      { params: { tourId } },
+      {
+        authenticate,
+        toursContainer: () => tours,
+        gpxContainer: async () => gpx,
+        imagesContainer: async () => images,
+      },
+    );
+  return { tours, gpx, images, run };
 }
-
-function makeGpxContainer() {
-  const deleteIfExists = vi.fn().mockResolvedValue({ succeeded: true });
-  const getBlockBlobClient = vi.fn().mockReturnValue({ deleteIfExists });
-  return { container: { getBlockBlobClient }, getBlockBlobClient, deleteIfExists };
-}
-
-const reqWith = (tourId) => ({ params: { tourId } });
 
 describe('DELETE /api/tours/{tourId}', () => {
-  it('deletes blob + document and returns 204', async () => {
-    const tours = makeToursContainer(async () => ({ resource: TOUR }));
-    const gpx = makeGpxContainer();
-    const res = await deleteTour(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => gpx.container,
-    );
+  it('deletes the document, its GPX and every photo with its thumbnail, and returns 204', async () => {
+    const { tours, gpx, images, run } = setUp();
 
-    expect(gpx.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}.gpx`);
-    expect(gpx.deleteIfExists).toHaveBeenCalled();
-    expect(tours.item).toHaveBeenCalledWith(TID, 'u1');
-    expect(tours.del).toHaveBeenCalled();
-    expect(res.status).toBe(204);
+    const response = await run(TOUR_ID);
+
+    expect(response.status).toBe(204);
+    expect(tours.stored(TOUR_ID, 'u1')).toBeUndefined();
+    expect(gpx.names()).toEqual([...SURVIVING_BLOBS.gpx].sort());
+    expect(images.names()).toEqual([...SURVIVING_BLOBS.images].sort());
   });
 
-  it('deletes the document before the blob', async () => {
-    const order = [];
-    const tours = makeToursContainer(async () => ({ resource: TOUR }));
-    tours.del.mockImplementation(async () => {
-      order.push('doc');
-      return {};
-    });
-    const gpx = makeGpxContainer();
-    gpx.deleteIfExists.mockImplementation(async () => {
-      order.push('blob');
-      return { succeeded: true };
+  it("leaves the caller's other tours and every other user's data alone", async () => {
+    const { tours, run } = setUp();
+
+    await run(TOUR_ID);
+
+    expect(tours.stored(SIBLING_ID, 'u1')).toMatchObject({ name: 'Kept' });
+    expect(tours.stored(OTHER_TOUR_ID, 'u2')).toMatchObject({ name: 'Not yours' });
+  });
+
+  it('deletes the document before any blob', async () => {
+    const { tours, gpx, images, run } = setUp();
+    let blobsWhenDocumentDeleted = [];
+    tours.beforeNext('delete', () => {
+      blobsWhenDocumentDeleted = [...gpx.names(), ...images.names()];
     });
 
-    await deleteTour(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => gpx.container,
+    await run(TOUR_ID);
+
+    expect(blobsWhenDocumentDeleted).toEqual(
+      expect.arrayContaining([...TOUR_BLOBS.gpx, ...TOUR_BLOBS.images]),
     );
-
-    // Blob-first would leave a live tour whose GPX download 404s if the
-    // document delete then failed; doc-first leaves only an orphaned blob.
-    expect(order).toEqual(['doc', 'blob']);
   });
 
-  it('does not delete the blob when the document delete fails', async () => {
-    const tours = makeToursContainer(async () => ({ resource: TOUR }));
-    tours.del.mockRejectedValue(Object.assign(new Error('conflict'), { code: 409 }));
-    const gpx = makeGpxContainer();
+  it('deletes no blob when the document delete fails', async () => {
+    const { tours, gpx, images, run } = setUp();
+    tours.failOn('delete', { error: cosmosError(503, 'cosmos down') });
 
-    await expect(
-      deleteTour(
-        reqWith(TID),
-        mockAuth,
-        () => tours.container,
-        () => gpx.container,
-      ),
-    ).rejects.toThrow('conflict');
+    await expect(run(TOUR_ID)).rejects.toThrow('cosmos down');
 
-    expect(gpx.deleteIfExists).not.toHaveBeenCalled();
+    expect(gpx.names()).toContain(`u1/${TOUR_ID}.gpx`);
+    expect(images.names()).toEqual([...TOUR_BLOBS.images, ...SURVIVING_BLOBS.images].sort());
   });
 
-  it('returns 400 when tourId is not a UUID', async () => {
-    const tours = makeToursContainer(async () => ({ resource: TOUR }));
-    const gpx = makeGpxContainer();
-    const res = await deleteTour(
-      reqWith('bad'),
-      mockAuth,
-      () => tours.container,
-      () => gpx.container,
-    );
+  it('surfaces a blob delete failure after the document is gone, having tried every blob', async () => {
+    const { tours, gpx, images, run } = setUp();
+    gpx.failOn('delete', { error: new Error('storage down') });
 
-    expect(res.status).toBe(400);
-    expect(tours.item).not.toHaveBeenCalled();
+    const error = await run(TOUR_ID).catch((failure) => failure);
+
+    expect(error).toBeInstanceOf(AggregateError);
+    expect(error.message).toBe(`Tour ${TOUR_ID} was deleted, but some of its blobs were not`);
+    expect(error.errors.map((failure) => failure.message)).toEqual(['storage down']);
+    expect(tours.stored(TOUR_ID, 'u1')).toBeUndefined();
+    expect(images.names()).toEqual([...SURVIVING_BLOBS.images].sort());
   });
 
-  it('returns 404 when the tour is not in the caller partition', async () => {
-    const tours = makeToursContainer(async () => ({ resource: undefined }));
-    const gpx = makeGpxContainer();
-    const res = await deleteTour(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => gpx.container,
-    );
+  it('succeeds when some of its blobs are already gone', async () => {
+    const { gpx, images, run } = setUp();
+    await gpx.getBlockBlobClient(`u1/${TOUR_ID}.gpx`).deleteIfExists();
+    await images.getBlockBlobClient(`u1/${TOUR_ID}/img2_thumb.jpg`).deleteIfExists();
 
-    expect(res.status).toBe(404);
-    expect(gpx.deleteIfExists).not.toHaveBeenCalled();
-    expect(tours.del).not.toHaveBeenCalled();
+    const response = await run(TOUR_ID);
+
+    expect(response.status).toBe(204);
+    expect(images.names()).toEqual([...SURVIVING_BLOBS.images].sort());
   });
 
-  it('re-throws non-404 read errors', async () => {
-    const tours = makeToursContainer(async () => {
-      throw Object.assign(new Error('boom'), { code: 503 });
-    });
-    const gpx = makeGpxContainer();
-    await expect(
-      deleteTour(
-        reqWith(TID),
-        mockAuth,
-        () => tours.container,
-        () => gpx.container,
-      ),
-    ).rejects.toThrow('boom');
+  it("returns 404 for another user's tour that exists, deleting nothing", async () => {
+    const { tours, gpx, images, run } = setUp();
+
+    const response = await run(OTHER_TOUR_ID);
+
+    expect(response.status).toBe(404);
+    expect(tours.stored(OTHER_TOUR_ID, 'u2')).toBeDefined();
+    expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
+    expect([...gpx.calls, ...images.calls]).toEqual([]);
   });
 
-  it('returns 401 when auth fails', async () => {
-    const failAuth = async () => null;
-    const tours = makeToursContainer(async () => ({ resource: TOUR }));
-    const gpx = makeGpxContainer();
-    const res = await deleteTour(
-      reqWith(TID),
-      failAuth,
-      () => tours.container,
-      () => gpx.container,
-    );
+  it('re-throws read errors other than 404', async () => {
+    const { tours, run } = setUp();
+    tours.failOn('read', { error: cosmosError(503, 'boom') });
 
-    expect(res.status).toBe(401);
-    expect(tours.item).not.toHaveBeenCalled();
+    await expect(run(TOUR_ID)).rejects.toThrow('boom');
+  });
+
+  it('returns 400 before any read when tourId is not a UUID', async () => {
+    const { tours, run } = setUp();
+
+    const response = await run('bad');
+
+    expect(response.status).toBe(400);
+    expect(tours.calls).toEqual([]);
+  });
+
+  it('returns 401 without reading or deleting when the caller is not signed in', async () => {
+    const { tours, gpx, images, run } = setUp({ authenticate: signedOut });
+
+    const response = await run(TOUR_ID);
+
+    expect(response.status).toBe(401);
+    expect([...tours.calls, ...gpx.calls, ...images.calls]).toEqual([]);
   });
 });

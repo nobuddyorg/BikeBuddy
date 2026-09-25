@@ -272,8 +272,8 @@ cd functions && npm run depcruise
 | Rule                                | Holds that                                                                                                                   |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `no-circular`                       | no import cycles                                                                                                             |
-| `cosmos-only-in-db`                 | only `functions/src/lib/db.js` imports `@azure/cosmos` (operator scripts, the e2e cleanup and the query-cost guard excepted) |
-| `blob-only-in-blob-storage`         | only `functions/src/lib/blobStorage.js` imports `@azure/storage-blob` (backfill scripts excepted)                            |
+| `cosmos-only-in-db`                 | only `functions/src/lib/db.js` imports `@azure/cosmos` (`init-cosmos.js`, the e2e cleanup and the query-cost guard excepted) |
+| `blob-only-in-blob-storage`         | only `functions/src/lib/blobStorage.js` (and its test) imports `@azure/storage-blob`                                         |
 | `handlers-share-through-lib`        | a Function handler never imports another handler                                                                             |
 | `backend-lib-is-a-leaf`             | `lib/` and `middleware/` never import a handler                                                                              |
 | `frontend-lib-is-pure`              | `frontend/src/lib/` never imports `ui/` or `app.js`                                                                          |
@@ -437,7 +437,7 @@ detail panel, both colour schemes and the mobile layouts. The rules are WCAG
 `<main>` or `<h1>`), and the gate is zero violations.
 
 ```ts
-await on(page).a11y.check("upload modal with a file error");
+await on(page).a11y.check('upload modal with a file error');
 ```
 
 - The helper is [`e2e/axe.ts`](../../e2e/axe.ts), reached through the page-object

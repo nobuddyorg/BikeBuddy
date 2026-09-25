@@ -1,7 +1,7 @@
 'use strict';
 
 const { resizeThumbnail } = require('../../src/lib/resizeImage');
-const { thumbBlobName } = require('../../src/lib/thumbBlobName');
+const { thumbnailBlobName } = require('../../src/lib/blobNames');
 const { queryItems } = require('./queryItems');
 const { runBackfill } = require('./cli');
 
@@ -14,7 +14,7 @@ async function* imageBlobNames(toursContainer) {
 }
 
 async function backfillImage({ blobName, imagesContainer, handleThumbnail }) {
-  const thumbnailBlob = imagesContainer.getBlockBlobClient(thumbBlobName(blobName));
+  const thumbnailBlob = imagesContainer.getBlockBlobClient(thumbnailBlobName(blobName));
   if (await thumbnailBlob.exists()) return 'skipped';
   const image = await imagesContainer.getBlockBlobClient(blobName).downloadToBuffer();
   await handleThumbnail(thumbnailBlob, await resizeThumbnail(image));

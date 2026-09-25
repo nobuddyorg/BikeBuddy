@@ -16,15 +16,14 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'forks',
-    // Unit tests live next to the modules; integration tests (test/integration)
-    // need a running func host and run via vitest.integration.config.js.
-    include: ['src/**/*.test.js', 'scripts/**/*.test.{js,mjs}'],
+    // Unit tests sit next to their modules or in test/unit; test/integration needs a running host.
+    include: ['src/**/*.test.js', 'test/unit/**/*.test.js', 'scripts/**/*.test.{js,mjs}'],
     setupFiles: ['test/fast-check.setup.js'],
     coverage: {
       provider: 'v8',
       // lcov → Codecov; json-summary → CI job summary; text → CI log
       reporter: ['text', 'lcov', 'json-summary'],
-      include: ['src/**/*.js', 'scripts/lib/**/*.{js,mjs}'],
+      include: ['src/**/*.js', 'scripts/lib/**/*.{js,mjs}', 'test/integration/emulatorGuard.js'],
       exclude: [
         'src/**/*.test.js',
         'scripts/**/*.test.{js,mjs}',

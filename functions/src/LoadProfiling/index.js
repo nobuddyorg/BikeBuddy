@@ -1,17 +1,17 @@
 'use strict';
 
-// Not an endpoint: loaded with the handlers (package.json "main"), it turns on
-// the load-test instrumentation in lib/profiling.js when LOAD_PROFILING=true.
+// Not an endpoint: loaded with the handlers, it switches on the load-test instrumentation.
 const { app } = require('@azure/functions');
-const { enabled, registerInvocationHooks, startSampling } = require('../lib/profiling');
+const profiling = require('../lib/profiling');
 
-function setUp(appInstance = app, lib = { enabled, registerInvocationHooks, startSampling }) {
-  if (!lib.enabled()) return false;
-  lib.registerInvocationHooks(appInstance);
-  lib.startSampling();
+function setUp({ functionsApp, environment, instrumentation }) {
+  if (!instrumentation.isEnabled(environment)) return false;
+  const write = (line) => console.log(line);
+  instrumentation.registerInvocationHooks(functionsApp, { now: () => performance.now(), write });
+  instrumentation.startSampling({ write, readMemory: () => process.memoryUsage() });
   return true;
 }
 
-setUp();
+setUp({ functionsApp: app, environment: process.env, instrumentation: profiling });
 
 module.exports = { setUp };
