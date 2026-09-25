@@ -68,9 +68,10 @@ module.exports = {
       severity: 'error',
       comment:
         'Blob Storage is reached only through functions/src/lib/blobStorage.js (SAS, container ' +
-        'creation). Exception: the backfill scripts, as for Cosmos.',
+        "creation). Exceptions: the backfill scripts, as for Cosmos, and the adapter's own test, " +
+        'which signs URLs with a real shared-key credential to check their scope.',
       from: {
-        pathNot: ['^functions/src/lib/blobStorage\\.js$', '^functions/scripts/'],
+        pathNot: ['^functions/src/lib/blobStorage\\.(test\\.)?js$', '^functions/scripts/'],
       },
       to: { path: '@azure/storage-blob' },
     },
