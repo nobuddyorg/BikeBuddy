@@ -2,6 +2,11 @@
 // user) with tours for the signed-in Lighthouse run: deterministic tracks of a
 // realistic size, so the map and list render what a real account shows.
 const API = process.env.LIGHTHOUSE_API_URL ?? 'http://127.0.0.1:7071';
+// Writes as whoever the API takes the caller for: only a host on this machine qualifies.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+if (!LOCAL_HOSTS.has(new URL(API).hostname)) {
+  throw new Error(`Refusing to seed ${API}: only a local Functions host is seeded`);
+}
 const TOURS = Number(process.env.LIGHTHOUSE_TOURS ?? 12);
 const POINTS = 2000;
 
@@ -34,7 +39,9 @@ function gpx(index) {
   return `<?xml version="1.0"?><gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>${points.join('')}</trkseg></trk></gpx>`;
 }
 
-const existing = await fetch(`${API}/api/tours`).then((r) => r.json());
+const listing = await fetch(`${API}/api/tours`);
+if (!listing.ok) throw new Error(`listing the seeded tours failed: HTTP ${listing.status}`);
+const existing = await listing.json();
 if (existing.length >= TOURS) {
   console.log(`Already seeded (${existing.length} tours).`);
 } else {

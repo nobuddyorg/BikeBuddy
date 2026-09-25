@@ -1,12 +1,8 @@
-import { CosmosClient, type Container } from '@azure/cosmos';
+import { CosmosClient, type Container, type Database } from '@azure/cosmos';
+import { assertEmulatorSettings } from '../emulator-guard';
 
 // Direct Cosmos access, so tests can start from a clean database and assert what
-// the backend persisted. Falls back to the well-known emulator endpoint when
-// COSMOS_CONNECTION_STRING isn't exported.
-const CONNECTION_STRING =
-  process.env.COSMOS_CONNECTION_STRING ||
-  'AccountEndpoint=http://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw==';
-const DATABASE = process.env.COSMOS_DATABASE || 'bikebuddy';
+// the backend persisted; the same emulator the Functions host uses, or nothing.
 
 export interface UserDoc {
   id: string;
@@ -16,10 +12,13 @@ export interface UserDoc {
   language?: string;
 }
 
-let client: CosmosClient | undefined;
+let database: Database | undefined;
 function db() {
-  if (!client) client = new CosmosClient(CONNECTION_STRING);
-  return client.database(DATABASE);
+  if (!database) {
+    const { cosmosConnectionString, cosmosDatabase } = assertEmulatorSettings();
+    database = new CosmosClient(cosmosConnectionString).database(cosmosDatabase);
+  }
+  return database;
 }
 
 function usersContainer(): Container {
