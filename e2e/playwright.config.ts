@@ -14,7 +14,7 @@ export default defineConfig({
   globalTeardown: './global-teardown.ts',
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 1 : 0,
+  retries: 0, // a flake is a defect: fixed or deleted, never retried
   reporter: isCI
     ? [
         ['github'],
@@ -25,7 +25,7 @@ export default defineConfig({
     : [['list']],
   use: {
     baseURL: `http://localhost:${PORT}`,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

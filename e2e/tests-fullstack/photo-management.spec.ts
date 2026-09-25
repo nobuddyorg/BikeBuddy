@@ -63,30 +63,34 @@ buddyTest('opens and closes the lightbox for a photo', async ({ on, page }) => {
   await expect(on(page).modal.lightbox()).toBeHidden();
 });
 
-buddyTest('retries a failed upload and it succeeds the second time', async ({ on, page }) => {
-  await page.goto('/');
-  await expect(on(page).main.locators.userMenu).toBeVisible();
+buddyTest.describe('a failed photo upload', () => {
+  buddyTest.use({ allowedConsoleErrors: { matching: [/status of 500/] } });
 
-  const tourName = `Retry Upload ${Date.now()}`;
-  await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).detail.locators.name).toHaveText(tourName);
+  buddyTest('is retried and succeeds the second time', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
 
-  // Only the first attempt fails; the retry goes to the real backend.
-  let attempt = 0;
-  await page.route('**/api/tours/*/images', async (route) => {
-    attempt++;
-    if (attempt === 1) {
-      await route.fulfill({ status: 500, body: 'Internal Server Error' });
-    } else {
-      await route.continue();
-    }
+    const tourName = `Retry Upload ${Date.now()}`;
+    await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+    await expect(on(page).detail.locators.name).toHaveText(tourName);
+
+    // Only the first attempt fails; the retry goes to the real backend.
+    let attempt = 0;
+    await page.route('**/api/tours/*/images', async (route) => {
+      attempt++;
+      if (attempt === 1) {
+        await route.fulfill({ status: 500, body: 'Internal Server Error' });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await on(page).detail.do.addPhotos(SAMPLE_JPG);
+    await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(1);
+    await expect(on(page).detail.locators.photos.retryButtons).toHaveCount(1);
+
+    await on(page).detail.do.retryPhoto();
+    await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
+    await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(0);
   });
-
-  await on(page).detail.do.addPhotos(SAMPLE_JPG);
-  await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(1);
-  await expect(on(page).detail.locators.photos.retryButtons).toHaveCount(1);
-
-  await on(page).detail.do.retryPhoto();
-  await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
-  await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(0);
 });

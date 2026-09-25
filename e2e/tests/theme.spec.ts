@@ -1,11 +1,11 @@
-import { buddyTest, expect } from '../pages/buddy-test';
+import { expect, staticTest } from '../fixtures/api-mocks';
 
 // #216: site chrome and map tiles follow the OS prefers-color-scheme setting,
 // including live updates if the OS theme changes mid-session. The palette's
 // values and contrast are pinned by frontend/test/contrast.test.js.
 
-buddyTest.describe('system dark/light mode', () => {
-  buddyTest('light OS preference renders light map tiles', async ({ on, page }) => {
+staticTest.describe('system dark/light mode', () => {
+  staticTest('light OS preference renders light map tiles', async ({ on, page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/');
 
@@ -13,7 +13,7 @@ buddyTest.describe('system dark/light mode', () => {
     await on(page).a11y.check('light theme');
   });
 
-  buddyTest('dark OS preference renders dark map tiles', async ({ on, page }) => {
+  staticTest('dark OS preference renders dark map tiles', async ({ on, page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');
 
@@ -21,7 +21,7 @@ buddyTest.describe('system dark/light mode', () => {
     await on(page).a11y.check('dark theme');
   });
 
-  buddyTest('switching the OS theme live updates both CSS and map tiles', async ({ on, page }) => {
+  staticTest('switching the OS theme live updates both CSS and map tiles', async ({ on, page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/');
     await expect(on(page).map()).toHaveAttribute('data-tiles', 'light');
