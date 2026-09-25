@@ -1,5 +1,6 @@
 import * as i18n from './i18n.js';
 import { groupByProximity, fanOffsets } from '../lib/pinLayout.js';
+import { geotaggedImages as geotaggedImagesOf, indexOfImage } from '../lib/images.js';
 import { state } from './state.js';
 import { map } from './map.js';
 import { show, elPinToggle } from './dom.js';
@@ -12,17 +13,8 @@ const PIN_GROUP_THRESHOLD_PX = 24;
 const PIN_FAN_RADIUS_PX = 16;
 const PIN_MIN_ZOOM = 7;
 
-// Scoped to the selected tour so its pins never leak in photos from others,
-// and across every loaded tour on the full map.
 function geotaggedImages() {
-  const tours = state.selectedTourId
-    ? state.tours.filter((t) => t.id === state.selectedTourId)
-    : state.tours;
-  return tours.flatMap((t) =>
-    (t.images || [])
-      .filter((img) => typeof img.lat === 'number' && typeof img.lon === 'number')
-      .map((img) => ({ ...img, tourId: t.id })),
-  );
+  return geotaggedImagesOf({ tours: state.tours, selectedTourId: state.selectedTourId });
 }
 
 // L.divIcon's element form, not its string form: img.src is a property write
@@ -64,8 +56,7 @@ function makePinMarker(img, latlng) {
   });
   marker.on('click', () => {
     const images = geotaggedImages();
-    const index = images.findIndex((i) => i.id === img.id);
-    openLightbox(images, index < 0 ? 0 : index);
+    openLightbox(images, indexOfImage(images, img.id));
   });
   return marker;
 }

@@ -6,6 +6,8 @@ import {
   validateImageUpload,
   validateImageBatch,
   validateImageQuota,
+  defaultTourName,
+  planImageUploads,
   MAX_UPLOAD_BYTES,
   MAX_IMAGE_BATCH,
   MAX_TOUR_IMAGES,
@@ -100,5 +102,45 @@ describe('validateImageQuota', () => {
     const limitReached = [{ key: 'errors.tourImageLimit', params: { max: MAX_TOUR_IMAGES } }];
     expect(validateImageQuota(MAX_TOUR_IMAGES)).toEqual(limitReached);
     expect(validateImageQuota(MAX_TOUR_IMAGES + 1)).toEqual(limitReached);
+  });
+});
+
+describe('defaultTourName', () => {
+  it('drops the .gpx extension, whatever its case', () => {
+    expect(defaultTourName('Alpine Loop.GPX')).toBe('Alpine Loop');
+    expect(defaultTourName('ride.gpx.gpx')).toBe('ride.gpx');
+  });
+});
+
+describe('planImageUploads', () => {
+  const jpeg = (name) => file(name, 'image/jpeg');
+
+  it('accepts valid photos while the tour has room', () => {
+    const files = [jpeg('a.jpg'), jpeg('b.jpg')];
+    expect(planImageUploads({ files, existingCount: 0 })).toEqual([
+      { file: files[0], problems: [] },
+      { file: files[1], problems: [] },
+    ]);
+  });
+
+  it('stops accepting once the tour is full, counting only accepted photos', () => {
+    const files = [file('bad.gif', 'image/gif'), jpeg('a.jpg'), jpeg('b.jpg')];
+    const plan = planImageUploads({ files, existingCount: MAX_TOUR_IMAGES - 1 });
+    expect(plan.map(({ problems }) => problems.map((problem) => problem.key))).toEqual([
+      ['errors.imageType'],
+      [],
+      ['errors.tourImageLimit'],
+    ]);
+  });
+
+  it('lists the quota problem before the file problem', () => {
+    const [{ problems }] = planImageUploads({
+      files: [file('bad.gif', 'image/gif')],
+      existingCount: MAX_TOUR_IMAGES,
+    });
+    expect(problems.map((problem) => problem.key)).toEqual([
+      'errors.tourImageLimit',
+      'errors.imageType',
+    ]);
   });
 });

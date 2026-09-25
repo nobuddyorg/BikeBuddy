@@ -1,3 +1,4 @@
+import { imagesOfTour, indexOfImage } from '../lib/images.js';
 import * as i18n from './i18n.js';
 import { state } from './state.js';
 import { show, elImageGrid, elImageError, elImageDropzone } from './dom.js';
@@ -25,10 +26,9 @@ export function createImageTile(image) {
   // Skeleton shimmer (style.css) until the photo has actually loaded.
   img.addEventListener('load', () => img.classList.add('is-loaded'));
   img.addEventListener('click', () => {
-    const tour = state.tours.find((t) => t.id === state.selectedTourId);
-    const images = (tour?.images || []).map((i) => ({ ...i, tourId: tour.id }));
-    const index = images.findIndex((i) => i.id === image.id);
-    openLightbox(images, index < 0 ? 0 : index);
+    const tour = state.tours.find((candidate) => candidate.id === state.selectedTourId);
+    const images = tour ? imagesOfTour(tour) : [];
+    openLightbox(images, indexOfImage(images, image.id));
   });
   // thumbUrl is always a signed URL even for photos that predate #466's
   // real-thumbnail work and have no thumb blob yet — SAS signing doesn't

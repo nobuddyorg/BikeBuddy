@@ -6,13 +6,23 @@ import {
   formatDuration,
   formatSpeed,
 } from '../lib/format.js';
-import { withUpdatedDate } from '../lib/tours.js';
+import {
+  buildTourPatch,
+  deletionFailureMessage,
+  removeToursById,
+  toDateInputValue,
+} from '../lib/tours.js';
 import { runWithConcurrency } from '../lib/concurrency.js';
 import { parseErrorMessage } from '../lib/upload.js';
 import { state } from './state.js';
 import { apiFetch } from './api.js';
 import { toast } from './toast.js';
-import { renderAllRoutes, renderRoutes } from './routes.js';
+import {
+  renderAllRoutes,
+  redrawAllRoutesInPlace,
+  renderRoutes,
+  SINGLE_TOUR_PADDING_PX,
+} from './routes.js';
 import { renderPins } from './pins.js';
 import { ensureDetail } from './tourData.js';
 import { resetImageSection, renderGallery } from './gallery.js';
@@ -56,7 +66,7 @@ async function focusTourOnMap(tourId) {
   await ensureDetail(tour);
   if (state.selectedTourId !== tourId) return null; // user switched while loading
   show(elMapEmpty, false);
-  renderRoutes([tour.heatmapData || []], 60);
+  renderRoutes([tour.heatmapData || []], SINGLE_TOUR_PADDING_PX);
   renderPins();
   return tour;
 }
@@ -94,7 +104,7 @@ export function closeDetailPanel() {
   // route, but without re-fitting the camera, so closing the panel doesn't
   // yank the view around; only "Show all tours" does that. Mobile's map is
   // off-screen until reopened, which draws fresh then (renderSelectedToursRoutes).
-  if (!wasMobile) renderAllRoutes(undefined, false);
+  if (!wasMobile) redrawAllRoutesInPlace();
   show(elBtnMobileMapFab, true);
   refreshMapSize();
 }
@@ -103,7 +113,7 @@ export function openEdit() {
   const tour = state.tours.find((t) => t.id === state.selectedTourId);
   if (!tour) return;
   elEditName.value = tour.name || '';
-  elEditDate.value = tour.createdAt ? tour.createdAt.slice(0, 10) : '';
+  elEditDate.value = toDateInputValue(tour.createdAt);
   elEditDescription.value = tour.description || '';
   show(elEditError, false);
   openModal(elEditModal);
@@ -124,11 +134,14 @@ export async function submitEdit(e) {
     const res = await apiFetch(`/api/tours/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: elEditName.value.trim(),
-        description: elEditDescription.value.trim(),
-        createdAt: withUpdatedDate(tour.createdAt, elEditDate.value),
-      }),
+      body: JSON.stringify(
+        buildTourPatch({
+          name: elEditName.value,
+          description: elEditDescription.value,
+          date: elEditDate.value,
+          createdAt: tour.createdAt,
+        }),
+      ),
     });
     if (!res.ok) {
       elEditError.textContent = tApi(parseErrorMessage(await res.text(), t('errors.saveChanges')));
@@ -159,7 +172,7 @@ const DELETE_GRACE_MS = 6000;
 // objects (not just ids) so Undo can restore them without a re-fetch.
 function scheduleTourRemoval(tours) {
   const ids = tours.map((tour) => tour.id);
-  state.tours = state.tours.filter((tour) => !ids.includes(tour.id));
+  state.tours = removeToursById(state.tours, ids);
   ids.forEach((id) => state.selectedIds.delete(id));
   if (ids.includes(state.selectedTourId)) closeDetailPanel();
   state.selectMode = false;
@@ -184,12 +197,11 @@ function scheduleTourRemoval(tours) {
     state.tours.push(...tours.filter((tour) => failed.includes(tour.id)));
     announce(TOURS_CHANGED);
     await renderAllRoutes();
-    toast(
-      succeeded.length === 0
-        ? t('toast.tourDeleteError')
-        : t('toast.toursDeletedPartial', { deleted: succeeded.length, count: ids.length }),
-      'error',
-    );
+    const message = deletionFailureMessage({
+      succeededCount: succeeded.length,
+      totalCount: ids.length,
+    });
+    toast(t(message.key, message.params), 'error');
   }, DELETE_GRACE_MS);
 
   toast(t('toast.toursDeleted', { count: ids.length }), 'success', DELETE_GRACE_MS, {

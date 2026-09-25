@@ -1,3 +1,4 @@
+import { clampSwipe, exceedsTolerance, isVerticalIntent } from '../lib/gestures.js';
 import { state } from './state.js';
 import { elSidebar } from './dom.js';
 
@@ -62,7 +63,7 @@ export function bindLongPress(el, onLongPress) {
     if (!start) return;
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
-    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_TOLERANCE_PX) cancel();
+    if (exceedsTolerance({ dx, dy, tolerancePx: LONG_PRESS_MOVE_TOLERANCE_PX })) cancel();
   });
 
   el.addEventListener('pointerup', () => {
@@ -103,17 +104,14 @@ export function bindTourSwipe(contentEl, onSwipeRight) {
     if (!start) return;
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
-    if (!dragging && Math.abs(dy) > Math.abs(dx)) {
+    if (!dragging && isVerticalIntent({ dx, dy })) {
       start = null; // vertical scroll intent — let the browser handle it
       return;
     }
     dragging = true;
     contentEl.style.transition = 'none';
-    // Only the delete background exists now, so leftward drags are clamped
-    // to 0 instead of revealing anything on that side.
-    const maxDx = contentEl.offsetWidth / 2;
-    const clampedDx = Math.max(0, Math.min(maxDx, dx));
-    contentEl.style.transform = `translateX(${clampedDx}px)`;
+    const offset = clampSwipe({ dx, maxDx: contentEl.offsetWidth / 2 });
+    contentEl.style.transform = `translateX(${offset}px)`;
   });
 
   contentEl.addEventListener('pointerup', async (e) => {

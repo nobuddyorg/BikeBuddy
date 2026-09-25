@@ -34,16 +34,23 @@ export const FUNCTIONS_TARGETS = [
 ];
 
 export const FRONTEND_TARGETS = [
+  'src/lib/authConfig.js',
   'src/lib/concurrency.js',
   'src/lib/debounce.js',
   'src/lib/files.js',
   'src/lib/format.js',
+  'src/lib/gestures.js',
   'src/lib/i18n.js',
+  'src/lib/images.js',
+  'src/lib/layout.js',
   'src/lib/lineStyle.js',
   'src/lib/mapData.js',
   'src/lib/pinLayout.js',
+  'src/lib/routes.js',
   'src/lib/sasCache.js',
+  'src/lib/sidebarView.js',
   'src/lib/stats.js',
+  'src/lib/tourDetail.js',
   'src/lib/tours.js',
   'src/lib/upload.js',
   'src/lib/url.js',

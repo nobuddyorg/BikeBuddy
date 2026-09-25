@@ -50,3 +50,18 @@ export function validateImageQuota(existingCount) {
   }
   return [];
 }
+
+export function defaultTourName(fileName) {
+  return fileName.replace(/\.gpx$/i, '');
+}
+
+// Each file's problems, in the order they are shown; the tour's photo cap
+// counts only the files accepted before it.
+export function planImageUploads({ files, existingCount }) {
+  let acceptedCount = existingCount;
+  return files.map((file) => {
+    const problems = [...validateImageQuota(acceptedCount), ...validateImageUpload(file)];
+    if (problems.length === 0) acceptedCount++;
+    return { file, problems };
+  });
+}

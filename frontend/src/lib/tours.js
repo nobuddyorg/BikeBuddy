@@ -1,8 +1,29 @@
 // @ts-check
 
-// Pure tour-list logic: sorting, fuzzy search, paging.
+export const PAGE_SIZE = 10;
 
-const tourTime = (t) => new Date(t.createdAt).getTime() || 0;
+// The order the sort controls list them in; labelKey is the i18n key.
+export const SORT_OPTIONS = [
+  { key: 'date-desc', labelKey: 'sort.dateDesc' },
+  { key: 'date-asc', labelKey: 'sort.dateAsc' },
+  { key: 'name-asc', labelKey: 'sort.nameAsc' },
+  { key: 'name-desc', labelKey: 'sort.nameDesc' },
+  { key: 'length-desc', labelKey: 'sort.lengthDesc' },
+  { key: 'length-asc', labelKey: 'sort.lengthAsc' },
+];
+export const DEFAULT_SORT = SORT_OPTIONS[0].key;
+
+// Scores for matchScore: an exact name beats a prefix beats a word start
+// beats a plain substring beats any scattered subsequence.
+const EXACT_SCORE = 1000;
+const PREFIX_SCORE = 900;
+const WORD_START_SCORE = 800;
+const SUBSTRING_SCORE = 600;
+const SUBSEQUENCE_CEILING = 400;
+// Pushes a description hit below every name hit, however weak.
+const DESCRIPTION_PENALTY = 1000;
+
+const tourTime = (tour) => new Date(tour.createdAt).getTime() || 0;
 
 function sorters(locale) {
   const collator = new Intl.Collator(locale);
@@ -16,94 +37,76 @@ function sorters(locale) {
   };
 }
 
-// Subsequence match: every char of the query appears in order. Returns the
-// matched indices into `text`, or null when it doesn't fully match.
+// Subsequence match: every character of the query appears in order. The
+// indices point into `text`; an empty query matches with none.
 export function fuzzyMatchIndices(query, text) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const t = (text || '').toLowerCase();
+  const needle = query.trim().toLowerCase();
+  const haystack = (text || '').toLowerCase();
   const indices = [];
-  let i = 0;
-  for (let pos = 0; pos < t.length && i < q.length; pos++) {
-    if (t[pos] === q[i]) {
-      indices.push(pos);
-      i++;
-    }
+  for (let position = 0; position < haystack.length && indices.length < needle.length; position++) {
+    if (haystack[position] === needle[indices.length]) indices.push(position);
   }
-  return i === q.length ? indices : null;
+  return { matched: indices.length === needle.length, indices };
 }
 
-// Higher is better; null means no match. Ranks an exact/prefix/word-boundary
-// substring above a merely contiguous one, and any contiguous run above a
-// scattered subsequence — a tighter scatter still beats a sprawling one — so
-// short queries (which match almost everything as a scattered subsequence)
-// still float the real hits to the top.
+function contiguousScore({ haystack, needle, start }) {
+  if (start === 0 && haystack.length === needle.length) return EXACT_SCORE;
+  if (start === 0) return PREFIX_SCORE;
+  if (haystack[start - 1] === ' ' || haystack[start - 1] === '-') return WORD_START_SCORE;
+  return SUBSTRING_SCORE;
+}
+
+// Higher is better. Any contiguous run ranks above a scattered subsequence, and
+// a tighter scatter above a sprawling one, so short queries (which match
+// almost everything as a subsequence) still float the real hits to the top.
 export function matchScore(query, text) {
-  const q = query.trim().toLowerCase();
-  if (!q) return 0;
-  const t = (text || '').toLowerCase();
-  const idx = t.indexOf(q);
-  if (idx !== -1) {
-    if (idx === 0 && t.length === q.length) return 1000;
-    if (idx === 0) return 900;
-    if (t[idx - 1] === ' ' || t[idx - 1] === '-') return 800;
-    return 600;
-  }
-  // q is non-empty here, so a match has at least one index.
-  const indices = fuzzyMatchIndices(q, t);
-  if (!indices) return null;
+  const needle = query.trim().toLowerCase();
+  if (!needle) return { matched: true, score: 0 };
+  const haystack = (text || '').toLowerCase();
+  const start = haystack.indexOf(needle);
+  if (start !== -1) return { matched: true, score: contiguousScore({ haystack, needle, start }) };
+  const { matched, indices } = fuzzyMatchIndices(needle, haystack);
+  if (!matched) return { matched: false, score: 0 };
   const span = indices[indices.length - 1] - indices[0] + 1;
-  return Math.max(1, 400 - span);
+  return { matched: true, score: Math.max(1, SUBSEQUENCE_CEILING - span) };
+}
+
+function relevance({ tour, query }) {
+  const byName = matchScore(query, tour.name || '');
+  if (byName.matched) return [{ tour, score: byName.score }];
+  const byDescription = matchScore(query, tour.description || '');
+  if (!byDescription.matched) return [];
+  return [{ tour, score: byDescription.score - DESCRIPTION_PENALTY }];
 }
 
 // Ranks by relevance when searching name and description; falls back to the
 // chosen sort (as tiebreaker, and outright when the box is empty).
 export function visibleTours({ tours, sort, search, locale }) {
   const byKey = sorters(locale);
-  const sorter = byKey[sort] || byKey['date-desc'];
-  const q = (search || '').trim();
-  if (!q) return [...tours].sort(sorter);
+  const sorter = byKey[sort] || byKey[DEFAULT_SORT];
+  const query = (search || '').trim();
+  if (!query) return [...tours].sort(sorter);
   return tours
-    .map((tour) => {
-      const nameScore = matchScore(q, tour.name || '');
-      if (nameScore !== null) return { tour, score: nameScore };
-      const descScore = matchScore(q, tour.description || '');
-      // Pushed below every name match, however weak, since a hit buried in
-      // the description is a weaker signal than any hit in the name.
-      return descScore !== null ? { tour, score: descScore - 1000 } : null;
-    })
-    .filter(Boolean)
+    .flatMap((tour) => relevance({ tour, query }))
     .sort((a, b) => b.score - a.score || sorter(a.tour, b.tour))
     .map(({ tour }) => tour);
 }
 
 // "In view" means partially on screen, not fully contained. Takes a plain
-// {south, west, north, east} rather than a Leaflet LatLngBounds so this stays
-// framework-free. A tour whose heatmapData isn't loaded yet counts as out.
+// {south, west, north, east}, not Leaflet's LatLngBounds. A tour whose
+// heatmapData isn't loaded yet counts as out.
 export function toursInView(tours, bounds) {
-  if (!bounds) return tours;
   const { south, west, north, east } = bounds;
-  return tours.filter((t) =>
-    (t.heatmapData || []).some(
+  return tours.filter((tour) =>
+    (tour.heatmapData || []).some(
       ([lat, lon]) => lat >= south && lat <= north && lon >= west && lon <= east,
     ),
   );
 }
 
-// Keeps the original time-of-day, so correcting a tour's date doesn't clobber
-// the time it was recorded at.
-export function withUpdatedDate(originalIso, dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const combined = new Date(originalIso);
-  combined.setUTCFullYear(y, m - 1, d);
-  return combined.toISOString();
-}
-
-export const PAGE_SIZE = 10;
-
 // Clamps `page` into range, so a stale page number left over from a larger
 // result set never produces an empty slice.
-export function paginate(items, page, pageSize) {
+export function paginate({ items, page, pageSize }) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const clamped = Math.min(Math.max(1, page), totalPages);
   const start = (clamped - 1) * pageSize;
@@ -111,5 +114,68 @@ export function paginate(items, page, pageSize) {
     items: items.slice(start, start + pageSize),
     page: clamped,
     totalPages,
+  };
+}
+
+// The list as the sidebar shows it: scoped to the map when the in-view filter
+// is on, searched, sorted and cut to one page.
+export function tourListView({ tours, sort, search, locale, page, inViewBounds }) {
+  const scoped = inViewBounds ? toursInView(tours, inViewBounds) : tours;
+  const visible = visibleTours({ tours: scoped, sort, search, locale });
+  return {
+    ...paginate({ items: visible, page, pageSize: PAGE_SIZE }),
+    visibleCount: visible.length,
+    totalCount: tours.length,
+    filtered: Boolean(inViewBounds) || search.trim() !== '',
+  };
+}
+
+// Splits text into consecutive runs that are all matched or all unmatched.
+export function matchRuns(text, indices) {
+  const matched = new Set(indices);
+  const runs = [];
+  let runStart = 0;
+  while (runStart < text.length) {
+    const isMatched = matched.has(runStart);
+    let runEnd = runStart;
+    while (runEnd < text.length && matched.has(runEnd) === isMatched) runEnd++;
+    runs.push({ text: text.slice(runStart, runEnd), matched: isMatched });
+    runStart = runEnd;
+  }
+  return runs;
+}
+
+// Keeps the original time-of-day, so correcting a tour's date doesn't clobber
+// the time it was recorded at.
+export function withUpdatedDate(originalIso, date) {
+  const [year, month, day] = date.split('-').map(Number);
+  const combined = new Date(originalIso);
+  combined.setUTCFullYear(year, month - 1, day);
+  return combined.toISOString();
+}
+
+// The UTC calendar date, as an <input type="date"> value.
+export function toDateInputValue(iso) {
+  return iso ? iso.slice(0, 10) : '';
+}
+
+export function buildTourPatch({ name, description, date, createdAt }) {
+  return {
+    name: name.trim(),
+    description: description.trim(),
+    createdAt: withUpdatedDate(createdAt, date),
+  };
+}
+
+export function removeToursById(tours, ids) {
+  return tours.filter((tour) => !ids.includes(tour.id));
+}
+
+// The toast for a background delete where some or all requests failed.
+export function deletionFailureMessage({ succeededCount, totalCount }) {
+  if (succeededCount === 0) return { key: 'toast.tourDeleteError', params: {} };
+  return {
+    key: 'toast.toursDeletedPartial',
+    params: { deleted: succeededCount, count: totalCount },
   };
 }

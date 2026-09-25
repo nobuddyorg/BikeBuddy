@@ -39,3 +39,12 @@ export function parseLineStyle(raw) {
 
   return { color, weight, opacity };
 }
+
+// The opacity slider works in whole percent.
+export function opacityToPercent(opacity) {
+  return Math.round(opacity * 100);
+}
+
+export function percentToOpacity(percent) {
+  return percent / 100;
+}

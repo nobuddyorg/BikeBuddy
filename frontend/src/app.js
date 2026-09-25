@@ -91,7 +91,13 @@ import {
 import { renderAllRoutes, renderSelectedToursRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
 import { debounce } from './lib/debounce.js';
-import { setupLanguageSwitcher, setupSortMenu, setupLineStyleMenu } from './ui/menus.js';
+import { mapExpandTransition } from './lib/layout.js';
+import {
+  populateSortSelect,
+  setupLanguageSwitcher,
+  setupSortMenu,
+  setupLineStyleMenu,
+} from './ui/menus.js';
 import {
   openModal,
   closeModal,
@@ -115,6 +121,7 @@ whenAnnounced(GALLERY_CHANGED, () => {
 // Before anything renders, so the sort/search/in-view controls reflect the
 // URL rather than their HTML defaults on a reload or a shared link (#443).
 readInitialUrl();
+populateSortSelect();
 elTourSearch.value = state.search;
 show(elTourSearchClear, state.search.length > 0);
 elTourSort.value = state.sort;
@@ -236,15 +243,14 @@ elBtnMapExpand.addEventListener('click', () => {
   const expanded = elAppLayout.classList.toggle('map-expanded');
   elBtnMapExpand.setAttribute('aria-pressed', String(expanded));
   elBtnMapExpand.title = expanded ? t('map.restoreTitle') : t('map.expandTitle');
-  if (expanded) {
-    mapExpandedFromDetail = wasInDetail;
-    show(elBtnMobileMapFab, false);
-  } else if (mapExpandedFromDetail) {
-    moveMapIntoDetailPanel();
-    mapExpandedFromDetail = false;
-  } else {
-    show(elBtnMobileMapFab, true);
-  }
+  const transition = mapExpandTransition({
+    expanded,
+    wasInDetail,
+    expandedFromDetail: mapExpandedFromDetail,
+  });
+  mapExpandedFromDetail = transition.expandedFromDetail;
+  if (transition.returnToDetail) moveMapIntoDetailPanel();
+  show(elBtnMobileMapFab, transition.showFab);
   refreshMapSize();
 });
 

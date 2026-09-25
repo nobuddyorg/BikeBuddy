@@ -1,3 +1,4 @@
+import { initialFocusIndex } from '../lib/layout.js';
 import { show } from './dom.js';
 import { pushLayer } from './router.js';
 
@@ -25,7 +26,7 @@ export function openModal(modal, onHistoryClose) {
   }
   show(modal, true);
   const focusables = modal.querySelectorAll(FOCUSABLE);
-  (focusables[focusables.length > 1 ? 1 : 0] || modal).focus();
+  (focusables[initialFocusIndex(focusables.length)] || modal).focus();
   pushLayer(onHistoryClose || (() => closeModal(modal)));
 }
 

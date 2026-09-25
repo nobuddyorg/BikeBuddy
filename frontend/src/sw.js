@@ -7,7 +7,7 @@
 // Bump this on any change to the precached shell (added/removed file, or
 // content change the browser wouldn't otherwise know to refetch) — it's the
 // only thing that invalidates a previously installed cache.
-const CACHE_NAME = 'bikebuddy-shell-v11';
+const CACHE_NAME = 'bikebuddy-shell-v12';
 
 const PRECACHE_URLS = [
   './',
@@ -29,16 +29,23 @@ const PRECACHE_URLS = [
   'vendor/leaflet/images/marker-shadow.png',
   'vendor/msal-browser.min.js',
   'vendor/fonts/archivo-700.woff2',
+  'lib/authConfig.js',
   'lib/concurrency.js',
   'lib/debounce.js',
   'lib/files.js',
   'lib/format.js',
+  'lib/gestures.js',
   'lib/i18n.js',
+  'lib/images.js',
+  'lib/layout.js',
   'lib/lineStyle.js',
   'lib/mapData.js',
   'lib/pinLayout.js',
+  'lib/routes.js',
   'lib/sasCache.js',
+  'lib/sidebarView.js',
   'lib/stats.js',
+  'lib/tourDetail.js',
   'lib/tours.js',
   'lib/upload.js',
   'lib/url.js',

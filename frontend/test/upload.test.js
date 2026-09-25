@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseErrorMessage, readUploadResponse } from '../src/lib/upload.js';
+import { buildUploadQuery, parseErrorMessage, readUploadResponse } from '../src/lib/upload.js';
 
 describe('parseErrorMessage', () => {
   it('reads the error field from a JSON body', () => {
@@ -43,5 +43,18 @@ describe('readUploadResponse', () => {
       ok: false,
       message: 'errors.uploadUnreadable',
     });
+  });
+});
+
+describe('buildUploadQuery', () => {
+  it('sends the trimmed name and description', () => {
+    expect(buildUploadQuery({ name: ' Alps ', description: ' a & b ' })).toBe(
+      'name=Alps&description=a+%26+b',
+    );
+  });
+
+  it('leaves blank fields out so the backend applies its defaults', () => {
+    expect(buildUploadQuery({ name: '   ', description: '' })).toBe('');
+    expect(buildUploadQuery({ name: '', description: 'Coast' })).toBe('description=Coast');
   });
 });

@@ -6,6 +6,15 @@ import {
   toursInView,
   paginate,
   withUpdatedDate,
+  tourListView,
+  matchRuns,
+  toDateInputValue,
+  buildTourPatch,
+  removeToursById,
+  deletionFailureMessage,
+  SORT_OPTIONS,
+  DEFAULT_SORT,
+  PAGE_SIZE,
 } from '../src/lib/tours.js';
 
 const visibleIds = ({ tours, sort, search }) =>
@@ -19,48 +28,63 @@ const tours = [
 
 describe('fuzzyMatchIndices', () => {
   it('returns the matched character positions for an in-order subsequence', () => {
-    expect(fuzzyMatchIndices('alp', 'Alps Tour')).toEqual([0, 1, 2]);
-    expect(fuzzyMatchIndices('atr', 'Alps Tour')).toEqual([0, 5, 8]); // A..T..(ou)R
+    expect(fuzzyMatchIndices('alp', 'Alps Tour')).toEqual({ matched: true, indices: [0, 1, 2] });
+    // A..T..(ou)R
+    expect(fuzzyMatchIndices('atr', 'Alps Tour')).toEqual({ matched: true, indices: [0, 5, 8] });
   });
 
-  it('returns null when the query does not fully match', () => {
-    expect(fuzzyMatchIndices('xyz', 'Alps Tour')).toBeNull();
-    expect(fuzzyMatchIndices('rua', 'Alps Tour')).toBeNull();
+  it('reports no match when the query does not fully match', () => {
+    expect(fuzzyMatchIndices('xyz', 'Alps Tour').matched).toBe(false);
+    expect(fuzzyMatchIndices('rua', 'Alps Tour').matched).toBe(false);
+    expect(fuzzyMatchIndices('tours', 'Alps Tour').matched).toBe(false);
   });
 
-  it('returns an empty array for an empty or whitespace query', () => {
-    expect(fuzzyMatchIndices('', 'Alps Tour')).toEqual([]);
-    expect(fuzzyMatchIndices('   ', 'Alps Tour')).toEqual([]);
+  it('matches an empty or whitespace query with no indices', () => {
+    expect(fuzzyMatchIndices('', 'Alps Tour')).toEqual({ matched: true, indices: [] });
+    expect(fuzzyMatchIndices('   ', 'Alps Tour')).toEqual({ matched: true, indices: [] });
   });
 
   it('matches case-insensitively but indexes into the original text', () => {
-    expect(fuzzyMatchIndices('ALP', 'Alps Tour')).toEqual([0, 1, 2]);
+    expect(fuzzyMatchIndices('ALP', 'Alps Tour').indices).toEqual([0, 1, 2]);
+  });
+
+  it('treats a missing text as empty', () => {
+    expect(fuzzyMatchIndices('a', undefined).matched).toBe(false);
   });
 });
 
 describe('matchScore', () => {
+  const score = (query, text) => matchScore(query, text).score;
+
   it('scores an exact match highest, then prefix, then word-boundary, then a plain substring', () => {
-    expect(matchScore('beach ride', 'Beach Ride')).toBeGreaterThan(
-      matchScore('beach', 'Beach Ride'),
-    );
-    expect(matchScore('beach', 'Beach Ride')).toBeGreaterThan(matchScore('ride', 'Beach Ride'));
-    expect(matchScore('ride', 'Beach Ride')).toBeGreaterThan(matchScore('each', 'Beach Ride'));
+    expect(score('beach ride', 'Beach Ride')).toBeGreaterThan(score('beach', 'Beach Ride'));
+    expect(score('beach', 'Beach Ride')).toBeGreaterThan(score('ride', 'Beach Ride'));
+    expect(score('ride', 'Beach Ride')).toBeGreaterThan(score('each', 'Beach Ride'));
+  });
+
+  it('counts a hyphen as a word boundary', () => {
+    expect(score('loop', 'Lake-loop')).toBe(score('loop', 'Lake loop'));
+    expect(score('loop', 'Lake-loop')).toBeGreaterThan(score('oop', 'Lake-loop'));
   });
 
   it('scores a contiguous substring above a scattered subsequence for a related query', () => {
-    expect(matchScore('ride', 'Beach Ride')).toBeGreaterThan(matchScore('rde', 'Beach Ride'));
+    expect(score('ride', 'Beach Ride')).toBeGreaterThan(score('rde', 'Beach Ride'));
   });
 
   it('scores a tighter scattered match above a sprawling one', () => {
-    expect(matchScore('ab', 'a1b')).toBeGreaterThan(matchScore('ab', 'a123b'));
+    expect(score('ab', 'a1b')).toBeGreaterThan(score('ab', 'a123b'));
   });
 
-  it('returns null when the query does not match at all', () => {
-    expect(matchScore('xyz', 'Beach Ride')).toBeNull();
+  it('never scores a scattered match below 1', () => {
+    expect(score('ab', `a${'x'.repeat(500)}b`)).toBe(1);
+  });
+
+  it('reports no match when the query does not match at all', () => {
+    expect(matchScore('xyz', 'Beach Ride').matched).toBe(false);
   });
 
   it('treats an empty query as a neutral match', () => {
-    expect(matchScore('', 'Beach Ride')).toBe(0);
+    expect(matchScore('', 'Beach Ride')).toEqual({ matched: true, score: 0 });
   });
 });
 
@@ -200,11 +224,6 @@ describe('toursInView', () => {
     const t = { id: 'a' };
     expect(toursInView([t], BOUNDS)).toEqual([]);
   });
-
-  it('returns all tours unchanged when bounds is not given', () => {
-    const tours = [{ id: 'a', heatmapData: [[0, 0]] }];
-    expect(toursInView(tours, null)).toBe(tours);
-  });
 });
 
 describe('withUpdatedDate', () => {
@@ -225,7 +244,7 @@ describe('paginate', () => {
   const items = Array.from({ length: 25 }, (_, i) => ({ id: `t${i + 1}` }));
 
   it('returns the first page by default page size', () => {
-    const result = paginate(items, 1, 20);
+    const result = paginate({ items, page: 1, pageSize: 20 });
     expect(result.items).toHaveLength(20);
     expect(result.items[0].id).toBe('t1');
     expect(result.page).toBe(1);
@@ -233,33 +252,153 @@ describe('paginate', () => {
   });
 
   it('returns the remainder on the last page', () => {
-    const result = paginate(items, 2, 20);
+    const result = paginate({ items, page: 2, pageSize: 20 });
     expect(result.items).toHaveLength(5);
     expect(result.items[0].id).toBe('t21');
     expect(result.page).toBe(2);
   });
 
   it('clamps a page beyond totalPages to the last page', () => {
-    const result = paginate(items, 99, 20);
+    const result = paginate({ items, page: 99, pageSize: 20 });
     expect(result.page).toBe(2);
     expect(result.items).toHaveLength(5);
   });
 
   it('clamps a page below 1 to page 1', () => {
-    const result = paginate(items, 0, 20);
+    const result = paginate({ items, page: 0, pageSize: 20 });
     expect(result.page).toBe(1);
     expect(result.items[0].id).toBe('t1');
   });
 
   it('reports a single page for an empty list', () => {
-    const result = paginate([], 1, 20);
+    const result = paginate({ items: [], page: 1, pageSize: 20 });
     expect(result.items).toEqual([]);
     expect(result.totalPages).toBe(1);
     expect(result.page).toBe(1);
   });
 
   it('reports a single page when everything fits on one page', () => {
-    const result = paginate(items.slice(0, 10), 1, 20);
+    const result = paginate({ items: items.slice(0, 10), page: 1, pageSize: 20 });
     expect(result.totalPages).toBe(1);
+  });
+});
+
+describe('SORT_OPTIONS', () => {
+  it('lists every sort once, newest first as the default', () => {
+    const keys = SORT_OPTIONS.map((option) => option.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(DEFAULT_SORT).toBe('date-desc');
+    for (const key of keys) {
+      expect(visibleIds({ tours, sort: key, search: '' })).toHaveLength(tours.length);
+    }
+  });
+});
+
+describe('tourListView', () => {
+  const many = Array.from({ length: PAGE_SIZE + 3 }, (_, index) => ({
+    id: `t${index}`,
+    name: `Tour ${index}`,
+    createdAt: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00Z`,
+    heatmapData: index === 0 ? [[45, 10]] : [[0, 0]],
+  }));
+  const view = (overrides) =>
+    tourListView({
+      tours: many,
+      sort: 'date-asc',
+      search: '',
+      locale: 'en-GB',
+      page: 1,
+      ...overrides,
+    });
+
+  it('pages the sorted list and reports it as unfiltered', () => {
+    const result = view({});
+    expect(result.items.map((tour) => tour.id)).toEqual(
+      many.slice(0, PAGE_SIZE).map((tour) => tour.id),
+    );
+    expect(result).toMatchObject({
+      page: 1,
+      totalPages: 2,
+      visibleCount: many.length,
+      totalCount: many.length,
+      filtered: false,
+    });
+  });
+
+  it('clamps a stale page number', () => {
+    expect(view({ page: 9 }).page).toBe(2);
+  });
+
+  it('counts a search as a filter', () => {
+    const result = view({ search: 'Tour 12' });
+    expect(result).toMatchObject({ visibleCount: 1, totalCount: many.length, filtered: true });
+    expect(view({ search: '   ' }).filtered).toBe(false);
+  });
+
+  it('scopes to the map bounds when given, and counts that as a filter', () => {
+    const result = view({ inViewBounds: { south: 40, west: 5, north: 50, east: 15 } });
+    expect(result.items.map((tour) => tour.id)).toEqual(['t0']);
+    expect(result).toMatchObject({ visibleCount: 1, totalCount: many.length, filtered: true });
+  });
+});
+
+describe('matchRuns', () => {
+  it('splits text into alternating matched and unmatched runs', () => {
+    expect(matchRuns('Alps Tour', [0, 1, 5])).toEqual([
+      { text: 'Al', matched: true },
+      { text: 'ps ', matched: false },
+      { text: 'T', matched: true },
+      { text: 'our', matched: false },
+    ]);
+  });
+
+  it('returns one unmatched run without indices, and nothing for empty text', () => {
+    expect(matchRuns('Loop', [])).toEqual([{ text: 'Loop', matched: false }]);
+    expect(matchRuns('', [])).toEqual([]);
+  });
+});
+
+describe('toDateInputValue', () => {
+  it('keeps the calendar date of an ISO timestamp', () => {
+    expect(toDateInputValue('2026-05-01T23:30:00.000Z')).toBe('2026-05-01');
+  });
+
+  it('is empty without a date', () => {
+    expect(toDateInputValue(undefined)).toBe('');
+  });
+});
+
+describe('buildTourPatch', () => {
+  it('trims the text fields and moves the date, keeping the time of day', () => {
+    expect(
+      buildTourPatch({
+        name: '  Alps  ',
+        description: ' A loop ',
+        date: '2026-06-15',
+        createdAt: '2026-05-01T14:32:07.123Z',
+      }),
+    ).toEqual({ name: 'Alps', description: 'A loop', createdAt: '2026-06-15T14:32:07.123Z' });
+  });
+});
+
+describe('removeToursById', () => {
+  it('keeps only the tours whose id is not listed', () => {
+    expect(removeToursById(tours, ['a', 'c']).map((tour) => tour.id)).toEqual(['b']);
+  });
+});
+
+describe('deletionFailureMessage', () => {
+  it('reports a total failure', () => {
+    expect(deletionFailureMessage({ succeededCount: 0, totalCount: 3 })).toEqual({
+      key: 'toast.tourDeleteError',
+      params: {},
+    });
+  });
+
+  it('reports how many of the batch were deleted', () => {
+    expect(deletionFailureMessage({ succeededCount: 2, totalCount: 3 })).toEqual({
+      key: 'toast.toursDeletedPartial',
+      params: { deleted: 2, count: 3 },
+    });
   });
 });

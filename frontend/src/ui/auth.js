@@ -15,7 +15,8 @@ import { initials } from '../lib/format.js';
 import { clearRouteLayer } from './routes.js';
 import { clearPins } from './pins.js';
 import { renderSidebar, loadTours } from './sidebar.js';
-import { API_BASE, LOGIN_SCOPES, USE_DEV_AUTH, apiFetch, createAuthClient } from './api.js';
+import { userFromAccount, userFromAuthResult } from '../lib/authConfig.js';
+import { API_BASE, AUTH_CONFIG, LOGIN_REQUEST, apiFetch, createAuthClient } from './api.js';
 
 const t = i18n.t;
 
@@ -55,7 +56,7 @@ async function devSignIn() {
 }
 
 export async function initAuth() {
-  if (USE_DEV_AUTH) {
+  if (AUTH_CONFIG.useDevAuth) {
     if (localStorage.getItem(DEV_SIGNED_OUT_KEY)) {
       renderNavAuth();
       return;
@@ -74,25 +75,25 @@ export async function initAuth() {
 }
 
 function setUserFromAccount(account) {
-  state.user = { id: account.homeAccountId, email: account.username || null };
+  state.user = userFromAccount(account);
   renderSignedIn();
 }
 
 export async function signIn() {
-  if (USE_DEV_AUTH) {
+  if (AUTH_CONFIG.useDevAuth) {
     localStorage.removeItem(DEV_SIGNED_OUT_KEY);
     await devSignIn();
     return;
   }
   try {
-    onAuthSuccess(await msalClient.loginPopup(LOGIN_SCOPES));
+    onAuthSuccess(await msalClient.loginPopup(LOGIN_REQUEST));
   } catch {
     // cancelled or blocked popup — no-op
   }
 }
 
 export async function signOut() {
-  if (USE_DEV_AUTH) {
+  if (AUTH_CONFIG.useDevAuth) {
     localStorage.setItem(DEV_SIGNED_OUT_KEY, '1');
   } else {
     try {
@@ -121,13 +122,7 @@ export async function signOut() {
 }
 
 function onAuthSuccess(result) {
-  state.user = {
-    id: result.account.homeAccountId,
-    email:
-      result.idTokenClaims?.email ||
-      result.idTokenClaims?.preferred_username ||
-      result.account.username,
-  };
+  state.user = userFromAuthResult(result);
   renderSignedIn();
 }
 

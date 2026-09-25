@@ -125,10 +125,10 @@ describe('tour list (properties)', () => {
         fc.array(fc.integer(), { maxLength: 200 }),
         fc.integer({ min: 1, max: 50 }),
         (items, size) => {
-          const first = paginate(items, 1, size);
+          const first = paginate({ items, page: 1, pageSize: size });
           const seen = [];
           for (let page = 1; page <= first.totalPages; page++) {
-            const p = paginate(items, page, size);
+            const p = paginate({ items, page, pageSize: size });
             expect(p.items.length).toBeLessThanOrEqual(size);
             seen.push(...p.items);
           }

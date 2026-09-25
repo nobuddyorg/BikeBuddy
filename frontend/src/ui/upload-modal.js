@@ -1,5 +1,6 @@
 import * as i18n from './i18n.js';
-import { validateGpxUpload } from '../lib/files.js';
+import { defaultTourName, validateGpxUpload } from '../lib/files.js';
+import { buildUploadQuery } from '../lib/upload.js';
 import { xhrUpload } from './uploadRequest.js';
 import { state } from './state.js';
 import { getAccessToken, API_BASE } from './api.js';
@@ -64,16 +65,17 @@ export function selectFile(file) {
   elDropzoneFilename.textContent = file.name;
   show(elDropzoneFilename, true);
   elBtnSubmitUpload.disabled = false;
-  if (!elUploadName.value) elUploadName.value = file.name.replace(/\.gpx$/i, '');
+  if (!elUploadName.value) elUploadName.value = defaultTourName(file.name);
 }
 
 export async function submitUpload(e) {
   e.preventDefault();
   if (!selectedFile) return;
 
-  const params = new URLSearchParams();
-  if (elUploadName.value.trim()) params.set('name', elUploadName.value.trim());
-  if (elUploadDescription.value.trim()) params.set('description', elUploadDescription.value.trim());
+  const query = buildUploadQuery({
+    name: elUploadName.value,
+    description: elUploadDescription.value,
+  });
 
   const token = await getAccessToken();
   elBtnSubmitUpload.disabled = true;
@@ -82,7 +84,7 @@ export async function submitUpload(e) {
   elUploadProgressBar.style.width = '0%';
   try {
     const { tourId } = await xhrUpload(
-      `${API_BASE}/api/tours/upload?${params.toString()}`,
+      `${API_BASE}/api/tours/upload?${query}`,
       selectedFile,
       token,
       (p) => {

@@ -1,3 +1,4 @@
+import { DEFAULT_SORT } from '../lib/tours.js';
 import { loadLineStyle } from './lineStyleStorage.js';
 
 export const state = {
@@ -14,7 +15,7 @@ export const state = {
   showPins: false,
   loadingTours: false,
   toursLoadFailed: false,
-  sort: 'date-desc',
+  sort: DEFAULT_SORT,
   search: '',
   filterInView: false,
   page: 1,

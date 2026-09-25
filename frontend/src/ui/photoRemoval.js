@@ -1,3 +1,4 @@
+import { withImageRestored, withoutImage } from '../lib/images.js';
 import * as i18n from './i18n.js';
 import { state } from './state.js';
 import { apiFetch } from './api.js';
@@ -25,11 +26,11 @@ export async function confirmDeletePhoto() {
 // deleted from either.
 export function scheduleImageRemoval(image, tourId) {
   const tour = state.tours.find((t) => t.id === tourId);
-  if (tour?.images) tour.images = tour.images.filter((i) => i.id !== image.id);
+  if (tour?.images) tour.images = withoutImage(tour.images, image.id);
   announce(PHOTO_LOCATIONS_CHANGED);
 
   const restore = () => {
-    if (tour?.images && !tour.images.some((i) => i.id === image.id)) tour.images.push(image);
+    if (tour?.images) tour.images = withImageRestored(tour.images, image);
     if (tour?.id === state.selectedTourId) announce(GALLERY_CHANGED);
     announce(PHOTO_LOCATIONS_CHANGED);
   };

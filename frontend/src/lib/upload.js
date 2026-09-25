@@ -22,3 +22,11 @@ export function readUploadResponse({ status, responseText }) {
     return { ok: false, message: 'errors.uploadUnreadable' };
   }
 }
+
+// Blank fields are left out, so the backend applies its own defaults.
+export function buildUploadQuery({ name, description }) {
+  const params = new URLSearchParams();
+  if (name.trim()) params.set('name', name.trim());
+  if (description.trim()) params.set('description', description.trim());
+  return params.toString();
+}

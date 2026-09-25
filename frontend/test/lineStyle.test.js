@@ -6,6 +6,8 @@ import {
   WEIGHT_MAX,
   OPACITY_MIN,
   OPACITY_MAX,
+  opacityToPercent,
+  percentToOpacity,
 } from '../src/lib/lineStyle.js';
 
 describe('parseLineStyle', () => {
@@ -50,5 +52,13 @@ describe('parseLineStyle', () => {
     expect(parseLineStyle(JSON.stringify({ opacity: null })).opacity).toBe(
       DEFAULT_LINE_STYLE.opacity,
     );
+  });
+});
+
+describe('opacityToPercent / percentToOpacity', () => {
+  it('converts between the stored fraction and the slider percent', () => {
+    expect(opacityToPercent(0.75)).toBe(75);
+    expect(opacityToPercent(0.204)).toBe(20);
+    expect(percentToOpacity(35)).toBe(0.35);
   });
 });

@@ -1,6 +1,6 @@
 import * as i18n from './i18n.js';
 import { formatCount, formatDate, formatDistance } from '../lib/format.js';
-import { visibleTours, toursInView, paginate, PAGE_SIZE, fuzzyMatchIndices } from '../lib/tours.js';
+import { tourListView, fuzzyMatchIndices, matchRuns } from '../lib/tours.js';
 import { state } from './state.js';
 import { mapBoundsPlain, isMobileLayout } from './map.js';
 import { deleteTourById, selectTour, closeDetailPanel } from './tour-detail.js';
@@ -33,20 +33,14 @@ function highlightedNameNode(name, indices) {
   const div = document.createElement('div');
   div.className = 'tour-item-name';
   div.title = name; // full, unmarked name — a hover tooltip for the ellipsis-truncated row (#445)
-  const matched = new Set(indices);
-  let i = 0;
-  while (i < name.length) {
-    let j = i;
-    while (j < name.length && matched.has(j) === matched.has(i)) j++;
-    const run = name.slice(i, j);
-    if (matched.has(i)) {
+  for (const run of matchRuns(name, indices)) {
+    if (run.matched) {
       const mark = document.createElement('mark');
-      mark.textContent = run;
+      mark.textContent = run.text;
       div.appendChild(mark);
     } else {
-      div.appendChild(document.createTextNode(run));
+      div.appendChild(document.createTextNode(run.text));
     }
-    i = j;
   }
   return div;
 }
@@ -96,7 +90,7 @@ function createTourItem(tour) {
   const details = document.createElement('div');
   details.className = 'tour-item-details';
   details.append(
-    highlightedNameNode(tour.name, fuzzyMatchIndices(state.search, tour.name)),
+    highlightedNameNode(tour.name, fuzzyMatchIndices(state.search, tour.name).indices),
     textDiv(
       'tour-item-meta',
       t('sidebar.tourItemMeta', {
@@ -148,24 +142,24 @@ export function renderTourList({ signedIn, loading, hasTours }) {
   // left over from a desktop session or a shared/bookmarked ?inView=1 URL,
   // or the list would filter itself with no visible control to undo it.
   const inViewActive = state.filterInView && !isMobileLayout();
-  const scoped = inViewActive ? toursInView(state.tours, mapBoundsPlain()) : state.tours;
-  const visible = visibleTours({
-    tours: scoped,
+  const view = tourListView({
+    tours: state.tours,
     sort: state.sort,
     search: state.search,
     locale: i18n.intlLocale(),
+    page: state.page,
+    inViewBounds: inViewActive ? mapBoundsPlain() : undefined,
   });
-  const filterActive = inViewActive || state.search.trim() !== '';
-  elTourCount.textContent = filterActive
-    ? t('sidebar.filteredCount', { count: visible.length, total: state.tours.length })
-    : formatCount(state.tours.length, i18n.intlLocale());
-  if (visible.length === 0) {
+  elTourCount.textContent = view.filtered
+    ? t('sidebar.filteredCount', { count: view.visibleCount, total: view.totalCount })
+    : formatCount(view.totalCount, i18n.intlLocale());
+  if (view.visibleCount === 0) {
     elTourList.appendChild(textDiv('tour-empty', t('tours.noMatch')));
     show(elTourPager, false);
     return;
   }
 
-  const { items, page, totalPages } = paginate(visible, state.page, PAGE_SIZE);
+  const { items, page, totalPages } = view;
   state.page = page;
   items.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
 

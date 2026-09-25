@@ -1,6 +1,15 @@
-import { SUPPORTED_LOCALES } from '../lib/i18n.js';
+import { SUPPORTED_LOCALES, filterLocales } from '../lib/i18n.js';
+import { SORT_OPTIONS } from '../lib/tours.js';
+import { centeredLeft } from '../lib/layout.js';
 import * as i18n from './i18n.js';
-import { WEIGHT_MIN, WEIGHT_MAX, OPACITY_MIN, OPACITY_MAX } from '../lib/lineStyle.js';
+import {
+  WEIGHT_MIN,
+  WEIGHT_MAX,
+  OPACITY_MIN,
+  OPACITY_MAX,
+  opacityToPercent,
+  percentToOpacity,
+} from '../lib/lineStyle.js';
 import { formatPercent } from '../lib/format.js';
 import { saveLineStyle } from './lineStyleStorage.js';
 import { state } from './state.js';
@@ -56,7 +65,6 @@ export function setupLanguageSwitcher() {
     btn.className = 'lang-option';
     btn.setAttribute('role', 'option');
     btn.dataset.code = loc.code;
-    btn.dataset.search = `${loc.label} ${loc.code} ${loc.short}`.toLowerCase();
     btn.setAttribute('aria-selected', String(loc.code === i18n.getLocale()));
     btn.append(
       ...spans([
@@ -84,8 +92,12 @@ export function setupLanguageSwitcher() {
     // on the modal card rather than the narrow switcher, or it hangs off one
     // edge (setupSortMenu does the same below).
     const modalRect = elBtnLang.closest('.modal').getBoundingClientRect();
-    const menuWidth = elLangMenu.offsetWidth;
-    const left = Math.max(16, modalRect.left + (modalRect.width - menuWidth) / 2);
+    const left = centeredLeft({
+      containerLeft: modalRect.left,
+      containerWidth: modalRect.width,
+      elementWidth: elLangMenu.offsetWidth,
+      minimumLeft: 16,
+    });
     elLangMenu.style.top = `${btnRect.bottom + 6}px`;
     elLangMenu.style.left = `${left}px`;
     elLangSearch.focus();
@@ -96,9 +108,9 @@ export function setupLanguageSwitcher() {
     else closeMenu();
   });
   elLangSearch.addEventListener('input', () => {
-    const q = elLangSearch.value.trim().toLowerCase();
+    const matching = new Set(filterLocales(elLangSearch.value).map((locale) => locale.code));
     elLangList.querySelectorAll('.lang-option').forEach((opt) => {
-      show(opt.parentElement, opt.dataset.search.includes(q));
+      show(opt.parentElement, matching.has(opt.dataset.code));
     });
   });
   document.addEventListener('click', (e) => {
@@ -109,18 +121,20 @@ export function setupLanguageSwitcher() {
   });
 }
 
+// The native <select> (desktop) lists the same options as the mobile menu
+// below; its labels are translated by applyI18n like the static markup.
+export function populateSortSelect() {
+  for (const { key, labelKey } of SORT_OPTIONS) {
+    const option = document.createElement('option');
+    option.value = key;
+    option.dataset.i18n = labelKey;
+    elTourSort.appendChild(option);
+  }
+}
+
 // Mobile's replacement for the native <select>. Selecting an option writes
 // elTourSort.value and dispatches its change event, so the sorting logic
 // stays in one place.
-const SORT_OPTIONS = [
-  { value: 'date-desc', i18nKey: 'sort.dateDesc' },
-  { value: 'date-asc', i18nKey: 'sort.dateAsc' },
-  { value: 'name-asc', i18nKey: 'sort.nameAsc' },
-  { value: 'name-desc', i18nKey: 'sort.nameDesc' },
-  { value: 'length-desc', i18nKey: 'sort.lengthDesc' },
-  { value: 'length-asc', i18nKey: 'sort.lengthAsc' },
-];
-
 export function setupSortMenu() {
   for (const opt of SORT_OPTIONS) {
     const li = document.createElement('li');
@@ -128,10 +142,10 @@ export function setupSortMenu() {
     btn.type = 'button';
     btn.className = 'sort-menu-option';
     btn.setAttribute('role', 'option');
-    btn.dataset.value = opt.value;
-    btn.textContent = t(opt.i18nKey);
+    btn.dataset.value = opt.key;
+    btn.textContent = t(opt.labelKey);
     btn.addEventListener('click', () => {
-      elTourSort.value = opt.value;
+      elTourSort.value = opt.key;
       elTourSort.dispatchEvent(new Event('change'));
       closeMenu();
     });
@@ -171,14 +185,14 @@ export function setupSortMenu() {
 export function setupLineStyleMenu() {
   elLineStyleWidth.min = String(WEIGHT_MIN);
   elLineStyleWidth.max = String(WEIGHT_MAX);
-  elLineStyleOpacity.min = String(Math.round(OPACITY_MIN * 100));
-  elLineStyleOpacity.max = String(Math.round(OPACITY_MAX * 100));
+  elLineStyleOpacity.min = String(opacityToPercent(OPACITY_MIN));
+  elLineStyleOpacity.max = String(opacityToPercent(OPACITY_MAX));
 
   const applyControls = () => {
     elLineStyleColor.value = state.lineStyle.color;
     elLineStyleWidth.value = String(state.lineStyle.weight);
     elLineStyleWidthValue.textContent = `${state.lineStyle.weight}px`;
-    elLineStyleOpacity.value = String(Math.round(state.lineStyle.opacity * 100));
+    elLineStyleOpacity.value = String(opacityToPercent(state.lineStyle.opacity));
     elLineStyleOpacityValue.textContent = formatPercent(state.lineStyle.opacity, i18n.intlLocale());
   };
   applyControls();
@@ -220,7 +234,7 @@ export function setupLineStyleMenu() {
   );
   elLineStyleWidth.addEventListener('change', commitStyle);
   elLineStyleOpacity.addEventListener('input', () =>
-    updateStyle({ opacity: Number(elLineStyleOpacity.value) / 100 }),
+    updateStyle({ opacity: percentToOpacity(Number(elLineStyleOpacity.value)) }),
   );
   elLineStyleOpacity.addEventListener('change', commitStyle);
 }

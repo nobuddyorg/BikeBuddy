@@ -1,30 +1,18 @@
-import { isStale, markFetched, markStale } from '../lib/sasCache.js';
+import { ensureDetail as loadDetail } from '../lib/tourDetail.js';
+import { markStale } from '../lib/sasCache.js';
 import { state } from './state.js';
 import { apiFetch } from './api.js';
 
-// Keyed on the explicit flag rather than on heatmapData/images being present:
-// ensureMapData fills those in too, from the leaner /api/map payload. Expires
-// ahead of the signed URLs it holds, so a long-open tab refetches.
+// Resolves to whether the tour's detail is current; on a failure the tour
+// still has empty track and photo lists, and the caller tells the user.
 export async function ensureDetail(tour) {
-  if (tour.detailLoaded && !isStale(tour, Date.now())) return;
   try {
-    const res = await apiFetch(`/api/tours/${tour.id}`);
-    if (res.ok) {
-      const detail = await res.json();
-      tour.heatmapData = detail.heatmapData || [];
-      tour.images = detail.images || [];
-      tour.gpxFileUrl = detail.gpxFileUrl;
-      tour.elevationGain = detail.elevationGain ?? null;
-      tour.durationSeconds = detail.durationSeconds ?? null;
-      tour.avgSpeed = detail.avgSpeed ?? null;
-    }
-  } catch {
-    // offline — the fallbacks below keep callers working
+    await loadDetail({ apiFetch, tour, now: Date.now() });
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
   }
-  tour.heatmapData = tour.heatmapData || [];
-  tour.images = tour.images || [];
-  tour.detailLoaded = true;
-  markFetched(tour, Date.now());
 }
 
 // Forces a fresh signature rather than retrying the dead URL (see sasCache.js),

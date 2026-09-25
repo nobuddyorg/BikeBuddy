@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
+  filterLocales,
   localeMeta,
   pickLocale,
   supportedLocaleCodes,
@@ -168,5 +169,20 @@ describe('locale files', () => {
   it('isSupported reflects SUPPORTED_LOCALES', () => {
     expect(isSupported('en')).toBe(true);
     expect(isSupported('ja')).toBe(false);
+  });
+});
+
+describe('filterLocales', () => {
+  const codes = (query) => filterLocales(query).map((locale) => locale.code);
+
+  it('matches the name, code or short label, ignoring case and padding', () => {
+    expect(codes('deut')).toEqual(['de']);
+    expect(codes(' NL ')).toEqual(['nl']);
+    expect(codes('pt')).toEqual(['pt']);
+  });
+
+  it('lists every locale for an empty query and none for a miss', () => {
+    expect(codes('')).toEqual(SUPPORTED_LOCALES.map((locale) => locale.code));
+    expect(codes('klingon')).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import * as i18n from './i18n.js';
+import { sidebarViewState } from '../lib/sidebarView.js';
 import { state } from './state.js';
 import { apiFetch } from './api.js';
 import { renderAllRoutes } from './routes.js';
@@ -46,7 +47,7 @@ export async function loadTours() {
     state.loadingTours = false;
   }
   renderSidebar();
-  await renderAllRoutes(mapDataPromise);
+  await renderAllRoutes({ pendingMapResponse: mapDataPromise });
 
   // Only meaningful on the first load — consumeDeepLinkTourId() clears the
   // pending id, so a later retry-button reload won't reopen it.
@@ -58,16 +59,18 @@ export async function loadTours() {
 }
 
 export function renderSidebar() {
-  const signedIn = !!state.user;
-  const loading = signedIn && state.loadingTours;
-  const failed = signedIn && !loading && state.toursLoadFailed;
-  const hasTours = signedIn && !loading && !failed && state.tours.length > 0;
+  const { signedIn, loading, failed, empty, hasTours } = sidebarViewState({
+    signedIn: Boolean(state.user),
+    loadingTours: state.loadingTours,
+    toursLoadFailed: state.toursLoadFailed,
+    tourCount: state.tours.length,
+  });
 
   show(elAuthPrompt, !signedIn);
   show(elTourLoading, loading);
   show(elTourLoadError, failed);
   show(elFilterInViewToggle, hasTours);
-  show(elNoTours, signedIn && !loading && !failed && state.tours.length === 0);
+  show(elNoTours, empty);
   show(elTourControls, hasTours);
   show(elLineStyleWrap, hasTours);
   show(elTourList, hasTours);

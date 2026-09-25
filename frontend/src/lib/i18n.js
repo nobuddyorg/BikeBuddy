@@ -64,3 +64,11 @@ export function translate({ messages, fallbackMessages = {}, key, params = {}, l
   const template = lookUp({ tables: [messages, fallbackMessages], keys }) ?? key;
   return interpolate({ template, params, locale });
 }
+
+// The language menu's search: by name, code or short label, case-insensitive.
+export function filterLocales(query) {
+  const needle = query.trim().toLowerCase();
+  return SUPPORTED_LOCALES.filter((locale) =>
+    `${locale.label} ${locale.code} ${locale.short}`.toLowerCase().includes(needle),
+  );
+}

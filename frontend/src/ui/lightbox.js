@@ -1,3 +1,5 @@
+import { isVerticalIntent } from '../lib/gestures.js';
+import { clampIndex, imagesOfTour, wrapIndex } from '../lib/images.js';
 import * as i18n from './i18n.js';
 import {
   show,
@@ -66,7 +68,7 @@ elLightboxStage.addEventListener('pointermove', (e) => {
   if (!swipeStart) return;
   const dx = e.clientX - swipeStart.x;
   const dy = e.clientY - swipeStart.y;
-  if (!swiping && Math.abs(dy) > Math.abs(dx)) {
+  if (!swiping && isVerticalIntent({ dx, dy })) {
     swipeStart = null; // vertical drag — not a swipe we own
     return;
   }
@@ -110,13 +112,13 @@ export function openLightbox(images, index) {
 
 export function lightboxPrev() {
   if (lightboxImages.length === 0) return;
-  lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+  lightboxIndex = wrapIndex({ index: lightboxIndex, step: -1, length: lightboxImages.length });
   renderLightbox();
 }
 
 export function lightboxNext() {
   if (lightboxImages.length === 0) return;
-  lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+  lightboxIndex = wrapIndex({ index: lightboxIndex, step: 1, length: lightboxImages.length });
   renderLightbox();
 }
 
@@ -130,9 +132,8 @@ export async function retryLightboxImage() {
   const tour = await refreshSelectedTourImages();
   if (!tour) return;
   announce(GALLERY_CHANGED);
-  lightboxImages = (tour.images || []).map((i) => ({ ...i, tourId: tour.id }));
-  if (lightboxIndex >= lightboxImages.length)
-    lightboxIndex = Math.max(lightboxImages.length - 1, 0);
+  lightboxImages = imagesOfTour(tour);
+  lightboxIndex = clampIndex(lightboxIndex, lightboxImages.length);
   renderLightbox();
 }
 
@@ -151,7 +152,7 @@ async function deleteCurrentLightboxPhoto() {
     closeLightbox();
     return;
   }
-  lightboxIndex = Math.min(lightboxIndex, lightboxImages.length - 1);
+  lightboxIndex = clampIndex(lightboxIndex, lightboxImages.length);
   renderLightbox();
 }
 

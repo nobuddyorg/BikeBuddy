@@ -1,5 +1,5 @@
 import * as i18n from './i18n.js';
-import { validateImageUpload, validateImageBatch, validateImageQuota } from '../lib/files.js';
+import { planImageUploads, validateImageBatch } from '../lib/files.js';
 import { runWithConcurrency } from '../lib/concurrency.js';
 import { xhrUpload } from './uploadRequest.js';
 import { state } from './state.js';
@@ -78,19 +78,14 @@ export async function uploadImages(files) {
 
   const token = await getAccessToken();
   const tour = state.tours.find((t) => t.id === tourId);
-  let imageCount = tour?.images?.length || 0;
+  const plan = planImageUploads({ files, existingCount: tour?.images?.length || 0 });
   const jobs = [];
-  for (const file of files) {
+  for (const { file, problems } of plan) {
     const tile = createPendingImageTile(file);
     elImageGrid.appendChild(tile.el);
-
-    const [problem] = [...validateImageQuota(imageCount), ...validateImageUpload(file)];
-    if (problem) {
-      tile.setError(t(problem.key, problem.params), false);
-      continue;
-    }
-    imageCount++;
-    jobs.push({ file, tile });
+    const [problem] = problems;
+    if (problem) tile.setError(t(problem.key, problem.params), false);
+    else jobs.push({ file, tile });
   }
 
   const uploadOne = async (job) => {
