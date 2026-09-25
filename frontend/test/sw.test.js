@@ -3,11 +3,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 
-// sw.js runs as a classic (non-module) worker script, so it can't be
-// imported directly — pull PRECACHE_URLS out of the source text instead.
-// This is what keeps the list honest as lib/ui files come and go: nothing
-// else in the repo re-derives it, so drift would otherwise only surface as
-// a blank page offline.
+// sw.js is a classic worker script, not a module, so the list is read from its source.
 const here = dirname(fileURLToPath(import.meta.url));
 const srcDir = resolve(here, '../src');
 
@@ -24,7 +20,7 @@ function listFiles(dir, exts) {
   });
 }
 
-const relPath = (full) =>
+const relativePath = (full) =>
   full
     .slice(srcDir.length + 1)
     .split('\\')
@@ -35,17 +31,30 @@ describe('service worker precache list', () => {
     const jsFiles = [
       ...listFiles(join(srcDir, 'lib'), ['.js']),
       ...listFiles(join(srcDir, 'ui'), ['.js']),
-    ].map(relPath);
+    ].map(relativePath);
     for (const file of jsFiles) expect(PRECACHE_URLS).toContain(file);
   });
 
+  it('includes every stylesheet and the icon sprite', () => {
+    const assets = [...listFiles(join(srcDir, 'css'), ['.css']).map(relativePath), 'icons.svg'];
+    expect(assets.length).toBeGreaterThan(1);
+    for (const file of assets) expect(PRECACHE_URLS).toContain(file);
+  });
+
+  it('precaches the stylesheets in the order index.html links them', () => {
+    const html = readFileSync(resolve(srcDir, 'index.html'), 'utf8');
+    const linked = [...html.matchAll(/<link rel="stylesheet" href="(css\/[\w-]+\.css)"/g)].map(
+      (match) => match[1],
+    );
+    expect(linked).toEqual(PRECACHE_URLS.filter((url) => url.startsWith('css/')));
+  });
+
   it('includes every locale file', () => {
-    const localeFiles = listFiles(join(srcDir, 'locales'), ['.json']).map(relPath);
+    const localeFiles = listFiles(join(srcDir, 'locales'), ['.json']).map(relativePath);
     for (const file of localeFiles) expect(PRECACHE_URLS).toContain(file);
   });
 
-  // config.js is gitignored (generated per-deployment) so it never exists in
-  // a fresh checkout — everything else listed must be real.
+  // config.js is generated per deployment and gitignored.
   it('lists no file that is missing on disk', () => {
     for (const url of PRECACHE_URLS) {
       if (url === './' || url === 'config.js') continue;

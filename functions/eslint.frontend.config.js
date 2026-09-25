@@ -26,6 +26,42 @@ module.exports = [
     files: ['frontend/test/**/*.js'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
+  // lib/ is pure logic (CLAUDE.md, "Split by responsibility"): the clock, storage, the
+  // network and the DOM reach it only as parameters.
+  {
+    files: ['frontend/src/lib/**/*.js'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        ...[
+          'window',
+          'globalThis',
+          'self',
+          'document',
+          'localStorage',
+          'sessionStorage',
+          'indexedDB',
+          'navigator',
+          'location',
+          'history',
+          'fetch',
+          'XMLHttpRequest',
+          'FormData',
+        ].map((name) => ({ name, message: `lib/ is pure: take ${name} as a parameter.` })),
+      ],
+      'no-restricted-properties': [
+        'error',
+        { object: 'Date', property: 'now', message: 'lib/ is pure: take `now` as a parameter.' },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+          message: 'lib/ is pure: take `now` as a parameter.',
+        },
+      ],
+    },
+  },
   // Code-smell analysis for non-test source: a test's job is to be exhaustive, not non-repetitive.
   {
     ...sonarjs.configs.recommended,

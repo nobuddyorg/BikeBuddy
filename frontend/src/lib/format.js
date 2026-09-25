@@ -1,8 +1,24 @@
 // @ts-check
-'use strict';
 
-export function formatDate(iso, locale = 'en-GB') {
-  if (!iso) return '—';
+const UNKNOWN = '—';
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+// Below this, a distance keeps one decimal; a short ride's tenths matter.
+const WHOLE_KILOMETRES_FROM = 10;
+
+/** @param {{ locale: string, unit: string, fractionDigits: number, unitDisplay?: 'short' | 'narrow' }} options */
+function unitFormat({ locale, unit, fractionDigits, unitDisplay = 'short' }) {
+  return new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit,
+    unitDisplay,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
+export function formatDate(iso, locale) {
+  if (!iso) return UNKNOWN;
   return new Date(iso).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
@@ -10,35 +26,47 @@ export function formatDate(iso, locale = 'en-GB') {
   });
 }
 
-export function formatDistance(km) {
-  if (typeof km !== 'number') return '—';
-  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
+export function formatCount(count, locale) {
+  return new Intl.NumberFormat(locale).format(count);
 }
 
-// null (not 0) means "unknown", e.g. a GPX with no <ele> — kept distinct from
-// an em dash's other use (empty string) so callers only need a typeof check.
-export function formatElevation(m) {
-  if (typeof m !== 'number') return '—';
-  return `${Math.round(m)} m`;
+export function formatPercent(fraction, locale) {
+  return new Intl.NumberFormat(locale, { style: 'percent' }).format(fraction);
 }
 
-export function formatDuration(seconds) {
-  if (typeof seconds !== 'number') return '—';
-  const totalMinutes = Math.round(seconds / 60);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return h === 0 ? `${m}m` : `${h}h ${m}m`;
+export function formatDistance(kilometres, locale) {
+  if (typeof kilometres !== 'number') return UNKNOWN;
+  const fractionDigits = kilometres < WHOLE_KILOMETRES_FROM ? 1 : 0;
+  return unitFormat({ locale, unit: 'kilometer', fractionDigits }).format(kilometres);
 }
 
-export function formatSpeed(kmh) {
-  if (typeof kmh !== 'number') return '—';
-  return `${kmh.toFixed(1)} km/h`;
+// Not a number (e.g. a GPX with no <ele>) means unknown, which is not zero.
+export function formatElevation(metres, locale) {
+  if (typeof metres !== 'number') return UNKNOWN;
+  return unitFormat({ locale, unit: 'meter', fractionDigits: 0 }).format(metres);
+}
+
+export function formatDuration(seconds, locale) {
+  if (typeof seconds !== 'number') return UNKNOWN;
+  const totalMinutes = Math.round(seconds / SECONDS_PER_MINUTE);
+  const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR);
+  const minutes = totalMinutes % MINUTES_PER_HOUR;
+  const format = (unit, value) =>
+    unitFormat({ locale, unit, fractionDigits: 0, unitDisplay: 'narrow' }).format(value);
+  const parts =
+    hours === 0 ? [format('minute', minutes)] : [format('hour', hours), format('minute', minutes)];
+  return new Intl.ListFormat(locale, { type: 'unit', style: 'narrow' }).format(parts);
+}
+
+export function formatSpeed(kilometresPerHour, locale) {
+  if (typeof kilometresPerHour !== 'number') return UNKNOWN;
+  return unitFormat({ locale, unit: 'kilometer-per-hour', fractionDigits: 1 }).format(
+    kilometresPerHour,
+  );
 }
 
 export function initials(nameOrEmail) {
-  if (!nameOrEmail) return '?';
-  const source = nameOrEmail.includes('@') ? nameOrEmail.split('@')[0] : nameOrEmail;
-  const words = source.trim().split(/\s+/).filter(Boolean);
+  const words = (nameOrEmail || '').split('@')[0].split(/\s/).filter(Boolean);
   if (words.length === 0) return '?';
   const letters = words.length === 1 ? words[0][0] : words[0][0] + words[words.length - 1][0];
   return letters.toUpperCase();

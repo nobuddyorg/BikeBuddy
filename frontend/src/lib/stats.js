@@ -1,12 +1,6 @@
 // @ts-check
-'use strict';
 
-// Pure aggregate-statistics computation over the full tour list — no DOM, no
-// state.js — so it can be unit tested the same way as tours.js/format.js.
-
-// `now` is injectable so "this year"/"last year" are testable without
-// depending on the real clock.
-export function computeTourStats(tours, now = new Date()) {
+export function computeTourStats(tours, now) {
   if (tours.length === 0) {
     return {
       totalDistance: 0,

@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// The browser half of i18n.js (init, setLanguage, the current-locale getters)
-// with fetch, storage, navigator, document and location stubbed. The module
-// keeps the current locale in module state, so each test imports it fresh.
+// The module keeps the locale in module state, so each test imports it fresh.
 
 const MESSAGES = {
   en: { greeting: 'Hello {name}', onlyEnglish: 'Fallback', 'errors.x': 'Bad input' },
@@ -37,7 +35,7 @@ function stubBrowser({ stored = null, languages = ['de-DE'], failLocale = null }
 
 async function freshI18n() {
   vi.resetModules();
-  return import('../src/lib/i18n.js');
+  return import('../src/ui/i18n.js');
 }
 
 describe('i18n runtime', () => {
@@ -48,7 +46,7 @@ describe('i18n runtime', () => {
     const i18n = await freshI18n();
     expect(i18n.getLocale()).toBe('en');
     expect(i18n.getLocaleMeta().code).toBe('en');
-    expect(i18n.dateLocale()).toBe('en-GB');
+    expect(i18n.intlLocale()).toBe('en-GB');
   });
 
   it('picks the browser language, falls back to English per key, and reveals the page', async () => {
@@ -56,7 +54,7 @@ describe('i18n runtime', () => {
     const i18n = await freshI18n();
     await i18n.init();
     expect(i18n.getLocale()).toBe('de');
-    expect(i18n.dateLocale()).toBe('de-DE');
+    expect(i18n.intlLocale()).toBe('de-DE');
     expect(document.documentElement.lang).toBe('de');
     expect(i18n.t('greeting', { name: 'Ada' })).toBe('Hallo Ada');
     expect(i18n.t('onlyEnglish')).toBe('Fallback');
@@ -148,5 +146,60 @@ describe('i18n runtime', () => {
     const i18n = await freshI18n();
     i18n.setLanguage('de');
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+// With no messages loaded, t() returns the key, so the key reaching an attribute is the check.
+describe('applyI18n', () => {
+  let i18n;
+  beforeEach(async () => {
+    i18n = await freshI18n();
+  });
+
+  const makeElement = (attributes) => ({
+    attributes,
+    applied: {},
+    getAttribute(name) {
+      return this.attributes[name];
+    },
+    setAttribute(name, value) {
+      this.applied[name] = value;
+    },
+  });
+
+  const makeRoot = (elements) => ({
+    querySelectorAll(selector) {
+      const name = selector.slice(1, -1);
+      return elements.filter((element) => name in element.attributes);
+    },
+  });
+
+  it('translates every supported attribute', () => {
+    const elements = i18n.I18N_ATTRIBUTES.map((attribute) =>
+      makeElement({ [`data-i18n-${attribute}`]: `key.${attribute}` }),
+    );
+
+    i18n.applyI18n(makeRoot(elements));
+
+    elements.forEach((element, index) => {
+      const attribute = i18n.I18N_ATTRIBUTES[index];
+      expect(element.applied[attribute]).toBe(`key.${attribute}`);
+    });
+  });
+
+  it('covers the multi-word attribute name', () => {
+    expect(i18n.I18N_ATTRIBUTES).toContain('aria-label');
+  });
+
+  it('writes text and markup content to their own sinks', () => {
+    const text = makeElement({ 'data-i18n': 'nav.upload' });
+    const html = makeElement({ 'data-i18n-html': 'help.a2' });
+
+    i18n.applyI18n(makeRoot([text, html]));
+
+    expect(text.textContent).toBe('nav.upload');
+    expect(html.innerHTML).toBe('help.a2');
+    expect(text.applied).toEqual({});
+    expect(html.applied).toEqual({});
   });
 });

@@ -1,61 +1,7 @@
-'use strict';
-
-import * as i18n from './lib/i18n.js';
+import * as i18n from './ui/i18n.js';
 import { state } from './ui/state.js';
 import { map, refreshMapSize, moveMapIntoDetailPanel, restoreMapToAppLayout } from './ui/map.js';
-import {
-  $,
-  elBtnLogin,
-  elBtnLoginSidebar,
-  elBtnLogout,
-  elBtnProfile,
-  elProfileNameForm,
-  elBtnExportData,
-  elBtnDeleteAccount,
-  elBtnCloseDetail,
-  elBtnDeleteTour,
-  elBtnEditTour,
-  elBtnDownloadGpx,
-  elBtnUpload,
-  elBtnUploadSidebar,
-  elEditForm,
-  elUploadForm,
-  elTourSearch,
-  elTourSearchClear,
-  elTourSort,
-  elFilterInViewInput,
-  elTourPagerPrev,
-  elTourPagerNext,
-  elBtnShowAll,
-  elBtnSelectMode,
-  elBtnCancelSelect,
-  elBtnDeleteSelected,
-  elPinToggleInput,
-  elBtnMapExpand,
-  elBtnMobileMapFab,
-  elMapContainer,
-  elAppLayout,
-  elBtnHelp,
-  elBtnBrandReload,
-  elHelpModal,
-  elProfileModal,
-  elEditModal,
-  elUploadModal,
-  elImageDropzone,
-  elImageFile,
-  elDropzone,
-  elUploadFile,
-  elLightbox,
-  elConfirmModal,
-  elDeleteAccountModal,
-  elDeleteAccountInput,
-  elBtnDeleteAccountConfirm,
-  elBtnStatsLongest,
-  elStatsModal,
-  elBtnStats,
-  elBtnStatsHeader,
-  show,
-} from './ui/dom.js';
+import * as dom from './ui/dom.js';
 import { signIn, signOut, initAuth } from './ui/auth.js';
 import {
   openProfile,
@@ -70,241 +16,296 @@ import {
 import { openStatsModal, closeStatsModal } from './ui/statsModal.js';
 import {
   closeDetailPanel,
-  deselectTour,
   selectTour,
-  deleteSelectedTour,
-  deleteSelectedTours,
   openEdit,
   closeEdit,
   submitEdit,
   downloadSelectedGpx,
-} from './ui/tour-detail.js';
-import { openUpload, closeUpload, submitUpload, selectFile } from './ui/upload-modal.js';
+} from './ui/tourPanel.js';
+import { deleteSelectedTour, deleteSelectedTours } from './ui/tourRemoval.js';
+import { openUpload, closeUpload, submitUpload, selectFile } from './ui/uploadModal.js';
+import { uploadImages } from './ui/imageUpload.js';
 import {
-  uploadImages,
   closeLightbox,
-  lightboxPrev,
-  lightboxNext,
+  showPreviousPhoto,
+  showNextPhoto,
   retryLightboxImage,
-} from './ui/images.js';
-import { renderSidebar, loadTours, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
+} from './ui/lightbox.js';
+import { renderGallery } from './ui/gallery.js';
+import { renderSidebar, loadTours } from './ui/sidebar.js';
+import { enterSelectMode, exitSelectMode } from './ui/selectMode.js';
+import {
+  whenAnnounced,
+  TOURS_CHANGED,
+  PHOTO_LOCATIONS_CHANGED,
+  GALLERY_CHANGED,
+} from './ui/events.js';
 import { renderAllRoutes, renderSelectedToursRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
 import { debounce } from './lib/debounce.js';
-import { setupLanguageSwitcher, setupSortMenu, setupLineStyleMenu } from './ui/menus.js';
+import { mapExpandTransition } from './lib/layout.js';
+import {
+  populateSortSelect,
+  setupLanguageSwitcher,
+  setupSortMenu,
+  setupLineStyleMenu,
+} from './ui/menus.js';
 import {
   openModal,
   closeModal,
   trapFocus,
   wireModalClose,
-  openModalEl,
+  currentOpenModal,
   wireDropzone,
 } from './ui/modal.js';
 import { cancelConfirm } from './ui/confirm.js';
+import { toast } from './ui/toast.js';
 import { readInitialUrl, initHistory, syncUrl, pushLayer } from './ui/router.js';
 
 const t = i18n.t;
 
-// Before anything renders, so the sort/search/in-view controls reflect the
-// URL rather than their HTML defaults on a reload or a shared link (#443).
-readInitialUrl();
-elTourSearch.value = state.search;
-show(elTourSearchClear, state.search.length > 0);
-elTourSort.value = state.sort;
-initHistory();
-
-// Debounced: 'moveend' can fire several times in quick succession (inertial
-// panning, a pinch-zoom followed by a pan), and each renderSidebar() rescans
-// every tour's points plus rebuilds the list DOM.
 const DEBOUNCE_MS = 200;
-const renderInViewList = debounce(() => {
-  if (state.filterInView) renderSidebar();
-}, DEBOUNCE_MS);
 
-// 'moveend' covers pan and zoom both, so the in-view list needs no second
-// listener.
-map.on('moveend', renderInViewList);
-map.on('zoomend', renderPins);
-
-elBtnLogin.addEventListener('click', signIn);
-elBtnLoginSidebar.addEventListener('click', signIn);
-elBtnLogout.addEventListener('click', signOut);
-elBtnProfile.addEventListener('click', openProfile);
-elProfileNameForm.addEventListener('submit', saveProfileName);
-elBtnExportData.addEventListener('click', downloadMyData);
-elBtnStats.addEventListener('click', openStatsModal);
-elBtnStatsHeader.addEventListener('click', openStatsModal);
-wireModalClose(elStatsModal, $('btn-close-stats'), closeStatsModal);
-elBtnStatsLongest.addEventListener('click', () => {
-  const id = elBtnStatsLongest.dataset.tourId;
-  if (!id) return;
-  closeStatsModal();
-  selectTour(id);
-});
-elBtnDeleteAccount.addEventListener('click', openDeleteAccountModal);
-elDeleteAccountInput.addEventListener('input', updateDeleteAccountConfirmState);
-elBtnDeleteAccountConfirm.addEventListener('click', deleteMyAccount);
-wireModalClose(elDeleteAccountModal, $('btn-close-delete-account'), closeDeleteAccountModal);
-elBtnCloseDetail.addEventListener('click', closeDetailPanel);
-elBtnDeleteTour.addEventListener('click', deleteSelectedTour);
-elBtnEditTour.addEventListener('click', openEdit);
-elBtnDownloadGpx.addEventListener('click', downloadSelectedGpx);
-elBtnUpload.addEventListener('click', openUpload);
-elBtnUploadSidebar.addEventListener('click', openUpload);
-elEditForm.addEventListener('submit', submitEdit);
-elUploadForm.addEventListener('submit', submitUpload);
-
-// Fuzzy-scoring every tour and rebuilding the list DOM on every keystroke is
-// wasted work while the user is still typing, so only that part is debounced
-// — the input's own value and the clear button stay in sync immediately.
-const renderSearchResults = debounce(() => {
-  renderSidebar();
-  syncUrl();
-}, DEBOUNCE_MS);
-
-elTourSearch.addEventListener('input', () => {
-  state.search = elTourSearch.value;
-  state.page = 1;
-  show(elTourSearchClear, state.search.length > 0);
-  renderSearchResults();
-});
-elTourSearchClear.addEventListener('click', () => {
-  elTourSearch.value = '';
-  state.search = '';
-  state.page = 1;
-  show(elTourSearchClear, false);
-  renderSidebar();
-  syncUrl();
-  elTourSearch.focus();
-});
-elTourSort.addEventListener('change', () => {
-  state.sort = elTourSort.value;
-  state.page = 1;
-  renderSidebar();
-  syncUrl();
-});
-elFilterInViewInput.addEventListener('change', () => {
-  state.filterInView = elFilterInViewInput.checked;
-  state.page = 1;
-  renderSidebar();
-  syncUrl();
-});
-// Same reload quirk as elPinToggleInput below.
-elFilterInViewInput.checked = state.filterInView;
-elTourPagerPrev.addEventListener('click', () => {
-  state.page -= 1;
-  renderSidebar();
-});
-elTourPagerNext.addEventListener('click', () => {
-  state.page += 1;
-  renderSidebar();
-});
-elBtnShowAll.addEventListener('click', () => {
-  deselectTour();
-  renderAllRoutes();
-});
-$('btn-retry-tours').addEventListener('click', loadTours);
-$('btn-retry-map').addEventListener('click', loadTours);
-elBtnSelectMode.addEventListener('click', enterSelectMode);
-elBtnCancelSelect.addEventListener('click', exitSelectMode);
-elBtnDeleteSelected.addEventListener('click', deleteSelectedTours);
-elPinToggleInput.addEventListener('change', () => {
-  state.showPins = elPinToggleInput.checked;
-  renderPins();
-});
-
-// The browser restores the checkbox on reload while JS state resets to false,
-// so without this the pins need an off/on toggle to reappear.
-elPinToggleInput.checked = state.showPins;
-
-// Expand the map by collapsing the side panels. On mobile the map may
-// currently be the detail panel's preview (see moveMapIntoDetailPanel) —
-// expanding it has to pull it back into .app-layout first, since
-// .map-expanded hides .detail-panel entirely, and collapsing again has to
-// put it back once done.
-let mapExpandedFromDetail = false;
-elBtnMapExpand.addEventListener('click', () => {
-  const wasInDetail = elMapContainer.classList.contains('in-detail');
-  if (wasInDetail) restoreMapToAppLayout();
-  const expanded = elAppLayout.classList.toggle('map-expanded');
-  elBtnMapExpand.setAttribute('aria-pressed', String(expanded));
-  elBtnMapExpand.title = expanded ? t('map.restoreTitle') : t('map.expandTitle');
-  if (expanded) {
-    mapExpandedFromDetail = wasInDetail;
-    show(elBtnMobileMapFab, false);
-  } else if (mapExpandedFromDetail) {
-    moveMapIntoDetailPanel();
-    mapExpandedFromDetail = false;
-  } else {
-    show(elBtnMobileMapFab, true);
-  }
-  refreshMapSize();
-});
-
-// Mobile-only entry point to the same fullscreen map, from the list screen
-// where .map-container is hidden and its own expand button isn't reachable.
-function closeMobileMap() {
-  if (elAppLayout.classList.contains('map-expanded')) elBtnMapExpand.click();
+function subscribeRenderers() {
+  whenAnnounced(TOURS_CHANGED, renderSidebar);
+  whenAnnounced(PHOTO_LOCATIONS_CHANGED, renderPins);
+  whenAnnounced(GALLERY_CHANGED, () => {
+    const tour = state.tours.find((candidate) => candidate.id === state.selectedTourId);
+    if (tour) renderGallery(tour);
+  });
 }
-elBtnMobileMapFab.addEventListener('click', () => {
-  pushLayer(closeMobileMap);
-  elBtnMapExpand.click();
-  // .map-container is display:none on mobile until now, so the fitBounds()
-  // that ran at load time (or the last selection change) sized against a
-  // hidden 0-size container — invalidateSize() alone won't refit, only
-  // re-center, so the zoom needs recomputing now that it's actually visible.
-  renderSelectedToursRoutes();
-});
 
-elBtnHelp.addEventListener('click', () => openModal(elHelpModal));
-elBtnBrandReload.addEventListener('click', () => window.location.reload());
-wireModalClose(elHelpModal, $('btn-close-help'), () => closeModal(elHelpModal));
-wireModalClose(elProfileModal, $('btn-close-profile'), closeProfile);
-wireModalClose(elEditModal, $('btn-close-edit'), closeEdit);
-wireModalClose(elUploadModal, $('btn-close-upload'), closeUpload);
+// Before anything renders, so the controls show the URL's state rather than HTML defaults.
+function restoreControlsFromUrl() {
+  readInitialUrl();
+  populateSortSelect();
+  dom.tourSearchInput.value = state.search;
+  dom.setVisible(dom.tourSearchClearButton, state.search.length > 0);
+  dom.tourSortSelect.value = state.sort;
+  // The browser restores checkboxes on reload while state starts fresh.
+  dom.inViewCheckbox.checked = state.filterInView;
+  dom.pinToggleCheckbox.checked = state.showPins;
+  initHistory();
+}
 
-wireDropzone(elImageDropzone, elImageFile, uploadImages);
-wireDropzone(elDropzone, elUploadFile, ([file]) => selectFile(file));
+function wireMapEvents() {
+  // 'moveend' fires in bursts (inertia, pinch then pan) and covers zoom as well as pan.
+  const renderInViewList = debounce(() => {
+    if (state.filterInView) renderSidebar();
+  }, DEBOUNCE_MS);
+  map.on('moveend', renderInViewList);
+  map.on('zoomend', renderPins);
+}
 
-wireModalClose(elLightbox, $('btn-close-lightbox'), closeLightbox);
-$('btn-lightbox-prev').addEventListener('click', lightboxPrev);
-$('btn-lightbox-next').addEventListener('click', lightboxNext);
-$('btn-lightbox-retry').addEventListener('click', retryLightboxImage);
+function wireAccount() {
+  dom.signInButton.addEventListener('click', signIn);
+  dom.sidebarSignInButton.addEventListener('click', signIn);
+  dom.signOutButton.addEventListener('click', signOut);
+  dom.profileButton.addEventListener('click', openProfile);
+  dom.profileNameForm.addEventListener('submit', saveProfileName);
+  dom.exportDataButton.addEventListener('click', downloadMyData);
+  dom.deleteAccountButton.addEventListener('click', openDeleteAccountModal);
+  dom.deleteAccountInput.addEventListener('input', updateDeleteAccountConfirmState);
+  dom.deleteAccountConfirmButton.addEventListener('click', deleteMyAccount);
+}
 
-document.addEventListener('keydown', (e) => {
-  const open = openModalEl();
-  if (!open) return;
-  if (e.key === 'Escape') {
-    if (open === elLightbox) return closeLightbox();
-    if (open === elConfirmModal) return cancelConfirm();
-    return closeModal(open);
-  }
-  if (open === elLightbox) {
-    if (e.key === 'ArrowLeft') return lightboxPrev();
-    if (e.key === 'ArrowRight') return lightboxNext();
-  }
-  trapFocus(e, open);
-});
+function wireStats() {
+  dom.statsButton.addEventListener('click', openStatsModal);
+  dom.statsHeaderButton.addEventListener('click', openStatsModal);
+  dom.statsLongestButton.addEventListener('click', () => {
+    const tourId = dom.statsLongestButton.dataset.tourId;
+    if (!tourId) return;
+    closeStatsModal();
+    selectTour(tourId);
+  });
+}
 
-(async () => {
+function wireTourActions() {
+  dom.closeDetailButton.addEventListener('click', closeDetailPanel);
+  dom.deleteTourButton.addEventListener('click', deleteSelectedTour);
+  dom.editTourButton.addEventListener('click', openEdit);
+  dom.downloadGpxButton.addEventListener('click', downloadSelectedGpx);
+  dom.uploadButton.addEventListener('click', openUpload);
+  dom.sidebarUploadButton.addEventListener('click', openUpload);
+  dom.editForm.addEventListener('submit', submitEdit);
+  dom.uploadForm.addEventListener('submit', submitUpload);
+  dom.showAllButton.addEventListener('click', async () => {
+    closeDetailPanel();
+    await renderAllRoutes();
+  });
+  dom.retryToursButton.addEventListener('click', loadTours);
+  dom.retryMapButton.addEventListener('click', loadTours);
+  dom.selectModeButton.addEventListener('click', enterSelectMode);
+  dom.cancelSelectButton.addEventListener('click', exitSelectMode);
+  dom.deleteSelectedButton.addEventListener('click', deleteSelectedTours);
+}
+
+function applyListFilter(patch) {
+  Object.assign(state, patch, { page: 1 });
+  renderSidebar();
+  syncUrl();
+}
+
+function wireListControls() {
+  // Only the list re-render waits for typing to pause; the input and clear button follow at once.
+  const renderSearchResults = debounce(() => {
+    renderSidebar();
+    syncUrl();
+  }, DEBOUNCE_MS);
+  dom.tourSearchInput.addEventListener('input', () => {
+    Object.assign(state, { search: dom.tourSearchInput.value, page: 1 });
+    dom.setVisible(dom.tourSearchClearButton, state.search.length > 0);
+    renderSearchResults();
+  });
+  dom.tourSearchClearButton.addEventListener('click', () => {
+    dom.tourSearchInput.value = '';
+    dom.hideElement(dom.tourSearchClearButton);
+    applyListFilter({ search: '' });
+    dom.tourSearchInput.focus();
+  });
+  dom.tourSortSelect.addEventListener('change', () =>
+    applyListFilter({ sort: dom.tourSortSelect.value }),
+  );
+  dom.inViewCheckbox.addEventListener('change', () =>
+    applyListFilter({ filterInView: dom.inViewCheckbox.checked }),
+  );
+  dom.tourPagerPreviousButton.addEventListener('click', () => {
+    state.page -= 1;
+    renderSidebar();
+  });
+  dom.tourPagerNextButton.addEventListener('click', () => {
+    state.page += 1;
+    renderSidebar();
+  });
+  dom.pinToggleCheckbox.addEventListener('change', () => {
+    state.showPins = dom.pinToggleCheckbox.checked;
+    renderPins();
+  });
+}
+
+// The expanded map hides .detail-panel, so a map previewed inside it moves out and back.
+function wireMapExpand() {
+  let expandedFromDetail = false;
+  dom.mapExpandButton.addEventListener('click', () => {
+    const wasInDetail = dom.mapContainer.classList.contains('in-detail');
+    if (wasInDetail) restoreMapToAppLayout();
+    const expanded = dom.appLayout.classList.toggle('map-expanded');
+    dom.mapExpandButton.setAttribute('aria-pressed', String(expanded));
+    dom.mapExpandButton.title = expanded ? t('map.restoreTitle') : t('map.expandTitle');
+    const transition = mapExpandTransition({ expanded, wasInDetail, expandedFromDetail });
+    expandedFromDetail = transition.expandedFromDetail;
+    if (transition.returnToDetail) moveMapIntoDetailPanel();
+    dom.setVisible(dom.mobileMapButton, transition.showFab);
+    refreshMapSize();
+  });
+
+  const closeMobileMap = () => {
+    if (dom.appLayout.classList.contains('map-expanded')) dom.mapExpandButton.click();
+  };
+  dom.mobileMapButton.addEventListener('click', () => {
+    pushLayer(closeMobileMap);
+    dom.mapExpandButton.click();
+    // Mobile's map was display:none until now, so its last fitBounds measured a zero-size box.
+    renderSelectedToursRoutes();
+  });
+}
+
+function wireModals() {
+  dom.helpButton.addEventListener('click', () => openModal(dom.helpModal));
+  dom.brandReloadButton.addEventListener('click', () => window.location.reload());
+  wireModalClose({
+    modal: dom.helpModal,
+    closeButton: dom.closeHelpButton,
+    onClose: () => closeModal(dom.helpModal),
+  });
+  wireModalClose({
+    modal: dom.profileModal,
+    closeButton: dom.closeProfileButton,
+    onClose: closeProfile,
+  });
+  wireModalClose({ modal: dom.editModal, closeButton: dom.closeEditButton, onClose: closeEdit });
+  wireModalClose({
+    modal: dom.uploadModal,
+    closeButton: dom.closeUploadButton,
+    onClose: closeUpload,
+  });
+  wireModalClose({
+    modal: dom.statsModal,
+    closeButton: dom.closeStatsButton,
+    onClose: closeStatsModal,
+  });
+  wireModalClose({
+    modal: dom.deleteAccountModal,
+    closeButton: dom.closeDeleteAccountButton,
+    onClose: closeDeleteAccountModal,
+  });
+  wireModalClose({
+    modal: dom.lightboxModal,
+    closeButton: dom.closeLightboxButton,
+    onClose: closeLightbox,
+  });
+  wireDropzone({ zone: dom.imageDropzone, input: dom.imageFileInput, onFiles: uploadImages });
+  wireDropzone({
+    zone: dom.gpxDropzone,
+    input: dom.gpxFileInput,
+    onFiles: ([file]) => selectFile(file),
+  });
+  dom.lightboxPreviousButton.addEventListener('click', showPreviousPhoto);
+  dom.lightboxNextButton.addEventListener('click', showNextPhoto);
+  dom.lightboxRetryButton.addEventListener('click', retryLightboxImage);
+}
+
+function handleEscape(openModalElement) {
+  if (openModalElement === dom.lightboxModal) return closeLightbox();
+  if (openModalElement === dom.confirmModal) return cancelConfirm();
+  return closeModal(openModalElement);
+}
+
+function handleModalKey(event) {
+  const openModalElement = currentOpenModal();
+  if (!openModalElement) return;
+  if (event.key === 'Escape') return handleEscape(openModalElement);
+  if (openModalElement === dom.lightboxModal && event.key === 'ArrowLeft')
+    return showPreviousPhoto();
+  if (openModalElement === dom.lightboxModal && event.key === 'ArrowRight') return showNextPhoto();
+  return trapFocus(event, openModalElement);
+}
+
+subscribeRenderers();
+restoreControlsFromUrl();
+wireMapEvents();
+wireAccount();
+wireStats();
+wireTourActions();
+wireListControls();
+wireMapExpand();
+wireModals();
+document.addEventListener('keydown', handleModalKey);
+
+// Floating promises in event handlers end up here; the user hears about them too.
+function reportUnexpectedError(error) {
+  console.error(error);
+  toast(t('toast.unexpectedError'), { type: 'error' });
+}
+window.addEventListener('unhandledrejection', (event) => reportUnexpectedError(event.reason));
+
+async function start() {
   try {
-    await i18n.init(); // detect locale, load messages, translate the static markup
-    setupLanguageSwitcher();
-    setupSortMenu();
-    setupLineStyleMenu();
-    initAuth();
+    await i18n.init();
   } finally {
-    // Belt-and-suspenders: i18n.init() already does this once translation is
-    // applied, but a failure anywhere above must not leave the skeleton
-    // covering the page forever.
+    // i18n.init() reveals the page itself; a failure there must not leave the skeleton up.
     document.body.classList.remove('i18n-loading');
   }
-})();
+  setupLanguageSwitcher();
+  setupSortMenu();
+  setupLineStyleMenu();
+  await initAuth();
+}
 
-// Offline support is a progressive enhancement — registration failing (an
-// unsupported browser, a blocked extension) shouldn't affect the rest of the app.
+start().catch(reportUnexpectedError);
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js').catch((error) => console.warn(error));
   });
 }
