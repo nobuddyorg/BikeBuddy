@@ -127,7 +127,7 @@ describe('DELETE /api/account', () => {
     await run();
 
     expect(deletions.all()).toEqual([
-      expect.objectContaining({ id: 'oid-1', requestedAt: NOW.toISOString() }),
+      expect.objectContaining({ id: 'oid-1', userId: 'u1', requestedAt: NOW.toISOString() }),
     ]);
   });
 

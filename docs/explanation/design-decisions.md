@@ -147,9 +147,17 @@ warm instance from growing. The frontend fetches `/api/map` in parallel with
 ## Account deletion (GDPR), out-of-band
 
 `DELETE /api/account` purges all app data immediately (tours, blobs, user doc)
-and **queues** the user's Entra directory object id in a `deletions` container.
-A **scheduled GitHub Action** (`process-deletions.yml`) then deletes those users
-from the External ID tenant via Graph.
+and **queues** the user's Entra directory object id, with the app user id (the
+token's `sub`) it belongs to, in a `deletions` container. A **scheduled GitHub
+Action** (`process-deletions.yml`) then purges that app user's data again and
+deletes the user from the External ID tenant via Graph.
+
+Until the job runs, the identity still signs in. So that nothing can be created
+that no process would ever delete (#538), `GetMe`, `UpdateProfile` and
+`UploadTour` answer **410** (`errors.accountDeleted`) to a caller whose object
+id is queued, and the frontend signs that session out. The job's second purge
+(`lib/accountPurge.js`, the same code the API runs) catches what the API's first
+one missed: a partial failure, or a write from another device in between.
 
 Why out-of-band: deleting a directory user needs a tenant-wide
 `User.ReadWrite.All` Graph credential. Keeping that **only in CI** (never in the
@@ -167,18 +175,23 @@ fakes; a change to it is security-relevant):
 
 - Only queued ids shaped like a GUID reach Graph, URL-encoded. Anything else
   (`../groups/…`, `a/b`) stays queued and fails the run for a human to look at.
+- A queued `userId` is purged before the Graph call; the identity is deleted and
+  the entry removed only when the purge succeeded. A `userId` that is not a
+  token subject (empty, or with a `/`) is refused, since it would widen the
+  blob prefix. Entries queued before #538 carry no `userId`; their data was
+  purged when they were queued.
 - A Graph 204 or 404 removes the queue entry, so a re-run is idempotent; a 5xx,
   429 or network error keeps it for the next run and fails this one. One
   failing id never stops the others.
 - Logs carry counts and masked ids (`…abcd`), never a full object id (#570
-  tracks purging Entra's soft-deleted users and #538 the data it cannot reach).
+  tracks purging Entra's soft-deleted users).
 - `--dry-run` lists what a real run would do without Graph credentials; manual
   runs of `process-deletions.yml` default to it (input `dry_run`), the daily
   cron runs for real, and runs never overlap.
 
 By hand, `./buddy.sh maintenance delete-users --dry-run` shows the queue; it
-reads the production Cosmos key through `az`, so it is for an operator with a
-reason, never a routine local command.
+reads the production Cosmos key and Storage connection string through `az`, so
+it is for an operator with a reason, never a routine local command.
 
 ## Backfills
 

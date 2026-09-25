@@ -179,6 +179,7 @@
   "errors.profileInvalid": "Inserisci un nome di 1-200 caratteri o scegli una lingua supportata.",
   "errors.busy": "BikeBuddy è occupato in questo momento. Riprova tra poco.",
   "errors.unexpected": "Qualcosa è andato storto. Riprova.",
+  "errors.accountDeleted": "Questo account è in fase di eliminazione. Non può più essere usato.",
 
   "toast.toursLoadError": "Impossibile caricare i tuoi giri. Controlla la connessione e riprova.",
   "toast.undo": "Annulla",

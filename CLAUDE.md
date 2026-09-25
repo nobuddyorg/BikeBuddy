@@ -104,12 +104,13 @@ security-critical.
 
 ## Destructive jobs
 
-`process-deletions.yml` holds a tenant-wide Graph credential and deletes
-directory users on a daily cron; a deletion cannot be undone from here. It
-must delete only ids the API queued and stay idempotent ("Account deletion
-(GDPR), out-of-band"). Never loosen what it accepts; #570 tracks the checks it
-still lacks (the id is not validated before the Graph call) and #538 the data
-it leaves behind. A change to it is security-relevant (see above).
+`process-deletions.yml` holds a tenant-wide Graph credential; on a daily cron
+it purges each queued user's app data and deletes the directory user. A
+deletion cannot be undone from here. It must delete only ids the API queued and
+stay idempotent ("Account deletion (GDPR), out-of-band"). Never loosen what it
+accepts; #570 tracks the checks it still lacks (it cannot prove that the API,
+and not someone else holding the Cosmos key, queued an id). A change to it is
+security-relevant (see above).
 
 ## Infrastructure changes
 

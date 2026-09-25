@@ -5,6 +5,7 @@ const { withFailureResponse } = require('../lib/failureResponse');
 const { z } = require('zod');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
+const { refusePendingDeletion } = require('../lib/pendingDeletion');
 const system = require('../lib/system');
 const { nameSchema, languageSchema } = require('../lib/validation');
 const { profileFromClaims, newUserDocument, toUserResponse } = require('../lib/userProfile');
@@ -32,12 +33,15 @@ async function updateProfile(
   request,
   {
     authenticate = authMiddleware.authenticate,
+    deletionsContainer = db.deletionsContainer,
     usersContainer = db.usersContainer,
     now = system.currentTime,
   } = {},
 ) {
   const user = await authenticate(request);
   if (!user) return unauthorized();
+  const refused = await refusePendingDeletion(user, deletionsContainer);
+  if (refused) return refused;
 
   const parsed = profileSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) return error(400, ERROR_KEYS.profileInvalid);

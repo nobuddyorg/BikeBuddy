@@ -107,7 +107,7 @@ const database = () => getClient().database(process.env.COSMOS_DATABASE);
 module.exports = {
   usersContainer: () => database().container('users'),
   toursContainer: () => database().container('tours'),
-  // Drained by the scheduled deletion job, never read by the public API.
+  // Queued and checked (pendingDeletion.js) by the API, drained by the scheduled deletion job.
   deletionsContainer: () => database().container('deletions'),
   readItem,
   queryUserItems,

@@ -24,6 +24,7 @@ const COSMOS_ENVIRONMENT = {
 };
 const ENVIRONMENT = {
   ...COSMOS_ENVIRONMENT,
+  BLOB_CONNECTION_STRING: 'UseDevelopmentStorage=true',
   GRAPH_TENANT_ID: 'tenant-id',
   GRAPH_CLIENT_ID: 'client-id',
   GRAPH_CLIENT_SECRET: 'client-secret',
@@ -50,9 +51,13 @@ function fakeGraphFetch(statusFor = () => 204) {
   return { fetch, calls, deletedIds };
 }
 
-function queueOf(ids) {
+// An entry is an id, or { id, userId } for one queued with the app user it belongs to.
+function queueOf(entries) {
   return fakeCosmosContainer({
-    documents: ids.map((id) => ({ id, requestedAt: '2026-01-01T00:00:00.000Z' })),
+    documents: entries.map((entry) => ({
+      requestedAt: '2026-01-01T00:00:00.000Z',
+      ...(typeof entry === 'string' ? { id: entry } : entry),
+    })),
     answerQuery: (documents) => documents.map(({ id }) => ({ id })),
     partitionKeyOf: (document) => document.id,
   });
@@ -67,15 +72,16 @@ function recordingLog() {
   };
 }
 
-async function runReal({ ids, statusFor, log = recordingLog() }) {
+async function runReal({ ids, statusFor, log = recordingLog(), purgeAccount = vi.fn() }) {
   const queue = queueOf(ids);
   const graph = fakeGraphFetch(statusFor);
   const outcome = await processDeletions({
     queue: createDeletionQueue(queue.container),
     graph: createGraphClient({ fetch: graph.fetch, ...CREDENTIALS }),
+    purgeAccount,
     log,
   });
-  return { outcome, queue, graph, log };
+  return { outcome, queue, graph, log, purgeAccount };
 }
 
 describe('partitionQueue', () => {
@@ -198,6 +204,31 @@ describe('createDeletionQueue', () => {
     ]);
   });
 
+  it('reads the app user an entry was queued for, by its id as partition key', async () => {
+    const queue = queueOf([{ id: USER_A, userId: 'sub-a' }, USER_B]);
+    const adapter = createDeletionQueue(queue.container);
+
+    await expect(adapter.appUserOf(USER_A)).resolves.toBe('sub-a');
+    await expect(adapter.appUserOf(USER_B)).resolves.toBeUndefined();
+    await expect(adapter.appUserOf(USER_C)).resolves.toBeUndefined();
+  });
+
+  it('reads no app user when the SDK answers a missing entry without throwing', async () => {
+    const container = { item: () => ({ read: async () => ({ resource: undefined }) }) };
+
+    await expect(createDeletionQueue(container).appUserOf(USER_A)).resolves.toBeUndefined();
+  });
+
+  it('rethrows a failed read that is not a 404', async () => {
+    const container = {
+      item: () => ({
+        read: async () => Promise.reject(Object.assign(new Error('throttled'), { code: 429 })),
+      }),
+    };
+
+    await expect(createDeletionQueue(container).appUserOf(USER_A)).rejects.toThrow('throttled');
+  });
+
   it('removes an entry by its id as partition key', async () => {
     const queue = queueOf([USER_A, USER_B]);
 
@@ -279,8 +310,9 @@ describe('processDeletions', () => {
     });
     const graph = fakeGraphFetch();
 
+    const adapter = createDeletionQueue(queue.container);
     const outcome = await processDeletions({
-      queue: { listIds: createDeletionQueue(queue.container).listIds, remove },
+      queue: { listIds: adapter.listIds, appUserOf: adapter.appUserOf, remove },
       graph: createGraphClient({ fetch: graph.fetch, ...CREDENTIALS }),
       log: recordingLog(),
     });
@@ -299,7 +331,7 @@ describe('processDeletions', () => {
     };
 
     const outcome = await processDeletions({
-      queue: { listIds: adapter.listIds, remove },
+      queue: { listIds: adapter.listIds, appUserOf: adapter.appUserOf, remove },
       graph: createGraphClient({ fetch: fakeGraphFetch().fetch, ...CREDENTIALS }),
       log,
     });
@@ -308,6 +340,66 @@ describe('processDeletions', () => {
     expect(log.lines).toContain(
       '…aaaa: failed, stays queued for the next run (Request to docs/…aaaa timed out)',
     );
+  });
+
+  it("purges the queued app user's data before deleting the identity", async () => {
+    const order = [];
+    const purgeAccount = vi.fn(async (userId) => order.push(`purge ${userId}`));
+    const graph = fakeGraphFetch();
+    const queue = queueOf([{ id: USER_A, userId: 'sub-a_1' }]);
+    const deleteUser = createGraphClient({ fetch: graph.fetch, ...CREDENTIALS }).deleteUser;
+
+    const outcome = await processDeletions({
+      queue: createDeletionQueue(queue.container),
+      graph: { deleteUser: async (id) => (order.push(`graph ${id}`), deleteUser(id)) },
+      purgeAccount,
+      log: recordingLog(),
+    });
+
+    expect(order).toEqual(['purge sub-a_1', `graph ${USER_A}`]);
+    expect(outcome.deleted).toBe(1);
+    expect(queue.documents).toEqual([]);
+  });
+
+  it('keeps the identity and the entry when the purge fails, for the next run', async () => {
+    const purgeAccount = vi.fn(async () => {
+      throw new Error(
+        'The documents of the account are gone, but some of its blobs were not deleted',
+      );
+    });
+    const { outcome, queue, graph } = await runReal({
+      ids: [{ id: USER_A, userId: 'sub-a' }],
+      purgeAccount,
+    });
+
+    expect(outcome).toEqual({ deleted: 0, alreadyGone: 0, failed: 1, rejected: 0 });
+    expect(graph.deletedIds()).toEqual([]);
+    expect(queue.documents.map(({ id }) => id)).toEqual([USER_A]);
+  });
+
+  // An empty or path-like userId would widen the blob prefix past one user.
+  it.each([[''], ['a/b'], ['../x'], [42]])(
+    'refuses to purge for the queued userId %j and keeps the identity',
+    async (userId) => {
+      const { outcome, purgeAccount, graph, log } = await runReal({
+        ids: [{ id: USER_A, userId }],
+      });
+
+      expect(log.lines).toContain(
+        '…aaaa: failed, stays queued for the next run ' +
+          '(Refusing to purge for a queued userId that is not a token subject)',
+      );
+      expect(purgeAccount).not.toHaveBeenCalled();
+      expect(graph.deletedIds()).toEqual([]);
+      expect(outcome.failed).toBe(1);
+    },
+  );
+
+  it('deletes an identity queued without a userId as before, purging nothing', async () => {
+    const { outcome, purgeAccount } = await runReal({ ids: [USER_A] });
+
+    expect(purgeAccount).not.toHaveBeenCalled();
+    expect(outcome.deleted).toBe(1);
   });
 
   it('is idempotent: a second run finds nothing left to do', async () => {
@@ -359,6 +451,22 @@ describe('planDeletions', () => {
   });
 });
 
+describe('planDeletions with app users', () => {
+  it('says which identities would have their app data purged first', async () => {
+    const queue = queueOf([{ id: USER_A, userId: 'sub-a' }, USER_B]);
+    const log = recordingLog();
+
+    await planDeletions({ queue: createDeletionQueue(queue.container), log });
+
+    expect(log.lines).toEqual([
+      'Would purge its app data and delete …aaaa',
+      'Would delete …bbbb',
+      'Dry run, nothing changed: 2 would be deleted, 0 rejected.',
+    ]);
+    expect(queue.writes).toEqual([]);
+  });
+});
+
 describe('runDeletionJob', () => {
   function run({ argv = [], environment = ENVIRONMENT, ids = [USER_A], statusFor } = {}) {
     const queue = queueOf(ids);
@@ -370,6 +478,7 @@ describe('runDeletionJob', () => {
       environment,
       fetch: graph.fetch,
       openDeletionsContainer,
+      purgeAccount: vi.fn(),
       log,
     });
     return { exitCode, queue, graph, log, openDeletionsContainer };
@@ -430,6 +539,16 @@ describe('runDeletionJob', () => {
     expect(log.lines.join('\n')).toContain(
       'Missing environment variables: COSMOS_CONNECTION_STRING, COSMOS_DATABASE',
     );
+  });
+
+  it('needs the Storage connection string to purge, and says so before calling Graph', async () => {
+    const { exitCode, graph, log } = run({
+      environment: { ...ENVIRONMENT, BLOB_CONNECTION_STRING: '' },
+    });
+
+    await expect(exitCode).resolves.toBe(1);
+    expect(graph.fetch).not.toHaveBeenCalled();
+    expect(log.lines.join('\n')).toContain('Missing environment variables: BLOB_CONNECTION_STRING');
   });
 
   it('names the missing Graph variables before calling Graph', async () => {

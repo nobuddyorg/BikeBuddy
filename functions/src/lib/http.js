@@ -23,6 +23,7 @@ const ERROR_KEYS = Object.freeze({
   tourInvalid: 'errors.tourInvalid',
   profileInvalid: 'errors.profileInvalid',
   busy: 'errors.busy',
+  accountDeleted: 'errors.accountDeleted',
   unexpected: 'errors.unexpected',
 });
 

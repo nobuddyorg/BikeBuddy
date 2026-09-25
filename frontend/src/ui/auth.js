@@ -24,6 +24,8 @@ import { userFromAccount, userFromAuthResult } from '../lib/authConfig.js';
 import { API_BASE, AUTH_CONFIG, LOGIN_REQUEST, apiRequest, createAuthClient } from './api.js';
 import { toast } from './toast.js';
 
+const ACCOUNT_DELETED = 410;
+
 const t = i18n.t;
 
 // MSAL's code for a sign-in popup the user closed.
@@ -51,6 +53,7 @@ function syncLanguageFromUser(user) {
 async function devSignIn() {
   try {
     const response = await fetch(`${API_BASE}/api/me`);
+    if (response.status === ACCOUNT_DELETED) return signOutDeletedAccount();
     state.user = response.ok ? await response.json() : SYNTHETIC_USER;
   } catch {
     // Dev mode only: no backend to reach (the frontend alone, or opened from file://).
@@ -123,6 +126,12 @@ async function endProviderSession() {
   }
 }
 
+// The account is being deleted: its identity is gone within a day, so the session ends now.
+async function signOutDeletedAccount() {
+  toast(t('errors.accountDeleted'), { type: 'error' });
+  await signOut();
+}
+
 export async function signOut() {
   await endProviderSession();
   state.user = null;
@@ -151,6 +160,7 @@ async function renderSignedIn() {
 export async function refreshUser() {
   const { response, networkError } = await apiRequest('/api/me');
   if (networkError) return;
+  if (response.status === ACCOUNT_DELETED) return signOutDeletedAccount();
   if (!response.ok) {
     console.warn(`GET /api/me answered ${response.status}`);
     return;

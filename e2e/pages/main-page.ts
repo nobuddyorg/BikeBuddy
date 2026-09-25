@@ -25,6 +25,8 @@ interface MainPage {
   locators: {
     userMenu: Locator;
     authPrompt: Locator;
+    /** Error toasts (role=alert) currently shown. */
+    alerts: Locator;
     sidebar: Locator;
     sidebarTitle: Locator;
     buttons: {
@@ -44,6 +46,7 @@ export function initMainPage(page: Page): MainPage {
   const locators = {
     userMenu: page.locator('#user-menu'),
     authPrompt: page.locator('#auth-prompt'),
+    alerts: page.locator('#toasts').getByRole('alert'),
     sidebar: page.locator('#sidebar'),
     sidebarTitle: page.locator('#sidebar-title'),
     buttons: {

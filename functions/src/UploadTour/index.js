@@ -4,6 +4,7 @@ const { app } = require('../lib/functionsApp');
 const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
+const { refusePendingDeletion } = require('../lib/pendingDeletion');
 const blobStorage = require('../lib/blobStorage');
 const system = require('../lib/system');
 const { parseMultipart } = require('../lib/parseMultipart');
@@ -71,6 +72,7 @@ async function uploadTour(
   request,
   {
     authenticate = authMiddleware.authenticate,
+    deletionsContainer = db.deletionsContainer,
     toursContainer = db.toursContainer,
     gpxContainer = blobStorage.gpxContainer,
     parseFile = parseMultipart,
@@ -81,6 +83,8 @@ async function uploadTour(
 ) {
   const user = await authenticate(request);
   if (!user) return unauthorized();
+  const refused = await refusePendingDeletion(user, deletionsContainer);
+  if (refused) return refused;
   const { userId } = user;
 
   const metadata = tourMetaSchema.safeParse({

@@ -64,8 +64,21 @@ function createGraphClient({ fetch, tenantId, clientId, clientSecret }) {
   return { deleteUser };
 }
 
+// The app's user id is a token `sub`: never empty and never a path, so it cannot widen a blob prefix.
+const APP_USER_ID_PATTERN = /^[\w-]{1,128}$/;
+
 function createDeletionQueue(container) {
   return {
+    // Entries queued before #538 carry no userId: the API purged their data when they were queued.
+    async appUserOf(id) {
+      try {
+        const { resource } = await container.item(id, id).read();
+        return resource?.userId;
+      } catch (error) {
+        if (error.code !== 404) throw error;
+        return undefined;
+      }
+    },
     async listIds() {
       const ids = [];
       for await (const { id } of queryItems(container, 'SELECT c.id FROM c')) ids.push(id);
@@ -93,15 +106,30 @@ async function readQueue({ queue, log }) {
 
 async function planDeletions({ queue, log }) {
   const { valid, rejected } = await readQueue({ queue, log });
-  for (const id of valid) log.info(`Would delete ${maskId(id)}`);
+  for (const id of valid) {
+    const purge = (await queue.appUserOf(id)) === undefined ? '' : 'purge its app data and ';
+    log.info(`Would ${purge}delete ${maskId(id)}`);
+  }
   log.info(
     `Dry run, nothing changed: ${valid.length} would be deleted, ${rejected.length} rejected.`,
   );
   return { deleted: 0, alreadyGone: 0, failed: 0, rejected: rejected.length };
 }
 
-async function deleteQueuedUser({ id, queue, graph, log }) {
+// Purged again before the identity goes: anything written since the API's purge (a second device,
+// a sign-in on another path) would otherwise outlive the account with no owner and no job to find it.
+async function purgeAppData({ id, queue, purgeAccount }) {
+  const userId = await queue.appUserOf(id);
+  if (userId === undefined) return;
+  if (typeof userId !== 'string' || !APP_USER_ID_PATTERN.test(userId)) {
+    throw new Error('Refusing to purge for a queued userId that is not a token subject');
+  }
+  await purgeAccount(userId);
+}
+
+async function deleteQueuedUser({ id, queue, graph, purgeAccount, log }) {
   try {
+    await purgeAppData({ id, queue, purgeAccount });
     const result = await graph.deleteUser(id);
     await queue.remove(id);
     log.info(`${maskId(id)}: ${RESULT_LABELS[result]}`);
@@ -113,11 +141,11 @@ async function deleteQueuedUser({ id, queue, graph, log }) {
   }
 }
 
-async function processDeletions({ queue, graph, log }) {
+async function processDeletions({ queue, graph, purgeAccount, log }) {
   const { valid, rejected } = await readQueue({ queue, log });
   const outcome = { deleted: 0, alreadyGone: 0, failed: 0, rejected: rejected.length };
   for (const id of valid) {
-    outcome[await deleteQueuedUser({ id, queue, graph, log })] += 1;
+    outcome[await deleteQueuedUser({ id, queue, graph, purgeAccount, log })] += 1;
   }
   log.info(
     `Done: ${outcome.deleted} deleted, ${outcome.alreadyGone} already gone, ` +
@@ -139,13 +167,21 @@ function graphCredentials(environment) {
   };
 }
 
-async function runDeletions({ argv, environment, fetch, openDeletionsContainer, log }) {
+async function runDeletions({
+  argv,
+  environment,
+  fetch,
+  openDeletionsContainer,
+  purgeAccount,
+  log,
+}) {
   const { 'dry-run': dryRun } = parseFlags(argv, ['dry-run']);
   requireEnvironment(environment, ['COSMOS_CONNECTION_STRING', 'COSMOS_DATABASE']);
   const queue = createDeletionQueue(openDeletionsContainer());
   if (dryRun) return planDeletions({ queue, log });
+  requireEnvironment(environment, ['BLOB_CONNECTION_STRING']);
   const graph = createGraphClient({ fetch, ...graphCredentials(environment) });
-  return processDeletions({ queue, graph, log });
+  return processDeletions({ queue, graph, purgeAccount, log });
 }
 
 // Resolves to the process exit code: non-zero when any id failed or was rejected.

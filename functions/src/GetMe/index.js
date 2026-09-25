@@ -4,6 +4,7 @@ const { app } = require('../lib/functionsApp');
 const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
+const { refusePendingDeletion } = require('../lib/pendingDeletion');
 const system = require('../lib/system');
 const { unauthorized } = require('../lib/http');
 const {
@@ -44,12 +45,15 @@ async function getMe(
   request,
   {
     authenticate = authMiddleware.authenticate,
+    deletionsContainer = db.deletionsContainer,
     usersContainer = db.usersContainer,
     now = system.currentTime,
   } = {},
 ) {
   const user = await authenticate(request);
   if (!user) return unauthorized();
+  const refused = await refusePendingDeletion(user, deletionsContainer);
+  if (refused) return refused;
 
   const { userId } = user;
   const container = usersContainer();

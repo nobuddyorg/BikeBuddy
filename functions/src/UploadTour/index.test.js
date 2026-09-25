@@ -1,7 +1,11 @@
 'use strict';
 
 const { uploadTour } = require('./index');
-const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const {
+  fakeToursContainer,
+  fakeUsersContainer,
+  cosmosError,
+} = require('../../test/fakes/cosmosContainer');
 const { fakeGpxContainer } = require('../../test/fakes/blobContainer');
 const { withFailureResponse } = require('../lib/failureResponse');
 const {
@@ -34,14 +38,16 @@ const fileOf = (content) => async () => ({
 });
 const clientError = (message) => Object.assign(new Error(message), { status: 400 });
 
-function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX) } = {}) {
+function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queued = [] } = {}) {
   const tours = fakeToursContainer();
   const gpx = fakeGpxContainer();
+  const deletions = fakeUsersContainer(queued);
   const run = (query = {}) =>
     uploadTour(
       { query: new URLSearchParams(query) },
       {
         authenticate,
+        deletionsContainer: () => deletions,
         toursContainer: () => tours,
         gpxContainer: async () => gpx,
         parseFile,
@@ -257,6 +263,18 @@ describe('POST /api/tours/upload', () => {
     expect(response.jsonBody).toStrictEqual({ error: 'errors.busy', invocationId: 'invocation-1' });
     expect(gpx.names()).toEqual([]);
     expect(tours.all()).toEqual([]);
+  });
+
+  it('answers 410 and stores nothing while the account deletion is queued', async () => {
+    const { tours, gpx, run } = setUp({
+      authenticate: signedInAs('u1', { userOid: 'oid-1' }),
+      queued: [{ id: 'oid-1', userId: 'u1' }],
+    });
+
+    const response = await run();
+
+    expect(response).toEqual({ status: 410, jsonBody: { error: 'errors.accountDeleted' } });
+    expect([...tours.calls, ...gpx.calls]).toEqual([]);
   });
 
   it('refuses a file without XML magic bytes before parsing it', async () => {

@@ -179,6 +179,7 @@
   "errors.profileInvalid": "Please enter a name of 1-200 characters or choose a supported language.",
   "errors.busy": "BikeBuddy is busy right now. Please try again in a moment.",
   "errors.unexpected": "Something went wrong. Please try again.",
+  "errors.accountDeleted": "This account is being deleted. It can't be used any more.",
 
   "toast.toursLoadError": "Couldn’t load your tours. Check your connection and try again.",
   "toast.undo": "Undo",

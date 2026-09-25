@@ -39,6 +39,11 @@ function fakeCosmosContainer({ documents, answerQuery, partitionKeyOf }) {
     },
     item(id, partitionKey) {
       return {
+        async read() {
+          const index = find(id, partitionKey);
+          if (index === -1) throw notFound();
+          return { resource: structuredClone(documents[index]) };
+        },
         async delete() {
           writes.push({ delete: id, partitionKey });
           const index = find(id, partitionKey);
