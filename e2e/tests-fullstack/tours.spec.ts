@@ -42,9 +42,13 @@ fullstackTest('tour lifecycle: upload → list → detail → photo → delete',
   await expect.poll(devUserBlobNames, AFTER_UNDO_WINDOW).toEqual([]);
 });
 
-fullstackTest(
-  'a GPX file without track points is refused, storing nothing',
-  async ({ on, page }) => {
+fullstackTest.describe('a GPX file without track points', () => {
+  // The refused upload's 400 is the expected answer, which the browser logs as a console error.
+  fullstackTest.use({
+    allowedConsoleErrors: { matching: [/status of 400 .*\/api\/tours\/upload/] },
+  });
+
+  fullstackTest('is refused, storing nothing', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
@@ -62,8 +66,8 @@ fullstackTest(
     );
     expect(await devUserTours()).toEqual([]);
     expect(await devUserBlobNames()).toEqual([]);
-  },
-);
+  });
+});
 
 fullstackTest('download GPX from the detail panel', async ({ on, page }) => {
   await page.goto('/');
