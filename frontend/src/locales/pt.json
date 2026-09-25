@@ -177,6 +177,8 @@
   "errors.fileSize": "O ficheiro excede o limite de {maxMegabytes} MB.",
   "errors.gpxInvalid": "Este ficheiro não é um ficheiro GPX válido.",
   "errors.profileInvalid": "Introduz um nome com 1 a 200 caracteres ou escolhe um idioma suportado.",
+  "errors.busy": "O BikeBuddy está ocupado neste momento. Tenta novamente daqui a pouco.",
+  "errors.unexpected": "Algo correu mal. Tenta novamente.",
 
   "toast.toursLoadError": "Não foi possível carregar os teus percursos. Verifica a tua ligação e tenta novamente.",
   "toast.undo": "Desfazer",

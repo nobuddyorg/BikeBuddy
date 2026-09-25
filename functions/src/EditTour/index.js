@@ -1,6 +1,7 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const { loadOwnedTour } = require('../lib/ownedTour');
@@ -52,7 +53,7 @@ app.http('EditTour', {
   authLevel: 'anonymous',
   route: 'tours/{tourId}',
   /* v8 ignore next */
-  handler: (request) => editTour(request),
+  handler: withFailureResponse((request) => editTour(request)),
 });
 
 module.exports = { editTour };

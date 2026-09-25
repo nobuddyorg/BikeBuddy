@@ -1,6 +1,7 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const { z } = require('zod');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
@@ -60,7 +61,7 @@ app.http('UpdateProfile', {
   authLevel: 'anonymous',
   route: 'me',
   /* v8 ignore next */
-  handler: (request) => updateProfile(request),
+  handler: withFailureResponse((request) => updateProfile(request)),
 });
 
 module.exports = { updateProfile };

@@ -17,6 +17,7 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/blobNames.js',
   'src/lib/exportDocument.js',
   'src/lib/extractGps.js',
+  'src/lib/failureResponse.js',
   'src/lib/fileSignatures.js',
   'src/lib/heatmapCache.js',
   'src/lib/http.js',

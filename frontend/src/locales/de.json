@@ -177,6 +177,8 @@
   "errors.fileSize": "Datei überschreitet das {maxMegabytes}-MB-Limit.",
   "errors.gpxInvalid": "Diese Datei ist keine gültige GPX-Datei.",
   "errors.profileInvalid": "Bitte gib einen Namen mit 1-200 Zeichen ein oder wähle eine unterstützte Sprache.",
+  "errors.busy": "BikeBuddy ist gerade ausgelastet. Bitte versuche es gleich noch einmal.",
+  "errors.unexpected": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
 
   "toast.toursLoadError": "Deine Touren konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
   "toast.undo": "Rückgängig",

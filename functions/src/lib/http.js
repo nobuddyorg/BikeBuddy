@@ -22,6 +22,8 @@ const ERROR_KEYS = Object.freeze({
   tourDate: 'errors.tourDate',
   tourInvalid: 'errors.tourInvalid',
   profileInvalid: 'errors.profileInvalid',
+  busy: 'errors.busy',
+  unexpected: 'errors.unexpected',
 });
 
 const error = (status, message) => ({ status, jsonBody: { error: message } });

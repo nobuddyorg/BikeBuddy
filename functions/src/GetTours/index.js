@@ -1,6 +1,7 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const { unauthorized } = require('../lib/http');
@@ -30,7 +31,7 @@ app.http('GetTours', {
   authLevel: 'anonymous',
   route: 'tours',
   /* v8 ignore next */
-  handler: (request) => getTours(request),
+  handler: withFailureResponse((request) => getTours(request)),
 });
 
 module.exports = { getTours };

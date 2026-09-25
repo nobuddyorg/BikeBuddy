@@ -57,5 +57,10 @@ partition.
 - GPX > 5,000 trackpoints is downsampled before storing (keeps docs < 2 MB).
 - Image GPS (EXIF) is read from the original before resize strips it; stored as
   `lat`/`lon` on the image record and used for map pins.
+- Every error answers `{ "error": "<i18n key>" }` (`ERROR_KEYS` in
+  `functions/src/lib/http.js`). An unexpected failure answers 500, or 503 with
+  `Retry-After: 5` for Cosmos throttling after the SDK's retries, with the
+  `invocationId` to find it in the logs and never the failure's own text
+  (`lib/failureResponse.js`, around every registered handler).
 
 See [Design decisions](../explanation/design-decisions.md) for the _why_.

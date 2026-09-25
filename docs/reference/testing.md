@@ -136,7 +136,6 @@ Measured against the playbook. Each has an issue unless marked **no issue**
   as the `SKIP_AUTH` dev user with `workers: 1`; each test resets only that
   user's partition and blob prefix, before and after. Test-signed tokens reach
   the integration suite only.
-- **Throttling** (#619): no test injects a Cosmos 429 after the SDK's retries.
 - **Mutation blind spots**: `ignoreStatic` skips top-level limit constants;
   `parseMultipart.js`, `db.js` and `blobStorage.js` are outside the mutation
   list and the integration suite does not reach all their paths.

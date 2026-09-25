@@ -1,6 +1,7 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -56,7 +57,7 @@ app.http('GetMapData', {
   authLevel: 'anonymous',
   route: 'map',
   /* v8 ignore next */
-  handler: (request) => getMapData(request),
+  handler: withFailureResponse((request) => getMapData(request)),
 });
 
 module.exports = { getMapData };

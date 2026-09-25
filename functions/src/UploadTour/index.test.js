@@ -3,6 +3,7 @@
 const { uploadTour } = require('./index');
 const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
 const { fakeGpxContainer } = require('../../test/fakes/blobContainer');
+const { withFailureResponse } = require('../lib/failureResponse');
 const {
   signedInAs,
   signedOut,
@@ -242,6 +243,19 @@ describe('POST /api/tours/upload', () => {
     expect(response.status).toBe(400);
     expect(response.jsonBody.error).toBe(message);
     expect([...tours.calls, ...gpx.calls]).toEqual([]);
+  });
+
+  it('rolls its GPX blob back and answers 503 when Cosmos throttles the create', async () => {
+    const { tours, gpx, run } = setUp();
+    tours.failOn('create', { error: cosmosError(429, 'Request rate is large') });
+    const context = { invocationId: 'invocation-1', error: vi.fn() };
+
+    const response = await withFailureResponse(() => run())({}, context);
+
+    expect(response.status).toBe(503);
+    expect(response.jsonBody).toStrictEqual({ error: 'errors.busy', invocationId: 'invocation-1' });
+    expect(gpx.names()).toEqual([]);
+    expect(tours.all()).toEqual([]);
   });
 
   it('refuses a file without XML magic bytes before parsing it', async () => {

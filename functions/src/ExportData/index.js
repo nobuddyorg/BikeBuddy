@@ -1,6 +1,7 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -74,7 +75,7 @@ app.http('ExportData', {
   authLevel: 'anonymous',
   route: 'me/export',
   /* v8 ignore next */
-  handler: (request) => exportData(request),
+  handler: withFailureResponse((request) => exportData(request)),
 });
 
 module.exports = { exportData };
