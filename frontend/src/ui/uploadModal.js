@@ -83,7 +83,6 @@ export async function submitUpload(event) {
     name: uploadNameInput.value,
     description: uploadDescriptionInput.value,
   });
-  const token = await getAccessToken();
   submitUploadButton.disabled = true;
   hideElement(uploadError);
   showElement(uploadProgress);
@@ -91,6 +90,7 @@ export async function submitUpload(event) {
 
   let created;
   try {
+    const token = await getAccessToken();
     created = await xhrUpload({
       url: `${API_BASE}/api/tours/upload?${query}`,
       file,

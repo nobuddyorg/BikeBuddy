@@ -126,7 +126,12 @@ Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
 2. MSAL returns an **access token** (JWT) whose audience (`aud`) is the app's
    client id. MSAL caches the session in `localStorage` (survives refresh and
    tab close; moving it off the shared origin is #562).
-3. The frontend sends it as `Authorization: Bearer <token>` on every API call.
+3. The frontend sends it as `Authorization: Bearer <token>` on every API call
+   (`frontend/src/lib/session.js`). Tokens are only ever renewed silently, one
+   request at a time: a popup outside a click is blocked. A 401 gets one retry
+   with a freshly acquired token; a second 401, or a renewal that needs the
+   user, ends the session, and a toast offers **Sign In**, which opens the popup
+   from that click (#557). Each photo-upload attempt asks for its own token.
 4. `functions/src/middleware/authMiddleware.js` validates it: it reads the
    issuer + JWKS URI from the tenant's OIDC discovery document, verifies the
    RS256 signature, and checks `aud == ENTRA_CLIENT_ID`, the issuer and that

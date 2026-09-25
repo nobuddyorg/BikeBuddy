@@ -23,6 +23,7 @@ import { renderSidebar, loadTours } from './sidebar.js';
 import { userFromAccount, userFromAuthResult } from '../lib/authConfig.js';
 import { API_BASE, AUTH_CONFIG, LOGIN_REQUEST, apiRequest, createAuthClient } from './api.js';
 import { toast } from './toast.js';
+import { whenAnnounced, SESSION_EXPIRED } from './events.js';
 
 const ACCOUNT_DELETED = 410;
 
@@ -134,6 +135,10 @@ async function signOutDeletedAccount() {
 
 export async function signOut() {
   await endProviderSession();
+  clearSignedInState();
+}
+
+function clearSignedInState() {
   state.user = null;
   state.tours = [];
   state.selectedTourId = null;
@@ -147,6 +152,18 @@ export async function signOut() {
   renderSidebar();
   renderNavAuth();
 }
+
+// The popup opens from the toast's button: outside a click the browser would block it.
+function askToSignInAgain() {
+  if (!state.user) return;
+  clearSignedInState();
+  toast(t('errors.unauthorized'), {
+    type: 'error',
+    action: { label: t('nav.signIn'), onClick: signIn },
+  });
+}
+
+whenAnnounced(SESSION_EXPIRED, askToSignInAgain);
 
 // Renders before awaiting, so the Sign In prompt never lingers behind the tours request.
 async function renderSignedIn() {

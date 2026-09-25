@@ -47,6 +47,7 @@ const PRECACHE_URLS = [
   'lib/pinLayout.js',
   'lib/routes.js',
   'lib/sasCache.js',
+  'lib/session.js',
   'lib/sidebarView.js',
   'lib/stats.js',
   'lib/tourDetail.js',

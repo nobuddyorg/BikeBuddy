@@ -68,6 +68,7 @@ export const FRONTEND_TARGETS = [
   'src/lib/pinLayout.js',
   'src/lib/routes.js',
   'src/lib/sasCache.js',
+  'src/lib/session.js',
   'src/lib/sidebarView.js',
   'src/lib/stats.js',
   'src/lib/tourDetail.js',
