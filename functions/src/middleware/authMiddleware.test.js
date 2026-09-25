@@ -44,6 +44,7 @@ function makeToken(overrides = {}) {
       aud: ENTRA_ENVIRONMENT.ENTRA_CLIENT_ID,
       iss: ISSUER,
       exp: NOW_SECONDS + 3600,
+      scp: 'access_as_user',
       ...overrides,
     },
     privateKeyPem,
@@ -115,6 +116,11 @@ describe('authenticate — success', () => {
     expect(user[field]).toBe(expected);
   });
 
+  test('accepts the scope among others', async () => {
+    const token = makeToken({ scp: 'User.Read access_as_user openid' });
+    expect(await authenticateWith(bearer(token))).not.toBeNull();
+  });
+
   test('checks expiry against the injected clock', async () => {
     const token = makeToken({ exp: NOW_SECONDS + 60 });
 
@@ -145,6 +151,11 @@ describe('authenticate — rejection (null)', () => {
     ['wrong issuer', bearer(makeToken({ iss: 'https://attacker.example.com/' }))],
     ['disallowed algorithm (HS256)', bearer(symmetricToken)],
     ['unknown signing key (kid not in JWKS)', bearer(makeToken()), unknownKeyId],
+    ['no scp claim', bearer(makeToken({ scp: undefined }))],
+    ['an ID token for the same client', bearer(makeToken({ scp: undefined, nonce: 'n-1' }))],
+    ['only another scope', bearer(makeToken({ scp: 'User.Read' }))],
+    ['a scope that merely contains the name', bearer(makeToken({ scp: 'access_as_user_admin' }))],
+    ['scp as a list instead of a string', bearer(makeToken({ scp: ['access_as_user'] }))],
   ])('returns null for %s', async (_label, request, jwksClientFactory = signingKeys) => {
     expect(await authenticateWith(request, { jwksClientFactory })).toBeNull();
   });

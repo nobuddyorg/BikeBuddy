@@ -96,6 +96,7 @@ describe('tokenFor', () => {
       iss: SIGNING.issuer,
       iat: NOW_SECONDS,
       exp: NOW_SECONDS + 3600,
+      scp: 'access_as_user',
     });
   });
 
@@ -121,6 +122,9 @@ describe('rejectedTokensFor', () => {
       'signed by another key',
       'alg none',
       'HS256 keyed with the public key',
+      'no scope',
+      'ID token for the same client',
+      'another scope',
     ]);
   });
 
@@ -132,6 +136,9 @@ describe('rejectedTokensFor', () => {
     ['signed by another key', 'invalid signature'],
     ['alg none', 'jwt signature is required'],
     ['HS256 keyed with the public key', 'invalid algorithm'],
+    ['no scope', 'lacks the access_as_user scope'],
+    ['ID token for the same client', 'lacks the access_as_user scope'],
+    ['another scope', 'lacks the access_as_user scope'],
   ])('%s is refused for that reason alone', async (label, reason) => {
     expect(await refusalReason(rejected[label])).toContain(reason);
   });
@@ -156,6 +163,10 @@ describe('rejectedTokensFor', () => {
     });
     expect(claimsOf('wrong audience').aud).toBe(`${SIGNING.audience}-other`);
     expect(new URL(claimsOf('wrong issuer').iss).origin).not.toBe(new URL(SIGNING.issuer).origin);
+    expect(claimsOf('no scope')).not.toHaveProperty('scp');
+    expect(claimsOf('ID token for the same client')).not.toHaveProperty('scp');
+    expect(claimsOf('ID token for the same client').aud).toBe(SIGNING.audience);
+    expect(claimsOf('another scope').scp).toBe('User.Read');
     expect(claimsOf('HS256 keyed with the public key')).toMatchObject({
       aud: SIGNING.audience,
       iss: SIGNING.issuer,

@@ -10,6 +10,8 @@ const { createSigningKeyCache } = require('../lib/signingKeyCache');
 const verifyJwt = promisify(jwt.verify);
 const BEARER_PREFIX = 'Bearer ';
 const DEV_USER = { userId: 'local-dev-user', userEmail: 'dev@localhost', userName: 'Local Dev' };
+// The frontend requests api://<client id>/access_as_user; an ID token for the same client has no scp.
+const REQUIRED_SCOPE = 'access_as_user';
 
 // Read from the metadata (the issuer host varies by Entra surface), refreshed on warm instances.
 const CONFIG_TTL_MS = 60 * 60 * 1000;
@@ -63,6 +65,8 @@ function defaultJwksClient(jwksUri) {
 const resolveEmail = (payload) =>
   payload.email || payload.preferred_username || payload.emails?.[0] || null;
 const resolveName = (payload) => payload.name || payload.given_name || null;
+const hasRequiredScope = (payload) =>
+  typeof payload.scp === 'string' && payload.scp.split(' ').includes(REQUIRED_SCOPE);
 
 // A configured tenant means deployed: the bypass throws there instead of silently falling back.
 function isDevBypassActive(environment) {
@@ -90,6 +94,9 @@ async function verifyToken(token, { kid, jwksClientFactory, configLoader, enviro
     algorithms: ['RS256'],
     clockTimestamp: Math.floor(now() / 1000),
   });
+  if (!hasRequiredScope(payload)) {
+    throw new jwt.JsonWebTokenError(`token lacks the ${REQUIRED_SCOPE} scope`);
+  }
   return {
     userId: payload.sub,
     // The directory object id: the out-of-band deletion job deletes by it.

@@ -46,9 +46,9 @@ design-decisions.md and the linked issues, not here.
   `/api/health` authenticates through `authMiddleware`; every tour-scoped
   endpoint loads the tour through `loadOwnedTour`. The partition key comes
   **from the token, never from the request** (security.md, "Posture").
-- Token checks (signature, issuer, audience) live in `authMiddleware` and are
-  only ever tightened. It does not yet reject an ID token for the same client
-  id (#569); never add code that relies on the audience check alone.
+- Token checks (signature, issuer, audience, the `access_as_user` scope) live
+  in `authMiddleware` and are only ever tightened; the scope is what refuses an
+  ID token for the same client id, so never rely on the audience check alone.
 - `SKIP_AUTH` is local-only and fails closed: the middleware refuses it when
   Entra is configured, and the deployed app never gets it: the Function App's
   precondition refuses empty Entra variables (#545). Never widen it (no

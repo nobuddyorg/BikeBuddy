@@ -22,6 +22,9 @@ const TOKEN_FLAWS = [
   'signed by another key',
   'alg none',
   'HS256 keyed with the public key',
+  'no scope',
+  'ID token for the same client',
+  'another scope',
 ];
 const WRITES = AUTHENTICATED_ENDPOINTS.filter(({ method }) => method !== 'GET');
 

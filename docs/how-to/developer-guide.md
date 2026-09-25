@@ -128,7 +128,8 @@ Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
 3. The frontend sends it as `Authorization: Bearer <token>` on every API call.
 4. `functions/src/middleware/authMiddleware.js` validates it: it reads the
    issuer + JWKS URI from the tenant's OIDC discovery document, verifies the
-   RS256 signature, and checks `aud == ENTRA_CLIENT_ID` and the issuer.
+   RS256 signature, and checks `aud == ENTRA_CLIENT_ID`, the issuer and that
+   `scp` names `access_as_user` (an ID token for the same client has no `scp`).
 5. On the first authenticated call, `GET /api/me` provisions the user's Cosmos doc.
 
 **Local no-auth mode:** set `SKIP_AUTH=true` (backend) + `devMode: true`
