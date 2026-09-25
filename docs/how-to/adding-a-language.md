@@ -1,7 +1,9 @@
 # How-to: Add a language
 
-The frontend uses a small, dependency-free i18n engine
-(`frontend/src/lib/i18n.js`). Adding a locale is two steps plus a test.
+The frontend uses a small, dependency-free i18n engine: the pure lookup,
+plural and interpolation logic in `frontend/src/lib/i18n.js`, the runtime
+(loading the locale file, `t`, `tApi`, applying `data-i18n` attributes) in
+`frontend/src/ui/i18n.js`. Adding a locale is two steps plus a test.
 
 ## 1. Add the translations
 
@@ -21,11 +23,25 @@ strings; `{placeholders}` in a value must stay verbatim so interpolation works:
 }
 ```
 
+Numbers passed as parameters are formatted for the locale (`1.234,5` in
+German). A message that depends on a count has one key per plural category,
+chosen with `Intl.PluralRules` from `params.count`, falling back to `.other`:
+
+```json
+{
+  "toast.toursDeleted.one": "Sortie supprimée.",
+  "toast.toursDeleted.other": "{count} sorties supprimées."
+}
+```
+
+Add the categories your language needs (`few`, `many`, … per
+`Intl.PluralRules`); `.one` and `.other` cover every current locale.
+
 ## 2. Register the locale
 
 Add an entry to `SUPPORTED_LOCALES` in `frontend/src/lib/i18n.js`. That single
-list drives the language switcher, browser-language detection, and date
-formatting — nothing else needs wiring:
+list drives the language switcher, browser-language detection, and number,
+date and unit formatting — nothing else needs wiring:
 
 ```js
 export const SUPPORTED_LOCALES = [
@@ -35,18 +51,18 @@ export const SUPPORTED_LOCALES = [
     label: 'Français',
     flag: '🇫🇷',
     short: 'FR',
-    dateLocale: 'fr-FR',
+    intlLocale: 'fr-FR',
   },
 ];
 ```
 
-| Field        | Purpose                                           |
-| ------------ | ------------------------------------------------- |
-| `code`       | Locale code; must match the JSON file name.       |
-| `label`      | Name shown in the language menu.                  |
-| `flag`       | Emoji flag for the menu.                          |
-| `short`      | Two-letter badge on the language button.          |
-| `dateLocale` | BCP-47 tag passed to `Intl` for formatting dates. |
+| Field        | Purpose                                      |
+| ------------ | -------------------------------------------- |
+| `code`       | Locale code; must match the JSON file name.  |
+| `label`      | Name shown in the language menu.             |
+| `flag`       | Emoji flag for the menu.                     |
+| `short`      | Two-letter badge on the language button.     |
+| `intlLocale` | BCP-47 tag passed to every `Intl` formatter. |
 
 Some keys are also produced by the API: `TOUR_META_ERROR_KEYS` in
 `functions/src/lib/validation.js` answers a failed validation with a key rather
