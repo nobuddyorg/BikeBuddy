@@ -55,6 +55,7 @@ export function createImageTile(image) {
 
   const thumbnail = document.createElement('img');
   thumbnail.className = 'image-thumb';
+  thumbnail.dataset.testid = 'image-thumb';
   thumbnail.src = image.thumbUrl || image.url;
   thumbnail.alt = t('lightbox.imgAlt');
   thumbnail.loading = 'lazy';
@@ -64,6 +65,7 @@ export function createImageTile(image) {
 
   const deleteButton = createIconButton({
     className: 'image-delete',
+    testId: 'image-delete',
     label: t('detail.deletePhotoAria'),
     glyph: '✕',
     onClick: (event) => {

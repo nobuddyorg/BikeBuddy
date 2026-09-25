@@ -11,6 +11,13 @@ const leafletContainer = map.getContainer();
 leafletContainer.addEventListener('gesturestart', (event) => event.preventDefault());
 leafletContainer.addEventListener('gesturechange', (event) => event.preventDefault());
 
+// data-zoom only changes once a zoom animation has ended, so a test can wait for it.
+const recordZoom = () => {
+  leafletContainer.dataset.zoom = String(map.getZoom());
+};
+recordZoom();
+map.on('zoomend', recordZoom);
+
 const TILE_URLS = {
   light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
   dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',
@@ -25,6 +32,7 @@ const tileLayer = L.tileLayer(TILE_URLS.light, {
 
 // Tile URLs are JS state, out of reach of the stylesheets' prefers-color-scheme switch.
 function applyMapTheme(theme) {
+  leafletContainer.dataset.tiles = theme;
   tileLayer.setUrl(TILE_URLS[theme]);
   tileLayer.getContainer()?.classList.toggle('map-tiles-dark', theme === 'dark');
 }

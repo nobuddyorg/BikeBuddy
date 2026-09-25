@@ -45,6 +45,10 @@ export function clearPins() {
 
 function createPinMarker(photo, position) {
   const marker = L.marker(position, { icon: photoPinIcon(photo) });
+  // Leaflet builds the marker element on add, so the hook is set there.
+  marker.on('add', () => {
+    marker.getElement().dataset.testid = 'photo-pin';
+  });
   marker.on('click', () => {
     const photos = shownPhotos();
     openLightbox(photos, indexOfImage(photos, photo.id));

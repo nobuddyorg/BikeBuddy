@@ -57,6 +57,7 @@ function createLanguageOption(locale) {
   const option = document.createElement('button');
   option.type = 'button';
   option.className = 'lang-option';
+  option.id = `lang-option-${locale.code}`;
   option.setAttribute('role', 'option');
   option.dataset.code = locale.code;
   option.setAttribute('aria-selected', String(locale.code === i18n.getLocale()));

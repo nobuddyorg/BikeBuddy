@@ -32,6 +32,7 @@ function createTextDiv(className, text) {
 function createNameElement(name, matchedIndices) {
   const nameElement = document.createElement('div');
   nameElement.className = 'tour-item-name';
+  nameElement.dataset.testid = 'tour-item-name';
   nameElement.title = name; // the full name, for the ellipsis-truncated row
   for (const run of matchRuns(name, matchedIndices)) {
     if (run.matched) {
@@ -137,10 +138,13 @@ function bindRowInteractions(content, tour) {
 
 function createTourItem(tour) {
   const item = document.createElement('li');
+  item.id = `tour-item-${tour.id}`;
+  item.dataset.testid = 'tour-item';
   item.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
 
   const content = document.createElement('div');
   content.className = 'tour-item-content';
+  content.dataset.testid = 'tour-item-content';
   content.tabIndex = 0;
   describeRow(content, tour);
   content.append(createCheckbox(tour), createDetails(tour));
