@@ -1,0 +1,56 @@
+# Run: cd infrastructure && tofu init -backend=false && tofu test
+# Plans against mock providers: no Azure credentials, nothing is created.
+
+mock_provider "azurerm" {
+  mock_resource "azurerm_resource_group" {
+    defaults = { id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bikebuddy-rg" }
+  }
+  mock_resource "azurerm_service_plan" {
+    defaults = { id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bikebuddy-rg/providers/Microsoft.Web/serverFarms/bikebuddy-plan" }
+  }
+  mock_resource "azurerm_storage_account" {
+    defaults = {
+      id                    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bikebuddy-rg/providers/Microsoft.Storage/storageAccounts/bikebuddyfilesabc123"
+      primary_blob_endpoint = "https://bikebuddyfilesabc123.blob.core.windows.net/"
+    }
+  }
+}
+
+mock_provider "random" {
+  mock_resource "random_string" {
+    defaults = { result = "abc123" }
+  }
+}
+
+run "refuses_to_deploy_without_entra" {
+  command = plan
+  variables {
+    entra_tenant_subdomain = ""
+    entra_tenant_id        = ""
+    entra_client_id        = ""
+  }
+  expect_failures = [azurerm_function_app_flex_consumption.main]
+}
+
+run "refuses_a_blank_entra_client_id" {
+  command = plan
+  variables {
+    entra_tenant_subdomain = "bikebuddy"
+    entra_tenant_id        = "00000000-0000-0000-0000-000000000000"
+    entra_client_id        = "   "
+  }
+  expect_failures = [azurerm_function_app_flex_consumption.main]
+}
+
+run "deploys_with_entra_and_never_sets_skip_auth" {
+  command = plan
+  variables {
+    entra_tenant_subdomain = "bikebuddy"
+    entra_tenant_id        = "00000000-0000-0000-0000-000000000000"
+    entra_client_id        = "11111111-1111-1111-1111-111111111111"
+  }
+  assert {
+    condition     = !contains(keys(azurerm_function_app_flex_consumption.main.app_settings), "SKIP_AUTH")
+    error_message = "SKIP_AUTH must never reach the deployed app settings."
+  }
+}

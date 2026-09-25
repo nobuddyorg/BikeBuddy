@@ -14,6 +14,7 @@ a monthly budget alert. Production changes reach Azure one way only: merge to
    cd infrastructure
    tofu fmt -recursive
    tofu init -backend=false && tofu validate
+   tofu test                            # plans against mock providers
    cd .. && ./buddy.sh quality iac      # TFLint + Trivy config scan
    ```
 
@@ -83,10 +84,12 @@ The full list, including the `ci` environment secrets, is in
 
 ## Auth (Microsoft Entra External ID)
 
-Optional repository **variables** wire real auth; leave them unset to run in
-no-auth mode: `ENTRA_SUBDOMAIN`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`.
-`SKIP_AUTH` flips off automatically once `entra_client_id` is set (#545 tracks
-keeping it out of the deployed settings entirely).
+The repository **variables** `ENTRA_SUBDOMAIN`, `ENTRA_TENANT_ID` and
+`ENTRA_CLIENT_ID` are required. A precondition on the Function App fails the
+plan while any of them is empty, so a missing or renamed variable stops the
+deploy rather than shipping an API without auth, and `SKIP_AUTH` is never part
+of the deployed app settings (#545). No-auth mode exists only locally
+(`SKIP_AUTH=true` in `functions/local.settings.json`).
 
 ## Budget
 

@@ -29,11 +29,21 @@ resource "azurerm_function_app_flex_consumption" "main" {
     COSMOS_CONNECTION_STRING = "AccountEndpoint=${azurerm_cosmosdb_account.main.endpoint};AccountKey=${azurerm_cosmosdb_account.main.primary_key};"
     COSMOS_DATABASE          = "bikebuddy"
     BLOB_CONNECTION_STRING   = azurerm_storage_account.main.primary_connection_string
-    # Empty Entra values (no External ID tenant yet) switch SKIP_AUTH on.
+    # No SKIP_AUTH: the auth bypass is local-only and never deployed.
     ENTRA_TENANT_SUBDOMAIN = var.entra_tenant_subdomain
     ENTRA_TENANT_ID        = var.entra_tenant_id
     ENTRA_CLIENT_ID        = var.entra_client_id
-    SKIP_AUTH              = var.entra_client_id == "" ? "true" : "false"
+  }
+
+  lifecycle {
+    # Fails closed: a missing repository variable stops the deploy instead of shipping an API without auth.
+    precondition {
+      condition = alltrue([
+        for value in [var.entra_tenant_subdomain, var.entra_tenant_id, var.entra_client_id] :
+        trimspace(value) != ""
+      ])
+      error_message = "entra_tenant_subdomain, entra_tenant_id and entra_client_id must all be set: the API is never deployed without auth."
+    }
   }
 
   site_config {

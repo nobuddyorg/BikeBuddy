@@ -254,6 +254,13 @@ repos:
         pass_filenames: false
         files: ^infrastructure/.*\.tf$
         stages: [pre-commit]
+      - id: tofu-test
+        name: OpenTofu test (mock providers)
+        entry: bash -c 'cd infrastructure && tofu init -backend=false -input=false >/dev/null && tofu test'
+        language: system
+        pass_filenames: false
+        files: ^infrastructure/.*\.(tf|tftest\.hcl)$
+        stages: [pre-commit]
 
   # TFLint + Trivy over infrastructure/; CI's prek job skips it for its own iac job.
   - repo: local

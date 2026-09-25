@@ -20,10 +20,13 @@ The account-deletion job (`functions/scripts/process-deletions.js`) also reads
 `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID` and `GRAPH_CLIENT_SECRET`; the API never
 does.
 
-Set by the deploy via `infrastructure/` Tofu variables; `SKIP_AUTH` is `false`
-automatically once `entra_client_id` is set. Should both ever end up set at
-once, the API refuses the bypass and every request fails with a 500 rather than
-silently serving all callers as the shared local dev user.
+Set by the deploy via `infrastructure/` Tofu variables. The deployed app never
+gets `SKIP_AUTH`, and the plan fails while any of the three `ENTRA_*` values
+is empty, so a missing repository variable stops the deploy instead of
+shipping an API without auth (#545; pinned by
+`infrastructure/tests/auth.tftest.hcl`). Should `SKIP_AUTH` and Entra ever end
+up set at once, the API refuses the bypass and every request fails with a 500
+rather than silently serving all callers as the shared local dev user.
 
 ## Frontend — `frontend/src/config.js` (generated)
 
