@@ -43,6 +43,7 @@ jobs:
           ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
           ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
           ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
+          TF_VAR_budget_contact_email: ${{ vars.BUDGET_CONTACT_EMAIL }}
 
       - name: Capture outputs
         id: output
