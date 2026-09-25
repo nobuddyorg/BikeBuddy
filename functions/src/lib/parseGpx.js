@@ -50,13 +50,19 @@ function pathLengthKm(points) {
   return distanceKm;
 }
 
-// Every step-th point plus the last, so the line still ends where the ride did.
+/**
+ * Every step-th point plus the last, so the line still ends where the ride did.
+ *
+ * @param {{ latitude: number, longitude: number }[]} points
+ * @returns {[number, number][]}
+ */
 function downsample(points) {
   const step = Math.ceil(points.length / MAX_POINTS);
-  const kept = points.filter((_, index) => index % step === 0);
+  const kept = [];
+  for (let index = 0; index < points.length; index += step) kept.push(points[index]);
   const last = points[points.length - 1];
   if (kept[kept.length - 1] !== last) kept.push(last);
-  return kept.map((point) => [point.latitude, point.longitude]);
+  return kept.map(({ latitude, longitude }) => [latitude, longitude]);
 }
 
 // Rule of thumb for consumer GPS altimeters: smaller deltas are noise.
@@ -65,25 +71,34 @@ const ELEVATION_NOISE_THRESHOLD_M = 3;
 // Below this speed a leg is a stop, excluded from moving time and average speed.
 const MOVING_SPEED_FLOOR_KMH = 1;
 
-// A loop, not Math.min(...values): spreading 100k+ values overflows the stack.
-function minimumAndMaximum(values) {
-  let minimum = values[0];
-  let maximum = values[0];
-  for (const value of values) {
-    minimum = Math.min(minimum, value);
-    maximum = Math.max(maximum, value);
-  }
-  return [minimum, maximum];
+const emptyRange = () => ({ count: 0, minimum: Infinity, maximum: -Infinity });
+
+// Compared one by one: Math.min(...values) overflows the stack past about 130k values.
+function widen(range, value) {
+  if (!Number.isFinite(value)) return;
+  range.count += 1;
+  range.minimum = Math.min(range.minimum, value);
+  range.maximum = Math.max(range.maximum, value);
 }
 
-const elevationsOf = (points) => points.map((point) => point.elevation).filter(Number.isFinite);
+// Elevation and time ranges in one pass over the whole track.
+function rangesOf(points) {
+  const ranges = { elevation: emptyRange(), time: emptyRange() };
+  for (const point of points) {
+    widen(ranges.elevation, point.elevation);
+    widen(ranges.time, point.time);
+  }
+  return ranges;
+}
 
 // A delta counts once it is past the threshold from the last counted elevation.
-function gainAndLoss(elevations) {
+function gainAndLoss(segment) {
   let gain = 0;
   let loss = 0;
-  let baseline = elevations[0];
-  for (const elevation of elevations) {
+  let baseline;
+  for (const { elevation } of segment) {
+    if (!Number.isFinite(elevation)) continue;
+    baseline ??= elevation;
     const difference = elevation - baseline;
     if (Math.abs(difference) < ELEVATION_NOISE_THRESHOLD_M) continue;
     gain += Math.max(difference, 0);
@@ -94,54 +109,52 @@ function gainAndLoss(elevations) {
 }
 
 // Per segment: the climb between two segments was not ridden.
-function computeElevationStats(segments) {
-  const elevations = elevationsOf(segments.flat());
-  if (elevations.length === 0) {
+function elevationStats(segments, range) {
+  if (range.count === 0) {
     return { elevationGain: null, elevationLoss: null, minElevation: null, maxElevation: null };
   }
-  const [minElevation, maxElevation] = minimumAndMaximum(elevations);
-  if (elevations.length < 2) {
-    return { elevationGain: null, elevationLoss: null, minElevation, maxElevation };
-  }
-  const perSegment = segments.map((segment) => gainAndLoss(elevationsOf(segment)));
+  const extremes = { minElevation: range.minimum, maxElevation: range.maximum };
+  if (range.count < 2) return { elevationGain: null, elevationLoss: null, ...extremes };
+  const perSegment = segments.map(gainAndLoss);
   return {
     elevationGain: sum(perSegment.map(({ gain }) => gain)),
     elevationLoss: sum(perSegment.map(({ loss }) => loss)),
-    minElevation,
-    maxElevation,
+    ...extremes,
   };
 }
 
-const timedPoints = (points) => points.filter((point) => Number.isFinite(point.time));
+function addLeg(totals, from, to) {
+  const seconds = (to.time - from.time) / 1000;
+  if (seconds <= 0) return;
+  const kilometres = haversineKm(from, to);
+  if (kilometres / (seconds / 3600) < MOVING_SPEED_FLOOR_KMH) return;
+  totals.seconds += seconds;
+  totals.kilometres += kilometres;
+}
 
-function movingLegs(segment) {
-  const timed = timedPoints(segment);
-  const legs = [];
-  for (let index = 1; index < timed.length; index++) {
-    const previous = timed[index - 1];
-    const current = timed[index];
-    const seconds = (current.time - previous.time) / 1000;
-    if (seconds <= 0) continue;
-    const kilometres = haversineKm(previous, current);
-    if (kilometres / (seconds / 3600) < MOVING_SPEED_FLOOR_KMH) continue;
-    legs.push({ seconds, kilometres });
+// Legs join consecutive timed points of one segment; untimed points in between are skipped.
+function movingTotals(segment) {
+  const totals = { seconds: 0, kilometres: 0 };
+  let previous;
+  for (const point of segment) {
+    if (!Number.isFinite(point.time)) continue;
+    if (previous) addLeg(totals, previous, point);
+    previous = point;
   }
-  return legs;
+  return totals;
 }
 
 // Elapsed spans the earliest to the latest time, whatever order the file lists them in.
-function computeDurationStats(segments) {
-  const times = timedPoints(segments.flat()).map((point) => point.time);
-  if (times.length < 2) {
+function durationStats(segments, range) {
+  if (range.count < 2) {
     return { durationSeconds: null, movingSeconds: null, avgSpeed: null };
   }
-  const [earliest, latest] = minimumAndMaximum(times);
-  const legs = segments.flatMap(movingLegs);
-  const movingSeconds = sum(legs.map(({ seconds }) => seconds));
-  const movingDistanceKm = sum(legs.map(({ kilometres }) => kilometres));
+  const perSegment = segments.map(movingTotals);
+  const movingSeconds = sum(perSegment.map(({ seconds }) => seconds));
+  const movingDistanceKm = sum(perSegment.map(({ kilometres }) => kilometres));
 
   return {
-    durationSeconds: Math.round((latest - earliest) / 1000),
+    durationSeconds: Math.round((range.maximum - range.minimum) / 1000),
     movingSeconds: Math.round(movingSeconds),
     avgSpeed: movingSeconds > 0 ? movingDistanceKm / (movingSeconds / 3600) : null,
   };
@@ -197,12 +210,11 @@ function pointSegments(gpx) {
 }
 
 // One unreadable <time> leaves the date to the points instead of rejecting the file.
-function tourDate(gpx, points) {
+function tourDate(gpx, timeRange) {
   const metadataTime = Date.parse(textOf(gpx.metadata?.time));
   if (Number.isFinite(metadataTime)) return new Date(metadataTime).toISOString();
-  const times = timedPoints(points).map((point) => point.time);
-  if (times.length === 0) return null;
-  return new Date(minimumAndMaximum(times)[0]).toISOString();
+  if (timeRange.count === 0) return null;
+  return new Date(timeRange.minimum).toISOString();
 }
 
 function parseDocument(input) {
@@ -238,14 +250,15 @@ function parseGpx(input) {
 
   const segments = pointSegments(gpx);
   const points = segments.flat();
+  const ranges = rangesOf(points);
 
   return {
     name,
-    date: tourDate(gpx, points),
+    date: tourDate(gpx, ranges.time),
     distanceKm: sum(segments.map(pathLengthKm)),
     heatmapData: downsample(points),
-    ...computeElevationStats(segments),
-    ...computeDurationStats(segments),
+    ...elevationStats(segments, ranges.elevation),
+    ...durationStats(segments, ranges.time),
   };
 }
 
