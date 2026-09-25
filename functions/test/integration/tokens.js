@@ -62,7 +62,7 @@ function tokenMinter(signing, { now = Date.now } = {}) {
     };
   }
 
-  /** Signed by a key the issuer does not publish; each one makes the host refetch the key set. */
+  /** Signed by a key the issuer does not publish; the host refetches its key set at most every 5 minutes for one. */
   const unknownKeyTokenFor = ({ userId }) =>
     sign(claimsFor({ userId }), {
       privateKeyPem: signing.foreignPrivateKeyPem,

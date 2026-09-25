@@ -26,6 +26,7 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/parseGpx.js',
   'src/lib/resizeImage.js',
   'src/lib/settle.js',
+  'src/lib/signingKeyCache.js',
   'src/lib/simplify.js',
   'src/lib/tourImages.js',
   'src/lib/tourResponse.js',
