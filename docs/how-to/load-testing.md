@@ -132,6 +132,12 @@ installed. The vnext Cosmos emulator reports nominal request charges (1 per
 read, about 3 per query page), so RU columns are only meaningful as counts
 locally; operation counts per request are exact.
 
+The report has no query-metrics section on purpose. Asked for them
+(`populateQueryMetrics`, `populateIndexMetrics`), the vnext emulator answers
+zero retrieved and output documents and empty index metrics even for a
+seeded partition (measured September 2026), so locally the section would
+always read zero, and hosted runs get no backend report.
+
 ## Run the optimization loop
 
 1. **Baseline**: `./buddy.sh test load <flow> --profile normal --save-as baseline`
@@ -211,7 +217,11 @@ emulator and the Functions host) asserts the shape of the hot paths:
 
 - `functions/test/integration/query-cost.test.js`: the tour-list query is
   single-partition (the caller's partition key on every page, never a
-  cross-partition fan-out) and pages in bounded requests.
+  cross-partition fan-out) and pages in bounded requests. The map, the export
+  and an account purge run in-process on a recording Cosmos client, and every
+  request that reads or deletes documents names the caller's partition; the
+  detail view is one point read, never a query. Index use is not asserted: the
+  emulator reports no index metrics.
 - `functions/test/integration/map-budget.test.js`: 120,000 raw points on
   100 km tracks, 50 m apart, come back within `GET /api/map`'s hard point
   budget and a bounded response size. `mapBudget.test.js` holds 200 rides of
