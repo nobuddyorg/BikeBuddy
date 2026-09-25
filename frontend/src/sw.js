@@ -1,12 +1,6 @@
 'use strict';
 
-// Precaches the app shell so the installed PWA opens offline instead of
-// showing a blank page — the app's own "Couldn't load your tours" state
-// (sidebar.js) then takes over once a fetch actually fails.
-//
-// Bump this on any change to the precached shell (added/removed file, or
-// content change the browser wouldn't otherwise know to refetch) — it's the
-// only thing that invalidates a previously installed cache.
+// Bump on any change to the precached shell: only a new name invalidates an installed cache.
 const CACHE_NAME = 'bikebuddy-shell-v13';
 
 const PRECACHE_URLS = [
@@ -98,8 +92,7 @@ self.addEventListener('install', (event) => {
       .then((cache) =>
         Promise.all(
           PRECACHE_URLS.map((url) =>
-            // config.js is generated per deployment and gitignored, so a dev
-            // checkout may lack it; every other asset must be there.
+            // config.js is generated per deployment and gitignored, so a dev checkout may lack it.
             url === 'config.js' ? cache.add(url).catch(() => {}) : cache.add(url),
           ),
         ),
@@ -124,15 +117,12 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // map tiles — network only, never cached
-  // The API is same-origin when Azure Static Web Apps proxies it (see
-  // ui/auth.js's API_BASE), so it isn't ruled out by the origin check above —
-  // responses must always be live, never served from the shell cache.
+  if (url.origin !== self.location.origin) return; // map tiles: network only, never cached
+  // The API is same-origin behind Static Web Apps; its responses are never served from cache.
   if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
-    // Network-first so a signed-in user always gets a fresh shell when
-    // online; only offline does the cached shell take over.
+    // Network-first: the cached shell is only for offline.
     event.respondWith(
       fetch(request).catch(() =>
         caches.match('index.html').then((cached) => cached || caches.match('./')),

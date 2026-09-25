@@ -5,8 +5,7 @@ import { apiFetch } from './api.js';
 import * as i18n from './i18n.js';
 import { toast } from './toast.js';
 
-// Resolves to whether the tour's detail is current; on a failure the tour
-// still has empty track and photo lists, and the caller tells the user.
+// On a failure the tour still has empty track and photo lists; the caller tells the user.
 export async function ensureDetail(tour) {
   try {
     await loadDetail({ apiFetch, tour, now: Date.now() });
@@ -17,9 +16,7 @@ export async function ensureDetail(tour) {
   }
 }
 
-// Forces a fresh signature rather than retrying the dead URL (see sasCache.js),
-// since one expired SAS URL means they all are. Resolves to the selected tour,
-// or to nothing when the selection moved on while refetching.
+// Fresh signatures, not a retry of the dead URL: one expired SAS URL means they all are.
 export async function refreshSelectedTourImages() {
   const tour = state.tours.find((candidate) => candidate.id === state.selectedTourId);
   if (!tour) return undefined;

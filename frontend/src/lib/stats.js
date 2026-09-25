@@ -1,8 +1,5 @@
 // @ts-check
 
-// Pure aggregate-statistics computation over the full tour list — no DOM, no
-// state.js — so it can be unit tested the same way as tours.js/format.js.
-
 export function computeTourStats(tours, now) {
   if (tours.length === 0) {
     return {

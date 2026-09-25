@@ -3,8 +3,7 @@ import { SAS_CACHE_TTL_MS, isStale, markFetched, markStale } from '../src/lib/sa
 
 const NOW = Date.parse('2026-08-20T12:00:00Z');
 
-// SAS_TTL_MS in functions/src/lib/blobStorage.js. The client cache has to give
-// up on a signed URL before storage does, or it hands out URLs that 403.
+// SAS_TTL_MS in functions/src/lib/blobStorage.js; the client must give up on a URL first.
 const SERVER_SAS_TTL_MS = 60 * 60 * 1000;
 
 describe('sasCache', () => {

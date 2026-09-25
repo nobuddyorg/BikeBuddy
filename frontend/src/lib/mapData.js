@@ -8,13 +8,7 @@ async function fetchMapEntries({ apiFetch, pendingResponse }) {
   return (await response.json()) || [];
 }
 
-// One request for every tour still missing map data, rather than a detail fetch
-// each. Tours already holding fresh data are left alone until their signed
-// photo URLs go stale. A failure still settles them on empty data, so the map
-// renders and no retry storm follows, and then rejects so the caller can say
-// so. pendingResponse lets a caller hand in a fetch already started in
-// parallel with the tour list itself, instead of paying its cold-start latency
-// a second time.
+// A failure settles the tours on empty data, so no retry storm follows, then rejects.
 export async function ensureMapData({ apiFetch, tours, now, pendingResponse }) {
   const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour, now));
   if (missing.length === 0) return;
@@ -27,8 +21,7 @@ export async function ensureMapData({ apiFetch, tours, now, pendingResponse }) {
     for (const tour of missing) {
       const entry = entriesById.get(tour.id);
       tour.heatmapData = entry?.heatmapData || [];
-      // Only the pinnable photos come back here, so a tour that had the full
-      // gallery loaded no longer does — the next detail fetch has to run again.
+      // /api/map carries only the pinnable photos, so the full gallery must be fetched again.
       tour.images = entry?.images || [];
       tour.detailLoaded = false;
       markFetched(tour, now);

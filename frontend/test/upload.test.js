@@ -37,7 +37,7 @@ describe('readUploadResponse', () => {
     });
   });
 
-  // The upload itself succeeded, so the caller must not offer a retry that duplicates it.
+  // The upload itself succeeded: a retry would duplicate it.
   it('reports an unreadable 201 body as its own failure', () => {
     expect(readUploadResponse({ status: 201, responseText: '<html>proxy</html>' })).toEqual({
       ok: false,

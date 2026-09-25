@@ -1,6 +1,5 @@
 // @ts-check
 
-// Falls back when the body isn't JSON.
 export function parseErrorMessage(text, fallback) {
   try {
     return JSON.parse(text).error || fallback;
@@ -9,8 +8,7 @@ export function parseErrorMessage(text, fallback) {
   }
 }
 
-// The upload endpoints answer 201 with the created resource; anything else is
-// a failure whose body may carry the reason.
+// The upload endpoints answer 201 with the created resource.
 export function readUploadResponse({ status, responseText }) {
   if (status !== 201) {
     return { ok: false, message: parseErrorMessage(responseText, 'errors.uploadFailed') };

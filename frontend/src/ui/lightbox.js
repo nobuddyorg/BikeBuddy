@@ -23,9 +23,7 @@ const t = i18n.t;
 
 const SWIPE_THRESHOLD_PX = 50;
 
-// Each entry is { id, url, tourId } — tourId is what lets the lightbox
-// delete a photo without assuming it belongs to state.selectedTourId (a map
-// pin opened with no tour selected can show photos from several tours).
+// Photos carry their tourId: a pin opened on the full map can show several tours' photos.
 let photos = [];
 let currentIndex = 0;
 
@@ -76,8 +74,6 @@ export async function retryLightboxImage() {
   renderLightbox();
 }
 
-// Deletes the photo currently shown, then clamps the index into whatever
-// remains — no special-casing needed as the array shrinks.
 async function deleteCurrentPhoto() {
   const photo = currentPhoto();
   if (!photo) return;
@@ -94,10 +90,7 @@ async function deleteCurrentPhoto() {
   renderLightbox();
 }
 
-// Swipe (touch only, like the tour rows): a horizontal drag past the
-// threshold navigates instead of the vertical/pinch gestures the browser
-// already owns. The guard stops the swipe's own trailing synthetic click from
-// being read as "tap the photo to close".
+// The guard keeps a swipe's trailing synthetic click from closing the lightbox.
 function bindSwipe() {
   const guardAgainstGhostClick = createClickGuard({ scope: lightboxImage });
   let start;
@@ -114,7 +107,7 @@ function bindSwipe() {
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (!swiping && isVerticalIntent({ dx, dy })) {
-      start = undefined; // a vertical drag — not a swipe the lightbox owns
+      start = undefined; // a vertical drag belongs to the browser
       return;
     }
     swiping = true;
@@ -130,8 +123,7 @@ function bindSwipe() {
   });
 }
 
-// A SAS URL can expire while the lightbox sits open on it (see sasCache.js) -
-// swap in the error state rather than leaving a blank/broken image.
+// A SAS URL can expire while the lightbox is open (see sasCache.js).
 lightboxImage.addEventListener('error', () => {
   hideElement(lightboxImage);
   showElement(lightboxError);
@@ -139,8 +131,6 @@ lightboxImage.addEventListener('error', () => {
 
 bindSwipe();
 
-// Tap-the-photo-to-close (#466): wireModalClose only closes on a click that
-// lands on the overlay itself, which stopped covering the image once the
-// lightbox became a real focus-trapped modal with prev/next controls.
+// Overlay clicks close the dialog elsewhere, but the photo covers the overlay here.
 lightboxImage.addEventListener('click', closeLightbox);
 lightboxDeleteButton.addEventListener('click', deleteCurrentPhoto);

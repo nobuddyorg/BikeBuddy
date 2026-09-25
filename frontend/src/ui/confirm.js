@@ -18,16 +18,13 @@ function finish(result) {
   resolve(result);
 }
 
-// Exported so app.js's global Escape/Back handling can cancel like any other
-// close, instead of leaving a promise unresolved.
+// Escape and Back cancel through this, so the pending promise always settles.
 export const cancelConfirm = () => finish(false);
 
 confirmOkButton.addEventListener('click', () => finish(true));
 confirmCancelButton.addEventListener('click', cancelConfirm);
 wireModalClose({ modal: confirmModal, closeButton: confirmCloseButton, onClose: cancelConfirm });
 
-// Replaces window.confirm() with the app's own themed, translated,
-// focus-trapped dialog. Resolves true/false once the user picks.
 export function confirmDialog({ title, message, confirmLabel }) {
   confirmTitle.textContent = title;
   confirmMessage.textContent = message;

@@ -22,8 +22,7 @@ export function t(key, params) {
   return translate({ messages, fallbackMessages, key, params, locale: intlLocale() });
 }
 
-// The API sends either an i18n key or a finished English sentence; a sentence
-// is not a key, so it resolves to itself.
+// The API sends an i18n key or an English sentence; a sentence resolves to itself.
 export function tApi(message) {
   return t(message);
 }
@@ -34,7 +33,6 @@ async function loadMessages(code) {
   return response.json();
 }
 
-// Without its messages the page still works, in English or as bare keys.
 async function loadMessagesOr({ code, fallback }) {
   try {
     return await loadMessages(code);
@@ -65,12 +63,10 @@ export async function init() {
 
   document.documentElement.lang = currentLocale;
   applyI18n(document);
-  // Reveals the real markup — see the .i18n-loading skeleton rules in
-  // style.css for why it starts hidden.
   document.body.classList.remove('i18n-loading');
 }
 
-// Reloads, so every string re-renders — dynamic ones included.
+// Reloads, so every string re-renders, dynamic ones included.
 export function setLanguage(code) {
   if (!isSupported(code)) return;
   try {
@@ -81,12 +77,10 @@ export function setLanguage(code) {
   location.reload();
 }
 
-// Read via getAttribute rather than dataset, so each name is written once here
-// instead of also in its camelCase spelling.
+// Read via getAttribute, so each name is written once rather than also in camelCase.
 export const I18N_ATTRIBUTES = ['placeholder', 'aria-label', 'title', 'alt'];
 
-// The two content sinks stay written out rather than joining the table above:
-// folding them in would bury which of the two interprets markup.
+// The two content sinks stay separate, so it is plain which one interprets markup.
 export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n]').forEach((element) => {
     element.textContent = t(element.getAttribute('data-i18n'));

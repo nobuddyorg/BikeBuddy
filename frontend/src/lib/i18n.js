@@ -33,8 +33,7 @@ export function pickLocale({ stored, languages = [] }) {
   return supportedLocaleCodes([stored, ...languages])[0] ?? DEFAULT_LOCALE;
 }
 
-// A key with plural forms is stored as `key.one`, `key.other`, … and chosen by
-// the `count` parameter; `other` covers any category a locale leaves out.
+// Plural forms live at key.one, key.other, …, picked by `count`; `other` covers the rest.
 function candidateKeys({ key, params, locale }) {
   if (typeof params.count !== 'number') return [key];
   const category = new Intl.PluralRules(locale).select(params.count);
@@ -65,7 +64,6 @@ export function translate({ messages, fallbackMessages = {}, key, params = {}, l
   return interpolate({ template, params, locale });
 }
 
-// The language menu's search: by name, code or short label, case-insensitive.
 export function filterLocales(query) {
   const needle = query.trim().toLowerCase();
   return SUPPORTED_LOCALES.filter((locale) =>

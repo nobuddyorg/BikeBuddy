@@ -25,7 +25,6 @@ import {
 
 const t = i18n.t;
 
-// Holds the one GPX file chosen for the upload, once it passed the checks.
 let selectedFiles = [];
 
 function resetUploadForm() {
@@ -104,7 +103,7 @@ export async function submitUpload(event) {
     showUploadFailure(i18n.tApi(error.message));
     return;
   }
-  // Past this point the tour exists: nothing below may offer the upload again.
+  // The tour exists now: nothing below may offer the upload again.
   closeUpload();
   toast(t('toast.tourUploaded'), { type: 'success' });
   await loadTours();

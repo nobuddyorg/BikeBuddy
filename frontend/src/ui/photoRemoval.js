@@ -17,9 +17,7 @@ export async function confirmDeletePhoto() {
   });
 }
 
-// Only touches tour.images and the gallery/pins; callers own the UI they
-// deleted from (a gallery tile, or the lightbox position), since a photo can
-// be deleted from either.
+// Callers remove the tile or advance the lightbox themselves; this only updates the data.
 export function scheduleImageRemoval(image, tourId) {
   const tour = state.tours.find((candidate) => candidate.id === tourId);
   if (tour?.images) tour.images = withoutImage(tour.images, image.id);
@@ -41,7 +39,6 @@ export function scheduleImageRemoval(image, tourId) {
         });
         if (!response.ok) throw new Error('delete failed');
       } catch {
-        // A failed background delete must not leave the photo missing from the UI.
         restore();
         toast(t('toast.photoDeleteError'), { type: 'error' });
       }

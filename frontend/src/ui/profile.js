@@ -24,8 +24,7 @@ import {
 
 const t = i18n.t;
 
-// A typed phrase rather than a second click, kept as one literal token
-// (not translated) so it stays exact and easy to type regardless of locale.
+// Not translated: the phrase must be exact and easy to type in any locale.
 const DELETE_ACCOUNT_PHRASE = 'DELETE';
 
 function renderProfile() {
@@ -43,7 +42,7 @@ export async function openProfile() {
   renderProfile();
   openModal(profileModal);
 
-  // Join date lives on the user doc, which the login session may not have.
+  // The join date is on the user document, which the sign-in session may lack.
   if (!state.user.createdAt) {
     await refreshUser();
     renderProfile();
@@ -84,8 +83,7 @@ export async function saveProfileName(event) {
   toast(t('toast.nameUpdated'), { type: 'success' });
 }
 
-// Persisted before it is applied: i18n.setLanguage reloads the page, so
-// anything after it never runs.
+// Persisted first: setLanguage reloads the page, so nothing after it runs.
 export async function selectLanguage(code) {
   const { response, networkError } = await patchMe({ language: code });
   if (networkError) {
@@ -100,7 +98,6 @@ export async function selectLanguage(code) {
   i18n.setLanguage(code);
 }
 
-// GDPR data export.
 export async function downloadMyData() {
   const { response, networkError } = await apiRequest('/api/me/export');
   if (networkError || !response.ok) {
@@ -133,8 +130,7 @@ export function updateDeleteAccountConfirmState() {
   deleteAccountConfirmButton.disabled = deleteAccountInput.value !== DELETE_ACCOUNT_PHRASE;
 }
 
-// GDPR erasure. Only reachable once the typed-phrase check in the modal has
-// enabled the button, so no further confirmation happens here.
+// Only reachable once the typed phrase has enabled the button.
 export async function deleteMyAccount() {
   const { response, networkError } = await apiRequest('/api/account', { method: 'DELETE' });
   if (networkError || !response.ok) {

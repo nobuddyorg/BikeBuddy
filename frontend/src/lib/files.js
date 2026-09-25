@@ -1,8 +1,6 @@
 // @ts-check
 
-// Fast UX feedback only — the backend re-validates by magic bytes.
-// Each check lists its problems as i18n keys with their parameters; an empty
-// list means the upload is fine.
+// Fast UX feedback only: the backend re-validates by magic bytes.
 
 const BYTES_PER_MEGABYTE = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 10 * BYTES_PER_MEGABYTE;
@@ -55,8 +53,7 @@ export function defaultTourName(fileName) {
   return fileName.replace(/\.gpx$/i, '');
 }
 
-// Each file's problems, in the order they are shown; the tour's photo cap
-// counts only the files accepted before it.
+// The tour's photo cap counts only the files accepted before this one.
 export function planImageUploads({ files, existingCount }) {
   let acceptedCount = existingCount;
   return files.map((file) => {

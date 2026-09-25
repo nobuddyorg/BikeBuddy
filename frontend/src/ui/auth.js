@@ -34,8 +34,6 @@ let msalClient;
 // Dev mode has no session to clear, so an explicit sign-out is remembered here.
 const DEV_SIGNED_OUT_KEY = 'bb-dev-signed-out';
 
-// Fallback for when the backend isn't reachable at all (frontend opened from
-// file://); with it running, dev sign-in goes through the real /api/me.
 const SYNTHETIC_USER = {
   id: 'local-dev-user',
   name: 'Local Dev',
@@ -43,8 +41,7 @@ const SYNTHETIC_USER = {
   createdAt: new Date().toISOString(),
 };
 
-// One-way on purpose: a user with no saved language keeps the active locale
-// until they pick one in settings, rather than having it written back.
+// One-way: a user without a saved language keeps the active one until choosing in settings.
 function syncLanguageFromUser(user) {
   if (user.language && user.language !== i18n.getLocale()) {
     i18n.setLanguage(user.language);
@@ -129,8 +126,7 @@ export async function signOut() {
   renderNavAuth();
 }
 
-// Renders before awaiting anything, so the Sign In prompt never lingers behind
-// the tours request.
+// Renders before awaiting, so the Sign In prompt never lingers behind the tours request.
 async function renderSignedIn() {
   state.loadingTours = true;
   renderNavAuth();
@@ -138,9 +134,7 @@ async function renderSignedIn() {
   await Promise.all([loadTours(), refreshUser()]);
 }
 
-// Token claims can be missing right after sign-up (name especially), so the
-// user doc is merged in once loaded.
-// A failure keeps the token-derived values.
+// Token claims can lack the name right after sign-up; a failure keeps the token's values.
 export async function refreshUser() {
   const { response, networkError } = await apiRequest('/api/me');
   if (networkError) return;

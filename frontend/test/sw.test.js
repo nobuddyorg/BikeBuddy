@@ -3,11 +3,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 
-// sw.js runs as a classic (non-module) worker script, so it can't be
-// imported directly — pull PRECACHE_URLS out of the source text instead.
-// This is what keeps the list honest as lib/ui files come and go: nothing
-// else in the repo re-derives it, so drift would otherwise only surface as
-// a blank page offline.
+// sw.js is a classic worker script, not a module, so the list is read from its source.
 const here = dirname(fileURLToPath(import.meta.url));
 const srcDir = resolve(here, '../src');
 
@@ -44,8 +40,7 @@ describe('service worker precache list', () => {
     for (const file of localeFiles) expect(PRECACHE_URLS).toContain(file);
   });
 
-  // config.js is gitignored (generated per-deployment) so it never exists in
-  // a fresh checkout — everything else listed must be real.
+  // config.js is generated per deployment and gitignored.
   it('lists no file that is missing on disk', () => {
     for (const url of PRECACHE_URLS) {
       if (url === './' || url === 'config.js') continue;

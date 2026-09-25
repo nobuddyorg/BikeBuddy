@@ -17,7 +17,7 @@ export function enterSelectMode() {
   announce(TOURS_CHANGED);
 }
 
-// Long-press only — a plain tap opens the detail panel instead.
+// Long-press only; a plain tap opens the detail panel instead.
 export async function enterSingleSelect(tourId) {
   enterSelectMode();
   await toggleTourSelection(tourId);

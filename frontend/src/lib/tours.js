@@ -2,7 +2,7 @@
 
 export const PAGE_SIZE = 10;
 
-// The order the sort controls list them in; labelKey is the i18n key.
+// In the order the sort controls list them; labelKey is the i18n key.
 export const SORT_OPTIONS = [
   { key: 'date-desc', labelKey: 'sort.dateDesc' },
   { key: 'date-asc', labelKey: 'sort.dateAsc' },
@@ -13,8 +13,7 @@ export const SORT_OPTIONS = [
 ];
 export const DEFAULT_SORT = SORT_OPTIONS[0].key;
 
-// Scores for matchScore: an exact name beats a prefix beats a word start
-// beats a plain substring beats any scattered subsequence.
+// An exact name beats a prefix, a word start, a substring, then any scattered subsequence.
 const EXACT_SCORE = 1000;
 const PREFIX_SCORE = 900;
 const WORD_START_SCORE = 800;
@@ -37,8 +36,7 @@ function sorters(locale) {
   };
 }
 
-// Subsequence match: every character of the query appears in order. The
-// indices point into `text`; an empty query or a miss has none.
+// Every query character in order; a miss or an empty query highlights nothing.
 export function fuzzyMatchIndices(query, text) {
   const needle = query.trim().toLowerCase();
   const haystack = (text || '').toLowerCase();
@@ -57,9 +55,7 @@ function contiguousScore({ haystack, needle, start }) {
   return SUBSTRING_SCORE;
 }
 
-// Higher is better. Any contiguous run ranks above a scattered subsequence, and
-// a tighter scatter above a sprawling one, so short queries (which match
-// almost everything as a subsequence) still float the real hits to the top.
+// Any contiguous run outranks a scatter, and a tight scatter outranks a sprawling one.
 export function matchScore(query, text) {
   const needle = query.trim().toLowerCase();
   if (!needle) return { matched: true, score: 0 };
@@ -80,8 +76,7 @@ function relevance({ tour, query }) {
   return [{ tour, score: byDescription.score - DESCRIPTION_PENALTY }];
 }
 
-// Ranks by relevance when searching name and description; falls back to the
-// chosen sort (as tiebreaker, and outright when the box is empty).
+// Relevance first; the chosen sort breaks ties, and is the only order without a query.
 export function visibleTours({ tours, sort, search, locale }) {
   const byKey = sorters(locale);
   const sorter = byKey[sort] || byKey[DEFAULT_SORT];
@@ -93,9 +88,7 @@ export function visibleTours({ tours, sort, search, locale }) {
     .map(({ tour }) => tour);
 }
 
-// "In view" means partially on screen, not fully contained. Takes a plain
-// {south, west, north, east}, not Leaflet's LatLngBounds. A tour whose
-// heatmapData isn't loaded yet counts as out.
+// Partially on screen counts as in view; a tour without loaded heatmapData does not.
 export function toursInView(tours, bounds) {
   const { south, west, north, east } = bounds;
   return tours.filter((tour) =>
@@ -105,8 +98,7 @@ export function toursInView(tours, bounds) {
   );
 }
 
-// Clamps `page` into range, so a stale page number left over from a larger
-// result set never produces an empty slice.
+// A stale page number from a larger result set lands on the last page, not an empty one.
 export function paginate({ items, page, pageSize }) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const clamped = Math.min(Math.max(1, page), totalPages);
@@ -118,8 +110,6 @@ export function paginate({ items, page, pageSize }) {
   };
 }
 
-// The list as the sidebar shows it: scoped to the map when the in-view filter
-// is on, searched, sorted and cut to one page.
 export function tourListView({ tours, sort, search, locale, page, inViewBounds }) {
   const scoped = inViewBounds ? toursInView(tours, inViewBounds) : tours;
   const visible = visibleTours({ tours: scoped, sort, search, locale });
@@ -131,7 +121,6 @@ export function tourListView({ tours, sort, search, locale, page, inViewBounds }
   };
 }
 
-// Splits text into consecutive runs that are all matched or all unmatched.
 export function matchRuns(text, indices) {
   const matched = new Set(indices);
   const runs = [];
@@ -146,8 +135,7 @@ export function matchRuns(text, indices) {
   return runs;
 }
 
-// Keeps the original time-of-day, so correcting a tour's date doesn't clobber
-// the time it was recorded at.
+// Keeps the original time of day, so correcting the date keeps when it was recorded.
 export function withUpdatedDate(originalIso, date) {
   const [year, month, day] = date.split('-').map(Number);
   const combined = new Date(originalIso);
@@ -172,7 +160,6 @@ export function removeToursById(tours, ids) {
   return tours.filter((tour) => !ids.includes(tour.id));
 }
 
-// The toast for a background delete where some or all requests failed.
 export function deletionFailureMessage({ succeededCount, totalCount }) {
   if (succeededCount === 0) return { key: 'toast.tourDeleteError', params: {} };
   return {

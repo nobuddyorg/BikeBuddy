@@ -1,8 +1,6 @@
 // @ts-check
 
-// Reads the deployment's BIKEBUDDY_CONFIG (config.js). Dev auth pairs with the
-// backend's SKIP_AUTH, so the app also works before a tenant is configured
-// and flips to real auth the moment one is.
+// Dev auth pairs with the backend's SKIP_AUTH: it runs until a tenant is configured.
 export function resolveAuthConfig(config) {
   const subdomain = config.entraSubdomain || '';
   const clientId = config.entraClientId || '';
@@ -21,8 +19,7 @@ export function userFromAccount(account) {
   return { id: account.homeAccountId, email: account.username || '' };
 }
 
-// Right after sign-up the ID token may carry the address only as
-// preferred_username, or not at all.
+// Right after sign-up the ID token may lack the email claim.
 export function userFromAuthResult(result) {
   return {
     id: result.account.homeAccountId,

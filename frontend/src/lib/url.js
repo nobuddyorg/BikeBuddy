@@ -2,9 +2,6 @@
 
 import { DEFAULT_SORT } from './tours.js';
 
-// Pure URL <-> state-patch mapping, kept separate from the history.pushState/
-// popstate wiring in ui/router.js so it's unit-testable without a DOM/window.
-
 const TOUR_HASH_PATTERN = /^#\/tour\/([^/?#]+)$/;
 
 export function parseAppUrl(search, hash) {

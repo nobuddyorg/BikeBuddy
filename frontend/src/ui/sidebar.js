@@ -43,19 +43,16 @@ async function fetchTours() {
   }
 }
 
-// Only meaningful on the first load — consumeDeepLinkTourId() clears the
-// pending id, so a later retry-button reload won't reopen it.
+// Only the first load has a deep link; consuming it keeps a retry from reopening it.
 async function openDeepLinkedTour() {
   const deepLinkId = consumeDeepLinkTourId();
   if (!deepLinkId) return;
   if (state.tours.some((tour) => tour.id === deepLinkId)) await selectTour(deepLinkId);
-  else syncUrl(); // unknown/deleted tour: drop it from the URL, stay on the full map
+  else syncUrl(); // an unknown or deleted tour leaves the URL
 }
 
 export async function loadTours() {
-  // Fired alongside /api/tours rather than after it: on a cold backend both
-  // pay the same cold-start latency, so starting them together instead of in
-  // sequence roughly halves the wait before the map can render.
+  // Started with /api/tours: a cold backend then pays its start-up latency once.
   const pendingMapResponse = apiFetch('/api/map');
   // Marked handled: ensureMapData awaits it only while a tour still lacks map data.
   pendingMapResponse.catch(() => {});
@@ -101,9 +98,7 @@ export function renderSidebar() {
   ]) {
     setVisible(control, hasTours);
   }
-  // Guarded against the fullscreen map, whose own toggle owns this button's
-  // visibility while active — an async render landing mid-expand must not
-  // pop it back up behind/over the map.
+  // The expanded map owns this button while it is open.
   setVisible(mobileMapButton, hasTours && !appLayout.classList.contains('map-expanded'));
   renderShowAllButton(hasTours);
   renderSelectionControls(hasTours);

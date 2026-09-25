@@ -33,7 +33,6 @@ async function deleteOnServer(tours) {
   const failures = outcomes.filter((outcome) => outcome.status === 'rejected');
   if (failures.length === 0) return;
   failures.forEach((failure) => console.error(failure.reason));
-  // A failed background delete must not leave the tour missing from the UI.
   state.tours.push(...failures.map((failure) => failure.item));
   await showTours();
   const message = deletionFailureMessage({
@@ -43,8 +42,7 @@ async function deleteOnServer(tours) {
   toast(t(message.key, message.params), { type: 'error' });
 }
 
-// `tours` are the objects themselves, not ids, so Undo can put them back
-// without a re-fetch.
+// The tour objects themselves, so Undo restores them without a re-fetch.
 function scheduleTourRemoval(tours) {
   const ids = tours.map((tour) => tour.id);
   state.tours = removeToursById(state.tours, ids);

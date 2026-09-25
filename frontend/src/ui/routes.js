@@ -34,9 +34,7 @@ function drawRoutes(pointSets) {
   state.routeLayer = L.layerGroup(lines).addTo(map);
 }
 
-// Applies the current line style to the already-drawn polylines in place —
-// no layer teardown/rebuild and no pan/zoom change, so a slider drag stays
-// smooth instead of re-creating every polyline on each tick.
+// Restyles in place, so dragging a slider neither rebuilds the layers nor moves the camera.
 export function redrawRoutes() {
   state.routeLayer?.eachLayer((layer) => layer.setStyle(state.lineStyle));
 }
@@ -44,10 +42,7 @@ export function redrawRoutes() {
 function fitToPoints(pointSets, paddingPx) {
   const allPoints = pointSets.flat();
   if (allPoints.length === 0) return;
-  // Tours finish loading asynchronously, by which point the container may
-  // have resized (mobile sidebar settling, address-bar collapsing) since
-  // Leaflet last measured it — fitBounds would otherwise center against that
-  // stale size and leave the map visibly panned off.
+  // The container may have resized since Leaflet last measured it (mobile sidebar, toolbar).
   map.invalidateSize();
   map.fitBounds(L.latLngBounds(allPoints), { padding: [paddingPx, paddingPx] });
 }
@@ -57,7 +52,6 @@ export function renderRoutes(pointSets, paddingPx) {
   fitToPoints(pointSets, paddingPx);
 }
 
-// Resolves to whether the map data loaded; the tours are drawable either way.
 async function loadMapData(pendingMapResponse) {
   try {
     await ensureMapData({
@@ -94,16 +88,14 @@ export async function renderAllRoutes({ pendingMapResponse } = {}) {
   showOverlays({ pointSets, loaded });
 }
 
-// Every route, without touching pan/zoom: closing a tour's detail on desktop
-// keeps the camera where it is; only "Show all tours" re-fits.
+// Closing a tour on desktop leaves the camera alone; only "Show all tours" re-fits.
 export async function redrawAllRoutesInPlace() {
   const { pointSets, loaded } = await loadAllPointSets();
   drawRoutes(pointSets);
   showOverlays({ pointSets, loaded });
 }
 
-// Mirrors the checked set while in select mode, falling back to all tours when
-// nothing is checked so the map never goes blank.
+// Falls back to every tour when nothing is checked, so the map never goes blank.
 export async function renderSelectedToursRoutes() {
   if (state.selectedIds.size === 0) {
     await renderAllRoutes();

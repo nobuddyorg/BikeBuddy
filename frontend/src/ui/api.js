@@ -2,7 +2,7 @@ import { resolveAuthConfig } from '../lib/authConfig.js';
 
 const msal = window.msal;
 
-// BIKEBUDDY_CONFIG is set by the classic config.js <script>, loaded before this module.
+// Set by the classic config.js <script>, which index.html loads before this module.
 export const AUTH_CONFIG = resolveAuthConfig(window.BIKEBUDDY_CONFIG || {});
 export const API_BASE = AUTH_CONFIG.apiBase;
 export const LOGIN_REQUEST = { scopes: AUTH_CONFIG.loginScopes };
@@ -17,14 +17,13 @@ export async function createAuthClient() {
       knownAuthorities: AUTH_CONFIG.knownAuthorities,
       redirectUri: window.location.origin + window.location.pathname,
     },
-    // localStorage, not sessionStorage: survives tab close/reopen.
+    // localStorage, not sessionStorage: the session survives closing the tab.
     cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false },
   });
   await msalClient.initialize();
   return msalClient;
 }
 
-// Empty when there is no token to send: dev auth, or nobody signed in.
 export async function getAccessToken() {
   if (AUTH_CONFIG.useDevAuth) return '';
   const [account] = msalClient.getAllAccounts();
@@ -37,9 +36,7 @@ export async function getAccessToken() {
   }
 }
 
-// A request that got no response at all (offline, a blocked token popup) as
-// its own outcome, so a caller can word it apart from an error status without
-// wrapping its own code in the try.
+// No response at all (offline, a blocked token popup) is its own outcome, not an exception.
 export async function apiRequest(path, options = {}) {
   try {
     return { response: await apiFetch(path, options) };

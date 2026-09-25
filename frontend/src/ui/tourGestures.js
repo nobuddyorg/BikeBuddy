@@ -3,23 +3,15 @@ import { state } from './state.js';
 import { sidebar, tourList } from './dom.js';
 import { createClickGuard } from './clickGuard.js';
 
-// Long-press is mobile's only way into select mode once the Select button is
-// hidden there. Wired unconditionally — Pointer Events cover mouse
-// click-and-hold too, alongside the button.
+// Long-press is mobile's only way into select mode; Pointer Events cover mouse holds too.
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 const SWIPE_ACTION_THRESHOLD_PX = 72;
 
-// Revealing the selection bar shifts every row down, so a long-press's ghost
-// click can land anywhere in the sidebar — even on Cancel/Delete — not just on
-// #tour-list. The sidebar is the nearest ancestor that survives the re-render
-// and contains both.
+// The selection bar shifts every row, so the ghost click can land anywhere in the sidebar.
 const guardAgainstGhostClick = createClickGuard({ scope: sidebar, indicator: tourList });
 
-// onLongPress fires from pointerup, not from the 500ms timer: firing it while
-// the pointer is still down lets its re-render destroy the <li> mid-gesture,
-// and the browser then retargets the pending pointerup/click to whatever has
-// taken its place.
+// Fires on pointerup: re-rendering mid-press retargets the pending click to the new row.
 export function bindLongPress(element, onLongPress) {
   let timer;
   let start;
@@ -56,10 +48,7 @@ export function bindLongPress(element, onLongPress) {
   element.addEventListener('pointerleave', reset);
 }
 
-// Touch-only, like bindLongPress. Dragging the row right uncovers the delete
-// background; past SWIPE_ACTION_THRESHOLD_PX on release, it deletes.
-// Anything less snaps back — release only ever looks at the final dx, so a
-// drag-back needs no cancelled state of its own.
+// Release only reads the final dx, so dragging back below the threshold just snaps back.
 export function bindTourSwipe(content, onSwipeRight) {
   let start;
   let dragging = false;
@@ -82,7 +71,7 @@ export function bindTourSwipe(content, onSwipeRight) {
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (!dragging && isVerticalIntent({ dx, dy })) {
-      start = undefined; // a scroll — let the browser handle it
+      start = undefined; // a scroll belongs to the browser
       return;
     }
     dragging = true;
@@ -99,8 +88,7 @@ export function bindTourSwipe(content, onSwipeRight) {
     const dx = event.clientX - start.x;
     reset();
     if (dx < SWIPE_ACTION_THRESHOLD_PX) return;
-    // Once the list re-renders without this tour, a trailing ghost click
-    // would land on whatever row took its place.
+    // The re-rendered list would take the ghost click on the row that moved up.
     guardAgainstGhostClick();
     await onSwipeRight();
   });

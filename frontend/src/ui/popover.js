@@ -1,8 +1,6 @@
 import { showElement, hideElement, isHidden } from './dom.js';
 
-// A menu that opens from its trigger and closes on a second click, a click
-// anywhere outside `container`, or Escape. onOpen runs once the panel shows,
-// so it can measure and position it.
+// onOpen runs once the panel shows, so it can measure and position it.
 export function wirePopover({ trigger, panel, container, onOpen = () => {} }) {
   const close = () => {
     hideElement(panel);

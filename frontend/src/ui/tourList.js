@@ -28,12 +28,11 @@ function createTextDiv(className, text) {
   return div;
 }
 
-// Wraps the search's matched runs in <mark>, via createElement/textContent only —
-// tour names are user-supplied.
+// createElement/textContent only: tour names are user-supplied.
 function createNameElement(name, matchedIndices) {
   const nameElement = document.createElement('div');
   nameElement.className = 'tour-item-name';
-  nameElement.title = name; // full, unmarked name — a hover tooltip for the ellipsis-truncated row (#445)
+  nameElement.title = name; // the full name, for the ellipsis-truncated row
   for (const run of matchRuns(name, matchedIndices)) {
     if (run.matched) {
       const mark = document.createElement('mark');
@@ -46,8 +45,6 @@ function createNameElement(name, matchedIndices) {
   return nameElement;
 }
 
-// Glyphs rather than emoji: these sit on coloured backgrounds and had to read
-// the same regardless of platform emoji rendering.
 const TRASH_ICON_SVG =
   '<svg class="tour-item-delete-icon" viewBox="0 0 24 24" aria-hidden="true">' +
   '<path fill="#000" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>' +
@@ -117,8 +114,7 @@ function activateRow(tourId) {
 function bindRowInteractions(content, tour) {
   content.addEventListener('click', () => activateRow(tour.id));
   content.addEventListener('keydown', (event) => {
-    // Space also scrolls the list by default; only suppress that once this
-    // row is actually the one handling the key.
+    // Space would also scroll the list.
     if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
     event.preventDefault();
     content.click();
@@ -146,8 +142,6 @@ function createTourItem(tour) {
   return item;
 }
 
-// The list, its count and the pager: the part of renderSidebar that depends on
-// the sort, search and "in view" filter.
 export function renderTourList({ signedIn, loading, hasTours }) {
   tourList.innerHTML = '';
   if (!hasTours) {
@@ -159,10 +153,7 @@ export function renderTourList({ signedIn, loading, hasTours }) {
     return;
   }
 
-  // The map isn't beside the list on mobile to pan/zoom while watching it
-  // filter, and the toggle is hidden there — ignore a stray filterInView=true
-  // left over from a desktop session or a shared/bookmarked ?inView=1 URL,
-  // or the list would filter itself with no visible control to undo it.
+  // Mobile has no in-view control, so a filterInView from a URL or desktop session is ignored.
   const inViewActive = state.filterInView && !isMobileLayout();
   const view = tourListView({
     tours: state.tours,

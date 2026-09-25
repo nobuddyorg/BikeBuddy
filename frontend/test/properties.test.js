@@ -6,9 +6,6 @@ import { formatDuration, formatDistance } from '../src/lib/format.js';
 import { parseAppUrl, buildAppUrl } from '../src/lib/url.js';
 import { visibleTours, paginate } from '../src/lib/tours.js';
 
-// Property tests for the pure frontend modules whose input space is too large
-// for examples (design-decisions.md, "Property tests").
-
 const tour = fc.record({
   id: fc.uuid(),
   name: fc.option(fc.string(), { nil: undefined }),

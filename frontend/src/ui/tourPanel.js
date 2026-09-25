@@ -48,8 +48,7 @@ const t = i18n.t;
 
 const selectedTour = () => state.tours.find((tour) => tour.id === state.selectedTourId);
 
-// The map half of selecting a tour. Resolves to whether the tour is still the
-// selected one once its detail has loaded.
+// Resolves to whether the tour is still selected once its detail has loaded.
 async function focusTourOnMap(tour) {
   const loaded = await ensureDetail(tour);
   if (state.selectedTourId !== tour.id) return false;
@@ -66,22 +65,18 @@ export async function selectTour(tourId) {
 
   state.selectedTourId = tourId;
   announce(TOURS_CHANGED);
-  renderDetailPanel(tour); // name/meta now; resets the image section
-  // Pushed after the URL already reflects the new tour, so Back returns here
-  // and closes the panel (#443) — the tour stays selected, matching #442.
+  renderDetailPanel(tour);
+  // Pushed after the URL shows the tour, so Back closes the panel and keeps the selection.
   pushLayer(closeDetailPanel);
   state.detailLoading = focusTourOnMap(tour).then((stillSelected) => {
     if (!stillSelected) return;
-    renderDetailMeta(tour); // elevation/duration/avgSpeed only land with this fetch
+    renderDetailMeta(tour); // these metrics arrive only with the detail
     renderGallery(tour);
   });
   await state.detailLoading;
 }
 
-// Neither surface leaves the map/pins scoped to the just-closed tour, and
-// neither leaves its row looking "active" — only the explicit "Show all
-// tours" button (desktop) or reopening the map (mobile) should single out a
-// tour again.
+// Only "Show all tours" (desktop) or reopening the map (mobile) singles out a tour again.
 export function closeDetailPanel() {
   hideElement(detailPanel);
   const wasMobile = isMobileLayout();
@@ -89,10 +84,7 @@ export function closeDetailPanel() {
   state.selectedTourId = null;
   announce(TOURS_CHANGED);
   syncUrl();
-  // Desktop's map is always visible, so it redraws immediately — every
-  // route, but without re-fitting the camera, so closing the panel doesn't
-  // yank the view around; only "Show all tours" does that. Mobile's map is
-  // off-screen until reopened, which draws fresh then (renderSelectedToursRoutes).
+  // Mobile's map is off-screen; it draws fresh when reopened.
   if (!wasMobile) redrawAllRoutesInPlace();
   showElement(mobileMapButton);
   refreshMapSize();
@@ -154,9 +146,6 @@ export async function submitEdit(event) {
   renderDetailPanel(tour);
 }
 
-// Split from renderDetailPanel so selectTour can refresh just the meta once
-// ensureDetail's fetch lands elevationGain/durationSeconds/avgSpeed — those
-// aren't in the list payload, only the single-tour one.
 function renderDetailMeta(tour) {
   const locale = i18n.intlLocale();
   detailName.textContent = tour.name;
@@ -173,16 +162,12 @@ function renderDetailPanel(tour) {
   resetImageSection();
   showElement(detailPanel);
   if (isMobileLayout()) moveMapIntoDetailPanel();
-  // Otherwise it stays keyboard-focusable behind the full-screen mobile
-  // panel even though the panel's opaque background covers it visually.
+  // Hidden, not just covered: it would stay focusable behind the full-screen panel.
   hideElement(mobileMapButton);
   refreshMapSize();
 }
 
-// A navigation, not a fetch: the blob is cross-origin and its filename comes
-// from the signed URL's Content-Disposition. Navigations report nothing back,
-// so an expired URL would download storage's XML error as <tour>.gpx — hence
-// the refresh first, and the refusal to navigate without a usable URL.
+// A navigation reports no failure, so an expired URL would save storage's XML error as .gpx.
 export async function downloadSelectedGpx() {
   const tour = selectedTour();
   if (!tour) return;

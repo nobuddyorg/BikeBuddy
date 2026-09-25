@@ -5,21 +5,12 @@ import { pushLayer } from './router.js';
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 
-// document.body when nothing is waiting for focus to come back.
 let modalReturnFocus = document.body;
 
-// Desktop's body never scrolls anyway (see style.css), but mobile's does now
-// that the list is a normal scrolling page — without this a modal's backdrop
-// no longer stops the list behind it from scrolling too. Counted (not just a
-// toggle) so one modal closing doesn't unlock scroll while another is still
-// open; guarded on the modal's own hidden state so a stray double-close (the
-// back-button layer left over after an explicit close, same as elsewhere in
-// this app) can't decrement twice.
+// Counted, and guarded on the hidden state, so a double close can't unlock scroll early.
 let openModalCount = 0;
 
-// onHistoryClose lets a caller with extra close-time cleanup (the lightbox)
-// run its real close function when Back pops this modal, instead of the
-// plain hideElement(modal) closeModal() would otherwise do.
+// onHistoryClose runs when Back pops this modal, for callers with their own close cleanup.
 export function openModal(modal, onHistoryClose = () => closeModal(modal)) {
   modalReturnFocus = document.activeElement ?? document.body;
   if (isHidden(modal)) {
@@ -68,14 +59,12 @@ export function wireModalClose({ modal, closeButton, onClose }) {
   });
 }
 
-// onFiles always receives an array; single-file callers destructure the first.
 export function wireDropzone({ zone, input, onFiles }) {
   input.addEventListener('change', () => {
     onFiles(Array.from(input.files));
-    input.value = ''; // allow re-selecting the same file(s)
+    input.value = ''; // lets the same file be chosen again
   });
-  // The input is nested inside the zone, so its bubbled click would re-enter
-  // this handler and the browser would block the dialog as programmatic.
+  // The input's own click bubbles here; re-clicking it would be blocked as programmatic.
   zone.addEventListener('click', (event) => {
     if (event.target !== input) input.click();
   });

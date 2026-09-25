@@ -12,8 +12,7 @@ function readVar(name, source) {
   return match[1];
 }
 
-// :root holds the light theme; the dark theme only overrides a subset inside
-// the prefers-color-scheme block that follows it.
+// :root holds the light theme; the dark block after it overrides a subset.
 const rootBlock = css.slice(
   css.indexOf(':root'),
   css.indexOf('@media (prefers-color-scheme: dark)'),

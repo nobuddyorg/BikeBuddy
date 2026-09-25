@@ -31,12 +31,7 @@ function openInLightbox(image) {
   openLightbox(images, indexOfImage(images, image.id));
 }
 
-// thumbUrl is always a signed URL even for photos that predate #466's
-// real-thumbnail work and have no thumb blob yet — SAS signing doesn't
-// check blob existence, so it 404s rather than coming back empty. Fall
-// back to the full image once before treating it as a real load failure
-// (a SAS URL expiring in the background per sasCache.js is the other
-// reason this fires).
+// Photos older than thumbnails have a signed thumbUrl to a missing blob: try the full image once.
 function handleThumbnailErrors({ thumbnail, tile, image }) {
   let triedFullImage = !image.thumbUrl;
   thumbnail.addEventListener('error', () => {
@@ -63,7 +58,6 @@ export function createImageTile(image) {
   thumbnail.src = image.thumbUrl || image.url;
   thumbnail.alt = t('lightbox.imgAlt');
   thumbnail.loading = 'lazy';
-  // Skeleton shimmer (style.css) until the photo has actually loaded.
   thumbnail.addEventListener('load', () => thumbnail.classList.add('is-loaded'));
   thumbnail.addEventListener('click', () => openInLightbox(image));
   handleThumbnailErrors({ thumbnail, tile, image });
@@ -82,8 +76,6 @@ export function createImageTile(image) {
   return tile;
 }
 
-// Shared by the upload-pending tile and the broken-thumbnail state above -
-// same error/dismiss layout, different message and retry action.
 export function renderErrorTile({ tile, message }) {
   tile.className = 'image-tile image-tile-error';
   tile.dataset.testid = 'image-tile-error';
@@ -121,7 +113,7 @@ export function renderRetryableErrorTile({ tile, message, retryLabel, onRetry })
   );
 }
 
-// Re-renders every tile, since one expired SAS URL means they all are.
+// One expired SAS URL means they all are, so every tile is refetched.
 async function retryTourImages() {
   const tour = await refreshSelectedTourImages();
   if (tour) renderGallery(tour);

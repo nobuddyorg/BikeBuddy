@@ -2,8 +2,7 @@ import { toastContainer } from './dom.js';
 
 const DEFAULT_DURATION_MS = 4000;
 
-// `action` (optional): { label, onClick } renders a button that runs onClick
-// and dismisses the toast, without triggering the toast's own click-to-dismiss.
+// The action button dismisses the toast without also triggering its click-to-dismiss.
 export function toast(message, { type = 'info', durationMs = DEFAULT_DURATION_MS, action } = {}) {
   const toastElement = document.createElement('div');
   toastElement.className = `toast toast-${type}`;

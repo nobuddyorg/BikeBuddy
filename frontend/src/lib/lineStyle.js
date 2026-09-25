@@ -13,9 +13,7 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-// Merges a stored value onto the default, discarding anything malformed
-// (corrupted JSON, wrong types, out-of-range numbers) rather than letting a
-// tampered or stale localStorage entry break rendering.
+// A tampered or stale stored entry falls back to the defaults field by field.
 export function parseLineStyle(raw) {
   if (!raw) return { ...DEFAULT_LINE_STYLE };
   let parsed;
@@ -40,7 +38,6 @@ export function parseLineStyle(raw) {
   return { color, weight, opacity };
 }
 
-// The opacity slider works in whole percent.
 export function opacityToPercent(opacity) {
   return Math.round(opacity * 100);
 }

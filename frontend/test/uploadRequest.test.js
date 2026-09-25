@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { xhrUpload } from '../src/ui/uploadRequest.js';
 import { runWithConcurrency } from '../src/lib/concurrency.js';
 
-// Minimal XMLHttpRequest stand-in that delivers the terminal event under test.
 function makeRequest({ status = 201, responseText = '{}', event = 'load' } = {}) {
   const calls = { headers: {}, sent: false };
   class FakeRequest {
@@ -62,8 +61,7 @@ describe('xhrUpload', () => {
     await expect(upload({ RequestConstructor: FakeRequest })).rejects.toThrow('Too big');
   });
 
-  // The bug: JSON.parse threw inside xhr.onload, which escapes to the global
-  // error handler rather than rejecting, so the promise never settled.
+  // A throw inside onload escapes the promise instead of rejecting it.
   it('rejects rather than hanging when a 201 body is not valid JSON', async () => {
     const { FakeRequest } = makeRequest({ status: 201, responseText: '<html>proxy</html>' });
 
@@ -97,8 +95,7 @@ describe('xhrUpload', () => {
     expect(seen).toEqual([33]);
   });
 
-  // The consequence that made the hang severe: an unsettled promise holds its
-  // slot in the pool forever, so enough of them deadlock all remaining uploads.
+  // An unsettled upload would hold its pool slot forever.
   it('does not stall the concurrency pool when responses are unparsable', async () => {
     const { FakeRequest } = makeRequest({ status: 201, responseText: 'not json' });
     const failures = [];

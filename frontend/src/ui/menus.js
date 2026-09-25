@@ -39,11 +39,10 @@ import {
 
 const t = i18n.t;
 
-// Popovers keep this far from the viewport edge and this far below their trigger.
 const MENU_EDGE_MARGIN_PX = 16;
 const MENU_OFFSET_PX = 6;
 
-// One <span> per [className, text] pair; textContent, so no string is parsed as markup.
+// textContent, so no locale string is parsed as markup.
 function spans(parts) {
   return parts.map(([className, text]) => {
     const span = document.createElement('span');
@@ -80,8 +79,7 @@ function showMatchingLanguages() {
   });
 }
 
-// .lang-menu is `position: fixed`, so it can't be anchored in CSS. Centred
-// on the modal card rather than the narrow switcher, or it hangs off one edge.
+// Fixed position, centred on the modal card: centred on the narrow switcher it overflows.
 function positionLanguageMenu() {
   const buttonRect = languageButton.getBoundingClientRect();
   const modalRect = languageButton.closest('.modal').getBoundingClientRect();
@@ -97,7 +95,6 @@ function positionLanguageMenu() {
 
 export function setupLanguageSwitcher() {
   const meta = i18n.getLocaleMeta();
-  // Full name, not the short code: there is room for it here.
   languageButton.replaceChildren(
     ...spans([
       ['lang-flag', meta.flag],
@@ -120,8 +117,7 @@ export function setupLanguageSwitcher() {
   languageSearchInput.addEventListener('input', showMatchingLanguages);
 }
 
-// The desktop <select> lists the same options as the mobile menu below; its
-// labels are translated by applyI18n like the static markup.
+// applyI18n translates these labels like the static markup.
 export function populateSortSelect() {
   for (const { key, labelKey } of SORT_OPTIONS) {
     const option = document.createElement('option');
@@ -131,8 +127,7 @@ export function populateSortSelect() {
   }
 }
 
-// `position: fixed` to escape the sidebar's clipping, so the offset has to
-// come from the button's actual viewport rect.
+// Fixed position escapes the sidebar's clipping, so it is placed from the button's rect.
 function positionSortMenu() {
   sortMenuList.querySelectorAll('.sort-menu-option').forEach((option) => {
     option.setAttribute('aria-selected', String(option.dataset.value === state.sort));
@@ -142,9 +137,7 @@ function positionSortMenu() {
   sortMenuList.style.right = `${window.innerWidth - rect.right}px`;
 }
 
-// Mobile's replacement for the native <select>. Choosing an option writes the
-// select's value and dispatches its change event, so the sorting logic stays
-// in one place.
+// The mobile menu drives the <select>, so the sorting logic stays in one place.
 export function setupSortMenu() {
   const { close } = wirePopover({
     trigger: sortMenuButton,
@@ -192,9 +185,7 @@ export function setupLineStyleMenu() {
   showLineStyle();
   wirePopover({ trigger: lineStyleButton, panel: lineStyleMenu, container: lineStyleControl });
 
-  // localStorage is only written once the user settles on a value, not on
-  // every 'input' tick of a drag — the live preview above is cheap, a
-  // synchronous disk write per tick isn't.
+  // Saved on 'change', not on every 'input' tick of a drag.
   const commitLineStyle = () => saveLineStyle(state.lineStyle);
   const controls = [
     [lineStyleColorInput, () => ({ color: lineStyleColorInput.value })],

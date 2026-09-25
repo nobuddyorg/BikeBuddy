@@ -1,5 +1,4 @@
-// Lets a module ask for a re-render without importing the renderer, which
-// imports it in turn; app.js subscribes each renderer.
+// Lets a module request a re-render without importing the renderer, which imports it.
 const bus = new EventTarget();
 
 export const TOURS_CHANGED = 'tours-changed';

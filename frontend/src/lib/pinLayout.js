@@ -1,9 +1,6 @@
 // @ts-check
 
-// Groups points whose pixel distance to some existing group member is
-// <= thresholdPx. Single pass: each point joins the first group containing
-// a member within threshold, else starts a new group. Good enough for the
-// small number of geotagged photos typically visible in one viewport.
+// Single pass: a point joins the first group with a member within thresholdPx.
 export function groupByProximity(points, thresholdPx) {
   const groups = [];
   for (const point of points) {
@@ -16,8 +13,7 @@ export function groupByProximity(points, thresholdPx) {
   return groups;
 }
 
-// Returns `count` [dx, dy] pixel offsets arranged evenly around a circle of the
-// given radius. A single point needs no offset.
+// Evenly spaced on a circle of radiusPx; a single point needs no offset.
 export function fanOffsets(count, radiusPx) {
   if (count <= 1) return [[0, 0]];
   return Array.from({ length: count }, (_, index) => {

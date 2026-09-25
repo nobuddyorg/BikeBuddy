@@ -75,30 +75,24 @@ function subscribeRenderers() {
   });
 }
 
-// Before anything renders, so the sort/search/in-view controls reflect the
-// URL rather than their HTML defaults on a reload or a shared link (#443).
+// Before anything renders, so the controls show the URL's state rather than HTML defaults.
 function restoreControlsFromUrl() {
   readInitialUrl();
   populateSortSelect();
   dom.tourSearchInput.value = state.search;
   dom.setVisible(dom.tourSearchClearButton, state.search.length > 0);
   dom.tourSortSelect.value = state.sort;
-  // The browser restores checkboxes on reload while JS state starts fresh, so
-  // both are written from state rather than trusted.
+  // The browser restores checkboxes on reload while state starts fresh.
   dom.inViewCheckbox.checked = state.filterInView;
   dom.pinToggleCheckbox.checked = state.showPins;
   initHistory();
 }
 
 function wireMapEvents() {
-  // Debounced: 'moveend' can fire several times in quick succession (inertial
-  // panning, a pinch-zoom followed by a pan), and each renderSidebar() rescans
-  // every tour's points plus rebuilds the list DOM.
+  // 'moveend' fires in bursts (inertia, pinch then pan) and covers zoom as well as pan.
   const renderInViewList = debounce(() => {
     if (state.filterInView) renderSidebar();
   }, DEBOUNCE_MS);
-  // 'moveend' covers pan and zoom both, so the in-view list needs no second
-  // listener.
   map.on('moveend', renderInViewList);
   map.on('zoomend', renderPins);
 }
@@ -146,7 +140,6 @@ function wireTourActions() {
   dom.deleteSelectedButton.addEventListener('click', deleteSelectedTours);
 }
 
-// Any change to what the list shows starts again from its first page.
 function applyListFilter(patch) {
   Object.assign(state, patch, { page: 1 });
   renderSidebar();
@@ -154,9 +147,7 @@ function applyListFilter(patch) {
 }
 
 function wireListControls() {
-  // Fuzzy-scoring every tour and rebuilding the list DOM on every keystroke is
-  // wasted work while the user is still typing, so only that part is debounced
-  // — the input's own value and the clear button stay in sync immediately.
+  // Only the list re-render waits for typing to pause; the input and clear button follow at once.
   const renderSearchResults = debounce(() => {
     renderSidebar();
     syncUrl();
@@ -192,11 +183,7 @@ function wireListControls() {
   });
 }
 
-// Expand the map by collapsing the side panels. On mobile the map may
-// currently be the detail panel's preview (see moveMapIntoDetailPanel) —
-// expanding it has to pull it back into .app-layout first, since
-// .map-expanded hides .detail-panel entirely, and collapsing again has to
-// put it back once done.
+// The expanded map hides .detail-panel, so a map previewed inside it moves out and back.
 function wireMapExpand() {
   let expandedFromDetail = false;
   dom.mapExpandButton.addEventListener('click', () => {
@@ -212,18 +199,13 @@ function wireMapExpand() {
     refreshMapSize();
   });
 
-  // Mobile-only entry point to the same fullscreen map, from the list screen
-  // where .map-container is hidden and its own expand button isn't reachable.
   const closeMobileMap = () => {
     if (dom.appLayout.classList.contains('map-expanded')) dom.mapExpandButton.click();
   };
   dom.mobileMapButton.addEventListener('click', () => {
     pushLayer(closeMobileMap);
     dom.mapExpandButton.click();
-    // .map-container is display:none on mobile until now, so the fitBounds()
-    // that ran at load time (or the last selection change) sized against a
-    // hidden 0-size container — invalidateSize() alone won't refit, only
-    // re-center, so the zoom needs recomputing now that it's actually visible.
+    // Mobile's map was display:none until now, so its last fitBounds measured a zero-size box.
     renderSelectedToursRoutes();
   });
 }
@@ -300,8 +282,7 @@ wireMapExpand();
 wireModals();
 document.addEventListener('keydown', handleModalKey);
 
-// A failure nothing else caught (a floating promise in an event handler) still
-// reaches the user instead of only the console.
+// Floating promises in event handlers end up here; the user hears about them too.
 function reportUnexpectedError(error) {
   console.error(error);
   toast(t('toast.unexpectedError'), { type: 'error' });
@@ -310,10 +291,9 @@ window.addEventListener('unhandledrejection', (event) => reportUnexpectedError(e
 
 async function start() {
   try {
-    await i18n.init(); // detect locale, load messages, translate the static markup
+    await i18n.init();
   } finally {
-    // i18n.init() reveals the page once translated; a failure there must not
-    // leave the skeleton covering it forever.
+    // i18n.init() reveals the page itself; a failure there must not leave the skeleton up.
     document.body.classList.remove('i18n-loading');
   }
   setupLanguageSwitcher();
@@ -324,7 +304,6 @@ async function start() {
 
 start().catch(reportUnexpectedError);
 
-// Offline support is a progressive enhancement: the app works without it.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch((error) => console.warn(error));

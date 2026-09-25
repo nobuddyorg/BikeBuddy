@@ -1,13 +1,11 @@
 // @ts-check
 
-// A drag that moves more vertically than horizontally is a scroll, which the
-// browser owns, not a swipe.
+// A mostly vertical drag is a scroll, which the browser owns.
 export function isVerticalIntent({ dx, dy }) {
   return Math.abs(dy) > Math.abs(dx);
 }
 
-// A tour row only ever reveals its delete background, to the right, and never
-// further than maxDx.
+// Only the delete background exists, to the right, so a row never moves left.
 export function clampSwipe({ dx, maxDx }) {
   return Math.max(0, Math.min(maxDx, dx));
 }

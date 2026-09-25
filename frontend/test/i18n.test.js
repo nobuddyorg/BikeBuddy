@@ -141,8 +141,7 @@ describe('locale files', () => {
     }
   });
 
-  // The keys TOUR_META_ERROR_KEYS in functions/src/lib/validation.js sends as
-  // error bodies. Separate deployables, so nothing but this test ties them.
+  // TOUR_META_ERROR_KEYS in functions/src/lib/validation.js; only this test ties the two deployables.
   const API_ERROR_KEYS = [
     'errors.tourName',
     'errors.tourDescription',
@@ -155,8 +154,7 @@ describe('locale files', () => {
     for (const key of API_ERROR_KEYS) expect(messages[key]).toBeTruthy();
   });
 
-  // translate falls back to `other` for any category a locale file leaves out,
-  // so every plural key must at least have that form.
+  // translate falls back to `other` for any category a locale file leaves out.
   it.each(codes)('%s gives every plural key an `other` form', (code) => {
     const keys = Object.keys(load(code));
     const pluralBases = keys.filter((key) => key.endsWith('.one')).map((key) => key.slice(0, -4));

@@ -13,8 +13,6 @@ const t = i18n.t;
 const UPLOAD_CONCURRENCY = 3;
 const UNREADABLE_RESPONSE = 'errors.uploadUnreadable';
 
-// One in-flight upload: pending (progress ring) → error (retry/dismiss) or done
-// (swapped for the markup createImageTile produces).
 function createPendingImageTile({ file, onRetry }) {
   const tile = document.createElement('figure');
   const ring = document.createElement('div');
@@ -58,7 +56,7 @@ async function uploadOne({ job, tour, token }) {
     });
     tour.images = [...(tour.images || []), image];
     job.tile.setDone(image);
-    renderPins(); // a newly uploaded geotagged photo may add a marker
+    renderPins(); // a geotagged photo adds a marker
   } catch (error) {
     // The photo was stored; a retry would upload it a second time.
     if (error.message === UNREADABLE_RESPONSE) job.tile.setError(t(UNREADABLE_RESPONSE));
@@ -66,7 +64,6 @@ async function uploadOne({ job, tour, token }) {
   }
 }
 
-// A tile per file; the ones that fail the checks show why and are not sent.
 function queueUploads({ files, tour, token }) {
   const jobs = [];
   for (const { file, problems } of planImageUploads({
@@ -83,13 +80,11 @@ function queueUploads({ files, tour, token }) {
   return jobs;
 }
 
-// One request per file against the single-image endpoint, a few in flight at once.
 export async function uploadImages(files) {
   hideElement(imageError);
   const tourId = state.selectedTourId;
   if (!tourId || files.length === 0) return;
-  // The panel shows the tour's name before its detail (and gallery) has loaded;
-  // tiles added before that render would be wiped by it.
+  // The gallery renders once the detail loads; tiles added before then would be wiped.
   await state.detailLoading;
   const tour = state.tours.find((candidate) => candidate.id === tourId);
   if (state.selectedTourId !== tourId || !tour) return;

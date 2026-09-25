@@ -17,16 +17,12 @@ const PIN_SIZE_PX = 28;
 const shownPhotos = () =>
   geotaggedImages({ tours: state.tours, selectedTourId: state.selectedTourId });
 
-// L.divIcon's element form, not its string form: img.src is a property write
-// rather than parsed markup. The URLs are safe today, but only because of how
-// the backend names blobs.
+// L.divIcon's element form: img.src is a property write, never parsed markup.
 function photoPinIcon({ thumbUrl, url }) {
   const image = document.createElement('img');
   image.src = thumbUrl || url;
   image.alt = t('lightbox.imgAlt');
-  // thumbUrl 404s for photos that predate #466's real-thumbnail work (no
-  // thumb blob yet, but SAS signing doesn't check existence) — fall back to
-  // the full image rather than leaving the pin blank.
+  // Photos older than thumbnails have a signed thumbUrl to a missing blob.
   if (thumbUrl) image.addEventListener('error', () => (image.src = url), { once: true });
   return L.divIcon({
     className: 'photo-pin',
@@ -36,8 +32,7 @@ function photoPinIcon({ thumbUrl, url }) {
   });
 }
 
-// Kept across renderPins() calls so a re-render repositions markers instead of
-// recreating their DOM, which flickered the pin images on every zoom step.
+// Kept across renders: recreating markers made the pin images flicker on every zoom step.
 const pinMarkers = new Map();
 
 export function clearPins() {
@@ -48,8 +43,6 @@ export function clearPins() {
   pinMarkers.clear();
 }
 
-// The thumbnail, not the up-to-2000px image the lightbox needs, paints the
-// small marker (#466).
 function createPinMarker(photo, position) {
   const marker = L.marker(position, { icon: photoPinIcon(photo) });
   marker.on('click', () => {
@@ -59,8 +52,7 @@ function createPinMarker(photo, position) {
   return marker;
 }
 
-// Grouping and fanning work in screen pixels at the current zoom, so
-// overlapping pins separate and re-collapse live as the user zooms.
+// Grouped in screen pixels, so pins separate and re-collapse as the user zooms.
 function pinPositions(photos) {
   const zoom = map.getZoom();
   const points = photos.map((photo) => ({ ...map.project([photo.lat, photo.lon], zoom), photo }));
@@ -76,8 +68,7 @@ function pinPositions(photos) {
   });
 }
 
-// Below PIN_MIN_ZOOM photos from unrelated tours fall into the same group and
-// clutter the fan, so pins are hidden entirely down there.
+// Below PIN_MIN_ZOOM unrelated tours' photos crowd into one fan, so pins are hidden.
 export function renderPins() {
   const photos = shownPhotos();
   setVisible(pinToggle, photos.length > 0);
@@ -100,7 +91,6 @@ export function renderPins() {
     added.push(marker);
   }
 
-  // Drop markers for photos no longer present (deleted, or tour data reloaded).
   for (const [photoId, marker] of pinMarkers) {
     if (shownIds.has(photoId)) continue;
     state.pinLayer?.removeLayer(marker);

@@ -1,7 +1,5 @@
 import { readUploadResponse } from '../lib/upload.js';
 
-// RequestConstructor is injectable so the settle-on-every-outcome contract
-// below can be tested without a browser.
 export function xhrUpload({
   url,
   file,
@@ -19,10 +17,7 @@ export function xhrUpload({
       if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
     };
 
-    // Every terminal outcome must settle this promise. A throw inside an XHR
-    // handler escapes to the global error handler rather than rejecting — the
-    // executor has already returned — leaving the tile spinning with no retry
-    // and its slot in runWithConcurrency's pool consumed for good.
+    // A throw in an XHR handler escapes the promise, so every outcome must settle it here.
     request.onload = () => {
       const result = readUploadResponse(request);
       if (result.ok) resolve(result.body);

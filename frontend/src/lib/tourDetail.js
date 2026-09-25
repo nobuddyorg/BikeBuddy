@@ -20,11 +20,7 @@ function applyDetail({ tour, detail, now }) {
   markFetched(tour, now);
 }
 
-// Keyed on detailLoaded rather than on heatmapData/images being present:
-// ensureMapData fills those in too, from the leaner /api/map payload. Expires
-// ahead of the signed URLs it holds, so a long-open tab refetches. A failed
-// fetch rejects, leaves the detail marked missing for the next call to retry,
-// and still gives the tour empty track and photo lists to render.
+// detailLoaded marks a full load: ensureMapData also fills heatmapData/images, from /api/map.
 export async function ensureDetail({ apiFetch, tour, now }) {
   if (tour.detailLoaded && !isStale(tour, now)) return;
   try {

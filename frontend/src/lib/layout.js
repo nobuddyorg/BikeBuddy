@@ -1,20 +1,15 @@
 // @ts-check
 
-// A fixed-position popover centred on its container, but never closer than
-// minimumLeft to the viewport's left edge.
 export function centeredLeft({ containerLeft, containerWidth, elementWidth, minimumLeft }) {
   return Math.max(minimumLeft, containerLeft + (containerWidth - elementWidth) / 2);
 }
 
-// A dialog's first focusable is its close button; focus lands on the control
-// after it when there is one.
+// A dialog's first focusable is its close button; focus starts on the control after it.
 export function initialFocusIndex(focusableCount) {
   return focusableCount > 1 ? 1 : 0;
 }
 
-// Expanding the map from a mobile tour preview pulls the map out of the detail
-// panel; collapsing again puts it back there instead of showing the list's
-// map button.
+// A map expanded from the mobile tour preview collapses back into it, not to the list.
 export function mapExpandTransition({ expanded, wasInDetail, expandedFromDetail }) {
   if (expanded) return { expandedFromDetail: wasInDetail, returnToDetail: false, showFab: false };
   return {

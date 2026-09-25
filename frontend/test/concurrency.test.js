@@ -25,12 +25,11 @@ describe('runWithConcurrency', () => {
       },
     });
 
-    // Let the first batch start.
     await Promise.resolve();
     await Promise.resolve();
     expect(inFlight).toBe(2);
 
-    // Release all gates in order; each release lets the next queued item start.
+    // Each release lets the next queued item start.
     for (const gate of gates) {
       gate.resolve();
       await Promise.resolve();

@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// The browser half of i18n (ui/i18n.js) (init, setLanguage, the current-locale getters)
-// with fetch, storage, navigator, document and location stubbed. The module
-// keeps the current locale in module state, so each test imports it fresh.
+// The module keeps the locale in module state, so each test imports it fresh.
 
 const MESSAGES = {
   en: { greeting: 'Hello {name}', onlyEnglish: 'Fallback', 'errors.x': 'Bad input' },
@@ -151,10 +149,7 @@ describe('i18n runtime', () => {
   });
 });
 
-// applyI18n only ever calls root.querySelectorAll and reads/writes attributes,
-// so a stand-in is enough to pin which attributes it applies without a DOM.
-// With no messages loaded, t() resolves a key to itself — that is the assertion
-// handle: the key reaching the right attribute is what this guards.
+// With no messages loaded, t() returns the key, so the key reaching an attribute is the check.
 describe('applyI18n', () => {
   let i18n;
   beforeEach(async () => {
@@ -204,7 +199,6 @@ describe('applyI18n', () => {
 
     expect(text.textContent).toBe('nav.upload');
     expect(html.innerHTML).toBe('help.a2');
-    // Content sinks are assignments, never setAttribute.
     expect(text.applied).toEqual({});
     expect(html.applied).toEqual({});
   });

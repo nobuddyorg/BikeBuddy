@@ -3,12 +3,9 @@ import { toast } from './toast.js';
 
 const t = i18n.t;
 
-// How long the Undo toast stays up, and so how long the request waits.
 const UNDO_GRACE_MS = 6000;
 
-// The UI change has already happened; the server request only runs once the
-// Undo window closes, so Undo just cancels it and reverts the UI — no
-// server-side restore needed.
+// The request waits for the Undo window, so Undo needs no server-side restore.
 export function scheduleUndoable({ message, commit, revert }) {
   let undone = false;
   const timer = setTimeout(commit, UNDO_GRACE_MS);

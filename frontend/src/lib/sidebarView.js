@@ -1,7 +1,6 @@
 // @ts-check
 
-// Which of the sidebar's mutually exclusive states to show: signed out,
-// loading, load error, empty, or the tour list.
+// Signed out, loading, error, empty and the list are mutually exclusive sidebar states.
 export function sidebarViewState({ signedIn, loadingTours, toursLoadFailed, tourCount }) {
   const loading = signedIn && loadingTours;
   const failed = signedIn && !loading && toursLoadFailed;

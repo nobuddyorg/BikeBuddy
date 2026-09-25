@@ -1,10 +1,7 @@
-// Long enough for the compatibility click a touch gesture leaves behind; the
-// timeout covers browsers that never send one, where nothing else would
-// clear the guard.
+// Outlasts the compatibility click a touch leaves; browsers that send none just time out.
 const GHOST_CLICK_WINDOW_MS = 400;
 
-// Swallows the next click inside `scope` once armed. `indicator` carries
-// data-click-guard while the guard is up, so a test can wait for it to drop.
+// `indicator` carries data-click-guard while armed, so a test can wait for it to drop.
 export function createClickGuard({ scope, indicator = scope }) {
   let armed = false;
   let timer;

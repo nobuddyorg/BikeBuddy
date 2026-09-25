@@ -1,9 +1,6 @@
 // @ts-check
 
-// Runs `worker` over every item, at most `limit` at a time. One item's
-// failure does not stop the rest; like Promise.allSettled, the result reports
-// each item's outcome in input order, so the caller decides what a failure
-// means.
+// Like Promise.allSettled over `worker(item)`, with at most `limit` running at once.
 export async function runWithConcurrency({ items, limit, worker }) {
   const outcomes = new Array(items.length);
   let next = 0;
