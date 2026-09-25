@@ -81,7 +81,6 @@ describe.each(CREDENTIALS)('with %s', (_title, credential) => {
   });
 });
 
-// One request only: each unknown key id refetches the host's key set, which is rate limited (#537).
 test('a token signed under an unpublished key id answers 401', async () => {
   const token = harness.tokens.unknownKeyTokenFor({ userId: owner.userId });
 

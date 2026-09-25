@@ -7,6 +7,8 @@ const { requireEnvironment, parseFlags, exitCodeOf } = require('./cli');
 const GRAPH_USERS_URL = 'https://graph.microsoft.com/v1.0/users/';
 const GRAPH_SCOPE = 'https://graph.microsoft.com/.default';
 const RESULT_LABELS = { deleted: 'deleted', alreadyGone: 'already gone' };
+// A hung call fails the id instead of the run; the next run retries it (a late 204 reads as 404).
+const GRAPH_TIMEOUT_MS = 30_000;
 
 function partitionQueue(ids) {
   return {
@@ -36,6 +38,7 @@ function createGraphClient({ fetch, tenantId, clientId, clientSecret }) {
         scope: GRAPH_SCOPE,
         grant_type: 'client_credentials',
       }),
+      signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`Graph token request failed with status ${response.status}`);
     const { access_token: accessToken } = await response.json();
@@ -51,6 +54,7 @@ function createGraphClient({ fetch, tenantId, clientId, clientSecret }) {
     const response = await fetch(GRAPH_USERS_URL + encodeURIComponent(objectId), {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${await accessTokenPromise}` },
+      signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
     });
     if (response.status === 204) return 'deleted';
     if (response.status === 404) return 'alreadyGone';

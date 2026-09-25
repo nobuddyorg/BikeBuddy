@@ -34,7 +34,11 @@ a remote build, **not** `azure/functions-action`).
 Azure AD B2C is closed to new tenants, so customer sign-in uses **Entra External
 ID** (`ciamlogin.com`). The backend trusts the tenant's OIDC discovery document
 for issuer + keys rather than hard-coding them, since the issuer host varies
-across Entra surfaces. See the [Developer guide](../how-to/developer-guide.md#authentication--tokens).
+across Entra surfaces. Both are cached per instance: the key set is looked up by
+`kid` locally and refetched hourly, or for an unknown `kid` at most once every
+5 minutes, so unauthenticated junk tokens cannot exhaust the key fetches (#537).
+A failed refresh keeps serving the last good copy for up to a day (#571). See the
+[Developer guide](../how-to/developer-guide.md#authentication--tokens).
 
 ## Cosmos partitioning & payload hygiene
 

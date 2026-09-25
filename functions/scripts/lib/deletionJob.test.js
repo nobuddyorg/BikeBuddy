@@ -105,6 +105,7 @@ describe('createGraphClient', () => {
     const [tokenCall, deleteCall] = graph.calls;
     expect(tokenCall.url).toBe(TOKEN_URL);
     expect(tokenCall.init.method).toBe('POST');
+    expect(tokenCall.init.signal).toBeInstanceOf(AbortSignal);
     expect(Object.fromEntries(tokenCall.init.body)).toEqual({
       client_id: 'client-id',
       client_secret: 'client-secret',
@@ -113,7 +114,11 @@ describe('createGraphClient', () => {
     });
     expect(deleteCall).toEqual({
       url: `${GRAPH_USERS_URL}${USER_A}`,
-      init: { method: 'DELETE', headers: { Authorization: 'Bearer graph-token' } },
+      init: {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer graph-token' },
+        signal: expect.any(AbortSignal),
+      },
     });
   });
 
