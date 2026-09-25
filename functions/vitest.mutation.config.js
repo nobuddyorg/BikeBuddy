@@ -10,6 +10,8 @@ export default defineConfig({
     environment: 'node',
     pool: 'forks',
     include: ['src/**/*.test.js', 'test/unit/**/*.test.js', 'scripts/**/*.test.{js,mjs}'],
+    // Instrumented code is many times slower, so a timing bound would measure Stryker, not the code.
+    exclude: ['**/*.performance.test.js', '**/node_modules/**'],
     setupFiles: ['test/fast-check.setup.js'],
     // Vitest adds its `github-actions` reporter under GITHUB_ACTIONS; a killed
     // mutant is an expected failure, not an annotation.

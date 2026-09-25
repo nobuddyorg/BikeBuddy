@@ -167,6 +167,29 @@ describe('ensureMapData', () => {
     expect(isStale(stale, NOW)).toBe(false);
   });
 
+  it('replaces the photos of a tour whose gallery was never loaded', async () => {
+    const stale = {
+      id: 't1',
+      heatmapData: [[1, 2]],
+      images: [{ id: 'old', url: 'old' }],
+      fetchedAt: NOW - SAS_CACHE_TTL_MS,
+    };
+    const apiFetch = async () => ok([{ id: 't1', heatmapData: [], images: [{ id: 'new' }] }]);
+
+    await ensureMapData({ apiFetch, tours: [stale], now: NOW });
+
+    expect(stale.images).toEqual([{ id: 'new' }]);
+  });
+
+  it('fills the photos of a loaded tour that has none yet', async () => {
+    const tours = [{ id: 't1', heatmapData: [], detailLoaded: true }];
+    const apiFetch = async () => ok([{ id: 't1', heatmapData: [], images: [{ id: 'new' }] }]);
+
+    await ensureMapData({ apiFetch, tours, now: NOW });
+
+    expect(tours[0].images).toEqual([{ id: 'new' }]);
+  });
+
   // An open gallery looks photos up by id, so a refresh must not drop the unpinned ones.
   it('re-signs the pinned photos of a loaded gallery and keeps the others', async () => {
     const stale = {

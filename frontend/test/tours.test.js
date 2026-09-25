@@ -280,57 +280,63 @@ describe('toursInView', () => {
 });
 
 // The detail view shows the local date, so the editor must read and write the same one.
-function inTimeZone(timeZone, run) {
-  const previous = process.env.TZ;
-  process.env.TZ = timeZone;
-  try {
-    run();
-  } finally {
-    if (previous === undefined) delete process.env.TZ;
-    else process.env.TZ = previous;
-  }
-}
-
 describe('withUpdatedDate', () => {
   it('replaces the date but keeps the original time-of-day', () => {
-    inTimeZone('UTC', () => {
-      expect(withUpdatedDate('2026-05-01T14:32:07.123Z', '2026-06-15')).toBe(
-        '2026-06-15T14:32:07.123Z',
-      );
-    });
+    expect(withUpdatedDate('2026-05-01T14:32:07.123Z', '2026-06-15', 'UTC')).toBe(
+      '2026-06-15T14:32:07.123Z',
+    );
   });
 
   it('handles a leap-day target date', () => {
-    inTimeZone('UTC', () => {
-      expect(withUpdatedDate('2026-01-01T00:00:00.000Z', '2028-02-29')).toBe(
-        '2028-02-29T00:00:00.000Z',
-      );
-    });
+    expect(withUpdatedDate('2026-01-01T00:00:00.000Z', '2028-02-29', 'UTC')).toBe(
+      '2028-02-29T00:00:00.000Z',
+    );
   });
 
   it('sets the local date west of UTC, keeping the local time of day', () => {
-    inTimeZone('America/Los_Angeles', () => {
-      // 17:30 on 1 May in Los Angeles is already 2 May in UTC.
-      expect(withUpdatedDate('2026-05-02T00:30:00.000Z', '2026-05-10')).toBe(
-        '2026-05-11T00:30:00.000Z',
-      );
-    });
+    // 17:30 on 1 May in Los Angeles is already 2 May in UTC.
+    expect(withUpdatedDate('2026-05-02T00:30:00.000Z', '2026-05-10', 'America/Los_Angeles')).toBe(
+      '2026-05-11T00:30:00.000Z',
+    );
   });
 
   it('sets the local date east of UTC, keeping the local time of day', () => {
-    inTimeZone('Pacific/Auckland', () => {
-      // 08:00 on 2 May in Auckland is still 1 May in UTC.
-      expect(withUpdatedDate('2026-05-01T20:00:00.000Z', '2026-05-10')).toBe(
-        '2026-05-09T20:00:00.000Z',
-      );
-    });
+    // 08:00 on 2 May in Auckland is still 1 May in UTC.
+    expect(withUpdatedDate('2026-05-01T20:00:00.000Z', '2026-05-10', 'Pacific/Auckland')).toBe(
+      '2026-05-09T20:00:00.000Z',
+    );
+  });
+
+  it('keeps the local time of day across a daylight-saving change', () => {
+    // 10:00 PST in January is 10:00 PDT in July: one hour earlier in UTC.
+    expect(withUpdatedDate('2026-01-15T18:00:00.000Z', '2026-07-15', 'America/Los_Angeles')).toBe(
+      '2026-07-15T17:00:00.000Z',
+    );
+  });
+
+  it("settles on the answer's own offset when the date moves across the transition", () => {
+    // 06:00 PST on 1 March; on 8 March 06:00 is already PDT, one hour less from UTC.
+    expect(withUpdatedDate('2026-03-01T14:00:00.000Z', '2026-03-08', 'America/Los_Angeles')).toBe(
+      '2026-03-08T13:00:00.000Z',
+    );
+  });
+
+  it('lands on the next valid hour for a time the spring-forward gap skips', () => {
+    // 02:30 does not exist on 8 March 2026 in Los Angeles; the clock jumps from 02:00 to 03:00.
+    expect(withUpdatedDate('2026-03-01T10:30:00.000Z', '2026-03-08', 'America/Los_Angeles')).toBe(
+      '2026-03-08T10:30:00.000Z',
+    );
   });
 
   it('round-trips the value the editor shows', () => {
-    inTimeZone('Pacific/Auckland', () => {
-      const createdAt = '2026-05-01T20:00:00.000Z';
-      expect(withUpdatedDate(createdAt, toDateInputValue(createdAt))).toBe(createdAt);
-    });
+    const createdAt = '2026-05-01T20:00:00.000Z';
+    const shown = toDateInputValue(createdAt, 'Pacific/Auckland');
+    expect(withUpdatedDate(createdAt, shown, 'Pacific/Auckland')).toBe(createdAt);
+  });
+
+  it("uses the browser's time zone when given none", () => {
+    const createdAt = '2026-05-01T20:00:00.000Z';
+    expect(withUpdatedDate(createdAt, toDateInputValue(createdAt))).toBe(createdAt);
   });
 });
 
@@ -470,21 +476,15 @@ describe('matchRuns', () => {
 
 describe('toDateInputValue', () => {
   it('keeps the calendar date of an ISO timestamp in UTC', () => {
-    inTimeZone('UTC', () => {
-      expect(toDateInputValue('2026-05-01T23:30:00.000Z')).toBe('2026-05-01');
-    });
+    expect(toDateInputValue('2026-05-01T23:30:00.000Z', 'UTC')).toBe('2026-05-01');
   });
 
   it('shows the local date west of UTC', () => {
-    inTimeZone('America/Los_Angeles', () => {
-      expect(toDateInputValue('2026-05-02T00:30:00.000Z')).toBe('2026-05-01');
-    });
+    expect(toDateInputValue('2026-05-02T00:30:00.000Z', 'America/Los_Angeles')).toBe('2026-05-01');
   });
 
   it('shows the local date east of UTC, zero-padded', () => {
-    inTimeZone('Pacific/Auckland', () => {
-      expect(toDateInputValue('2026-01-08T20:00:00.000Z')).toBe('2026-01-09');
-    });
+    expect(toDateInputValue('2026-01-08T20:00:00.000Z', 'Pacific/Auckland')).toBe('2026-01-09');
   });
 
   it('is empty without a date', () => {

@@ -1,6 +1,6 @@
 'use strict';
 
-const { budgetTracks, TOTAL_POINT_BUDGET } = require('./mapBudget');
+const { budgetTracks } = require('./mapBudget');
 
 const sine = (count) =>
   Array.from({ length: count }, (_, index) => [
@@ -14,27 +14,20 @@ const wiggle = (count) =>
   ]);
 const pointsIn = (tracks) => tracks.reduce((sum, track) => sum + track.length, 0);
 
-// A seeded random walk with 20 m steps: long rides whose points are too far apart to merge.
-function randomWalk({ points, seed }) {
-  let state = seed;
-  const random = () => {
-    state = (state * 16807) % 2147483647;
-    return state / 2147483647;
-  };
-  let [latitude, longitude, heading] = [47 + seed * 1e-6, 10, random() * 2 * Math.PI];
-  return Array.from({ length: points }, () => {
-    heading += (random() - 0.5) * 0.6;
-    latitude += (Math.cos(heading) * 20) / 111_320;
-    longitude += (Math.sin(heading) * 20) / 75_000;
-    return [latitude, longitude];
-  });
-}
-
 describe('budgetTracks', () => {
   it('leaves data untouched when total points exactly equal the budget', () => {
     const points = sine(50);
     const [track] = budgetTracks([{ heatmapData: points }], { totalPointBudget: 50 });
     expect(track).toBe(points);
+  });
+
+  it('leaves every track untouched at exactly the budget, whatever their shares would be', () => {
+    const [short, long] = [sine(10), sine(40)];
+    const tracks = budgetTracks([{ heatmapData: short }, { heatmapData: long }], {
+      totalPointBudget: 50,
+    });
+    expect(tracks[0]).toBe(short);
+    expect(tracks[1]).toBe(long);
   });
 
   it('returns an empty track for a tour without heatmapData', () => {
@@ -70,19 +63,13 @@ describe('budgetTracks', () => {
     expect(tracks.map((track) => track.length)).toEqual(Array(10).fill(2));
   });
 
-  // The #546 regression: 20 m apart, no point merges under a gap rule, so 1,000,000 stayed 1,000,000.
-  it('holds 200 rides of 100 km to the budget in bounded time', () => {
-    const tours = Array.from({ length: 200 }, (_, seed) => ({
-      heatmapData: randomWalk({ points: 5000, seed: seed + 1 }),
-    }));
+  it('holds many long rides to the budget, each with a share of it', () => {
+    const tours = Array.from({ length: 40 }, (_, index) => ({ heatmapData: sine(1000 + index) }));
 
-    const started = performance.now();
-    const tracks = budgetTracks(tours, { totalPointBudget: TOTAL_POINT_BUDGET });
-    const elapsedMs = performance.now() - started;
+    const tracks = budgetTracks(tours, { totalPointBudget: 4000 });
 
-    expect(pointsIn(tracks)).toBeLessThanOrEqual(TOTAL_POINT_BUDGET);
-    expect(pointsIn(tracks)).toBeGreaterThan(TOTAL_POINT_BUDGET * 0.99);
-    // Measured about 1 s locally, against 13-17 s before; generous for slower CI runners.
-    expect(elapsedMs).toBeLessThan(10_000);
-  }, 60_000);
+    expect(pointsIn(tracks)).toBeLessThanOrEqual(4000);
+    expect(pointsIn(tracks)).toBeGreaterThan(3950);
+    expect(Math.min(...tracks.map((track) => track.length))).toBeGreaterThanOrEqual(20);
+  });
 });

@@ -106,6 +106,32 @@ describe('simplifyToTarget', () => {
     expect(result).toEqual([first, split, last]);
   });
 
+  it('ranks the single point between two kept points like any other', () => {
+    const [first, last] = [
+      [0, 0],
+      [0, 0.01],
+    ];
+    const peak = [0.003, 0.005]; // 334 m off the whole chord: the first split
+    // About 1 m off the chord from first to peak.
+    const nearlyOnLine = [
+      [0.00061, 0.001],
+      [0.00121, 0.002],
+    ];
+    // 48 m off the chord from peak to last, the only point between them.
+    const alone = [0.002, 0.0075];
+    const points = [first, ...nearlyOnLine, peak, alone, last];
+    expect(simplifyToTarget(points, { targetCount: 4 })).toEqual([first, peak, alone, last]);
+  });
+
+  it('keeps the earliest of equally ranked points', () => {
+    // A pause at the start: every interior point lies exactly on the chord, so all rank 0.
+    const paused = Array.from({ length: 6 }, () => [48, 11]);
+    const points = [...paused, [48, 11.01]];
+    const result = simplifyToTarget(points, { targetCount: 4 });
+    expect(result).toHaveLength(4);
+    result.slice(0, 3).forEach((point, index) => expect(point).toBe(points[index]));
+  });
+
   it('keeps the recorded order of the points it keeps', () => {
     const zigzag = Array.from({ length: 50 }, (_, index) => [
       48.0 + (index % 2) * 0.001 * (index % 7),

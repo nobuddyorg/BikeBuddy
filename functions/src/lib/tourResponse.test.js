@@ -149,6 +149,12 @@ describe('gpxDownloadDisposition', () => {
     );
   });
 
+  it('collapses a run of letters without an ASCII form into one underscore', () => {
+    expect(gpxDownloadDisposition('Tokyo 東京')).toBe(
+      `attachment; filename="Tokyo__.gpx"; filename*=UTF-8''Tokyo_%E6%9D%B1%E4%BA%AC.gpx`,
+    );
+  });
+
   it('falls back to "tour" when no ASCII letter is left, keeping the name in filename*', () => {
     expect(gpxDownloadDisposition('Москва')).toBe(
       `attachment; filename="tour.gpx"; filename*=UTF-8''%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0.gpx`,

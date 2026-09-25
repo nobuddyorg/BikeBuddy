@@ -132,21 +132,61 @@ export function matchRuns(text, indices) {
   return runs;
 }
 
-// Local calendar date, like the detail view; keeps the local time of day it was recorded at.
-export function withUpdatedDate(originalIso, date) {
+// The calendar date and time of day an instant shows in timeZone (undefined: the browser's own).
+function wallClock(instant, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(instant);
+  return Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+}
+
+function offsetMs(instantMs, timeZone) {
+  const shown = wallClock(new Date(instantMs), timeZone);
+  const shownAsUtc = Date.UTC(
+    Number(shown.year),
+    Number(shown.month) - 1,
+    Number(shown.day),
+    Number(shown.hour),
+    Number(shown.minute),
+    Number(shown.second),
+  );
+  return shownAsUtc - Math.floor(instantMs / 1000) * 1000;
+}
+
+// The date as the detail view shows it; keeps the local time of day the ride was recorded at.
+export function withUpdatedDate(originalIso, date, timeZone) {
+  const original = new Date(originalIso);
+  const time = wallClock(original, timeZone);
   const [year, month, day] = date.split('-').map(Number);
-  const combined = new Date(originalIso);
-  combined.setFullYear(year, month - 1, day);
-  return combined.toISOString();
+  const target = Date.UTC(
+    year,
+    month - 1,
+    day,
+    Number(time.hour),
+    Number(time.minute),
+    Number(time.second),
+    original.getUTCMilliseconds(),
+  );
+  // A second pass settles a daylight-saving change between the guess and the answer; when the
+  // two disagree the time falls in the spring-forward gap, and the guess moves it forward.
+  const guess = target - offsetMs(target, timeZone);
+  const settled = target - offsetMs(guess, timeZone);
+  const inGap = offsetMs(settled, timeZone) !== offsetMs(guess, timeZone);
+  return new Date(inGap ? guess : settled).toISOString();
 }
 
 // The local calendar date, as an <input type="date"> value.
-export function toDateInputValue(iso) {
+export function toDateInputValue(iso, timeZone) {
   if (!iso) return '';
-  const date = new Date(iso);
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
+  const { year, month, day } = wallClock(new Date(iso), timeZone);
+  return `${year}-${month}-${day}`;
 }
 
 export function buildTourPatch({ name, description, date, createdAt }) {

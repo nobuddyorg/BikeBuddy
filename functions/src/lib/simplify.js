@@ -73,9 +73,10 @@ function douglasPeuckerRanks(points) {
 function simplifyToTarget(points, { targetCount }) {
   if (targetCount < 2 || points.length <= targetCount) return points;
   const ranks = douglasPeuckerRanks(points);
+  // A stable sort over ascending indices keeps the earliest of equally ranked points.
   const keptIndices = points
     .map((_, index) => index)
-    .sort((left, right) => ranks[right] - ranks[left] || left - right)
+    .sort((left, right) => ranks[right] - ranks[left])
     .slice(0, targetCount)
     .sort((left, right) => left - right);
   return keptIndices.map((index) => points[index]);
