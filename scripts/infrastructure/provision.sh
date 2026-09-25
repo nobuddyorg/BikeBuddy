@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Description: Provision/update Azure resources (tofu init + apply)
+# Description: Provision/update Azure resources (tofu init, plan, refuse deletes/replaces, apply)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -24,6 +24,21 @@ adopt_tour_images_container() {
     "$account_id/blobServices/default/containers/tour-images"
 }
 
+# Destroy guards (#543): an apply never deletes or replaces anything; that is a manual, reviewed change.
+refuse_destructive_plan() {
+  local destructive
+  destructive="$(tofu show -json "$1" | jq -r '.resource_changes[]? | select(.change.actions | index("delete")) | "\(.address): \(.change.actions | join("+"))"')"
+  if [ -n "$destructive" ]; then
+    echo "ERROR: the plan deletes or replaces resources; not applying:" >&2
+    echo "$destructive" >&2
+    exit 1
+  fi
+}
+
 tofu init
 adopt_tour_images_container
-tofu apply -auto-approve "${VARIABLES[@]}"
+PLAN_FILE="$(mktemp)"
+trap 'rm -f "$PLAN_FILE"' EXIT
+tofu plan -input=false "${VARIABLES[@]}" -out="$PLAN_FILE"
+refuse_destructive_plan "$PLAN_FILE"
+tofu apply -input=false "$PLAN_FILE"
