@@ -46,4 +46,23 @@ async function withRollback(write, rollback) {
   }
 }
 
-module.exports = { settleAll, withRollback };
+/**
+ * Shares one run of `create` between callers; a rejection is dropped, so the next call retries.
+ *
+ * @template T
+ * @param {() => Promise<T>} create
+ * @returns {() => Promise<T>}
+ */
+function onceUntilFailure(create) {
+  /** @type {Promise<T> | undefined} */
+  let pending;
+  return () => {
+    pending ??= create().catch((error) => {
+      pending = undefined;
+      throw error;
+    });
+    return pending;
+  };
+}
+
+module.exports = { settleAll, withRollback, onceUntilFailure };

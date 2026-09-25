@@ -39,6 +39,17 @@ describe('GET /api/tours', () => {
     ]);
   });
 
+  it('lists a numeric name stored before #548 as text', async () => {
+    const tours = fakeToursContainer([tour({ id: 't1', name: 20240512, createdAt: '2026-01-01' })]);
+
+    const response = await getTours(
+      {},
+      { authenticate: signedInAs('u1'), toursContainer: () => tours },
+    );
+
+    expect(response.jsonBody[0].name).toBe('20240512');
+  });
+
   it("queries only the token user's partition, in bounded pages", async () => {
     const { tours, run } = setUp();
 

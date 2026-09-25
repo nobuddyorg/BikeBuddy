@@ -1,16 +1,16 @@
 'use strict';
 
-const { app } = require('@azure/functions');
+const { app } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
 const system = require('../lib/system');
 const { parseMultipart } = require('../lib/parseMultipart');
-const { parseGpx, InvalidGpxError } = require('../lib/parseGpx');
+const { parseGpx, InvalidGpxError, NoTrackPointsError } = require('../lib/parseGpx');
 const { looksLikeXml } = require('../lib/fileSignatures');
 const { gpxBlobName } = require('../lib/blobNames');
 const { withRollback } = require('../lib/settle');
-const { tourMetaSchema, tourMetaError } = require('../lib/validation');
+const { nameSchema, tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { toCreatedTourResponse } = require('../lib/tourResponse');
 const { unauthorized, error } = require('../lib/http');
 
@@ -28,16 +28,24 @@ async function readGpxUpload(request, { parseFile, parseTrack }) {
   try {
     return { file, track: parseTrack(file.buffer) };
   } catch (gpxError) {
+    if (gpxError instanceof NoTrackPointsError)
+      return { response: error(400, 'errors.gpxNoTrack') };
     if (!(gpxError instanceof InvalidGpxError)) throw gpxError;
     return { response: error(400, 'Could not parse GPX file') };
   }
+}
+
+// The file's own name passes the same rules as a typed one, or the tour gets the default.
+function trackName(name) {
+  const parsed = nameSchema.safeParse(name ?? '');
+  return parsed.success ? parsed.data : 'Untitled Tour';
 }
 
 function newTourDocument({ tourId, userId, metadata, track, gpxFileUrl, uploadedAt }) {
   return {
     id: tourId,
     userId,
-    name: metadata.name ?? track.name ?? 'Untitled Tour',
+    name: metadata.name ?? trackName(track.name),
     description: metadata.description ?? '',
     gpxFileUrl,
     heatmapData: track.heatmapData,

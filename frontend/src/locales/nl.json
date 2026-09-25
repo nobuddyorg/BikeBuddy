@@ -150,6 +150,7 @@
 
   "errors.gpxType": "Alleen .gpx-bestanden worden geaccepteerd.",
   "errors.gpxSize": "Bestand overschrijdt de limiet van {maxMegabytes} MB.",
+  "errors.gpxNoTrack": "Dit GPX-bestand bevat geen track- of routepunten.",
   "errors.imageType": "Alleen JPEG- of PNG-afbeeldingen worden geaccepteerd.",
   "errors.imageSize": "Afbeelding overschrijdt de limiet van {maxMegabytes} MB.",
   "errors.tooManyImages": "Selecteer maximaal {max} foto's tegelijk.",

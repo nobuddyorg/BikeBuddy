@@ -150,6 +150,7 @@
 
   "errors.gpxType": "Sono accettati solo file .gpx.",
   "errors.gpxSize": "Il file supera il limite di {maxMegabytes} MB.",
+  "errors.gpxNoTrack": "Questo file GPX non contiene punti di traccia o di percorso.",
   "errors.imageType": "Sono accettate solo immagini JPEG o PNG.",
   "errors.imageSize": "L'immagine supera il limite di {maxMegabytes} MB.",
   "errors.tooManyImages": "Seleziona al massimo {max} foto alla volta.",

@@ -61,8 +61,13 @@ short-lived **SAS URLs** rather than public containers.
 - The 100-megapixel input limit sits far below `sharp`'s ~268 MP default, so a
   decompression bomb is refused before it allocates.
 - Multipart bodies are streamed with a byte limit instead of read with
-  `arrayBuffer()`: `Content-Length` can be absent or attacker-controlled (#550
-  tracks that the host still buffers the request first).
+  `arrayBuffer()`: `Content-Length` can be absent or attacker-controlled. HTTP
+  streaming is on (`app.setup({ enableHttpStream: true })` in
+  `functions/src/lib/functionsApp.js`, which every handler takes `app` from, a
+  dependency-cruiser rule), so the host hands the body over as it arrives and
+  the 10 MB limit bounds memory rather than applying after the host has
+  buffered the whole request (#550). Streaming needs Functions host 4.28 or
+  later.
 - Blob names are built from the token's user id and the ids in the route, never
   read back from a stored `blobName`, so a document can never point a request at
   another user's blob.
@@ -328,8 +333,27 @@ missed (#575, #548, #552, #554). The first run found three: fast-xml-parser's
 internal error escaping `parseGpx` on malformed markup, `Math.min(...)`
 overflowing the stack on a 150,000-point track (#575), and a test assumption
 (`-0` does not survive being written into XML). The first two are fixed and
-kept as example tests. Out-of-order timestamps (negative duration, #575) are
-not a property yet: what the duration should be is still that issue's call.
+kept as example tests. Duration spans the earliest to the latest timestamp, so
+out-of-order timestamps are a property too: the duration is never negative.
+
+## GPX parsing: segments, names and empty files
+
+- Distance, moving time and climb add up **within** each `<trkseg>` (and each
+  `<trk>`), never across the gap between two: a train ride between two
+  segments is not riding (#552). Elapsed duration still spans the earliest to
+  the latest timestamp. The stored `heatmapData` stays one flat line, so the
+  map still draws a straight line across the gap; splitting it is a
+  document-shape change for another issue.
+- A file without a valid track point falls back to its `<rte>` points (a
+  planner's export); with none of either, the upload is refused with
+  `errors.gpxNoTrack` instead of storing an empty 0 km tour (#554).
+- Text stays text (`parseTagValue: false`), and a name taken from the file
+  passes the same `nameSchema` as a typed one, falling back to "Untitled Tour"
+  (#548). Tours stored before that may hold a numeric name; the responses read
+  it as text, so no backfill is needed.
+- An unreadable `<time>` no longer rejects the file: the date falls back to the
+  earliest valid point time (#575). The magic-byte check skips leading
+  whitespace and XML comments.
 
 ## Why load testing is manual and local by default
 

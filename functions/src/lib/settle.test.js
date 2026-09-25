@@ -1,6 +1,6 @@
 'use strict';
 
-const { settleAll, withRollback } = require('./settle');
+const { settleAll, withRollback, onceUntilFailure } = require('./settle');
 
 describe('settleAll', () => {
   it('resolves every value in order when all tasks succeed', async () => {
@@ -65,5 +65,44 @@ describe('withRollback', () => {
     expect(error.errors).toEqual([writeError, rollbackError]);
     expect(error.cause).toBe(rollbackError);
     expect(error.message).toBe('cosmos down; the rollback failed as well: storage down');
+  });
+});
+
+describe('onceUntilFailure', () => {
+  it('runs once and hands every caller the same result', async () => {
+    const create = vi.fn(async () => ({ name: 'gpx-files' }));
+    const container = onceUntilFailure(create);
+
+    const [first, second] = await Promise.all([container(), container()]);
+    const third = await container();
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+    expect(third).toBe(first);
+  });
+
+  it('shares a failure between the callers waiting on it', async () => {
+    const create = vi.fn(async () => {
+      throw new Error('storage blip');
+    });
+    const container = onceUntilFailure(create);
+
+    const results = await Promise.allSettled([container(), container()]);
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(results.map((result) => result.status)).toEqual(['rejected', 'rejected']);
+  });
+
+  it('tries again after a failure instead of keeping it (#555)', async () => {
+    const create = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('storage blip'))
+      .mockResolvedValue('container');
+    const container = onceUntilFailure(create);
+
+    await expect(container()).rejects.toThrow('storage blip');
+    await expect(container()).resolves.toBe('container');
+    await expect(container()).resolves.toBe('container');
+    expect(create).toHaveBeenCalledTimes(2);
   });
 });

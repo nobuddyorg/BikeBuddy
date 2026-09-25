@@ -33,12 +33,32 @@ describe('looksLikeXml', () => {
     expect(looksLikeXml(Buffer.concat([byteOrderMark, Buffer.from(text)]))).toBe(true);
   });
 
-  it.each(['not xml at all', '<html></html>', ' <?xml', '<?xm', '<gp', ''])(
-    'rejects %j',
-    (text) => {
-      expect(looksLikeXml(Buffer.from(text))).toBe(false);
-    },
-  );
+  it.each([
+    ['whitespace', ' \t\r\n<?xml version="1.0"?><gpx/>'],
+    ['a comment', '<!-- exported by Tool --><gpx version="1.1"></gpx>'],
+    ['comments and whitespace', '\n<!-- a -->\n<!--b-->  <gpx/>'],
+    ['a comment holding markup', '<!-- <html> --><gpx/>'],
+    ['a comment, with another after the root', '<!-- a --><gpx/><!-- b -->'],
+    ['a comment spanning lines', '<!--\n multi\n line\n--><?xml version="1.0"?>'],
+  ])('accepts GPX behind %s (#575)', (_label, text) => {
+    expect(looksLikeXml(Buffer.from(text))).toBe(true);
+    expect(looksLikeXml(Buffer.concat([byteOrderMark, Buffer.from(text)]))).toBe(true);
+  });
+
+  it.each([
+    'not xml at all',
+    '<html></html>',
+    '<?xm',
+    '<gp',
+    '',
+    '   ',
+    '<!-- never closed <gpx/>',
+    '<!-- a --> hello <gpx/>',
+    '<!- not a comment --><gpx/>',
+    '\f<gpx/>',
+  ])('rejects %j', (text) => {
+    expect(looksLikeXml(Buffer.from(text))).toBe(false);
+  });
 
   it('rejects a byte order mark followed by something else', () => {
     expect(looksLikeXml(Buffer.concat([byteOrderMark, Buffer.from('hello')]))).toBe(false);

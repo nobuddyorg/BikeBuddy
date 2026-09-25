@@ -3,6 +3,7 @@
 
 const { BlobServiceClient, BlobSASPermissions, newPipeline } = require('@azure/storage-blob');
 const profiling = require('./profiling');
+const { onceUntilFailure } = require('./settle');
 
 const SAS_TTL_MS = 60 * 60 * 1000;
 
@@ -78,18 +79,18 @@ function getClient() {
   return blobServiceClient;
 }
 
-// createIfNotExists runs once per warm instance.
+// createIfNotExists runs once per warm instance, and again after a failure.
 function containerOnce(name) {
-  const container = getClient().getContainerClient(name);
-  return container.createIfNotExists().then(() => container);
+  return onceUntilFailure(async () => {
+    const container = getClient().getContainerClient(name);
+    await container.createIfNotExists();
+    return container;
+  });
 }
 
-let gpxContainerPromise;
-let imagesContainerPromise;
-
 module.exports = {
-  gpxContainer: () => (gpxContainerPromise ??= containerOnce('gpx-files')),
-  imagesContainer: () => (imagesContainerPromise ??= containerOnce('tour-images')),
+  gpxContainer: containerOnce('gpx-files'),
+  imagesContainer: containerOnce('tour-images'),
   readSasUrl,
   readUrlSigner,
   blobUrl,

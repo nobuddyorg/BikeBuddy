@@ -1,6 +1,6 @@
 'use strict';
 
-const { app } = require('@azure/functions');
+const { app } = require('../lib/functionsApp');
 
 // Public liveness probe. No I/O, so it cannot be used to probe the backing services.
 async function health() {

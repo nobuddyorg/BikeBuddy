@@ -12,11 +12,18 @@ const STAT_FIELDS = [
   'avgSpeed',
 ];
 
+// Uploads before GPX names were validated could store a number or an object.
+function tourName(name, fallback = 'Untitled Tour') {
+  if (typeof name === 'string') return name || fallback;
+  if (typeof name === 'number') return String(name);
+  return fallback;
+}
+
 // A projection, never a copy: system properties, userId and blob names stay server-side.
 function toTourResponse(tour) {
   return {
     id: tour.id,
-    name: tour.name,
+    name: tourName(tour.name),
     description: tour.description,
     distance: tour.distance,
     createdAt: tour.createdAt,
@@ -40,12 +47,13 @@ const toCreatedTourResponse = (tour) => ({
   createdAt: tour.createdAt,
 });
 
-function gpxDownloadDisposition(tourName) {
-  const filename = `${(tourName || 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
+function gpxDownloadDisposition(name) {
+  const filename = `${tourName(name, 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
   return `attachment; filename="${filename}"`;
 }
 
 module.exports = {
+  tourName,
   toTourResponse,
   toTourDetailResponse,
   toCreatedTourResponse,
