@@ -10,12 +10,13 @@ import { withUpdatedDate } from '../lib/tours.js';
 import { runWithConcurrency } from '../lib/concurrency.js';
 import { parseErrorMessage } from '../lib/upload.js';
 import { state } from './state.js';
-import { apiFetch } from './auth.js';
+import { apiFetch } from './api.js';
 import { toast } from './toast.js';
 import { renderAllRoutes, renderRoutes } from './routes.js';
 import { renderPins } from './pins.js';
-import { renderSidebar, ensureDetail } from './sidebar.js';
-import { resetImageSection, renderGallery } from './images.js';
+import { ensureDetail } from './tourData.js';
+import { resetImageSection, renderGallery } from './gallery.js';
+import { announce, TOURS_CHANGED } from './events.js';
 import {
   refreshMapSize,
   isMobileLayout,
@@ -65,7 +66,7 @@ export async function selectTour(tourId) {
   if (!tour) return;
 
   state.selectedTourId = tourId;
-  renderSidebar();
+  announce(TOURS_CHANGED);
   renderDetailPanel(tour); // name/meta now; resets the image section
   // Pushed after the URL already reflects the new tour, so Back returns here
   // and closes the panel (#443) — the tour stays selected, matching #442.
@@ -87,7 +88,7 @@ export function closeDetailPanel() {
   const wasMobile = isMobileLayout();
   if (wasMobile) restoreMapToAppLayout();
   state.selectedTourId = null;
-  renderSidebar();
+  announce(TOURS_CHANGED);
   syncUrl();
   // Desktop's map is always visible, so it redraws immediately — every
   // route, but without re-fitting the camera, so closing the panel doesn't
@@ -141,7 +142,7 @@ export async function submitEdit(e) {
       createdAt: updated.createdAt,
     });
     closeEdit();
-    renderSidebar();
+    announce(TOURS_CHANGED);
     renderDetailPanel(tour);
   } catch {
     elEditError.textContent = t('errors.network');
@@ -162,7 +163,7 @@ function scheduleTourRemoval(tours) {
   ids.forEach((id) => state.selectedIds.delete(id));
   if (ids.includes(state.selectedTourId)) closeDetailPanel();
   state.selectMode = false;
-  renderSidebar();
+  announce(TOURS_CHANGED);
   renderAllRoutes();
 
   let undone = false;
@@ -181,7 +182,7 @@ function scheduleTourRemoval(tours) {
     if (failed.length === 0) return;
     // A failed background delete must not leave the tour missing from the UI.
     state.tours.push(...tours.filter((tour) => failed.includes(tour.id)));
-    renderSidebar();
+    announce(TOURS_CHANGED);
     await renderAllRoutes();
     toast(
       succeeded.length === 0
@@ -198,7 +199,7 @@ function scheduleTourRemoval(tours) {
       undone = true;
       clearTimeout(timer);
       state.tours.push(...tours);
-      renderSidebar();
+      announce(TOURS_CHANGED);
       renderAllRoutes();
     },
   });

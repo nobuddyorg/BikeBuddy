@@ -3,7 +3,7 @@ import { groupByProximity, fanOffsets } from '../lib/pinLayout.js';
 import { state } from './state.js';
 import { map } from './map.js';
 import { show, elPinToggle } from './dom.js';
-import { openLightbox } from './images.js';
+import { openLightbox } from './lightbox.js';
 
 const t = i18n.t;
 const L = window.L;

@@ -2,7 +2,7 @@ import * as i18n from './i18n.js';
 import { validateGpxUpload } from '../lib/files.js';
 import { xhrUpload } from './uploadRequest.js';
 import { state } from './state.js';
-import { getAccessToken, API_BASE } from './auth.js';
+import { getAccessToken, API_BASE } from './api.js';
 import { toast } from './toast.js';
 import { loadTours } from './sidebar.js';
 import { selectTour } from './tour-detail.js';

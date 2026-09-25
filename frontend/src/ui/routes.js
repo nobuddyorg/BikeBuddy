@@ -2,7 +2,7 @@ import { ensureMapData } from '../lib/mapData.js';
 import { state } from './state.js';
 import { map } from './map.js';
 import { show, elMapEmpty, elMapLoadError, elMapLoading } from './dom.js';
-import { apiFetch } from './auth.js';
+import { apiFetch } from './api.js';
 import { renderPins } from './pins.js';
 
 const L = window.L;

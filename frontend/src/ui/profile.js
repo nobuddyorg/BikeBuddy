@@ -2,7 +2,8 @@ import * as i18n from './i18n.js';
 import { initials, formatDate } from '../lib/format.js';
 import { parseErrorMessage } from '../lib/upload.js';
 import { state } from './state.js';
-import { apiFetch, refreshUser, renderNavAuth, signOut } from './auth.js';
+import { apiFetch } from './api.js';
+import { refreshUser, renderNavAuth, signOut } from './auth.js';
 import { toast } from './toast.js';
 import { openModal, closeModal } from './modal.js';
 import {

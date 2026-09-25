@@ -77,14 +77,17 @@ import {
   downloadSelectedGpx,
 } from './ui/tour-detail.js';
 import { openUpload, closeUpload, submitUpload, selectFile } from './ui/upload-modal.js';
+import { uploadImages } from './ui/imageUpload.js';
+import { closeLightbox, lightboxPrev, lightboxNext, retryLightboxImage } from './ui/lightbox.js';
+import { renderGallery } from './ui/gallery.js';
+import { renderSidebar, loadTours } from './ui/sidebar.js';
+import { enterSelectMode, exitSelectMode } from './ui/selectMode.js';
 import {
-  uploadImages,
-  closeLightbox,
-  lightboxPrev,
-  lightboxNext,
-  retryLightboxImage,
-} from './ui/images.js';
-import { renderSidebar, loadTours, enterSelectMode, exitSelectMode } from './ui/sidebar.js';
+  whenAnnounced,
+  TOURS_CHANGED,
+  PHOTO_LOCATIONS_CHANGED,
+  GALLERY_CHANGED,
+} from './ui/events.js';
 import { renderAllRoutes, renderSelectedToursRoutes } from './ui/routes.js';
 import { renderPins } from './ui/pins.js';
 import { debounce } from './lib/debounce.js';
@@ -101,6 +104,13 @@ import { cancelConfirm } from './ui/confirm.js';
 import { readInitialUrl, initHistory, syncUrl, pushLayer } from './ui/router.js';
 
 const t = i18n.t;
+
+whenAnnounced(TOURS_CHANGED, renderSidebar);
+whenAnnounced(PHOTO_LOCATIONS_CHANGED, renderPins);
+whenAnnounced(GALLERY_CHANGED, () => {
+  const tour = state.tours.find((candidate) => candidate.id === state.selectedTourId);
+  if (tour) renderGallery(tour);
+});
 
 // Before anything renders, so the sort/search/in-view controls reflect the
 // URL rather than their HTML defaults on a reload or a shared link (#443).
