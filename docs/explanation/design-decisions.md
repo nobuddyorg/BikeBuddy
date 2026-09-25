@@ -50,6 +50,68 @@ re-encoded as JPEG. GPS is read from the **original** EXIF before resize strips
 it, so geotagged photos can appear as map pins. Private blobs are served via
 short-lived **SAS URLs** rather than public containers.
 
+- Both sizes are rendered from the original, never one from the other, so
+  quality does not degrade through chained re-encodes. The thumbnail is 320 px,
+  the detail grid tile at typical device pixel ratios (#466); photos from before
+  #466 fall back to the full image.
+- The 100-megapixel input limit sits far below `sharp`'s ~268 MP default, so a
+  decompression bomb is refused before it allocates.
+- Multipart bodies are streamed with a byte limit instead of read with
+  `arrayBuffer()`: `Content-Length` can be absent or attacker-controlled (#550
+  tracks that the host still buffers the request first).
+- Blob names are built from the token's user id and the ids in the route, never
+  read back from a stored `blobName`, so a document can never point a request at
+  another user's blob.
+
+## Write ordering and concurrency
+
+A tour is a Cosmos document plus blobs, with no transaction across the two.
+The order is chosen so a failure leaves something harmless:
+
+- **Create:** blobs first, then the document; if the document write fails the
+  blobs are deleted and the error rethrown (a rollback failure surfaces too). A
+  document pointing at a missing blob would list fine and fail on download.
+- **Delete:** the document first, then its blobs with `deleteIfExists()`. A
+  leftover is an unreferenced blob that a retry or the account deletion reaps,
+  never a document pointing at nothing. `DeleteAccount` queues the Entra object
+  id first, so the intent survives a failure halfway through.
+- **Concurrent edits:** `EditTour` patches per field, because the realistic race
+  is an edit overlapping a photo upload; `UploadImage` appends to `/images/-`
+  atomically so concurrent uploads each keep their entry; `DeleteImage` must
+  rewrite the array, so it uses `IfMatch` and retries on 412. `GetMe` writes the
+  claims only into empty fields, with `IfMatch`, and turns a first-login 409
+  into a re-read.
+
+External ID sign-up does not reliably collect a display name, so BikeBuddy owns
+it: the token's `name` fills an empty profile, never overwrites a chosen one
+(#551). `GET /api/health` does no I/O, so it cannot become an unauthenticated
+probe of the backing services.
+
+## Map endpoint
+
+`GET /api/map` returns every tour's points within a point budget
+(`functions/src/lib/mapBudget.js`), computed per tour with Douglas-Peucker.
+The expensive part is that simplification, so a small LRU cache keys it on tour
+id and point count (`heatmapData` is set once at upload); the bound keeps a
+warm instance from growing. The frontend fetches `/api/map` in parallel with
+`/api/tours`, so a cold start is paid once.
+
+## Frontend behaviour
+
+- One Leaflet map: on mobile it moves into the detail panel instead of a second
+  instance being created. Closing the panel keeps the map where it is; only
+  "Show all" refits. Photo pin markers persist across renders to avoid flicker.
+- Back closes the open panel or modal while the selection stays (#442, #443).
+- Deletes are undoable: the DELETE is deferred behind an undo toast (#559 tracks
+  that closing the tab during that window loses the delete).
+- iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
+  viewport meta.
+- The line style is saved on change, not on every input event.
+- The account-deletion confirmation phrase (`DELETE`) is not translated: it is
+  a typed safety check, identical in every language.
+- Icons are inline SVG from one sprite (`icons.svg`), not emoji, so they render
+  the same on every platform.
+
 ## Account deletion (GDPR), out-of-band
 
 `DELETE /api/account` purges all app data immediately (tours, blobs, user doc)
@@ -217,9 +279,13 @@ Mutation testing runs on an explicit list of modules (`mutation-targets.mjs`),
 not on a glob: the pure logic whose behaviour unit tests can pin down, the
 Function handlers (called directly with fake requests) and `frontend/src/lib/`.
 Off the list: the Cosmos/Blob adapters and the multipart stream parser, which
-the integration suite exercises against the emulators, and the DOM layer
-`frontend/src/ui/`, which Playwright exercises; mutating those would measure
-the mocks. The same list sets the 100 % per-file coverage floor, so a module
+the integration suite exercises against the emulators; the system clock and id
+source `functions/src/lib/system.js` (nothing to mutate but the platform calls);
+the load-test instrumentation `lib/profiling.js` and its switch `LoadProfiling/`
+(never enabled in production; the load run's report checks them); the thin
+entry files of `functions/scripts/` (wiring only; their logic is in
+`scripts/lib/`, which is on the list); and the DOM layer `frontend/src/ui/`,
+which Playwright exercises. Mutating those would measure the mocks. The same list sets the 100 % per-file coverage floor, so a module
 cannot be mutation-tested without being fully covered, or the reverse.
 
 `ignoreStatic` (functions) skips mutants that only run at module load
@@ -227,7 +293,17 @@ cannot be mutation-tested without being fully covered, or the reverse.
 imported once per test file, so those mutants cannot be killed without
 reloading the module per mutant. Break thresholds start one point below the
 measured score and only move up; known equivalent mutants are listed here when
-one blocks a raise.
+one blocks a raise. Current survivors, all equivalent:
+
+- `parseGpx.js`: min/max comparisons on equal values, the elevation loop
+  starting at the first point, `difference >= 0`, the 1 km/h speed boundary,
+  and `toArray`'s empty-element branch.
+- `emulatorGuard.js`: the `'utf8'` read encoding (`JSON.parse` accepts the
+  Buffer either way).
+- `frontend/src/lib/mapData.js`: `|| []` → a non-empty array; a body that is not
+  a list settles every tour on empty data either way.
+- `frontend/src/lib/tours.js`: the static `SORT_OPTIONS` initialiser, which
+  only runs at import.
 
 ## Property tests
 
