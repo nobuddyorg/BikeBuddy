@@ -4,11 +4,20 @@ import { DEFAULT_SORT } from './tours.js';
 
 const TOUR_HASH_PATTERN = /^#\/tour\/([^/?#]+)$/;
 
+// A malformed escape in a hand-edited or truncated link opens no tour instead of failing startup.
+function decodedTourId(encoded) {
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return '';
+  }
+}
+
 export function parseAppUrl(search, hash) {
   const params = new URLSearchParams(search);
   const match = TOUR_HASH_PATTERN.exec(hash);
   return {
-    tourId: match ? decodeURIComponent(match[1]) : '',
+    tourId: match ? decodedTourId(match[1]) : '',
     sort: params.get('sort') || '',
     search: params.get('q') || '',
     inView: params.get('inView') === '1',

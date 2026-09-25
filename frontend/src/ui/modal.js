@@ -1,22 +1,19 @@
 import { initialFocusIndex } from '../lib/layout.js';
-import { showElement, hideElement, isHidden } from './dom.js';
-import { pushLayer } from './router.js';
+import { showElement, hideElement } from './dom.js';
+import { pushLayer, releaseLayer } from './router.js';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])';
 
-let modalReturnFocus = document.body;
-
-// Counted, and guarded on the hidden state, so a double close can't unlock scroll early.
-let openModalCount = 0;
+// Topmost last: Escape and the focus trap act on the dialog on top, and each level returns focus
+// to its own opener and takes back its own history entry.
+const openModals = [];
 
 // onHistoryClose runs when Back pops this modal, for callers with their own close cleanup.
 export function openModal(modal, onHistoryClose = () => closeModal(modal)) {
-  modalReturnFocus = document.activeElement ?? document.body;
-  if (isHidden(modal)) {
-    openModalCount++;
-    document.body.classList.add('modal-open');
-  }
+  if (openModals.some((entry) => entry.modal === modal)) return;
+  openModals.push({ modal, returnFocus: document.activeElement ?? document.body, onHistoryClose });
+  document.body.classList.add('modal-open');
   showElement(modal);
   const focusables = modal.querySelectorAll(FOCUSABLE);
   (focusables[initialFocusIndex(focusables.length)] || modal).focus();
@@ -24,16 +21,16 @@ export function openModal(modal, onHistoryClose = () => closeModal(modal)) {
 }
 
 export function closeModal(modal) {
-  if (!isHidden(modal)) {
-    openModalCount = Math.max(0, openModalCount - 1);
-    if (openModalCount === 0) document.body.classList.remove('modal-open');
-  }
   hideElement(modal);
-  modalReturnFocus.focus();
-  modalReturnFocus = document.body;
+  const index = openModals.findIndex((entry) => entry.modal === modal);
+  if (index === -1) return;
+  const [entry] = openModals.splice(index, 1);
+  if (openModals.length === 0) document.body.classList.remove('modal-open');
+  entry.returnFocus.focus();
+  releaseLayer(entry.onHistoryClose);
 }
 
-export const currentOpenModal = () => document.querySelector('.modal-overlay:not(.hidden)');
+export const currentOpenModal = () => openModals.at(-1)?.modal ?? null;
 
 export function trapFocus(event, modal) {
   if (event.key !== 'Tab') return;

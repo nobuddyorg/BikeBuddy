@@ -263,7 +263,7 @@ function handleEscape(openModalElement) {
 
 function handleModalKey(event) {
   const openModalElement = currentOpenModal();
-  if (!openModalElement) return;
+  if (!openModalElement || event.defaultPrevented) return;
   if (event.key === 'Escape') return handleEscape(openModalElement);
   if (openModalElement === dom.lightboxModal && event.key === 'ArrowLeft')
     return showPreviousPhoto();

@@ -20,4 +20,23 @@ describe('loadLineStyle / saveLineStyle', () => {
     vi.stubGlobal('localStorage', { getItem: () => null });
     expect(loadLineStyle()).toEqual(DEFAULT_LINE_STYLE);
   });
+
+  // Privacy settings or a sandboxed frame make every storage access throw.
+  it('loads the default when storage is blocked', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new DOMException('The operation is insecure.', 'SecurityError');
+      },
+    });
+    expect(loadLineStyle()).toEqual(DEFAULT_LINE_STYLE);
+  });
+
+  it('keeps going when storage refuses a save', () => {
+    vi.stubGlobal('localStorage', {
+      setItem: () => {
+        throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      },
+    });
+    expect(() => saveLineStyle(DEFAULT_LINE_STYLE)).not.toThrow();
+  });
 });

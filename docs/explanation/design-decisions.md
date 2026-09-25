@@ -120,6 +120,14 @@ warm instance from growing. The frontend fetches `/api/map` in parallel with
   instance being created. Closing the panel keeps the map where it is; only
   "Show all" refits. Photo pin markers persist across renders to avoid flicker.
 - Back closes the open panel or modal while the selection stays (#442, #443).
+  Closing one with its button or Escape takes its history entry back too, so
+  Back never lands on a closed layer, and a reload starts the depth over
+  (#586).
+- Open dialogs form a stack: Escape, the focus trap and returning focus act on
+  the one on top (profile → delete account, lightbox → confirm). A menu that
+  uses Escape to close marks the key handled, so its dialog stays open.
+- A malformed `#/tour/` link opens no tour, and blocked storage costs only the
+  saved line style and language, never startup.
 - Deletes are undoable: the DELETE is deferred behind an undo toast (#559 tracks
   that closing the tab during that window loses the delete).
 - iOS page zoom is handled by a gesture handler instead of a `maximum-scale`

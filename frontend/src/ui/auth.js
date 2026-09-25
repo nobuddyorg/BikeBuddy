@@ -63,9 +63,18 @@ async function devSignIn() {
   await loading;
 }
 
+// Dev auth only. Storage can be blocked; the dev session then starts signed in.
+function isDevSignedOut() {
+  try {
+    return Boolean(localStorage.getItem(DEV_SIGNED_OUT_KEY));
+  } catch {
+    return false;
+  }
+}
+
 export async function initAuth() {
   if (AUTH_CONFIG.useDevAuth) {
-    if (localStorage.getItem(DEV_SIGNED_OUT_KEY)) {
+    if (isDevSignedOut()) {
       renderNavAuth();
       return;
     }
