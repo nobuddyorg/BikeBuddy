@@ -85,15 +85,53 @@ describe('ensureMapData', () => {
     expect(tours[0]).toMatchObject({ id: 'gone', heatmapData: [], images: [] });
   });
 
-  it('settles on empty data, then rejects, when the request fails', async () => {
+  it('settles on empty data unmarked, then rejects, when the request fails', async () => {
     const tours = [{ id: 't1' }];
 
     await expect(
       ensureMapData({ apiFetch: async () => ({ ok: false, status: 503 }), tours, now: NOW }),
     ).rejects.toThrow('GET /api/map answered 503');
 
-    // Settled, so the next render does not fire the failing request again.
-    expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [], fetchedAt: NOW });
+    expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
+    expect(isStale(tours[0], NOW)).toBe(true);
+  });
+
+  it('retries on the next call after a failure', async () => {
+    const tours = [{ id: 't1' }];
+    await expect(
+      ensureMapData({ apiFetch: async () => ({ ok: false, status: 503 }), tours, now: NOW }),
+    ).rejects.toThrow();
+    const apiFetch = vi.fn(async () => ok([{ id: 't1', heatmapData: [[1, 1]], images: [] }]));
+
+    await ensureMapData({ apiFetch, tours, now: NOW });
+
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    expect(tours[0].heatmapData).toEqual([[1, 1]]);
+    expect(isStale(tours[0], NOW)).toBe(false);
+  });
+
+  it('keeps what a stale tour already shows when the refresh fails', async () => {
+    const stale = {
+      id: 't1',
+      heatmapData: [[1, 2]],
+      images: [{ id: 'i1', url: 'old' }],
+      detailLoaded: true,
+      fetchedAt: NOW - SAS_CACHE_TTL_MS,
+    };
+
+    await expect(
+      ensureMapData({
+        apiFetch: async () => ({ ok: false, status: 500 }),
+        tours: [stale],
+        now: NOW,
+      }),
+    ).rejects.toThrow();
+
+    expect(stale).toMatchObject({
+      heatmapData: [[1, 2]],
+      images: [{ id: 'i1', url: 'old' }],
+      detailLoaded: true,
+    });
   });
 
   it('settles on empty data, then rejects, when the network throws', async () => {
@@ -105,6 +143,7 @@ describe('ensureMapData', () => {
     await expect(ensureMapData({ apiFetch, tours, now: NOW })).rejects.toThrow('offline');
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
+    expect(isStale(tours[0], NOW)).toBe(true);
   });
 
   // The photo URLs are signed and expire, so data past the cache TTL is refetched.
@@ -126,6 +165,36 @@ describe('ensureMapData', () => {
     expect(stale.heatmapData).toEqual([[5, 6]]);
     expect(stale.detailLoaded).toBe(false);
     expect(isStale(stale, NOW)).toBe(false);
+  });
+
+  // An open gallery looks photos up by id, so a refresh must not drop the unpinned ones.
+  it('re-signs the pinned photos of a loaded gallery and keeps the others', async () => {
+    const stale = {
+      id: 't1',
+      heatmapData: [[1, 2]],
+      images: [
+        { id: 'unpinned', url: 'old-a' },
+        { id: 'pinned', url: 'old-b', lat: 1, lon: 2 },
+      ],
+      detailLoaded: true,
+      fetchedAt: NOW - SAS_CACHE_TTL_MS,
+    };
+    const apiFetch = async () =>
+      ok([
+        {
+          id: 't1',
+          heatmapData: [[1, 2]],
+          images: [{ id: 'pinned', url: 'new-b', lat: 1, lon: 2 }],
+        },
+      ]);
+
+    await ensureMapData({ apiFetch, tours: [stale], now: NOW });
+
+    expect(stale.images).toEqual([
+      { id: 'unpinned', url: 'old-a' },
+      { id: 'pinned', url: 'new-b', lat: 1, lon: 2 },
+    ]);
+    expect(stale.detailLoaded).toBe(false);
   });
 
   it('tolerates a response body that is not a list', async () => {
