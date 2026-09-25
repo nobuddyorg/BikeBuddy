@@ -91,7 +91,8 @@ it:
 
 ```bash
 ./buddy.sh quality check           # hooks, unit, frontend, static e2e: no services needed
-./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
+./buddy.sh development start-cosmos && node functions/scripts/init-cosmos.js
+SKIP_AUTH=true ./buddy.sh development start-backend
 ./buddy.sh quality check --stack   # the above, then integration, full-stack e2e, Lighthouse, ZAP
 ```
 
@@ -175,6 +176,24 @@ The Cosmos emulator key is the only allowlisted value, matched by its content.
 with `targetRules` and matched by content, with a one-line reason. Never
 `--no-verify`, never a path-wide exclusion. **A real secret** that reached a
 commit is compromised: rotate it first (Azure portal / `az`), then remove it.
+
+## Supply chain (lockfile-lint)
+
+The `lockfile-lint` hook checks each `package-lock.json` (`functions/`,
+`frontend/`, `e2e/`): every package resolves from the npm registry over https,
+carries an integrity hash, and its resolved URL names the package it claims to
+be. A lockfile pointing at a git URL, a tarball, another registry or plain
+http fails.
+
+```bash
+prek run lockfile-lint --all-files
+```
+
+When it fails, replace the offending dependency with a registry release, or
+let `npm install <package>@<version>` rewrite its entry. Never hand-edit the
+lockfile or regenerate it from scratch. Which updates Dependabot may merge on
+its own, and how `npm audit` findings are handled, is the design decision
+[Dependency updates and npm audit](../explanation/design-decisions.md#dependency-updates-and-npm-audit).
 
 ## Workflow linting
 

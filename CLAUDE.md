@@ -194,7 +194,8 @@ steps 1–4; `./buddy.sh quality check --stack` also runs 6–9.
 ./buddy.sh test frontend          # 3. frontend lib, same floor
 E2E_COVERAGE=1 ./buddy.sh test e2e   # 4. static UI journeys, axe, e2e coverage floor
 ./buddy.sh test mutation          # 5. if you changed a file in mutation-targets.mjs
-./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
+./buddy.sh development start-cosmos && node functions/scripts/init-cosmos.js
+SKIP_AUTH=true ./buddy.sh development start-backend
 ./buddy.sh test integration       # 6. own host on :7072 with test-signed tokens, Cosmos, Azurite
 E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack   # 7. full-stack journeys
 (cd e2e && npm run lighthouse -- signed-out && npm run lighthouse -- signed-in)
