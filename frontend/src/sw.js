@@ -1,14 +1,30 @@
 'use strict';
 
 // Bump on any change to the precached shell: only a new name invalidates an installed cache.
-const CACHE_NAME = 'bikebuddy-shell-v13';
+const CACHE_NAME = 'bikebuddy-shell-v14';
 
 const PRECACHE_URLS = [
   './',
   'index.html',
   'app.js',
   'config.js',
-  'style.css',
+  'css/tokens.css',
+  'css/shell.css',
+  'css/sidebar.css',
+  'css/tour-list.css',
+  'css/map.css',
+  'css/detail.css',
+  'css/buttons.css',
+  'css/modals.css',
+  'css/profile.css',
+  'css/images.css',
+  'css/lightbox.css',
+  'css/feedback.css',
+  'css/skeleton.css',
+  'css/responsive.css',
+  'css/language.css',
+  'css/utilities.css',
+  'icons.svg',
   'manifest.webmanifest',
   'favicon.png',
   'icon-192.png',

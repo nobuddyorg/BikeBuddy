@@ -1,0 +1,95 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Vendored (vendor/.archivo-source); used only for the wordmark. */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../vendor/fonts/archivo-700.woff2') format('woff2');
+}
+
+:root {
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-primary: #d97a36;
+  --color-primary-hover: #cd6c27;
+  /* White on --color-primary is ~3:1, below AA; filled buttons with text use this. */
+  --color-primary-strong: #ad5b21;
+  --color-primary-strong-hover: #904c1b;
+  --color-text: #1e293b;
+  /* 5:1 on --color-surface-2 (the selected row, code chips). */
+  --color-text-muted: #5e6a7d;
+  --color-danger: #ef4444;
+  /* The same AA gap as --color-primary, for filled danger buttons. */
+  --color-danger-strong: #b91c1c;
+  /* Red text: --color-danger is 3.8:1 on white, below AA for 12px text. */
+  --color-danger-text: #b91c1c;
+  --color-danger-strong-hover: #991b1b;
+  /* Orange text on a surface (wordmark, search highlight): --color-primary is ~3:1 there. */
+  --color-primary-text: #964f1c;
+  --navbar-height: 56px;
+  --detail-width: 320px;
+  /* Wider than --detail-width: at 320px the German selection bar wraps onto two rows. */
+  --sidebar-width: 380px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0f1117;
+    --color-surface: #1a1d27;
+    --color-surface-2: #22263a;
+    --color-border: #2e3250;
+    --color-text: #e2e8f0;
+    --color-text-muted: #8892a4;
+    /* The light shade is too dark on the dark surface; this clears 6:1. */
+    --color-primary-text: #e0954f;
+    /* The light value is too dark on the dark surface; this clears 6:1. */
+    --color-danger-text: #f87171;
+  }
+
+  /* Leaflet's stylesheet hardcodes white zoom buttons, whatever the theme. */
+  .leaflet-bar a {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    border-bottom-color: var(--color-border);
+  }
+
+  .leaflet-bar a:hover,
+  .leaflet-bar a:focus {
+    background-color: var(--color-surface-2);
+  }
+
+  .leaflet-bar a.leaflet-disabled {
+    background-color: var(--color-surface);
+    color: var(--color-text-muted);
+  }
+}
+
+html,
+body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Panes scroll, the page doesn't; also stops .app-layout's margin collapsing through body. */
+body {
+  overflow: hidden;
+}
+
+/* Mobile's body scrolls; this keeps the page behind an open modal still. */
+body.modal-open {
+  overflow: hidden;
+}

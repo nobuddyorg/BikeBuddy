@@ -45,16 +45,24 @@ function createNameElement(name, matchedIndices) {
   return nameElement;
 }
 
-const TRASH_ICON_SVG =
-  '<svg class="tour-item-delete-icon" viewBox="0 0 24 24" aria-hidden="true">' +
-  '<path fill="#000" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>' +
-  '</svg>';
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
+function createTrashIcon() {
+  const icon = document.createElementNS(SVG_NAMESPACE, 'svg');
+  icon.setAttribute('class', 'tour-item-delete-icon');
+  icon.setAttribute('fill', '#000');
+  icon.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS(SVG_NAMESPACE, 'use');
+  use.setAttribute('href', 'icons.svg#trash');
+  icon.appendChild(use);
+  return icon;
+}
 
 function createDeleteBackground() {
   const background = document.createElement('div');
   background.className = 'tour-item-delete-bg';
   background.setAttribute('aria-hidden', 'true');
-  background.innerHTML = TRASH_ICON_SVG;
+  background.appendChild(createTrashIcon());
   return background;
 }
 

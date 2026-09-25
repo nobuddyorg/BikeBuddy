@@ -35,6 +35,20 @@ describe('service worker precache list', () => {
     for (const file of jsFiles) expect(PRECACHE_URLS).toContain(file);
   });
 
+  it('includes every stylesheet and the icon sprite', () => {
+    const assets = [...listFiles(join(srcDir, 'css'), ['.css']).map(relativePath), 'icons.svg'];
+    expect(assets.length).toBeGreaterThan(1);
+    for (const file of assets) expect(PRECACHE_URLS).toContain(file);
+  });
+
+  it('precaches the stylesheets in the order index.html links them', () => {
+    const html = readFileSync(resolve(srcDir, 'index.html'), 'utf8');
+    const linked = [...html.matchAll(/<link rel="stylesheet" href="(css\/[\w-]+\.css)"/g)].map(
+      (match) => match[1],
+    );
+    expect(linked).toEqual(PRECACHE_URLS.filter((url) => url.startsWith('css/')));
+  });
+
   it('includes every locale file', () => {
     const localeFiles = listFiles(join(srcDir, 'locales'), ['.json']).map(relativePath);
     for (const file of localeFiles) expect(PRECACHE_URLS).toContain(file);

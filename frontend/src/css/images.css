@@ -1,0 +1,194 @@
+.tour-images {
+  margin-top: 20px;
+}
+
+.images-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  /* Hairline gaps: the set reads as one contact sheet. */
+  gap: 1px;
+  margin-bottom: 10px;
+}
+
+.image-tile {
+  position: relative;
+  margin: 0;
+  min-width: 0;
+  animation: image-tile-in 0.5s ease-out backwards;
+}
+
+@keyframes image-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmers until the photo paints over it; an error replaces the whole tile. */
+.image-thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  display: block;
+  background: linear-gradient(
+    100deg,
+    var(--color-surface-2) 40%,
+    var(--color-surface) 50%,
+    var(--color-surface-2) 60%
+  );
+  background-size: 200% 100%;
+  animation: image-thumb-shimmer 1.4s ease-in-out infinite;
+}
+
+.image-thumb.is-loaded {
+  animation: none;
+  background: none;
+}
+
+@keyframes image-thumb-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-tile {
+    animation: none;
+  }
+
+  .image-thumb {
+    animation: none;
+  }
+}
+
+.image-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+/* A 44x44 tap target (WCAG 2.5.5) around the 22x22 circle. */
+.image-delete::before,
+.image-tile-retry::before,
+.image-tile-dismiss::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.image-tile:hover .image-delete,
+.image-delete:focus-visible {
+  opacity: 1;
+}
+
+.image-delete:hover {
+  background: var(--color-danger);
+}
+
+/* Touch devices can't hover, so the button always shows there. */
+@media (hover: none) {
+  .image-delete {
+    opacity: 1;
+  }
+}
+
+.dropzone-sm {
+  padding: 14px 12px;
+}
+
+.image-tile-pending,
+.image-tile-error {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  text-align: center;
+}
+
+.image-tile-error {
+  border: 1px solid var(--color-danger);
+}
+
+.image-progress-ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--color-primary) calc(var(--progress, 0) * 1%),
+    var(--color-border) 0
+  );
+}
+
+.image-tile-filename {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-tile-error-message {
+  font-size: 10px;
+  color: var(--color-danger-text);
+}
+
+.image-tile-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.image-tile-retry,
+.image-tile-dismiss {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.image-tile-dismiss:hover {
+  background: var(--color-danger);
+}
