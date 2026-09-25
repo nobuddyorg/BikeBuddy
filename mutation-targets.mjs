@@ -53,6 +53,7 @@ export const FRONTEND_TARGETS = [
   'src/lib/layout.js',
   'src/lib/lineStyle.js',
   'src/lib/mapData.js',
+  'src/lib/markup.js',
   'src/lib/pinLayout.js',
   'src/lib/routes.js',
   'src/lib/sasCache.js',

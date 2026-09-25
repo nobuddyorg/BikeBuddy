@@ -1,4 +1,5 @@
 import { DEFAULT_LOCALE, isSupported, localeMeta, pickLocale, translate } from '../lib/i18n.js';
+import { markupRuns } from '../lib/markup.js';
 
 const STORAGE_KEY = 'bikebuddy-lang';
 
@@ -80,13 +81,22 @@ export function setLanguage(code) {
 // Read via getAttribute, so each name is written once rather than also in camelCase.
 export const I18N_ATTRIBUTES = ['placeholder', 'aria-label', 'title', 'alt'];
 
-// The two content sinks stay separate, so it is plain which one interprets markup.
+function markupNode({ kind, text }) {
+  if (kind === 'text') return document.createTextNode(text);
+  const element = document.createElement(kind);
+  element.textContent = text;
+  return element;
+}
+
+// Emphasis is built as elements from text runs, so no translation ever reaches an HTML parser.
 export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n]').forEach((element) => {
     element.textContent = t(element.getAttribute('data-i18n'));
   });
   root.querySelectorAll('[data-i18n-html]').forEach((element) => {
-    element.innerHTML = t(element.getAttribute('data-i18n-html')); // nosemgrep: insecure-document-method, insecure-innerhtml -- the markup sink by design: data-i18n-html keys resolve to repo-owned locale strings, never user input
+    element.replaceChildren(
+      ...markupRuns(t(element.getAttribute('data-i18n-html'))).map(markupNode),
+    );
   });
   for (const attribute of I18N_ATTRIBUTES) {
     const source = `data-i18n-${attribute}`;

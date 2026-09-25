@@ -3,7 +3,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // The module keeps the locale in module state, so each test imports it fresh.
 
 const MESSAGES = {
-  en: { greeting: 'Hello {name}', onlyEnglish: 'Fallback', 'errors.x': 'Bad input' },
+  en: {
+    greeting: 'Hello {name}',
+    onlyEnglish: 'Fallback',
+    'errors.x': 'Bad input',
+    'help.x': 'Click <strong>Go</strong> &amp; <img src=x onerror=alert(1)>',
+  },
   de: { greeting: 'Hallo {name}' },
 };
 
@@ -20,6 +25,8 @@ function stubBrowser({ stored = null, languages = ['de-DE'], failLocale = null }
     documentElement: { lang: '' },
     body: { classList: { remove: removeClass } },
     querySelectorAll: () => [],
+    createTextNode: (text) => ({ text }),
+    createElement: (tag) => ({ tag, textContent: '' }),
   });
   vi.stubGlobal('location', { reload });
   vi.stubGlobal(
@@ -153,17 +160,24 @@ describe('i18n runtime', () => {
 describe('applyI18n', () => {
   let i18n;
   beforeEach(async () => {
+    vi.unstubAllGlobals();
+    stubBrowser({ languages: ['en-GB'] });
     i18n = await freshI18n();
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   const makeElement = (attributes) => ({
     attributes,
     applied: {},
+    children: [],
     getAttribute(name) {
       return this.attributes[name];
     },
     setAttribute(name, value) {
       this.applied[name] = value;
+    },
+    replaceChildren(...children) {
+      this.children = children;
     },
   });
 
@@ -198,8 +212,21 @@ describe('applyI18n', () => {
     i18n.applyI18n(makeRoot([text, html]));
 
     expect(text.textContent).toBe('nav.upload');
-    expect(html.innerHTML).toBe('help.a2');
+    expect(html.children).toEqual([{ text: 'help.a2' }]);
     expect(text.applied).toEqual({});
     expect(html.applied).toEqual({});
+  });
+
+  it('builds emphasis as elements and leaves any other markup as text', async () => {
+    await i18n.init();
+    const html = makeElement({ 'data-i18n-html': 'help.x' });
+
+    i18n.applyI18n(makeRoot([html]));
+
+    expect(html.children).toEqual([
+      { text: 'Click ' },
+      { tag: 'strong', textContent: 'Go' },
+      { text: ' & <img src=x onerror=alert(1)>' },
+    ]);
   });
 });

@@ -1,7 +1,7 @@
 'use strict';
 
 // Bump on any change to the precached shell: only a new name invalidates an installed cache.
-const CACHE_NAME = 'bikebuddy-shell-v15';
+const CACHE_NAME = 'bikebuddy-shell-v16';
 
 const PRECACHE_URLS = [
   './',
@@ -42,6 +42,7 @@ const PRECACHE_URLS = [
   'lib/layout.js',
   'lib/lineStyle.js',
   'lib/mapData.js',
+  'lib/markup.js',
   'lib/pinLayout.js',
   'lib/routes.js',
   'lib/sasCache.js',

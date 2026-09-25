@@ -246,9 +246,10 @@ keeping it means the switch cannot lose a rule that was already enforced. Only
 error severity fails the job: the warning-level packs (i18n key formats, Azure
 hardening advice) are reported for triage, and the IaC ones are owned by the
 IaC scanner. Two findings were fixed on adoption (the language menu built
-markup with `innerHTML`; it now uses `textContent`) and one is suppressed
-inline: `applyI18n`'s `data-i18n-html` sink renders repo-owned translation
-markup by design.
+markup with `innerHTML`; it now uses `textContent`). `applyI18n`'s
+`data-i18n-html` sink no longer parses HTML at all: `lib/markup.js` splits a
+translation into text, `<strong>` and `<code>` runs and the UI builds those
+elements, so no finding needs a suppression.
 
 ## IaC scan exceptions
 
