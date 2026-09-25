@@ -8,7 +8,7 @@ this repository ([AGENTS.md](AGENTS.md) points here). Read this file and
 ## What this project is
 
 **BikeBuddy** stores GPX rides (cycling or motorcycling), shows them as routes
-and a heatmap on a map, and attaches photos. Seven locales. Features:
+on a map, and attaches photos. Seven locales. Features:
 [README.md](README.md).
 
 - **Frontend**: plain HTML/CSS/JS static site on GitHub Pages, no framework and
