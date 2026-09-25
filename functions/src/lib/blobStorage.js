@@ -7,6 +7,9 @@ const { onceUntilFailure } = require('./settle');
 
 const SAS_TTL_MS = 60 * 60 * 1000;
 
+/** When a URL signed at `now` stops working. @param {Date} now */
+const sasExpiresOn = (now) => new Date(now.getTime() + SAS_TTL_MS);
+
 /** @typedef {import('@azure/storage-blob').ContainerClient} ContainerClient */
 
 /**
@@ -18,7 +21,7 @@ const SAS_TTL_MS = 60 * 60 * 1000;
 function readSasUrl(container, { blobName, now, contentDisposition }) {
   return container.getBlockBlobClient(blobName).generateSasUrl({
     permissions: BlobSASPermissions.parse('r'),
-    expiresOn: new Date(now.getTime() + SAS_TTL_MS),
+    expiresOn: sasExpiresOn(now),
     ...(contentDisposition && { contentDisposition }),
   });
 }
@@ -30,9 +33,10 @@ function readSasUrl(container, { blobName, now, contentDisposition }) {
  */
 function readUrlSigner({ container, now }) {
   let containerPromise;
-  return async (blobName) => {
+  /** @param {string} blobName @param {{ contentDisposition?: string }} [options] */
+  return async (blobName, { contentDisposition } = {}) => {
     containerPromise ??= container();
-    return readSasUrl(await containerPromise, { blobName, now });
+    return readSasUrl(await containerPromise, { blobName, now, contentDisposition });
   };
 }
 
@@ -91,6 +95,7 @@ function containerOnce(name) {
 module.exports = {
   gpxContainer: containerOnce('gpx-files'),
   imagesContainer: containerOnce('tour-images'),
+  sasExpiresOn,
   readSasUrl,
   readUrlSigner,
   blobUrl,

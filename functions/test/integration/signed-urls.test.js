@@ -51,6 +51,16 @@ describe('signed blob URLs', () => {
     expect(photo.headers.get('content-type')).toBe('image/jpeg');
   });
 
+  it('reads the GPX file and photo a data export links, which the stored references cannot (#540)', async () => {
+    const exported = await rider.api.readJson('/me/export');
+    const [tour] = exported.tours;
+
+    expect(blobNameOf(tour.gpxFileUrl)).toBe(`${rider.userId}/${tour.id}.gpx`);
+    expect(await (await fetch(tour.gpxFileUrl)).text()).toBe(SAMPLE_GPX);
+    expect((await fetch(tour.images[0].url)).headers.get('content-type')).toBe('image/jpeg');
+    expect(tour.images[0]).not.toHaveProperty('blobName');
+  });
+
   it('refuses a write to the blob it names', async () => {
     const response = await fetch(rider.tour.gpxFileUrl, {
       method: 'PUT',
