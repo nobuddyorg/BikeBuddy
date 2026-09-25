@@ -34,6 +34,8 @@ export const FUNCTIONS_TARGETS = [
   'scripts/lib/cli.js',
   'scripts/lib/deletionJob.js',
   'scripts/lib/queryItems.js',
+  'scripts/lib/thumbnailBackfill.js',
+  'scripts/lib/tourStatsBackfill.js',
 ];
 
 export const FRONTEND_TARGETS = [

@@ -1,6 +1,6 @@
 'use strict';
 
-// In-memory stand-ins for the Cosmos client the operator scripts use.
+// In-memory stand-ins for the Cosmos and Blob clients the operator scripts use.
 // `writes` records every mutating call, so a test can assert a dry run made none.
 
 function notFound() {
@@ -57,4 +57,27 @@ function fakeCosmosContainer({ documents, answerQuery, partitionKeyOf }) {
   return { container, documents, writes, queries };
 }
 
-module.exports = { fakeCosmosContainer };
+function fakeBlobContainer(blobs) {
+  const writes = [];
+  const container = {
+    getBlockBlobClient(name) {
+      return {
+        name,
+        async exists() {
+          return blobs.has(name);
+        },
+        async downloadToBuffer() {
+          if (!blobs.has(name)) throw Object.assign(new Error('BlobNotFound'), { statusCode: 404 });
+          return blobs.get(name);
+        },
+        async uploadData(data, options) {
+          writes.push({ upload: name, options });
+          blobs.set(name, data);
+        },
+      };
+    },
+  };
+  return { container, blobs, writes };
+}
+
+module.exports = { fakeCosmosContainer, fakeBlobContainer };
