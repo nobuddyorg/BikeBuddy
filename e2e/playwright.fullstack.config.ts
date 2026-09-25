@@ -3,9 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 // Read by coverage.ts in the runner and every worker.
 process.env.E2E_SUITE = 'fullstack';
 
-// Full-stack config: assumes the Functions host is already running on :7071
-// (started by the workflow / buddy.sh). The SWA CLI serves the frontend and
-// proxies /api → :7071, so the app talks to the real backend.
+// Assumes the Functions host on :7071; the SWA CLI serves the frontend and proxies /api to it.
 const PORT = 4280;
 const isCI = !!process.env.CI;
 
@@ -13,10 +11,9 @@ export default defineConfig({
   testDir: './tests-fullstack',
   globalSetup: './global-setup.ts',
   globalTeardown: './global-teardown.ts',
-  fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 1 : 0,
-  workers: 1, // backend writes — keep deterministic
+  retries: 0, // a flake is a defect: fixed or deleted, never retried
+  workers: 1, // every test runs as the one SKIP_AUTH user and resets that user's data
   reporter: isCI
     ? [
         ['github'],
@@ -28,7 +25,7 @@ export default defineConfig({
     : [['list']],
   use: {
     baseURL: `http://localhost:${PORT}`,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
