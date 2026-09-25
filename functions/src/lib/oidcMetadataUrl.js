@@ -19,12 +19,8 @@ function isLoopbackWebUrl(value) {
   return WEB_PROTOCOLS.has(url.protocol) && LOOPBACK_HOSTS.has(url.hostname);
 }
 
-/**
- * Entra's OIDC metadata URL, or ENTRA_OIDC_METADATA_URL for a local test issuer.
- * Throws for an override inside Azure or off this machine: it never falls back quietly.
- *
- * @param {Record<string, string | undefined>} environment
- */
+// An override that is remote or inside Azure throws: falling back to Entra would hide the misconfiguration.
+/** @param {Record<string, string | undefined>} environment */
 function openIdConfigUrl(environment) {
   const override = environment.ENTRA_OIDC_METADATA_URL;
   if (!override) return entraMetadataUrl(environment);
