@@ -13,7 +13,8 @@ const {
   signedUrlParts,
 } = require('../../test/fakes/collaborators');
 
-const ONE_HOUR_LATER = new Date(NOW.getTime() + 60 * 60 * 1000).toISOString();
+// The SAS window's end: the close of the hour after the one NOW falls in.
+const SAS_EXPIRES_AT = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString();
 // A slight bend the default budget keeps and any simplification would drop.
 const TRACK = [
   [48.1, 11.5],
@@ -79,7 +80,7 @@ describe('GET /api/map', () => {
     ]);
   });
 
-  it("signs read-only, one-hour URLs for the photo and its thumbnail under the caller's prefix", async () => {
+  it("signs read-only, short-lived URLs for the photo and its thumbnail under the caller's prefix", async () => {
     const { run } = setUp();
 
     const [{ images }] = (await run()).jsonBody;
@@ -87,7 +88,7 @@ describe('GET /api/map', () => {
     expect(signedUrlParts(images[0].url)).toMatchObject({
       path: '/tour-images/u1/t1/img1.jpg',
       permissions: 'r',
-      expiresOn: ONE_HOUR_LATER,
+      expiresOn: SAS_EXPIRES_AT,
     });
     expect(signedUrlParts(images[0].thumbUrl).path).toBe('/tour-images/u1/t1/img1_thumb.jpg');
   });

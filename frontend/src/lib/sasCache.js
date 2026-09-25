@@ -1,6 +1,6 @@
 // @ts-check
 
-// Storage rejects these SAS URLs after an hour (SAS_TTL_MS, blobStorage.js); refetch well before.
+// Storage rejects these SAS URLs one to two hours after signing (sasExpiresOn, blobStorage.js).
 export const SAS_CACHE_TTL_MS = 45 * 60 * 1000;
 
 export function markFetched(tour, now) {

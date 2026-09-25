@@ -78,6 +78,25 @@ describe('DELETE /api/account', () => {
     expect(deletes.map((call) => call.partitionKey)).toEqual(['u1', 'u1']);
   });
 
+  it('deletes a large account at most ten documents at once', async () => {
+    const { tours, run } = setUp();
+    const load = { inFlight: 0, peak: 0 };
+    for (let index = 0; index < 30; index += 1) {
+      tours.seed(tourOf('u1', `bulk-${index}`));
+      tours.beforeNext('delete', async () => {
+        load.inFlight += 1;
+        load.peak = Math.max(load.peak, load.inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        load.inFlight -= 1;
+      });
+    }
+
+    await run();
+
+    expect(tours.all().filter((tour) => tour.userId === 'u1')).toEqual([]);
+    expect(load.peak).toBe(10);
+  });
+
   it('deletes every document before any blob', async () => {
     const { users, gpx, images, run } = setUp();
     let blobsWhenUserDeleted = [];

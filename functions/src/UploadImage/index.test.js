@@ -23,7 +23,8 @@ const FULL = Buffer.from('full-bytes');
 const THUMBNAIL = Buffer.from('thumbnail-bytes');
 const FULL_BLOB = `u1/${TOUR_ID}/${IMAGE_ID}.jpg`;
 const THUMBNAIL_BLOB = `u1/${TOUR_ID}/${IMAGE_ID}_thumb.jpg`;
-const ONE_HOUR_LATER = new Date(NOW.getTime() + 60 * 60 * 1000).toISOString();
+// The SAS window's end: the close of the hour after the one NOW falls in.
+const SAS_EXPIRES_AT = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString();
 
 const TOUR = { id: TOUR_ID, userId: 'u1', name: 'Alps', images: [] };
 const OTHER_USERS_TOUR = { id: OTHER_TOUR_ID, userId: 'u2', name: 'Not yours', images: [] };
@@ -76,12 +77,14 @@ describe('POST /api/tours/{tourId}/images', () => {
       url: expect.any(String),
       thumbUrl: expect.any(String),
     });
-    expect(images.blob(FULL_BLOB)).toEqual({ data: FULL, contentType: 'image/jpeg' });
-    expect(images.blob(THUMBNAIL_BLOB)).toEqual({ data: THUMBNAIL, contentType: 'image/jpeg' });
+    // Never rewritten under their names, so a browser may cache both while the URL works.
+    const cached = { contentType: 'image/jpeg', cacheControl: 'private, max-age=3600, immutable' };
+    expect(images.blob(FULL_BLOB)).toEqual({ data: FULL, ...cached });
+    expect(images.blob(THUMBNAIL_BLOB)).toEqual({ data: THUMBNAIL, ...cached });
     expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB }]);
   });
 
-  it("signs read-only, one-hour URLs for the new photo under the caller's prefix", async () => {
+  it("signs read-only, short-lived URLs for the new photo under the caller's prefix", async () => {
     const { run } = setUp();
 
     const { url, thumbUrl } = (await run()).jsonBody;
@@ -90,7 +93,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       path: `/tour-images/${FULL_BLOB}`,
       permissions: 'r',
       resource: 'b',
-      expiresOn: ONE_HOUR_LATER,
+      expiresOn: SAS_EXPIRES_AT,
     });
     expect(signedUrlParts(thumbUrl).path).toBe(`/tour-images/${THUMBNAIL_BLOB}`);
   });

@@ -53,7 +53,8 @@ partition.
   `ExportData` returns every field of the caller's documents except those
   system properties: a portability export is the user's whole data. In place
   of the stored blob references, which open nothing, each tour carries signed
-  links to its GPX file and photos, valid until `linksExpireAt` (one hour).
+  links to its GPX file and photos, valid until `linksExpireAt` (one to two
+  hours).
 - GPX > 5,000 trackpoints is downsampled before storing (keeps docs < 2 MB).
 - Image GPS (EXIF) is read from the original before resize strips it; stored as
   `lat`/`lon` on the image record and used for map pins.

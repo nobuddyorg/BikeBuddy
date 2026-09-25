@@ -1,7 +1,7 @@
 'use strict';
 
 const { BlobServiceClient, StorageSharedKeyCredential } = require('@azure/storage-blob');
-const { readSasUrl, readUrlSigner } = require('./blobStorage');
+const { readSasUrl, readUrlSigner, deleteBlobsByPrefix } = require('./blobStorage');
 
 // Azurite's public development account signs for real, offline: no request is sent.
 const container = BlobServiceClient.fromConnectionString(
@@ -25,11 +25,25 @@ describe('readSasUrl', () => {
     expect(decodeURIComponent(url.pathname)).toBe(`/devstoreaccount1/tour-images/${BLOB_NAME}`);
   });
 
-  it('expires one hour after the injected time, not the wall clock', async () => {
+  it('expires at the end of the next hour after the injected time, not the wall clock', async () => {
     const url = new URL(await readSasUrl(container, { blobName: BLOB_NAME, now: NOW }));
 
     const expiresOn = new Date(url.searchParams.get('se'));
-    expect(expiresOn.getTime()).toBe(NOW.getTime() + ONE_HOUR_MS);
+    expect(expiresOn.getTime()).toBe(NOW.getTime() + 2 * ONE_HOUR_MS);
+  });
+
+  // The same URL all hour, so the browser's cache serves a photo instead of downloading it again.
+  it('signs the same URL anywhere within the hour, valid for at least an hour', async () => {
+    const early = new Date(NOW.getTime() + 1000);
+    const late = new Date(NOW.getTime() + ONE_HOUR_MS - 1000);
+
+    const [first, second] = await Promise.all(
+      [early, late].map((now) => readSasUrl(container, { blobName: BLOB_NAME, now })),
+    );
+
+    expect(second).toBe(first);
+    const expiresOn = new Date(new URL(second).searchParams.get('se')).getTime();
+    expect(expiresOn - late.getTime()).toBeGreaterThan(ONE_HOUR_MS);
   });
 
   it('keeps the path under the prefix it was given', async () => {
@@ -64,5 +78,39 @@ describe('readUrlSigner', () => {
     expect(containerFor).toHaveBeenCalledTimes(1);
     expect(new URL(first).pathname).toBe('/devstoreaccount1/tour-images/u1/a.jpg');
     expect(new URL(second).searchParams.get('se')).toBe(new URL(first).searchParams.get('se'));
+  });
+});
+
+describe('deleteBlobsByPrefix', () => {
+  // A container stand-in whose deletes stay open for a tick, to see how many overlap.
+  function slowContainer(names) {
+    const remaining = new Set(names);
+    const load = { inFlight: 0, peak: 0 };
+    return {
+      load,
+      remaining,
+      listBlobsFlat: async function* ({ prefix }) {
+        for (const name of names) if (name.startsWith(prefix)) yield { name };
+      },
+      getBlockBlobClient: (name) => ({
+        deleteIfExists: async () => {
+          load.inFlight += 1;
+          load.peak = Math.max(load.peak, load.inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 1));
+          remaining.delete(name);
+          load.inFlight -= 1;
+        },
+      }),
+    };
+  }
+
+  it('deletes every blob under the prefix, at most 16 at once', async () => {
+    const names = [...Array.from({ length: 40 }, (_, index) => `u1/t${index}.gpx`), 'u2/t.gpx'];
+    const blobs = slowContainer(names);
+
+    await deleteBlobsByPrefix(/** @type {any} */ (blobs), 'u1/');
+
+    expect([...blobs.remaining]).toEqual(['u2/t.gpx']);
+    expect(blobs.load.peak).toBe(16);
   });
 });

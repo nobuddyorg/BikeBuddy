@@ -13,7 +13,8 @@ const {
 
 const TOUR_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_TOUR_ID = '99999999-9999-4999-8999-999999999999';
-const ONE_HOUR_LATER = new Date(NOW.getTime() + 60 * 60 * 1000).toISOString();
+// The SAS window's end: the close of the hour after the one NOW falls in.
+const SAS_EXPIRES_AT = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString();
 
 const TOUR = {
   id: TOUR_ID,
@@ -90,14 +91,14 @@ describe('GET /api/tours/{tourId}', () => {
       path: `/tour-images/u1/${TOUR_ID}/img1.jpg`,
       permissions: 'r',
       resource: 'b',
-      expiresOn: ONE_HOUR_LATER,
+      expiresOn: SAS_EXPIRES_AT,
     });
     expect(signedUrlParts(images[1].thumbUrl).path).toBe(
       `/tour-images/u1/${TOUR_ID}/img2_thumb.jpg`,
     );
   });
 
-  it('signs a read-only, one-hour GPX download named after the tour', async () => {
+  it('signs a read-only, short-lived GPX download named after the tour', async () => {
     const { run } = setUp();
 
     const { gpxFileUrl } = (await run(TOUR_ID)).jsonBody;
@@ -106,7 +107,7 @@ describe('GET /api/tours/{tourId}', () => {
       path: `/gpx-files/u1/${TOUR_ID}.gpx`,
       permissions: 'r',
       resource: 'b',
-      expiresOn: ONE_HOUR_LATER,
+      expiresOn: SAS_EXPIRES_AT,
       contentDisposition: 'attachment; filename="Alps.gpx"',
     });
   });

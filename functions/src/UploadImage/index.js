@@ -45,7 +45,12 @@ const deleteVariants = (container, blobName) =>
 // Both uploads settle before a failure is reported, so the rollback races no upload.
 async function storeVariants(container, { blobName, variants }) {
   const upload = (name, data) =>
-    blobStorage.uploadBlob(container, { blobName: name, data, contentType: 'image/jpeg' });
+    blobStorage.uploadBlob(container, {
+      blobName: name,
+      data,
+      contentType: 'image/jpeg',
+      cacheControl: blobStorage.IMMUTABLE_CACHE_CONTROL,
+    });
   await withRollback(
     () =>
       settleAll(

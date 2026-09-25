@@ -71,6 +71,13 @@ short-lived **SAS URLs** rather than public containers.
 - Blob names are built from the token's user id and the ids in the route, never
   read back from a stored `blobName`, so a document can never point a request at
   another user's blob.
+- A SAS URL expires at the end of the hour after the one it was signed in, so
+  it works for one to two hours and every URL signed within the same clock hour
+  is identical. Photos never reuse a name, so they are stored with
+  `Cache-Control: private, max-age=3600, immutable`, and a map reload or a
+  detail refetch within the hour is served from the browser cache instead of
+  Blob Storage (#578). The frontend refetches signed URLs after 45 minutes,
+  inside the shortest lifetime.
 
 ## Write ordering and concurrency
 
