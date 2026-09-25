@@ -11,6 +11,7 @@
 | `ENTRA_TENANT_ID`          | Directory (tenant) GUID                                               |
 | `ENTRA_CLIENT_ID`          | App registration client id (also the token audience)                  |
 | `SKIP_AUTH`                | `"true"` skips JWT verification (local dev only)                      |
+| `ENTRA_OIDC_METADATA_URL`  | Test issuer's metadata URL; loopback only, refused inside Azure       |
 | `LOAD_PROFILING`           | `"true"` logs per-request timings and RU for the load-test report     |
 | `AzureWebJobsStorage`      | Functions host storage (`UseDevelopmentStorage=true` locally)         |
 | `FUNCTIONS_WORKER_RUNTIME` | `node`                                                                |

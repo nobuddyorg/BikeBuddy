@@ -90,11 +90,10 @@ design-decisions.md and the linked issues, not here.
 Authorization is hand-written in every handler, so every endpoint is
 security-critical.
 
-- A new endpoint ships its authorization cases in the integration suite in the
-  same change: owner, another user, no token. The suite runs under `SKIP_AUTH`
-  today, so until it signs real test tokens the other-user and no-token cases
-  live in the handler unit tests with injected identities; name that gap in the
-  PR.
+- A new endpoint ships its authorization cases in the same change: a row in
+  `functions/test/integration/endpoints.js` (a unit test fails while a
+  registered route is missing there), which runs it with real test-signed
+  tokens as owner, another user and every rejected credential.
 - A document-shape change states how existing documents are read (there is no
   schema version yet, #577) and ships or updates a backfill with a dry run.
 - Call out any change to auth, ownership, partitioning or SAS scope in the
@@ -193,7 +192,7 @@ steps 1–4; `./buddy.sh quality check --stack` also runs 6–9.
 E2E_COVERAGE=1 ./buddy.sh test e2e   # 4. static UI journeys, axe, e2e coverage floor
 ./buddy.sh test mutation          # 5. if you changed a file in mutation-targets.mjs
 ./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
-./buddy.sh test integration       # 6. real Functions host, Cosmos emulator, Azurite
+./buddy.sh test integration       # 6. own host on :7072 with test-signed tokens, Cosmos, Azurite
 E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack   # 7. full-stack journeys
 (cd e2e && npm run lighthouse -- signed-out && npm run lighthouse -- signed-in)
                                   # 8. required if you touched frontend/**
