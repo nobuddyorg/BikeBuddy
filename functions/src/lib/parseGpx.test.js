@@ -338,6 +338,7 @@ describe('parseGpx', () => {
         thrown = error;
       }
       expect(thrown).toBeInstanceOf(InvalidGpxError);
+      expect(thrown.name).toBe('InvalidGpxError');
       expect(thrown.message).toBe('Not a valid GPX file');
       expect(thrown.cause).toBeInstanceOf(Error);
     });

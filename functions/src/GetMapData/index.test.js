@@ -167,6 +167,18 @@ describe('GET /api/map', () => {
     }
   });
 
+  it('holds a map above 100,000 points to that budget, 50 m apart at most, by default', async () => {
+    const longTrack = Array.from({ length: 100_001 }, (_, index) => [48.0, 11.0 + index * 0.00001]);
+    const { run } = setUp({ documents: [{ id: 'long', userId: 'u1', heatmapData: longTrack }] });
+
+    const [{ heatmapData }] = (await run()).jsonBody;
+
+    expect(heatmapData.length).toBeLessThanOrEqual(100_000);
+    for (let index = 1; index < heatmapData.length; index++) {
+      expect(distanceMeters(heatmapData[index - 1], heatmapData[index])).toBeLessThanOrEqual(50);
+    }
+  }, 30_000); // 100,001 points take seconds under mutation instrumentation
+
   it('serves a repeat load of an unchanged tour set from the cache', async () => {
     const { run } = setUp({ heatmapCache: createHeatmapCache() });
 
