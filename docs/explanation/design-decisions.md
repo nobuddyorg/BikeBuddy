@@ -134,6 +134,11 @@ internet-facing Functions app) means a compromise of the web app can't delete
 arbitrary users. GDPR allows the identity removal to complete shortly after (the
 app data — the bulk of personal data — is already gone).
 
+Deleted data stays in the backups for a bounded time and then expires on its
+own: Cosmos continuous backup can restore it for 7 days, and blob soft delete
+and previous versions keep it for 14 (#541). That window is what makes an
+accidental or malicious delete recoverable; nothing outlives it.
+
 What the job accepts (`functions/scripts/lib/deletionJob.js`, unit-tested with
 fakes; a change to it is security-relevant):
 
@@ -174,7 +179,14 @@ bootstrap prerequisite (it can't create itself).
 
 The Cosmos account is not zone-redundant: at this scale the cost target wins,
 and zone-redundant accounts are capacity-constrained in West Europe. Backup,
-not redundancy, is the answer to losing data (#541).
+not redundancy, is the answer to losing data (#541): Cosmos runs continuous
+backup at the free 7-day tier (point-in-time restore into a new account), and
+the storage account keeps deleted blobs and containers for 14 days, with
+versioning so an overwrite is recoverable too; a lifecycle rule expires
+previous versions after the same 14 days. Neither protects against losing the
+region, which LRS and a single-region Cosmos account accept for the cost
+target. The restore steps are in the
+[infrastructure guide](../how-to/infrastructure.md#restore-user-data).
 
 ## Encryption at rest
 
@@ -280,8 +292,8 @@ line:
 | Finding                                                           | Why it is accepted                                                                                           | Lifted by |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
 | AZU-0012 storage network default allow                            | browsers load photos by SAS URL, and Flex Consumption without paid VNet integration uses the public endpoint | #556      |
-| AZU-0057 storage logging                                          | billed per GB, read by nobody today                                                                          | #541      |
-| AZU-0058 no geo-redundant replication                             | LRS keeps the cost target; backup is the answer to region loss                                               | #541      |
+| AZU-0057 storage logging                                          | billed per GB, read by nobody today; recovery relies on soft delete and versioning, not logs                 | —         |
+| AZU-0058 no geo-redundant replication                             | LRS keeps the cost target; soft delete and versioning cover deletes and overwrites, not region loss          | —         |
 | AZU-0060 no customer-managed key                                  | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
 | AZU-0061 no infrastructure encryption                             | fixed at account creation, not retrofitted                                                                   | —         |
 | TFLint `…_missing_prevent_destroy` on the `images` container      | unused and empty; photos live in the unmanaged `tour-images` container                                       | #568      |

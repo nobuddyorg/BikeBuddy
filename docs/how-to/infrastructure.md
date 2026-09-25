@@ -57,7 +57,10 @@ az login && az account set --subscription <SUB_ID>
 
 then set `storage_account_name` in `main.tf`. The state resource group lives in
 `westeurope`, independent of the app's `location` variable (default
-`northeurope`).
+`northeurope`). The script also turns on versioning and 30-day soft delete for
+the state and puts a `CanNotDelete` lock on its resource group. It is
+idempotent: rerun it with the existing account's name to apply those to an
+environment set up before them.
 
 ## CI credentials
 
@@ -90,6 +93,45 @@ plan while any of them is empty, so a missing or renamed variable stops the
 deploy rather than shipping an API without auth, and `SKIP_AUTH` is never part
 of the deployed app settings (#545). No-auth mode exists only locally
 (`SKIP_AUTH=true` in `functions/local.settings.json`).
+
+## Restore user data
+
+What stays recoverable, and for how long (#541; pinned by
+`infrastructure/tests/backup.tftest.hcl`):
+
+| Data                                    | Mechanism                                   | Window  |
+| --------------------------------------- | ------------------------------------------- | ------- |
+| Cosmos: `users`, `tours`, `deletions`   | Continuous backup, point-in-time restore    | 7 days  |
+| Blobs: GPX files, photos, thumbnails    | Soft delete, versioning (previous versions) | 14 days |
+| Blob containers                         | Container soft delete                       | 14 days |
+| OpenTofu state (`bikebuddy-tfstate-rg`) | Versioning, soft delete (`setup-state`)     | 30 days |
+
+Past the window the data is gone for good, which is also what bounds how long
+a deleted account's data lingers (design decisions, "Account deletion").
+
+**Cosmos.** A point-in-time restore creates a **new** account; it never
+overwrites the live one. Pick a timestamp just before the damage:
+
+```bash
+az cosmosdb restore --resource-group bikebuddy-rg \
+  --account-name <live-account> --target-database-account-name <live-account>-restore \
+  --restore-timestamp 2026-09-25T10:00:00Z --location northeurope
+```
+
+Read what you need from the restored account (the same database and
+container names) and write it back into the live one with a reviewed one-off
+script. The restored account is not in OpenTofu state: delete it once done.
+
+**Blobs.** Versioning is on, so a deleted or overwritten blob lives on as a
+previous version: in the portal, open the blob (list with **Show deleted
+blobs** and versions), pick the version and **Make current version**. From the
+CLI, `az storage blob list --include vd --prefix <userId>/` lists versions and
+deleted blobs. A deleted container comes back with
+`az storage container list --include-deleted` and
+`az storage container restore --name <container> --deleted-version <version>`.
+
+**State.** Restore the previous version of `tfstate/bikebuddy.tfstate` the same
+way, then `tofu plan` to check it matches Azure before anything is applied.
 
 ## Budget
 
