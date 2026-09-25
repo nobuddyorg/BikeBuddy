@@ -149,7 +149,7 @@ describe('GET /api/tours/{tourId}', () => {
     const response = await run(OTHER_TOUR_ID);
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
     expect([...images.calls, ...gpx.calls]).toEqual([]);
   });
 

@@ -85,7 +85,7 @@ async function mockApi(page: Page, tours: MockTour[]) {
   await page.route('**/api/tours/*', (route) => {
     const tourId = new URL(route.request().url()).pathname.split('/').pop();
     const tour = tours.find((candidate) => candidate.id === tourId);
-    if (!tour) return json(route, { status: 404, body: { error: 'Tour not found' } });
+    if (!tour) return json(route, { status: 404, body: { error: 'errors.tourNotFound' } });
     return json(route, { body: tourDetail(tour) });
   });
 }

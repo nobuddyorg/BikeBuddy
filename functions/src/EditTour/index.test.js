@@ -147,7 +147,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     const response = await run(OTHER_TOUR_ID, withBody({ name: 'Hijacked' }));
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
     expect(tours.stored(OTHER_TOUR_ID, 'u2').name).toBe('Not yours');
     expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
   });

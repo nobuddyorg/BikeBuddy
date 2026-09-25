@@ -2,7 +2,7 @@
 'use strict';
 
 const { z } = require('zod');
-const { error } = require('./http');
+const { ERROR_KEYS, error } = require('./http');
 
 const stripHtml = (text) => text.replace(/[<>]/g, '').trim();
 
@@ -19,14 +19,14 @@ const tourMetaSchema = z.object({
 
 // The frontend shows these through i18n (frontend/src/locales/), never Zod's English.
 const TOUR_META_ERROR_KEYS = {
-  name: 'errors.tourName',
-  description: 'errors.tourDescription',
-  createdAt: 'errors.tourDate',
+  name: ERROR_KEYS.tourName,
+  description: ERROR_KEYS.tourDescription,
+  createdAt: ERROR_KEYS.tourDate,
 };
 
 function tourMetaError(zodError) {
   const [field] = zodError.issues[0].path;
-  return error(400, TOUR_META_ERROR_KEYS[field] ?? 'errors.tourInvalid');
+  return error(400, TOUR_META_ERROR_KEYS[field] ?? ERROR_KEYS.tourInvalid);
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

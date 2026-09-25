@@ -62,7 +62,7 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(request)).rejects.toMatchObject({
       status: 400,
-      message: 'File exceeds 10 MB limit',
+      message: 'errors.fileSize',
     });
     expect(request.body.locked).toBe(false);
   });
@@ -72,7 +72,7 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(oversized))).rejects.toMatchObject({
       status: 400,
-      message: 'File exceeds 10 MB limit',
+      message: 'errors.fileSize',
     });
   });
 
@@ -81,7 +81,7 @@ describe('parseMultipart', () => {
 
     await expect(
       parseMultipart(makeRequest(oversized, { contentLength: 10 })),
-    ).rejects.toMatchObject({ status: 400, message: 'File exceeds 10 MB limit' });
+    ).rejects.toMatchObject({ status: 400, message: 'errors.fileSize' });
   });
 
   it('accepts a file exactly at the limit', async () => {
@@ -119,7 +119,7 @@ describe('parseMultipart', () => {
 
       await expect(parseMultipart(request)).rejects.toMatchObject({
         status: 400,
-        message: 'Invalid multipart request',
+        message: 'errors.invalidUpload',
       });
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('Boundary not found'));
     } finally {
@@ -132,14 +132,14 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(noFile))).rejects.toMatchObject({
       status: 400,
-      message: 'No file field found in request',
+      message: 'errors.noFile',
     });
   });
 
   it('rejects a request with no body at all', async () => {
     await expect(parseMultipart(makeRequest(null))).rejects.toMatchObject({
       status: 400,
-      message: 'No file field found in request',
+      message: 'errors.noFile',
     });
   });
 
@@ -155,7 +155,7 @@ describe('parseMultipart', () => {
     // The client dropped the connection; a 500 would blame the server.
     await expect(parseMultipart(request)).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
   });
 
@@ -169,7 +169,7 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
   });
 
@@ -180,7 +180,7 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
   });
 

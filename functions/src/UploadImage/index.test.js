@@ -151,21 +151,21 @@ describe('POST /api/tours/{tourId}/images', () => {
     const response = await run();
 
     expect(response.status).toBe(400);
-    expect(response.jsonBody.error).toBe('Only JPEG or PNG images are accepted');
+    expect(response.jsonBody.error).toBe('errors.imageType');
     expect(images.calls).toEqual([]);
     expect(tours.calls.map((call) => call.operation)).toEqual(['read']);
   });
 
   it('returns the parser message for an upload the client got wrong', async () => {
     const parseFile = async () => {
-      throw clientError('File exceeds 10 MB limit');
+      throw clientError('errors.fileSize');
     };
     const { run } = setUp({ parseFile });
 
     const response = await run();
 
     expect(response.status).toBe(400);
-    expect(response.jsonBody.error).toBe('File exceeds 10 MB limit');
+    expect(response.jsonBody.error).toBe('errors.fileSize');
   });
 
   it('rethrows a parser failure that is not the client’s fault', async () => {
@@ -235,7 +235,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     const refused = await twenty.run();
 
     expect(refused.status).toBe(400);
-    expect(refused.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
+    expect(refused.jsonBody.error).toBe('errors.tourImageLimit');
     expect(parseFile).not.toHaveBeenCalled();
     expect(twenty.images.calls).toEqual([]);
   });
@@ -252,7 +252,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     const response = await run();
 
     expect(response.status).toBe(400);
-    expect(response.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
+    expect(response.jsonBody.error).toBe('errors.tourImageLimit');
     expect(images.names()).toEqual([]);
     expect(storedImages()).toHaveLength(20);
   });
@@ -284,7 +284,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     const response = await run();
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
     expect(images.names()).toEqual([]);
   });
 
@@ -316,7 +316,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     const response = await run(OTHER_TOUR_ID);
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
     expect(storedImages(OTHER_TOUR_ID, 'u2')).toEqual([]);
     expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
     expect(images.calls).toEqual([]);

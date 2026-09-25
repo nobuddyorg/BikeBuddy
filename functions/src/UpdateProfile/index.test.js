@@ -4,7 +4,7 @@ const { updateProfile } = require('./index');
 const { fakeUsersContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
 const { signedInAs, signedOut, fixedClock, NOW } = require('../../test/fakes/collaborators');
 
-const INVALID = 'A name (1–200 characters) or a supported language is required.';
+const INVALID = 'errors.profileInvalid';
 const STORED = { id: 'u1', name: null, email: 'ada@example.com', createdAt: 'x' };
 const OTHER_USER = { id: 'u2', name: 'Grace', email: 'grace@example.com', createdAt: 'y' };
 

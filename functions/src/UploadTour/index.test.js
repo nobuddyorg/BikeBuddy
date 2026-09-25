@@ -213,12 +213,12 @@ describe('POST /api/tours/upload', () => {
     [
       'a file without XML magic bytes',
       { parseFile: fileOf('not xml at all') },
-      'File does not appear to be a valid GPX/XML file',
+      'errors.gpxInvalid',
     ],
     [
       'XML that is not GPX',
       { parseFile: fileOf('<?xml version="1.0"?><notgpx/>') },
-      'Could not parse GPX file',
+      'errors.gpxInvalid',
     ],
     [
       'a GPX file without a single track or route point',
@@ -229,10 +229,10 @@ describe('POST /api/tours/upload', () => {
       'an upload the parser refuses',
       {
         parseFile: async () => {
-          throw clientError('No file field found in request');
+          throw clientError('errors.noFile');
         },
       },
-      'No file field found in request',
+      'errors.noFile',
     ],
   ])('returns 400 for %s, storing nothing', async (_label, { query, parseFile }, message) => {
     const { tours, gpx, run } = setUp({ parseFile });
@@ -242,6 +242,24 @@ describe('POST /api/tours/upload', () => {
     expect(response.status).toBe(400);
     expect(response.jsonBody.error).toBe(message);
     expect([...tours.calls, ...gpx.calls]).toEqual([]);
+  });
+
+  it('refuses a file without XML magic bytes before parsing it', async () => {
+    const parseTrack = vi.fn();
+
+    const response = await uploadTour(
+      { query: new URLSearchParams() },
+      {
+        authenticate: signedInAs('u1'),
+        toursContainer: () => fakeToursContainer(),
+        gpxContainer: async () => fakeGpxContainer(),
+        parseFile: fileOf('not xml at all'),
+        parseTrack,
+      },
+    );
+
+    expect(response.jsonBody).toEqual({ error: 'errors.gpxInvalid' });
+    expect(parseTrack).not.toHaveBeenCalled();
   });
 
   it('rethrows a GPX parser failure that is not an invalid file', async () => {

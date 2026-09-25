@@ -100,7 +100,7 @@ describe('tours HTTP lifecycle', () => {
     });
 
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe('File exceeds 10 MB limit');
+    expect((await response.json()).error).toBe('errors.fileSize');
     expect(await rider.api.readJson('/tours')).toEqual(before);
   });
 
@@ -129,9 +129,7 @@ describe('tours HTTP lifecycle', () => {
     const refusals = await Promise.all(
       responses.filter((response) => response.status === 400).map((response) => response.json()),
     );
-    expect(refusals).toEqual(
-      Array(3).fill({ error: 'This tour already has the maximum of 20 photos.' }),
-    );
+    expect(refusals).toEqual(Array(3).fill({ error: 'errors.tourImageLimit' }));
     expect((await rider.api.readJson(`/tours/${tourId}`)).images).toHaveLength(20);
   }, 60_000);
 

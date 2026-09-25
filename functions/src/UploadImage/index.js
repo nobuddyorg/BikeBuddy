@@ -14,7 +14,7 @@ const { isJpegOrPng } = require('../lib/fileSignatures');
 const { isImageContentType } = require('../lib/validation');
 const { toSignedImage } = require('../lib/tourImages');
 const { settleAll, withRollback } = require('../lib/settle');
-const { error } = require('../lib/http');
+const { ERROR_KEYS, error } = require('../lib/http');
 
 const MAX_TOUR_IMAGES = 20;
 
@@ -28,7 +28,7 @@ async function readImageUpload(request, parseFile) {
   }
   // The declared type and the actual bytes.
   if (!isImageContentType(file.mimeType) || !isJpegOrPng(file.buffer)) {
-    return { response: error(400, 'Only JPEG or PNG images are accepted') };
+    return { response: error(400, ERROR_KEYS.imageType) };
   }
   return { file };
 }
@@ -55,7 +55,6 @@ async function storeVariants(container, { blobName, variants }) {
   );
 }
 
-const TOUR_FULL_MESSAGE = `This tour already has the maximum of ${MAX_TOUR_IMAGES} photos.`;
 // Each 412 means another write landed first; a user's own edits cannot hold an upload forever.
 const MAX_APPEND_ATTEMPTS = 10;
 
@@ -103,8 +102,8 @@ async function appendImageEntry(container, { tour, userId, image }) {
 }
 
 const REFUSALS = {
-  full: () => error(400, TOUR_FULL_MESSAGE),
-  gone: () => error(404, 'Tour not found'),
+  full: () => error(400, ERROR_KEYS.tourImageLimit),
+  gone: () => error(404, ERROR_KEYS.tourNotFound),
 };
 
 // A refused append leaves blobs no entry points to, so it rolls them back like a failed one.
@@ -136,7 +135,7 @@ async function uploadImage(
   const { tour } = guard;
   const { userId } = guard.user;
 
-  if (tour.images?.length >= MAX_TOUR_IMAGES) return error(400, TOUR_FULL_MESSAGE);
+  if (tour.images?.length >= MAX_TOUR_IMAGES) return error(400, ERROR_KEYS.tourImageLimit);
   const upload = await readImageUpload(request, parseFile);
   if (upload.response) return upload.response;
 

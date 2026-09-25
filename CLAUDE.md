@@ -154,8 +154,9 @@ iac`. Never `tofu apply` against production by hand; `deploy.yml` does it.
   (`./buddy.sh test load`, the backend report, the coverage tables).
 - **i18n:** every user-facing string goes through the i18n layer and exists in
   **all seven** locales (`frontend/src/locales/{de,en,es,fr,it,nl,pt}.json`)
-  in the same change. English is the default locale. API error messages are
-  English strings today; localizing them is #587.
+  in the same change. English is the default locale. An API error body is one
+  of the i18n keys in `functions/src/lib/http.js` (`ERROR_KEYS`), never prose;
+  a unit test holds each to all seven locales.
 - **Tests:** a UI change gets an e2e case for its journey; a functional change
   gets a unit test asserting behavior, not implementation; an authorization
   change gets its integration case. E2E specs reach the app only through the

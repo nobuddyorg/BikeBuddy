@@ -31,6 +31,7 @@ const PRECACHE_URLS = [
   'vendor/leaflet/images/marker-shadow.png',
   'vendor/msal-browser.min.js',
   'vendor/fonts/archivo-700.woff2',
+  'lib/apiErrors.js',
   'lib/authConfig.js',
   'lib/concurrency.js',
   'lib/debounce.js',

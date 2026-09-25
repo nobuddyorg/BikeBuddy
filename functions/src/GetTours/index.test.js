@@ -73,7 +73,7 @@ describe('GET /api/tours', () => {
 
     const response = await run();
 
-    expect(response).toEqual({ status: 401, jsonBody: { error: 'Unauthorized' } });
+    expect(response).toEqual({ status: 401, jsonBody: { error: 'errors.unauthorized' } });
     expect(tours.calls).toEqual([]);
   });
 });

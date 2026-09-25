@@ -12,7 +12,7 @@ const { gpxBlobName } = require('../lib/blobNames');
 const { withRollback } = require('../lib/settle');
 const { nameSchema, tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { toCreatedTourResponse } = require('../lib/tourResponse');
-const { unauthorized, error } = require('../lib/http');
+const { ERROR_KEYS, unauthorized, error } = require('../lib/http');
 
 async function readGpxUpload(request, { parseFile, parseTrack }) {
   let file;
@@ -23,15 +23,15 @@ async function readGpxUpload(request, { parseFile, parseTrack }) {
     return { response: error(400, parseError.message) };
   }
   if (!looksLikeXml(file.buffer)) {
-    return { response: error(400, 'File does not appear to be a valid GPX/XML file') };
+    return { response: error(400, ERROR_KEYS.gpxInvalid) };
   }
   try {
     return { file, track: parseTrack(file.buffer) };
   } catch (gpxError) {
     if (gpxError instanceof NoTrackPointsError)
-      return { response: error(400, 'errors.gpxNoTrack') };
+      return { response: error(400, ERROR_KEYS.gpxNoTrack) };
     if (!(gpxError instanceof InvalidGpxError)) throw gpxError;
-    return { response: error(400, 'Could not parse GPX file') };
+    return { response: error(400, ERROR_KEYS.gpxInvalid) };
   }
 }
 

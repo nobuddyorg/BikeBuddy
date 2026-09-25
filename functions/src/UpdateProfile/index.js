@@ -7,7 +7,7 @@ const db = require('../lib/db');
 const system = require('../lib/system');
 const { nameSchema, languageSchema } = require('../lib/validation');
 const { profileFromClaims, newUserDocument, toUserResponse } = require('../lib/userProfile');
-const { unauthorized, error } = require('../lib/http');
+const { ERROR_KEYS, unauthorized, error } = require('../lib/http');
 
 // A brand-new account has no name yet, so a language must be savable alone.
 const profileSchema = z
@@ -15,7 +15,6 @@ const profileSchema = z
   .refine((data) => data.name !== undefined || data.language !== undefined, {
     message: 'A name or a language is required.',
   });
-const INVALID_PROFILE = 'A name (1–200 characters) or a supported language is required.';
 
 // Malformed JSON reads as an empty body, which the schema then refuses.
 async function readJsonBody(request) {
@@ -40,7 +39,7 @@ async function updateProfile(
   if (!user) return unauthorized();
 
   const parsed = profileSchema.safeParse(await readJsonBody(request));
-  if (!parsed.success) return error(400, INVALID_PROFILE);
+  if (!parsed.success) return error(400, ERROR_KEYS.profileInvalid);
 
   const { userId } = user;
   const container = usersContainer();
