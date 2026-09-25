@@ -42,6 +42,34 @@ fullstackTest('tour lifecycle: upload → list → detail → photo → delete',
   await expect.poll(devUserBlobNames, AFTER_UNDO_WINDOW).toEqual([]);
 });
 
+fullstackTest(
+  'Undo keeps a deleted tour: no delete request, still stored',
+  async ({ on, page }) => {
+    // A fake clock, so the test runs past the Undo window without waiting it out.
+    await page.clock.install();
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    const tourName = 'CI E2E Undo Tour';
+    await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+    const deleteRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'DELETE') deleteRequests.push(request.url());
+    });
+
+    await on(page).detail.do.deleteTour();
+    await expect(on(page).list.row(tourName)()).toHaveCount(0);
+    await on(page).main.do.undo();
+    await expect(on(page).list.row(tourName)()).toHaveCount(1);
+    await page.clock.runFor(10_000);
+    // A reload lists what the API holds, so a delete fired by the timer would have gone out first.
+    await page.reload();
+
+    await expect(on(page).list.row(tourName)()).toHaveCount(1);
+    expect(deleteRequests).toEqual([]);
+    expect((await devUserTours()).map((tour) => tour.name)).toEqual([tourName]);
+  },
+);
+
 fullstackTest.describe('a GPX file without track points', () => {
   // The refused upload's 400 is the expected answer, which the browser logs as a console error.
   fullstackTest.use({

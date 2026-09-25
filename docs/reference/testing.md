@@ -113,7 +113,7 @@ and what catches it today. **Covered**: a test fails if the risk comes back.
 | #577  | No schema versioning; backfill scripts lack dry run and batching                     | Handler unit (old shape) + dry run | Covered | New tours and users carry `schemaVersion`; the backfills (stats, thumbnails, schema version) are dry by default, paged, unit-tested and run through `./buddy.sh maintenance backfill`; the old-shape shims go once the schema-version dry run reports nothing left                                                             |
 | #549  | No per-user quotas or rate limiting                                                  | Design + cost guards               | Partly  | Per-request cost is bounded by the two guards; per-user volume is not                                                                                                                                                                                                                                                          |
 | #544  | Service worker serves stale JS/CSS                                                   | Unit                               | Covered | `frontend/test/sw.test.js` runs `sw.js` in a fake worker scope: modules come from the network and refresh the cache, the cache answers only offline, and the precache bypasses the HTTP cache                                                                                                                                  |
-| #559  | Undo-able deletes are lost when the tab closes                                       | DOM-layer unit + E2E               | Not     | No test clicks Undo or closes the page during the grace period                                                                                                                                                                                                                                                                 |
+| #559  | Undo-able deletes are lost when the tab closes                                       | DOM-layer unit + E2E               | Not     | No test closes the page during the grace period; Undo itself is covered: `tours.spec.ts` (full stack) clicks it, runs a fake clock past the grace period and finds no DELETE sent and the tour still stored                                                                                                                    |
 | #574  | Contract duplication and DTO drift                                                   | Contract check                     | Partly  | `frontendContract.test.js` holds the photo cap, the 10 MB limit, every name/description `maxlength`, the languages and every API error key to the frontend; static E2E mocks and `.zap/openapi.yaml` are still hand-written                                                                                                    |
 | #556  | Account keys instead of managed identity                                             | Design, not a test                 | Not     | Revisit the playbook's §0 when it lands                                                                                                                                                                                                                                                                                        |
 
@@ -137,8 +137,9 @@ Measured against the playbook. Each has an issue unless marked **no issue**
   user's partition and blob prefix, before and after. Test-signed tokens reach
   the integration suite only.
 - **Mutation blind spots**: `ignoreStatic` skips top-level limit constants;
-  `parseMultipart.js`, `db.js` and `blobStorage.js` are outside the mutation
-  list and the integration suite does not reach all their paths.
+  `db.js` and `blobStorage.js` are outside the mutation list and the
+  integration suite does not reach all their paths (`parseMultipart.js` joined
+  the list in #567).
 - **Two emulator guards** (**no issue**): `functions/test/integration/emulatorGuard.js`
   and `e2e/emulator-guard.ts` repeat the same checks in two languages; a third
   user extracts them.

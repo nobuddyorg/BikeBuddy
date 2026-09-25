@@ -41,7 +41,8 @@ function collectFirstFile(parser, { resolve, reject }) {
     fileStream.on('limit', () => reject(badRequest(ERROR_KEYS.fileSize)));
     fileStream.on('data', (chunk) => chunks.push(chunk));
     fileStream.on('end', () => resolve({ filename, mimeType, buffer: Buffer.concat(chunks) }));
-    fileStream.on('error', (error) => reject(malformedRequest(error)));
+    // busboy destroys the file with the parser's own error, which the parser's handler reports.
+    fileStream.on('error', () => {});
   });
   parser.on('error', (error) => reject(malformedRequest(error)));
   parser.on('finish', () => reject(badRequest(ERROR_KEYS.noFile)));
@@ -57,7 +58,7 @@ async function parseMultipart(request) {
   const headers = Object.fromEntries(request.headers.entries());
 
   // A shortcut for honestly declared lengths only; the stream limit enforces.
-  const contentLength = parseInt(headers['content-length'] ?? '', 10);
+  const contentLength = Number(headers['content-length']);
   if (contentLength > MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES) {
     throw badRequest(ERROR_KEYS.fileSize);
   }
@@ -67,18 +68,12 @@ async function parseMultipart(request) {
   const webBody = request.body;
   if (!webBody) throw badRequest(ERROR_KEYS.noFile);
 
+  // A promise settles once, so whichever of file, finish or error comes first decides.
   return new Promise((resolve, reject) => {
-    let settled = false;
-    const once = (settle) => (value) => {
-      if (settled) return;
-      settled = true;
-      settle(value);
-    };
-    const rejectOnce = once(reject);
-    collectFirstFile(parser, { resolve: once(resolve), reject: rejectOnce });
+    collectFirstFile(parser, { resolve, reject });
 
     const body = Readable.fromWeb(webBody);
-    body.on('error', (error) => rejectOnce(malformedRequest(error)));
+    body.on('error', (error) => reject(malformedRequest(error)));
     body.pipe(parser);
   });
 }

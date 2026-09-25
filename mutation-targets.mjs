@@ -28,6 +28,7 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/ownedTour.js',
   'src/lib/parseGpx.js',
   'src/lib/parseGpxOffThread.js',
+  'src/lib/parseMultipart.js',
   'src/lib/pendingDeletion.js',
   'src/lib/resizeImage.js',
   'src/lib/schemaVersion.js',

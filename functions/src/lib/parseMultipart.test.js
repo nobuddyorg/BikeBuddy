@@ -159,8 +159,9 @@ describe('parseMultipart', () => {
     });
   });
 
-  // A dropped connection surfaces on the file stream or on busboy; both must settle as a 400.
-  it('rejects a request that ends mid-file as a client error', async () => {
+  // A dropped connection errors the file stream and busboy with one error, logged once.
+  it('rejects a request that ends mid-file as a client error, logging it once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const truncated = Buffer.from(
       `--${BOUNDARY}\r\n` +
         `Content-Disposition: form-data; name="file"; filename="tour.gpx"\r\n` +
@@ -171,6 +172,8 @@ describe('parseMultipart', () => {
       status: 400,
       message: 'errors.invalidUpload',
     });
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it('rejects a request that ends inside the part headers as a client error', async () => {

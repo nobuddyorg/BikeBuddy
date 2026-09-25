@@ -18,6 +18,8 @@ interface MainPage {
     openMobileMap(): Promise<void>;
     /** Clears what this browser remembers (language, sign-out), as a second device would lack it. */
     forgetLocalSettings(): Promise<void>;
+    /** Clicks Undo on the newest toast that offers it. */
+    undo(): Promise<void>;
     /** Uploads through the modal; returns once the new tour is open. */
     uploadGpx(upload: { name: string; gpx: string }): Promise<void>;
   };
@@ -27,6 +29,8 @@ interface MainPage {
     authPrompt: Locator;
     /** Error toasts (role=alert) currently shown. */
     alerts: Locator;
+    /** Action buttons (Undo) on the toasts currently shown. */
+    toastActions: Locator;
     sidebar: Locator;
     sidebarTitle: Locator;
     buttons: {
@@ -47,6 +51,7 @@ export function initMainPage(page: Page): MainPage {
     userMenu: page.locator('#user-menu'),
     authPrompt: page.locator('#auth-prompt'),
     alerts: page.locator('#toasts').getByRole('alert'),
+    toastActions: page.locator('#toasts').getByTestId('toast-action'),
     sidebar: page.locator('#sidebar'),
     sidebarTitle: page.locator('#sidebar-title'),
     buttons: {
@@ -73,6 +78,7 @@ export function initMainPage(page: Page): MainPage {
     toggleSidebar: async () => locators.buttons.mapExpand.click(),
     openMobileMap: async () => locators.buttons.mobileMapFab.click(),
     forgetLocalSettings: async () => page.evaluate(() => localStorage.clear()),
+    undo: async () => locators.toastActions.last().click(),
     uploadGpx: async ({ name, gpx }: { name: string; gpx: string }) => {
       await locators.buttons.upload.click();
       const upload = initUploadModal(page);
