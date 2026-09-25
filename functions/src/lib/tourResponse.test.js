@@ -139,4 +139,26 @@ describe('gpxDownloadDisposition', () => {
   it('names the download after a numeric name stored before #548', () => {
     expect(gpxDownloadDisposition(20240512)).toBe('attachment; filename="20240512.gpx"');
   });
+
+  it('keeps non-ASCII letters in filename*, with an accent-free ASCII fallback', () => {
+    expect(gpxDownloadDisposition('Größe Runde')).toBe(
+      `attachment; filename="Gro_e_Runde.gpx"; filename*=UTF-8''Gr%C3%B6%C3%9Fe_Runde.gpx`,
+    );
+    expect(gpxDownloadDisposition('Château Étape')).toBe(
+      `attachment; filename="Chateau_Etape.gpx"; filename*=UTF-8''Ch%C3%A2teau_%C3%89tape.gpx`,
+    );
+  });
+
+  it('falls back to "tour" when no ASCII letter is left, keeping the name in filename*', () => {
+    expect(gpxDownloadDisposition('Москва')).toBe(
+      `attachment; filename="tour.gpx"; filename*=UTF-8''%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0.gpx`,
+    );
+  });
+
+  it('never lets a quote, semicolon or apostrophe into either filename', () => {
+    const disposition = gpxDownloadDisposition(`Tür"; filename="x'.exe`);
+    expect(disposition).toBe(
+      `attachment; filename="Tur_filename_x_exe.gpx"; filename*=UTF-8''T%C3%BCr_filename_x_exe.gpx`,
+    );
+  });
 });
