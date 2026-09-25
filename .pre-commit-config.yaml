@@ -178,6 +178,17 @@ repos:
         files: ^load/.*\.(js|mjs)$
         stages: [pre-commit]
 
+  # frontend/src/vendor/ byte-identical to the pinned npm packages; after a bump: node scripts/quality/verify-vendor.mjs --write
+  - repo: local
+    hooks:
+      - id: verify-vendor
+        name: Vendored libraries match frontend/node_modules
+        entry: node scripts/quality/verify-vendor.mjs
+        language: system
+        pass_filenames: false
+        files: ^(frontend/src/vendor/|frontend/package(-lock)?\.json$|scripts/quality/verify-vendor\.mjs$)
+        stages: [pre-commit]
+
   # ESLint (frontend/) — browser + ESM; reuses functions' eslint install. Runs
   # from the repo root so the files are inside ESLint's base path.
   - repo: local
