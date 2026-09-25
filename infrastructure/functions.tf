@@ -3,7 +3,7 @@ resource "azurerm_service_plan" "main" {
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   os_type             = "Linux"
-  sku_name            = "FC1" # Flex Consumption — true serverless, scales to zero, no VM quota
+  sku_name            = "FC1" # Flex Consumption
   tags                = local.tags
 }
 
@@ -29,8 +29,7 @@ resource "azurerm_function_app_flex_consumption" "main" {
     COSMOS_CONNECTION_STRING = "AccountEndpoint=${azurerm_cosmosdb_account.main.endpoint};AccountKey=${azurerm_cosmosdb_account.main.primary_key};"
     COSMOS_DATABASE          = "bikebuddy"
     BLOB_CONNECTION_STRING   = azurerm_storage_account.main.primary_connection_string
-    # Microsoft Entra External ID (#8). Empty until the external tenant exists;
-    # CI fills these from repo variables and flips SKIP_AUTH to false.
+    # Empty Entra values (no External ID tenant yet) switch SKIP_AUTH on.
     ENTRA_TENANT_SUBDOMAIN = var.entra_tenant_subdomain
     ENTRA_TENANT_ID        = var.entra_tenant_id
     ENTRA_CLIENT_ID        = var.entra_client_id

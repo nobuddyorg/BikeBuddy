@@ -1,7 +1,4 @@
-// Runs one k6 flow from load/ against the local stack or (guarded) production;
-// the same command the k6 workflow runs. docs/how-to/load-testing.md.
-//   node load/run.mjs <flow> [--profile normal|peak|stress] [--target local-stack|hosted] [--confirm-production]
-//                            [--save-as <label>]   (copies load-results/<flow>.* to load-results/<label>/)
+// Usage: node load/run.mjs <flow> [--profile normal|peak|stress] [--target local-stack|hosted] [--confirm-production] [--save-as <label>]
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -51,11 +48,10 @@ if (values.target === 'local-stack') {
 // k6 writes the files handleSummary names but does not create their directory.
 mkdirSync(`${root}load-results`, { recursive: true });
 
-// The local Functions host's log (start-backend writes it); this run's slice of it
-// becomes the backend report when the host runs with LOAD_PROFILING=true.
-const funcLog = process.env.FUNC_LOG ?? '/tmp/func.log';
+// This run's slice of the Functions host log (start-backend writes it) becomes the backend report.
+const functionsHostLog = process.env.FUNCTIONS_HOST_LOG ?? '/tmp/func.log';
 const local = values.target === 'local-stack';
-const logOffset = local && existsSync(funcLog) ? statSync(funcLog).size : 0;
+const logOffset = local && existsSync(functionsHostLog) ? statSync(functionsHostLog).size : 0;
 
 console.log(`k6 ${flow}, ${values.profile} profile, against ${values.target} (${apiUrl})`);
 const { status } = spawnSync('k6', ['run', '--out', 'web-dashboard', `load/${flow}.js`], {
@@ -74,15 +70,15 @@ const { status } = spawnSync('k6', ['run', '--out', 'web-dashboard', `load/${flo
   },
 });
 
-if (local && existsSync(funcLog)) {
-  const text = readFileSync(funcLog).subarray(logOffset).toString('utf8');
+if (local && existsSync(functionsHostLog)) {
+  const text = readFileSync(functionsHostLog).subarray(logOffset).toString('utf8');
   const cpuDirectory = `${root}load-results/cpu`;
   console.log(
     writeReport({
       flow,
       title: `\`${flow}\`, \`${values.profile}\` profile`,
-      records: parseRecords(text),
-      cpuDirectory: existsSync(cpuDirectory) ? cpuDirectory : undefined,
+      parsedLog: parseRecords(text),
+      cpuDirectory: existsSync(cpuDirectory) ? cpuDirectory : '',
       directory: `${root}load-results`,
     }),
   );

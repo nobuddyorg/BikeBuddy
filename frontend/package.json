@@ -14,10 +14,12 @@
     "mutation:summary": "node ../functions/scripts/mutation-summary.mjs --title 'Mutation testing (frontend)' --artifact mutation-report-frontend"
   },
   "devDependencies": {
+    "@azure/msal-browser": "3.28.1",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@vitest/coverage-v8": "^4.1.11",
     "fast-check": "^4.10.2",
+    "leaflet": "1.9.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },

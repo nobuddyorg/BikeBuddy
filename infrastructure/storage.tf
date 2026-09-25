@@ -1,6 +1,3 @@
-# Encryption at rest is on by default with Microsoft-managed keys (AES-256) — no
-# config needed. We stay on platform-managed keys (no CMK/Key Vault) to keep
-# within the cost target; see docs/explanation/design-decisions.md.
 resource "azurerm_storage_account" "main" {
   name                            = "bikebuddyfiles${random_string.suffix.result}"
   resource_group_name             = azurerm_resource_group.main.name
@@ -22,21 +19,31 @@ resource "azurerm_storage_account" "main" {
       max_age_in_seconds = 3600
     }
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "azurerm_storage_container" "gpx_files" {
   name                  = "gpx-files"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
+# tflint-ignore: azurerm_resources_missing_prevent_destroy # unused and empty; photos live in the unmanaged tour-images container
 resource "azurerm_storage_container" "images" {
   name                  = "images"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
 }
 
-# Holds the zipped Functions package that the app runs via WEBSITE_RUN_FROM_PACKAGE.
+# Flex Consumption's deployment package container (functions.tf, storage_container_endpoint).
+# tflint-ignore: azurerm_resources_missing_prevent_destroy # holds only the app package, which every deploy re-uploads
 resource "azurerm_storage_container" "deployments" {
   name                  = "deployments"
   storage_account_id    = azurerm_storage_account.main.id

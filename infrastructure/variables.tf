@@ -4,8 +4,7 @@ variable "location" {
   default     = "northeurope"
 }
 
-# Microsoft Entra External ID (#8). Empty defaults keep the API in SKIP_AUTH mode
-# until the external tenant is created and these are supplied (via CI variables).
+# Microsoft Entra External ID; deploy.yml passes the repository variables, empty means no-auth mode.
 variable "entra_tenant_subdomain" {
   description = "External ID tenant subdomain, e.g. \"bikebuddy\" for bikebuddy.ciamlogin.com."
   type        = string
@@ -24,8 +23,6 @@ variable "entra_client_id" {
   default     = ""
 }
 
-# Cost guard rail (#3): monthly budget alert. Keeps spend bounded to the
-# free/serverless tiers (target < €5/month).
 variable "budget_amount" {
   description = "Monthly budget amount in the subscription's billing currency."
   type        = number
