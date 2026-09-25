@@ -185,8 +185,27 @@ the band), p95 −19.0 % and p99 −18.3 % (within it); `list` and `detail` −8
 −16 %, within the band. The count query still made three round trips, at
 2.9 s each.
 
-**Decision: reverted.** Only p50 cleared the band, and the change added a
-second query path to the handler.
+**Delta table**: the same loop rerun later on the #608 branch (September 2026:
+coordinates stored to five decimals, #576), with the candidate re-created,
+`node load/compare.mjs load-results/baseline load-results/candidate browse`,
+trimmed to the rows that matter here:
+
+| Scenario / handler | Metric            | Baseline | Candidate | Change | Verdict      |
+| ------------------ | ----------------- | -------- | --------- | ------ | ------------ |
+| map                | p50 ms            | 11258    | 9126      | −18.9% | within noise |
+| map                | p95 ms            | 12063    | 10139     | −16.0% | within noise |
+| map                | p99 ms            | 12423    | 10247     | −17.5% | within noise |
+| list               | p95 ms            | 4564     | 4308      | −5.6%  | within noise |
+| detail             | p95 ms            | 3844     | 3782      | −1.6%  | within noise |
+| GetMapData         | server p95 ms     | 12010    | 10106     | −15.9% | within noise |
+| GetMapData         | RU per request    | 4        | 4.08      | +2.0%  | within noise |
+| (worker)           | event-loop p99 ms | 47.3     | 13.6      | −71.2% | ✅ better    |
+
+**Decision: reverted.** Only the first measurement's p50 cleared the band, the
+rerun cleared none, and the change added a second query path to the handler. The one clear gain, the
+worker's event-loop p99, comes from no longer parsing every track on a warm
+cache; moving the track out of the tour document (#615) gets it without a
+second query path.
 
 **What the numbers pointed to instead.** A direct measurement on the idle
 emulator, 200 tours in one partition (every 20th with 5,000 points, the rest
