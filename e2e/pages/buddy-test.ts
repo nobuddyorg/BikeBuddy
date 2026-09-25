@@ -9,6 +9,7 @@ import { initUploadModal } from './upload-modal';
 import { initProfileModal } from './profile-modal';
 import { initEditModal } from './edit-modal';
 import { initHelpModal } from './help-modal';
+import { initStatsModal } from './stats-modal';
 import { initConfirmModal } from './confirm-modal';
 import { initLightbox } from './lightbox';
 
@@ -50,6 +51,9 @@ function createPageTree(page: Page) {
         },
         get help() {
           return initHelpModal(page);
+        },
+        get stats() {
+          return initStatsModal(page);
         },
         get confirm() {
           return initConfirmModal(page);

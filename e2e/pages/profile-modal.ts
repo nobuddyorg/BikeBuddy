@@ -13,6 +13,8 @@ interface ProfileModal {
     logout(): Promise<void>;
     deleteAccount(): Promise<void>;
     openDeleteAccount(): Promise<void>;
+    /** Types the confirmation phrase into the open delete-account dialog and confirms. */
+    confirmDeleteAccount(): Promise<void>;
     openLanguageMenu(): Promise<void>;
     close(): Promise<void>;
   };
@@ -83,6 +85,9 @@ export function initProfileModal(page: Page): ProfileModal {
     logout: async () => locators.buttons.logout.click(),
     deleteAccount: async () => {
       await locators.buttons.deleteAccount.click();
+      await interactions.confirmDeleteAccount();
+    },
+    confirmDeleteAccount: async () => {
       await locators.deleteAccountModal.input.fill('DELETE');
       await locators.deleteAccountModal.confirm.click();
     },

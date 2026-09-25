@@ -11,6 +11,8 @@ interface MainPage {
     openUpload(): Promise<void>;
     openProfile(): Promise<void>;
     openHelp(): Promise<void>;
+    /** Through whichever stats button the layout shows (header or tour list). */
+    openStats(): Promise<void>;
     logout(): Promise<void>;
     toggleSidebar(): Promise<void>;
     openMobileMap(): Promise<void>;
@@ -30,6 +32,7 @@ interface MainPage {
       upload: Locator;
       profile: Locator;
       help: Locator;
+      stats: Locator;
       mapExpand: Locator;
       mobileMapFab: Locator;
     };
@@ -48,6 +51,7 @@ export function initMainPage(page: Page): MainPage {
       upload: page.locator('#btn-upload'),
       profile: page.locator('#btn-profile'),
       help: page.locator('#btn-help'),
+      stats: page.locator('#btn-stats-header, #btn-stats').filter({ visible: true }).first(),
       mapExpand: page.locator('#btn-map-expand'),
       mobileMapFab: page.locator('#btn-mobile-map-fab'),
     },
@@ -57,6 +61,7 @@ export function initMainPage(page: Page): MainPage {
     openUpload: async () => locators.buttons.upload.click(),
     openProfile: async () => locators.buttons.profile.click(),
     openHelp: async () => locators.buttons.help.click(),
+    openStats: async () => locators.buttons.stats.click(),
     // Sign Out lives inside the profile modal.
     logout: async () => {
       await locators.buttons.profile.click();

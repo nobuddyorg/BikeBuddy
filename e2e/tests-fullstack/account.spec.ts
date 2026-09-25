@@ -34,7 +34,10 @@ fullstackTest('export downloads the account; delete removes all of it', async ({
   expect(await (await fetch(exported.tours[0].gpxFileUrl)).text()).toBe(GPX);
 
   expect(await devUserBlobNames()).not.toEqual([]);
-  await on(page).modal.profile.do.deleteAccount();
+  await on(page).modal.profile.do.openDeleteAccount();
+  await expect(on(page).modal.profile.locators.deleteAccountModal.root).toBeVisible();
+  await on(page).a11y.check('delete-account dialog');
+  await on(page).modal.profile.do.confirmDeleteAccount();
   await expect(on(page).main.locators.buttons.login).toBeVisible();
   await expect(on(page).main.locators.userMenu).toBeHidden();
 
