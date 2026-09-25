@@ -7,7 +7,8 @@ const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
 const system = require('../lib/system');
 const { parseMultipart } = require('../lib/parseMultipart');
-const { parseGpx, InvalidGpxError, NoTrackPointsError } = require('../lib/parseGpx');
+const { InvalidGpxError, NoTrackPointsError } = require('../lib/parseGpx');
+const { parseGpxOffThread } = require('../lib/parseGpxOffThread');
 const { looksLikeXml } = require('../lib/fileSignatures');
 const { gpxBlobName } = require('../lib/blobNames');
 const { withRollback } = require('../lib/settle');
@@ -28,7 +29,7 @@ async function readGpxUpload(request, { parseFile, parseTrack }) {
     return { response: error(400, ERROR_KEYS.gpxInvalid) };
   }
   try {
-    return { file, track: parseTrack(file.buffer) };
+    return { file, track: await parseTrack(file.buffer) };
   } catch (gpxError) {
     if (gpxError instanceof NoTrackPointsError)
       return { response: error(400, ERROR_KEYS.gpxNoTrack) };
@@ -73,7 +74,7 @@ async function uploadTour(
     toursContainer = db.toursContainer,
     gpxContainer = blobStorage.gpxContainer,
     parseFile = parseMultipart,
-    parseTrack = parseGpx,
+    parseTrack = parseGpxOffThread,
     newId = system.newId,
     now = system.currentTime,
   } = {},

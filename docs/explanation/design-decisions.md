@@ -422,6 +422,15 @@ out-of-order timestamps are a property too: the duration is never negative.
 - An unreadable `<time>` no longer rejects the file: the date falls back to the
   earliest valid point time (#575). The magic-byte check skips leading
   whitespace and XML comments.
+- Parsing runs on a worker thread (`lib/parseGpxOffThread.js`, #576): a 10 MB
+  file takes about a second of CPU (crafted ones up to five), and on the
+  request thread that stalled every other request on the instance. At most two
+  parse at once, since each holds the whole XML tree, and a worker gets 512 MB
+  of heap; a file that needs more is refused as an invalid GPX file. GPX keeps
+  the 10 MB limit, because a long ride with heart-rate extensions needs it.
+- Stored coordinates keep five decimals, about a metre, which halves the
+  track's share of every map and detail payload. Tours stored before keep full
+  precision; they read the same, so there is no backfill.
 
 ## Why load testing is manual and local by default
 

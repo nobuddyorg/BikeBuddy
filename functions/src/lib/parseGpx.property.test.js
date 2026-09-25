@@ -93,8 +93,9 @@ describe('parseGpx (properties)', () => {
     fc.assert(
       fc.property(recording, (points) => {
         const { heatmapData } = parseGpx(toGpx(points));
-        // As written to the file: `${-0}` is "0", so the sign of zero does not survive.
-        const asWritten = (point) => [Number(String(point.lat)), Number(String(point.lon))];
+        // As written to the file, then rounded to five decimals: `${-0}` is "0", so no sign of zero.
+        const rounded = (degrees) => Number(Number(String(degrees)).toFixed(5));
+        const asWritten = (point) => [rounded(point.lat), rounded(point.lon)];
         expect(heatmapData.length).toBeLessThanOrEqual(Math.min(points.length, 5001));
         expect(heatmapData[0]).toEqual(asWritten(points[0]));
         expect(heatmapData.at(-1)).toEqual(asWritten(points.at(-1)));

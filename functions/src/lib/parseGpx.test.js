@@ -59,6 +59,22 @@ describe('parseGpx', () => {
     expect(result.distanceKm).toBeCloseTo(133.3878, 2);
   });
 
+  it('stores coordinates to five decimals, about a metre', () => {
+    const result = parseGpx(
+      makeGpx({
+        points: [
+          [48.1351234567, 11.5820987654],
+          [-33.8688149999, 151.2092950001],
+        ],
+      }),
+    );
+
+    expect(result.heatmapData).toEqual([
+      [48.13512, 11.5821],
+      [-33.86881, 151.2093],
+    ]);
+  });
+
   it('returns heatmapData as [[lat, lon]] pairs', () => {
     const result = parseGpx(makeGpx({ points: TWO_POINTS }));
     expect(result.heatmapData).toEqual(TWO_POINTS);
