@@ -4,16 +4,11 @@ const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
 const jwksRsa = require('jwks-rsa');
 
+const { openIdConfigUrl } = require('../lib/oidcMetadataUrl');
+
 const verifyJwt = promisify(jwt.verify);
 const BEARER_PREFIX = 'Bearer ';
 const DEV_USER = { userId: 'local-dev-user', userEmail: 'dev@localhost', userName: 'Local Dev' };
-
-// ENTRA_TENANT_SUBDOMAIN is the leading host label ("bikebuddy"), ENTRA_TENANT_ID the directory GUID.
-function openIdConfigUrl(environment) {
-  const subdomain = environment.ENTRA_TENANT_SUBDOMAIN;
-  const tenantId = environment.ENTRA_TENANT_ID;
-  return `https://${subdomain}.ciamlogin.com/${tenantId}/v2.0/.well-known/openid-configuration`;
-}
 
 // Read from the metadata (the issuer host varies by Entra surface), refreshed on warm instances.
 const CONFIG_TTL_MS = 60 * 60 * 1000;
@@ -123,4 +118,4 @@ async function authenticate(
   }
 }
 
-module.exports = { authenticate, openIdConfigUrl, getOpenIdConfig, defaultJwksClient };
+module.exports = { authenticate, getOpenIdConfig, defaultJwksClient };

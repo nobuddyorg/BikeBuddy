@@ -1,7 +1,7 @@
 'use strict';
 
 // Deterministic guard (load-testing.md): ~20 km tracks only, longer ones exceed it (#546).
-const { BASE, uploadTour, deleteTour } = require('./api');
+const { connectHarness } = require('./harness');
 
 const TOURS = 60;
 const POINTS_PER_TOUR = 2000;
@@ -23,22 +23,22 @@ function gpx(index) {
 }
 
 const created = [];
+let rider;
 
 beforeAll(async () => {
+  rider = (await connectHarness()).newUser();
   for (let index = 0; index < TOURS; index++) {
-    const response = await uploadTour({ name: `Map budget ${index}`, gpx: gpx(index) });
-    expect(response.status).toBe(201);
-    created.push((await response.json()).tourId);
+    created.push(await rider.api.createTour({ name: `Map budget ${index}`, gpx: gpx(index) }));
   }
 }, 180_000);
 
 afterAll(async () => {
-  for (const tourId of created) await deleteTour(tourId);
+  await rider?.api.deleteAccount();
 }, 180_000);
 
 describe('GET /api/map budget', () => {
   it('simplifies 120,000 raw points back within the point budget and a bounded size', async () => {
-    const response = await fetch(`${BASE}/map`);
+    const response = await rider.api.request('/map');
     expect(response.status).toBe(200);
     const body = await response.text();
     const tours = JSON.parse(body);
@@ -48,6 +48,6 @@ describe('GET /api/map budget', () => {
     expect(points).toBeLessThanOrEqual(MAX_POINTS);
     expect(Buffer.byteLength(body)).toBeLessThanOrEqual(MAX_BYTES);
     // Every seeded tour is still on the map, however much it was simplified.
-    for (const id of created) expect(tours.some((tour) => tour.id === id)).toBe(true);
+    expect(tours.map((tour) => tour.id).sort()).toEqual([...created].sort());
   });
 });

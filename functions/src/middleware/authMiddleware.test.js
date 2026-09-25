@@ -2,12 +2,8 @@
 
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const {
-  authenticate,
-  openIdConfigUrl,
-  getOpenIdConfig,
-  defaultJwksClient,
-} = require('./authMiddleware');
+const { authenticate, getOpenIdConfig, defaultJwksClient } = require('./authMiddleware');
+const { openIdConfigUrl } = require('../lib/oidcMetadataUrl');
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
@@ -256,14 +252,6 @@ describe('authenticate — SKIP_AUTH dev bypass', () => {
   });
 });
 
-describe('openIdConfigUrl', () => {
-  test('builds the ciamlogin metadata URL from the tenant settings', () => {
-    expect(openIdConfigUrl(ENTRA_ENVIRONMENT)).toBe(
-      'https://bikebuddy.ciamlogin.com/aaaabbbb-0000-cccc-1111-dddd2222eeee/v2.0/.well-known/openid-configuration',
-    );
-  });
-});
-
 describe('getOpenIdConfig', () => {
   const metadata = {
     issuer: 'https://tenant.ciamlogin.com/v2.0',
@@ -297,6 +285,53 @@ describe('getOpenIdConfig', () => {
     expect(second).toBe(first);
     expect(fetchMetadata).toHaveBeenCalledTimes(1);
     expect(fetchMetadata).toHaveBeenCalledWith(openIdConfigUrl(ENTRA_ENVIRONMENT));
+  });
+
+  test('fetches a local override instead of the tenant metadata', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const override = 'http://127.0.0.1:43123/.well-known/openid-configuration';
+    const environment = { ...ENTRA_ENVIRONMENT, ENTRA_OIDC_METADATA_URL: override };
+
+    await getOpenIdConfig({ fetchMetadata, now: freshClock().now, environment });
+
+    expect(fetchMetadata).toHaveBeenCalledWith(override);
+  });
+
+  // Thrown, so every signed-in request answers 5xx instead of trusting another issuer.
+  test('refuses a remote override without fetching anything', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const environment = {
+      ...ENTRA_ENVIRONMENT,
+      ENTRA_OIDC_METADATA_URL: 'https://issuer.example.com/.well-known/openid-configuration',
+    };
+
+    await expect(
+      getOpenIdConfig({ fetchMetadata, now: freshClock().now, environment }),
+    ).rejects.toThrow('ENTRA_OIDC_METADATA_URL must be an http(s) URL on localhost');
+    expect(fetchMetadata).not.toHaveBeenCalled();
+  });
+
+  test('turns a refused override into a failure for every token, never a 401', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const environment = {
+      ...ENTRA_ENVIRONMENT,
+      ENTRA_OIDC_METADATA_URL: 'http://127.0.0.1:43123/.well-known/openid-configuration',
+      WEBSITE_SITE_NAME: 'func-bikebuddy',
+    };
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(
+        authenticate(bearer(makeToken()), {
+          jwksClientFactory: signingKeys,
+          configLoader: (options) => getOpenIdConfig({ ...options, fetchMetadata }),
+          environment,
+          now: freshClock().now,
+        }),
+      ).rejects.toThrow('ENTRA_OIDC_METADATA_URL must not be set in Azure');
+      expect(fetchMetadata).not.toHaveBeenCalled();
+    } finally {
+      logError.mockRestore();
+    }
   });
 
   test('re-fetches once the one-hour cache has expired, not before', async () => {

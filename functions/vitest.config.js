@@ -23,7 +23,12 @@ export default defineConfig({
       provider: 'v8',
       // lcov → Codecov; json-summary → CI job summary; text → CI log
       reporter: ['text', 'lcov', 'json-summary'],
-      include: ['src/**/*.js', 'scripts/lib/**/*.{js,mjs}', 'test/integration/emulatorGuard.js'],
+      include: [
+        'src/**/*.js',
+        'scripts/lib/**/*.{js,mjs}',
+        'test/integration/emulatorGuard.js',
+        'test/integration/tokens.js',
+      ],
       exclude: [
         'src/**/*.test.js',
         'scripts/**/*.test.{js,mjs}',

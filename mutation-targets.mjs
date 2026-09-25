@@ -21,6 +21,7 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/heatmapCache.js',
   'src/lib/http.js',
   'src/lib/mapBudget.js',
+  'src/lib/oidcMetadataUrl.js',
   'src/lib/ownedTour.js',
   'src/lib/parseGpx.js',
   'src/lib/resizeImage.js',
@@ -39,6 +40,7 @@ export const FUNCTIONS_TARGETS = [
   'scripts/lib/thumbnailBackfill.js',
   'scripts/lib/tourStatsBackfill.js',
   'test/integration/emulatorGuard.js',
+  'test/integration/tokens.js',
 ];
 
 export const FRONTEND_TARGETS = [
