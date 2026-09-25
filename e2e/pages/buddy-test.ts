@@ -117,5 +117,3 @@ export const buddyTest = test.extend<BuddyFixtures>({
     { auto: true },
   ],
 });
-
-export { expect } from '@playwright/test';

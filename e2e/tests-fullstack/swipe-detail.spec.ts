@@ -1,26 +1,17 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { clearUsers, clearTours, toursContainer } from './usersDb';
+import { expect, fullstackTest } from './fullstack-test';
 
 // #308 removed swipe-left-to-open-details in favor of a plain tap opening it
 // directly (see long-press-select.spec.ts) — this only guards that a left
 // swipe is now inert rather than a half-working leftover gesture.
 
-buddyTest.describe('swiping left on a tour row', () => {
-  buddyTest.use({ hasTouch: true });
+fullstackTest.describe('swiping left on a tour row', () => {
+  fullstackTest.use({ hasTouch: true });
 
-  buddyTest.beforeEach(async () => {
-    await clearUsers();
-    await clearTours();
-    await toursContainer().items.create({
-      id: '55555555-5555-4555-8555-555555555555',
-      userId: 'local-dev-user',
-      name: 'Swipe Tour A',
-      distance: 5,
-      createdAt: new Date().toISOString(),
-    });
+  fullstackTest.beforeEach(async ({ seed }) => {
+    await seed.tour({ name: 'Swipe Tour A', time: '2026-06-01T08:00:00Z' });
   });
 
-  buddyTest('is a no-op — the row snaps back and no panel opens', async ({ on, page }) => {
+  fullstackTest('is a no-op — the row snaps back and no panel opens', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 

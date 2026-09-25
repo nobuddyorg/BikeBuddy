@@ -13,10 +13,9 @@ export default defineConfig({
   testDir: './tests-fullstack',
   globalSetup: './global-setup.ts',
   globalTeardown: './global-teardown.ts',
-  fullyParallel: true,
   forbidOnly: isCI,
   retries: 0, // a flake is a defect: fixed or deleted, never retried
-  workers: 1, // backend writes — keep deterministic
+  workers: 1, // every test runs as the one SKIP_AUTH user and resets that user's data
   reporter: isCI
     ? [
         ['github'],

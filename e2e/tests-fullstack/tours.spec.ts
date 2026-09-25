@@ -1,14 +1,10 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { expect, fullstackTest } from './fullstack-test';
+import { PHOTOS } from './seed';
+import { DEV_USER_ID, devUserBlobNames, devUserTours } from './store';
 
-// Runs against the real backend (Functions + Cosmos emulator + Azurite) behind
-// the SWA proxy. devMode + SKIP_AUTH provide the local dev user.
-
-const here = dirname(fileURLToPath(import.meta.url));
-const SAMPLE_JPG = resolve(here, '../fixtures/sample.jpg');
-const SAMPLE_JPG_BUFFER = readFileSync(SAMPLE_JPG);
+// The core lifecycle against the real backend (Functions + Cosmos emulator + Azurite)
+// behind the SWA proxy, checked in the store as well as in the UI.
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -20,25 +16,38 @@ const GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-buddyTest('tour lifecycle: upload → list → detail → image → delete', async ({ on, page }) => {
+// The delete request waits out the Undo window (ui/undoableAction.js) first.
+const AFTER_UNDO_WINDOW = { timeout: 20_000 };
+
+fullstackTest('tour lifecycle: upload → list → detail → photo → delete', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible(); // real /api/me login
 
-  const tourName = `CI E2E ${Date.now()}`;
-
+  const tourName = 'CI E2E Tour';
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
   await expect(on(page).detail.locators.name).toHaveText(tourName);
 
-  await on(page).detail.do.addPhotos(SAMPLE_JPG);
+  await on(page).detail.do.addPhotos(PHOTOS.untagged);
   await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
 
+  const [tour] = await devUserTours();
+  const blobs = await devUserBlobNames();
+  expect(blobs).toContain(`gpx-files/${DEV_USER_ID}/${tour.id}.gpx`);
+  // The photo and its thumbnail.
+  expect(
+    blobs.filter((name) => name.startsWith(`tour-images/${DEV_USER_ID}/${tour.id}/`)),
+  ).toHaveLength(2);
+
   await on(page).detail.do.deleteTour();
-  await expect(on(page).list.locators.container).not.toContainText(tourName);
+  await expect(on(page).list.row(tourName)()).toHaveCount(0);
+
+  await expect.poll(devUserTours, AFTER_UNDO_WINDOW).toEqual([]);
+  await expect.poll(devUserBlobNames, AFTER_UNDO_WINDOW).toEqual([]);
 });
 
 // #338: re-download the originally uploaded file, via the signed blob URL from
 // GET /api/tours/{id}.
-buddyTest('download GPX from the detail panel', async ({ on, page }) => {
+fullstackTest('download GPX from the detail panel', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();
 
@@ -54,7 +63,7 @@ buddyTest('download GPX from the detail panel', async ({ on, page }) => {
   expect(download.suggestedFilename()).toBe(`${tourName.replace(/[^a-z0-9-_]+/gi, '_')}.gpx`);
 });
 
-buddyTest('multi-image upload: per-file success and error handling', async ({ on, page }) => {
+fullstackTest('multi-image upload: per-file success and error handling', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();
 
@@ -65,8 +74,8 @@ buddyTest('multi-image upload: per-file success and error handling', async ({ on
   // setInputFiles needs a uniform array shape, so the valid photos are passed
   // as payloads too.
   await on(page).detail.do.addPhotos([
-    { name: 'photo1.jpg', mimeType: 'image/jpeg', buffer: SAMPLE_JPG_BUFFER },
-    { name: 'photo2.jpg', mimeType: 'image/jpeg', buffer: SAMPLE_JPG_BUFFER },
+    { name: 'photo1.jpg', mimeType: 'image/jpeg', buffer: readFileSync(PHOTOS.untagged) },
+    { name: 'photo2.jpg', mimeType: 'image/jpeg', buffer: readFileSync(PHOTOS.untagged) },
     { name: 'not-a-photo.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') },
   ]);
 

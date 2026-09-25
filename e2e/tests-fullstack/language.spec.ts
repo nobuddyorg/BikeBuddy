@@ -1,15 +1,11 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { clearUsers, listUsers } from './usersDb';
+import { expect, fullstackTest } from './fullstack-test';
+import { devUserProfiles } from './store';
 
 // Language selection lives in profile settings and persists to the user doc,
 // unlike the old navbar-only, localStorage-only picker.
 
-buddyTest.describe('language preference', () => {
-  buddyTest.beforeEach(async () => {
-    await clearUsers();
-  });
-
-  buddyTest(
+fullstackTest.describe('language preference', () => {
+  fullstackTest(
     'switching language in settings persists it and translates the UI',
     async ({ on, page }) => {
       await page.goto('/');
@@ -23,12 +19,12 @@ buddyTest.describe('language preference', () => {
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
       await expect(on(page).main.locators.sidebarTitle).toHaveText('Meine Touren');
 
-      const [user] = await listUsers();
-      expect(user.language).toBe('de');
+      const [profile] = await devUserProfiles();
+      expect(profile.language).toBe('de');
     },
   );
 
-  buddyTest(
+  fullstackTest(
     'a fresh session with no local override picks up the saved backend language',
     async ({ on, page }) => {
       await page.goto('/');

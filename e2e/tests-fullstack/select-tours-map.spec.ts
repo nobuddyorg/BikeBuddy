@@ -1,39 +1,24 @@
-import { randomUUID } from 'node:crypto';
-import { buddyTest, expect } from '../pages/buddy-test';
-import { clearUsers, clearTours, toursContainer } from './usersDb';
+import { expect, fullstackTest } from './fullstack-test';
 
 // #298: the map must show exactly the checked set. #map-empty is the simplest
 // proxy for that — one tour has route data and the other doesn't, and toggling
 // between them flips it only when the scoping is right.
 
-const TID_WITH_DATA = randomUUID();
-const TID_NO_DATA = randomUUID();
-
-buddyTest.describe('selecting tours drives the map', () => {
-  buddyTest.beforeEach(async () => {
-    await clearUsers();
-    await clearTours();
-    await toursContainer().items.create({
-      id: TID_WITH_DATA,
-      userId: 'local-dev-user',
+fullstackTest.describe('selecting tours drives the map', () => {
+  fullstackTest.beforeEach(async ({ seed }) => {
+    await seed.tour({
       name: 'MapSelect Tour With Data',
-      distance: 5,
-      createdAt: new Date().toISOString(),
-      heatmapData: [
+      time: '2026-06-02T08:00:00Z',
+      points: [
         [48.1, 11.5],
         [48.11, 11.51],
       ],
     });
-    await toursContainer().items.create({
-      id: TID_NO_DATA,
-      userId: 'local-dev-user',
-      name: 'MapSelect Tour No Data',
-      distance: 5,
-      createdAt: new Date(Date.now() - 60_000).toISOString(),
-    });
+    // A GPX without track points: a tour with nothing to draw.
+    await seed.tour({ name: 'MapSelect Tour No Data', time: '2026-06-01T08:00:00Z' });
   });
 
-  buddyTest('map reflects exactly the checked tours', async ({ on, page }) => {
+  fullstackTest('map reflects exactly the checked tours', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).list.locators.count).toHaveText('2');

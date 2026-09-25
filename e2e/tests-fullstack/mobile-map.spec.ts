@@ -1,5 +1,4 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { clearUsers, clearTours, toursContainer } from './usersDb';
+import { expect, fullstackTest } from './fullstack-test';
 
 // The mobile redesign moves the map off the list home screen: a FAB opens it
 // full-screen (all tours, or just the checked ones in select mode), and the
@@ -7,30 +6,15 @@ import { clearUsers, clearTours, toursContainer } from './usersDb';
 // single shared Leaflet instance (ui/map.js's moveMapIntoDetailPanel /
 // restoreMapToAppLayout) rather than a second map.
 
-buddyTest.describe('mobile map access', () => {
-  buddyTest.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+fullstackTest.describe('mobile map access', () => {
+  fullstackTest.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
-  buddyTest.beforeEach(async () => {
-    await clearUsers();
-    await clearTours();
-    const now = Date.now();
-    await toursContainer().items.create({
-      id: '77777777-7777-4777-8777-777777777777',
-      userId: 'local-dev-user',
-      name: 'Mobile Map Tour A',
-      distance: 5,
-      createdAt: new Date(now).toISOString(),
-    });
-    await toursContainer().items.create({
-      id: '88888888-8888-4888-8888-888888888888',
-      userId: 'local-dev-user',
-      name: 'Mobile Map Tour B',
-      distance: 5,
-      createdAt: new Date(now - 60_000).toISOString(),
-    });
+  fullstackTest.beforeEach(async ({ seed }) => {
+    await seed.tour({ name: 'Mobile Map Tour A', time: '2026-06-02T08:00:00Z' });
+    await seed.tour({ name: 'Mobile Map Tour B', time: '2026-06-01T08:00:00Z' });
   });
 
-  buddyTest('the map is off-screen on the list home screen', async ({ on, page }) => {
+  fullstackTest('the map is off-screen on the list home screen', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
@@ -43,7 +27,7 @@ buddyTest.describe('mobile map access', () => {
     await expect(on(page).list.locators.buttons.showAll).toBeHidden();
   });
 
-  buddyTest(
+  fullstackTest(
     "closing a tour's detail panel returns to the list with nothing selected",
     async ({ on, page }) => {
       await page.goto('/');
@@ -59,7 +43,7 @@ buddyTest.describe('mobile map access', () => {
     },
   );
 
-  buddyTest('the FAB opens the map full-screen over all tours', async ({ on, page }) => {
+  fullstackTest('the FAB opens the map full-screen over all tours', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
@@ -74,7 +58,7 @@ buddyTest.describe('mobile map access', () => {
     await expect(on(page).map()).toBeHidden();
   });
 
-  buddyTest(
+  fullstackTest(
     'the FAB opens the map over only the checked tours in select mode',
     async ({ on, page }) => {
       await page.goto('/');
@@ -88,7 +72,7 @@ buddyTest.describe('mobile map access', () => {
     },
   );
 
-  buddyTest(
+  fullstackTest(
     'the detail panel shows a live map preview with a working fullscreen button',
     async ({ on, page }) => {
       await page.goto('/');

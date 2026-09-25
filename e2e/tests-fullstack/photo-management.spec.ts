@@ -1,19 +1,7 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { clearUsers, clearTours } from './usersDb';
+import { expect, fullstackTest } from './fullstack-test';
+import { PHOTOS } from './seed';
 
 // Deleting a single photo, the lightbox, and retrying a failed upload.
-
-// Needs a clean slate: the tour's date comes from the GPX's <time>, which
-// sorts it behind same-day fixture tours another spec may have left behind.
-buddyTest.beforeEach(async () => {
-  await clearUsers();
-  await clearTours();
-});
-
-const here = dirname(fileURLToPath(import.meta.url));
-const SAMPLE_JPG = resolve(here, '../fixtures/sample.jpg');
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -24,7 +12,7 @@ const GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-buddyTest(
+fullstackTest(
   'deletes a single photo, leaving the rest of the gallery intact',
   async ({ on, page }) => {
     await page.goto('/');
@@ -35,8 +23,8 @@ buddyTest(
     // addImage() targets state.selectedTourId, and uploadGpx only waits for the
     // tour to reach the list, not to be selected.
     await expect(on(page).detail.locators.name).toHaveText(tourName);
-    await on(page).detail.do.addPhotos(SAMPLE_JPG);
-    await on(page).detail.do.addPhotos(SAMPLE_JPG);
+    await on(page).detail.do.addPhotos(PHOTOS.untagged);
+    await on(page).detail.do.addPhotos(PHOTOS.untagged);
     await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(2);
 
     await on(page).detail.do.deletePhoto(0);
@@ -44,14 +32,14 @@ buddyTest(
   },
 );
 
-buddyTest('opens and closes the lightbox for a photo', async ({ on, page }) => {
+fullstackTest('opens and closes the lightbox for a photo', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();
 
   const tourName = `Lightbox ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
   await expect(on(page).detail.locators.name).toHaveText(tourName);
-  await on(page).detail.do.addPhotos(SAMPLE_JPG);
+  await on(page).detail.do.addPhotos(PHOTOS.untagged);
   await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
 
   await expect(on(page).modal.lightbox()).toBeHidden();
@@ -63,10 +51,10 @@ buddyTest('opens and closes the lightbox for a photo', async ({ on, page }) => {
   await expect(on(page).modal.lightbox()).toBeHidden();
 });
 
-buddyTest.describe('a failed photo upload', () => {
-  buddyTest.use({ allowedConsoleErrors: { matching: [/status of 500/] } });
+fullstackTest.describe('a failed photo upload', () => {
+  fullstackTest.use({ allowedConsoleErrors: { matching: [/status of 500/] } });
 
-  buddyTest('is retried and succeeds the second time', async ({ on, page }) => {
+  fullstackTest('is retried and succeeds the second time', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
@@ -85,7 +73,7 @@ buddyTest.describe('a failed photo upload', () => {
       }
     });
 
-    await on(page).detail.do.addPhotos(SAMPLE_JPG);
+    await on(page).detail.do.addPhotos(PHOTOS.untagged);
     await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(1);
     await expect(on(page).detail.locators.photos.retryButtons).toHaveCount(1);
 

@@ -26,7 +26,10 @@ export default defineConfig([
     files: ['tests/**', 'tests-fullstack/**', 'pages/**', 'fixtures/**'],
     extends: [playwright.configs['flat/recommended']],
     // Specs import the page-object fixture as `buddyTest` (pages/buddy-test.ts), the static
-    // suite its mocked-API extension as `staticTest` (fixtures/api-mocks.ts).
-    settings: { playwright: { globalAliases: { test: ['buddyTest', 'staticTest'] } } },
+    // suite its mocked-API extension as `staticTest` (fixtures/api-mocks.ts), the full-stack
+    // suite its seeding and cleanup extension as `fullstackTest` (tests-fullstack/fullstack-test.ts).
+    settings: {
+      playwright: { globalAliases: { test: ['buddyTest', 'staticTest', 'fullstackTest'] } },
+    },
   },
 ]);
