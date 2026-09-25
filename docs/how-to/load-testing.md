@@ -95,11 +95,11 @@ peak and stress are meant to cross them.
 All values in ms, `normal` profile, no failed requests in any run. The
 `browse` rows are slow because every query over a user's partition loads each
 tour document whole, track included; the worked example below measures it. They
-tighten when the track moves out of the tour document.
+tighten when the track moves out of the tour document (#615).
 
 These were measured in a development container running the whole stack; the
 workflow can only run once it is on `main`, so recalibrate from two `normal`
-runs on a runner then and update the table and `options.js` together.
+runs on a runner then and update the table and `options.js` together (#621).
 
 ## Backend report
 
@@ -199,7 +199,7 @@ the documents it loads, so the same shape should also cost RU in production;
 the emulator's nominal charges cannot confirm that here. The fix is a
 document-shape change (the track in its own item or blob, read only by
 `/api/map` and the detail view), which needs schema versioning and a backfill
-(#577). That makes it a design change of its own, not a step of this loop.
+(#615, #577). That makes it a design change of its own, not a step of this loop.
 
 Profiling overhead in these runs: about 1 % of worker CPU, mostly measuring
 response sizes.

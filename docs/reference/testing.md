@@ -47,19 +47,19 @@ gaps below.
 Numbers live in the files named here; this table only points at them. Raised
 when a change makes room, never lowered.
 
-| Gate                   | Tool                | Threshold                                                                                                                                          | Source                                                                            |
-| ---------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Unit coverage          | Vitest (v8)         | 99 % global (statements, branches, functions, lines) per package; 100 % per file on the mutation list; no `autoUpdate`                             | `functions/vitest.config.js`, `frontend/vitest.config.js`                         |
-| Mutation scope + floor | Stryker             | 24 functions modules, 13 frontend modules; the same list sets the 100 % per-file floor                                                             | `mutation-targets.mjs`                                                            |
-| Mutation score         | Stryker             | break 95 % functions (measured 96.46 %), 83 % frontend (measured 84.76 %)                                                                          | `functions/stryker.config.mjs`, `frontend/stryker.config.mjs`                     |
-| E2E coverage           | V8 via monocart     | static 55 % lines / 47 % functions; full stack 73 % / 72 %                                                                                         | `e2e/coverage.ts`                                                                 |
-| Property tests         | fast-check          | 200 runs per property; replay with `FC_SEED` / `FC_PATH`                                                                                           | `functions/test/fast-check.setup.js`, `frontend/test/fast-check.setup.js`         |
-| Accessibility          | axe-core            | zero violations, WCAG 2.x A/AA + best practice; no exclusions                                                                                      | `e2e/axe.ts`                                                                      |
-| Lighthouse, signed out | Lighthouse CI       | performance ≥ 0.8, accessibility = 1, best practices ≥ 0.9, SEO ≥ 0.9, LCP ≤ 5000 ms, TBT ≤ 600 ms, CLS ≤ 0.1, median of 3                         | `e2e/lighthouse/lighthouserc.signed-out.json`                                     |
-| Lighthouse, signed in  | Lighthouse CI       | performance ≥ 0.6, accessibility = 1, best practices ≥ 0.9, SEO ≥ 0.9, LCP ≤ 8000 ms, TBT ≤ 600 ms, CLS ≤ 0.25, median of 3                        | `e2e/lighthouse/lighthouserc.signed-in.json`                                      |
-| DAST                   | OWASP ZAP (passive) | FAIL only on the listed rules (error disclosure, permissive CORS, cookie flags); header rules the static host cannot meet are IGNORE with a reason | `.zap/rules-frontend.tsv`, `.zap/rules-api.tsv`                                   |
-| Load                   | k6                  | not a gate; per-scenario p95 limits at the `normal` profile, calibrated in the guide                                                               | `load/lib/options.js`, [load-testing guide](../how-to/load-testing.md#thresholds) |
-| Cost guards            | Vitest integration  | tour list: caller's partition on every page, `ceil(n / MAX_ITEMS_PER_REQUEST)` round trips; map: point budget, ≤ 4 MiB                             | `functions/test/integration/query-cost.test.js`, `map-budget.test.js`             |
+| Gate                   | Tool                | Threshold                                                                                                                                                                   | Source                                                                            |
+| ---------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Unit coverage          | Vitest (v8)         | 99 % global (statements, branches, functions, lines) per package; 100 % per file on the mutation list; no `autoUpdate`                                                      | `functions/vitest.config.js`, `frontend/vitest.config.js`                         |
+| Mutation scope + floor | Stryker             | 24 functions modules, 13 frontend modules; the same list sets the 100 % per-file floor                                                                                      | `mutation-targets.mjs`                                                            |
+| Mutation score         | Stryker             | break 95 % functions (measured 96.46 %), 83 % frontend (measured 84.76 %)                                                                                                   | `functions/stryker.config.mjs`, `frontend/stryker.config.mjs`                     |
+| E2E coverage           | V8 via monocart     | static 55 % lines / 47 % functions; full stack 73 % / 72 %                                                                                                                  | `e2e/coverage.ts`                                                                 |
+| Property tests         | fast-check          | 200 runs per property; replay with `FC_SEED` / `FC_PATH`                                                                                                                    | `functions/test/fast-check.setup.js`, `frontend/test/fast-check.setup.js`         |
+| Accessibility          | axe-core            | zero violations, WCAG 2.x A/AA + best practice; no exclusions                                                                                                               | `e2e/axe.ts`                                                                      |
+| Lighthouse, signed out | Lighthouse CI       | performance ≥ 0.8, accessibility = 1, best practices ≥ 0.9, SEO ≥ 0.9, LCP ≤ 5000 ms, TBT ≤ 600 ms, CLS ≤ 0.1, median of 3                                                  | `e2e/lighthouse/lighthouserc.signed-out.json`                                     |
+| Lighthouse, signed in  | Lighthouse CI       | performance ≥ 0.6, accessibility = 1, best practices ≥ 0.9, SEO ≥ 0.9, LCP ≤ 8000 ms, TBT ≤ 600 ms, CLS ≤ 0.25, median of 3; provisional, tightened from `main` runs (#621) | `e2e/lighthouse/lighthouserc.signed-in.json`                                      |
+| DAST                   | OWASP ZAP (passive) | FAIL only on the listed rules (error disclosure, permissive CORS, cookie flags); header rules the static host cannot meet are IGNORE with a reason                          | `.zap/rules-frontend.tsv`, `.zap/rules-api.tsv`                                   |
+| Load                   | k6                  | not a gate; per-scenario p95 limits at the `normal` profile, calibrated in the guide; recalibrated on a runner (#621)                                                       | `load/lib/options.js`, [load-testing guide](../how-to/load-testing.md#thresholds) |
+| Cost guards            | Vitest integration  | tour list: caller's partition on every page, `ceil(n / MAX_ITEMS_PER_REQUEST)` round trips; map: point budget, ≤ 4 MiB                                                      | `functions/test/integration/query-cost.test.js`, `map-budget.test.js`             |
 
 ## Risk table
 
@@ -105,7 +105,8 @@ and what catches it today. **Covered**: a test fails if the risk comes back.
 
 ## Known gaps
 
-Measured against the playbook. Each has an issue unless marked **no issue**.
+Measured against the playbook. Each has an issue unless marked **no issue**
+(deliberate, not a defect).
 
 - **Integration runs as one identity through the bypass flag** (#567). The
   playbook's §6/§7 ideal is two identities with tokens signed by a local key
@@ -119,29 +120,28 @@ Measured against the playbook. Each has an issue unless marked **no issue**.
 - **No post-deploy smoke test** (#563).
 - **Contract** (#574): nothing checks the static suite's mocks or
   `.zap/openapi.yaml` against the handlers.
-- **Deletion job** (#570): no tests, and **no dry-run mode** (**no issue** for
-  the dry run itself).
-- **Cleanup guard** (#565): only for E2E. **No issue**: the integration tests'
+- **Deletion job** (#570, #617): no tests, and no dry-run mode.
+- **Cleanup guard** (#565, #618): only for E2E. The integration tests'
   `afterAll` deletes also trust `COSMOS_CONNECTION_STRING`; they only touch
   their own random user id or tour ids, so the blast radius is small.
 - **Direct DB seeding** (**no issue**, deliberate): `query-cost.test.js` seeds
   150 tours straight into Cosmos under a throwaway user, to measure the
   adapter. The full-stack specs read Cosmos back to assert what persisted,
   which the playbook allows.
-- **Retries** (**no issue**): both Playwright configs set `retries: 1` on CI;
+- **Retries** (#616): both Playwright configs set `retries: 1` on CI;
   the playbook allows retries only for a post-deploy smoke test.
-- **Unexpected console errors** (**no issue**): no fixture fails a spec on a
+- **Unexpected console errors** (#616): no fixture fails a spec on a
   `pageerror` or `console.error`.
-- **Locators** (**no issue**): page objects use element ids and CSS classes;
+- **Locators** (#616): page objects use element ids and CSS classes;
   three specs name a selector directly (`theme.spec.ts`,
   `photo-pins.spec.ts`, `long-press-select.spec.ts`).
 - **Sleeps** (#584): `waitForTimeout` in `e2e/pages/main-page.ts` and two
   full-stack specs.
 - **Shared data in E2E** (#584): full-stack specs clear whole containers and
   run with `workers: 1` instead of one identity per spec.
-- **Throttling** (**no issue**): no test injects a Cosmos 429 after the SDK's
+- **Throttling** (#619): no test injects a Cosmos 429 after the SDK's
   retries.
-- **Blob SAS scope across users** (**no issue**, part of the #567 fix): no
+- **Blob SAS scope across users** (#620, with #567): no
   test asserts that a SAS URL is read-only and limited to one blob under the
   owner's prefix.
 - **Mutation blind spots** (#567): `ignoreStatic` skips top-level limit
