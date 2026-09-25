@@ -24,7 +24,8 @@ export default defineConfig({
       provider: 'v8',
       // lcov → Codecov; json-summary → CI job summary; text → CI log
       reporter: ['text', 'lcov', 'json-summary'],
-      include: ['src/**/*.js'],
+      // The integration suite's emulator guard is pure logic with its own unit test.
+      include: ['src/**/*.js', 'test/integration/emulatorGuard.js'],
       exclude: [
         'src/**/*.test.js',
         // Infrastructure files exercised by Azurite integration tests, not unit tests:

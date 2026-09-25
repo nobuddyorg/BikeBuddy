@@ -40,6 +40,7 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/userProfile.js',
   'src/lib/validation.js',
   'src/middleware/authMiddleware.js',
+  'test/integration/emulatorGuard.js',
 ];
 
 export const FRONTEND_TARGETS = [
