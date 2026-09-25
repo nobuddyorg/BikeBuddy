@@ -37,8 +37,6 @@ export interface TourRow {
   };
 }
 
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 // Raw CDP touch, not the mouse: gestures branch on pointer type, and a mouse hides ghost clicks.
 async function touchGesture(
   page: Page,
@@ -66,9 +64,7 @@ async function centreOf(target: Locator): Promise<Point> {
 }
 
 export function initTourRow(page: Page, { list, name }: { list: Locator; name: string }): TourRow {
-  const nameElement = page
-    .getByTestId('tour-item-name')
-    .filter({ hasText: new RegExp(`^${escapeRegExp(name)}$`) });
+  const nameElement = page.getByTestId('tour-item-name').and(page.getByText(name, { exact: true }));
   const root = list.getByTestId('tour-item').filter({ has: nameElement });
   const locators = {
     content: root.getByTestId('tour-item-content'),
