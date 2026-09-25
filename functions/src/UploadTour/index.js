@@ -17,6 +17,7 @@ const { nameSchema, tourMetaSchema, tourMetaError } = require('../lib/validation
 const { toCreatedTourResponse } = require('../lib/tourResponse');
 const { ERROR_KEYS, unauthorized, error } = require('../lib/http');
 const { TOUR_SCHEMA_VERSION } = require('../lib/schemaVersion');
+const { storedTrackStats } = require('../lib/tourStats');
 
 async function readGpxUpload(request, { parseFile, parseTrack }) {
   let file;
@@ -55,15 +56,8 @@ function newTourDocument({ tourId, userId, metadata, track, gpxFileUrl, uploaded
     gpxFileUrl,
     heatmapData: track.heatmapData,
     images: [],
-    distance: track.distanceKm,
     createdAt: track.date ?? uploadedAt.toISOString(),
-    elevationGain: track.elevationGain,
-    elevationLoss: track.elevationLoss,
-    minElevation: track.minElevation,
-    maxElevation: track.maxElevation,
-    durationSeconds: track.durationSeconds,
-    movingSeconds: track.movingSeconds,
-    avgSpeed: track.avgSpeed,
+    ...storedTrackStats(track),
   };
 }
 

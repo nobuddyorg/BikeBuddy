@@ -215,9 +215,12 @@ blobs; the blob name is derived from the image's, so no document changes), are
 **dry by default**: they read in pages, report what they would change and what
 would fail, and write only with `--apply`. They are idempotent, fail the exit
 code on any failed item, and need `COSMOS_CONNECTION_STRING`, `COSMOS_DATABASE`
-and `BLOB_CONNECTION_STRING`. The stats backfill finds old documents by the
-missing `elevationGain` field, which `null` (no elevation in the GPX)
-distinguishes from "not migrated".
+and `BLOB_CONNECTION_STRING`. The stats backfill recomputes every tour's
+distance and stats from its GPX (`functions/src/lib/tourStats.js`, the mapping
+`UploadTour` stores) and sets only the fields that differ: it fills a tour from
+before the stats, and corrects the distance, moving time and average speed of a
+tour from before #552, which counted the gap between two segments as riding. A
+tour that already matches its GPX is not written.
 
 New documents carry `schemaVersion` (#577,
 `functions/src/lib/schemaVersion.js`); one without it predates versioning.

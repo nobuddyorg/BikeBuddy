@@ -37,6 +37,7 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/simplify.js',
   'src/lib/tourImages.js',
   'src/lib/tourResponse.js',
+  'src/lib/tourStats.js',
   'src/lib/userProfile.js',
   'src/lib/validation.js',
   'src/middleware/authMiddleware.js',
