@@ -279,17 +279,58 @@ describe('toursInView', () => {
   });
 });
 
+// The detail view shows the local date, so the editor must read and write the same one.
+function inTimeZone(timeZone, run) {
+  const previous = process.env.TZ;
+  process.env.TZ = timeZone;
+  try {
+    run();
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
+}
+
 describe('withUpdatedDate', () => {
   it('replaces the date but keeps the original time-of-day', () => {
-    expect(withUpdatedDate('2026-05-01T14:32:07.123Z', '2026-06-15')).toBe(
-      '2026-06-15T14:32:07.123Z',
-    );
+    inTimeZone('UTC', () => {
+      expect(withUpdatedDate('2026-05-01T14:32:07.123Z', '2026-06-15')).toBe(
+        '2026-06-15T14:32:07.123Z',
+      );
+    });
   });
 
   it('handles a leap-day target date', () => {
-    expect(withUpdatedDate('2026-01-01T00:00:00.000Z', '2028-02-29')).toBe(
-      '2028-02-29T00:00:00.000Z',
-    );
+    inTimeZone('UTC', () => {
+      expect(withUpdatedDate('2026-01-01T00:00:00.000Z', '2028-02-29')).toBe(
+        '2028-02-29T00:00:00.000Z',
+      );
+    });
+  });
+
+  it('sets the local date west of UTC, keeping the local time of day', () => {
+    inTimeZone('America/Los_Angeles', () => {
+      // 17:30 on 1 May in Los Angeles is already 2 May in UTC.
+      expect(withUpdatedDate('2026-05-02T00:30:00.000Z', '2026-05-10')).toBe(
+        '2026-05-11T00:30:00.000Z',
+      );
+    });
+  });
+
+  it('sets the local date east of UTC, keeping the local time of day', () => {
+    inTimeZone('Pacific/Auckland', () => {
+      // 08:00 on 2 May in Auckland is still 1 May in UTC.
+      expect(withUpdatedDate('2026-05-01T20:00:00.000Z', '2026-05-10')).toBe(
+        '2026-05-09T20:00:00.000Z',
+      );
+    });
+  });
+
+  it('round-trips the value the editor shows', () => {
+    inTimeZone('Pacific/Auckland', () => {
+      const createdAt = '2026-05-01T20:00:00.000Z';
+      expect(withUpdatedDate(createdAt, toDateInputValue(createdAt))).toBe(createdAt);
+    });
   });
 });
 
@@ -428,8 +469,22 @@ describe('matchRuns', () => {
 });
 
 describe('toDateInputValue', () => {
-  it('keeps the calendar date of an ISO timestamp', () => {
-    expect(toDateInputValue('2026-05-01T23:30:00.000Z')).toBe('2026-05-01');
+  it('keeps the calendar date of an ISO timestamp in UTC', () => {
+    inTimeZone('UTC', () => {
+      expect(toDateInputValue('2026-05-01T23:30:00.000Z')).toBe('2026-05-01');
+    });
+  });
+
+  it('shows the local date west of UTC', () => {
+    inTimeZone('America/Los_Angeles', () => {
+      expect(toDateInputValue('2026-05-02T00:30:00.000Z')).toBe('2026-05-01');
+    });
+  });
+
+  it('shows the local date east of UTC, zero-padded', () => {
+    inTimeZone('Pacific/Auckland', () => {
+      expect(toDateInputValue('2026-01-08T20:00:00.000Z')).toBe('2026-01-09');
+    });
   });
 
   it('is empty without a date', () => {

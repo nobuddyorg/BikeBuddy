@@ -132,17 +132,21 @@ export function matchRuns(text, indices) {
   return runs;
 }
 
-// Keeps the original time of day, so correcting the date keeps when it was recorded.
+// Local calendar date, like the detail view; keeps the local time of day it was recorded at.
 export function withUpdatedDate(originalIso, date) {
   const [year, month, day] = date.split('-').map(Number);
   const combined = new Date(originalIso);
-  combined.setUTCFullYear(year, month - 1, day);
+  combined.setFullYear(year, month - 1, day);
   return combined.toISOString();
 }
 
-// The UTC calendar date, as an <input type="date"> value.
+// The local calendar date, as an <input type="date"> value.
 export function toDateInputValue(iso) {
-  return iso ? iso.slice(0, 10) : '';
+  if (!iso) return '';
+  const date = new Date(iso);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 export function buildTourPatch({ name, description, date, createdAt }) {
