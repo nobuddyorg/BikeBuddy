@@ -344,6 +344,12 @@ fixed release) under `@lhci/cli` → `lighthouse` → `puppeteer-core` →
 `@puppeteer/browsers`. It unpacks downloaded browser archives, and Lighthouse CI
 never downloads one here: it runs the Chromium Playwright installs
 (`CHROME_PATH`), on a CI runner or a developer machine, never in production.
+The fix exists one major up: `@puppeteer/browsers` 3 unpacks without
+`extract-zip`, but only `puppeteer-core` 25 depends on it, and `lighthouse`
+12.6.1 (pinned by `@lhci/cli` 0.15.1) takes `puppeteer-core` `^24`, whose last
+release still pins 2.13.2 (checked September 2026). An override would force a
+major under Lighthouse; look again when `@lhci/cli` moves to a Lighthouse on
+`puppeteer-core` 25 (#564).
 Look again when `@lhci/cli` or `lighthouse` bumps `puppeteer-core`.
 
 Pinned tools outside a lockfile: Azure Functions Core Tools is installed as
