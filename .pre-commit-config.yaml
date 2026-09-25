@@ -164,6 +164,12 @@ repos:
         pass_filenames: false
         files: ^load/.*\.(js|mjs)$
         stages: [pre-commit]
+      - id: prettier-scripts
+        name: Prettier (root scripts)
+        entry: functions/node_modules/.bin/prettier --check --config functions/.prettierrc.json
+        language: system
+        files: ^(scripts/.*\.mjs|mutation-targets\.mjs)$
+        stages: [pre-commit]
 
   # frontend/src/vendor/ byte-identical to the pinned npm packages; after a bump: node scripts/quality/verify-vendor.mjs --write
   - repo: local
