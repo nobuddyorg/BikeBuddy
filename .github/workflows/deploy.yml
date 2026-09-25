@@ -8,8 +8,7 @@ on:
 permissions:
   contents: read
 
-# Serialise deploys so two pushes can't run `tofu apply` concurrently and race
-# the remote state lock. Never cancel an in-flight deploy mid-apply.
+# One apply at a time on the shared state (destroy.yml joins this group), never cancelled mid-apply.
 concurrency:
   group: deploy
   cancel-in-progress: false
@@ -44,6 +43,7 @@ jobs:
           ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
           ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
           ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
+          TF_VAR_budget_contact_email: ${{ vars.BUDGET_CONTACT_EMAIL }}
 
       - name: Capture outputs
         id: output
@@ -74,11 +74,9 @@ jobs:
              "subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}",
              "tenantId":"${{ secrets.ARM_TENANT_ID }}"}
 
-      # Flex Consumption deploys from its package container via the publish API.
-      # functions-action's Kudu/zip path targets wwwroot and doesn't register on
-      # Flex, so use Core Tools with a remote build (compiles sharp for Linux).
+      # Flex deploys through the publish API; functions-action's Kudu zip path does not register there.
       - name: Install Azure Functions Core Tools
-        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+        run: npm install -g azure-functions-core-tools@4.13.0 --unsafe-perm true # zizmor: ignore[adhoc-packages] global CLI, no lockfile; same pin as start-local-stack
 
       - name: Publish (remote build)
         run: ./buddy.sh infrastructure publish-functions

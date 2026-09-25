@@ -1,7 +1,4 @@
-# Accepted Trivy misconfiguration findings for infrastructure/, one entry per
-# finding with the reason (the IaC scan fails on HIGH/CRITICAL otherwise).
-# Run: ./buddy.sh quality iac. Background: docs/explanation/design-decisions.md,
-# "IaC scan exceptions".
+# One entry per accepted finding, with its reason (design-decisions.md, "IaC scan exceptions").
 misconfigurations:
   - id: AZU-0012
     paths: ["storage.tf"]

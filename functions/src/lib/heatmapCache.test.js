@@ -17,13 +17,15 @@ describe('signatureFor', () => {
 });
 
 describe('createHeatmapCache', () => {
+  const toursWith = (id, pointCount) => [{ id, heatmapData: Array(pointCount).fill(1) }];
+
   it('computes once and reuses the result for an unchanged tour set', () => {
     const cache = createHeatmapCache();
     const compute = vi.fn(() => ['computed']);
-    const tours = [{ id: 'a', heatmapData: [1, 2] }];
+    const tours = toursWith('a', 2);
 
-    const first = cache.getOrCompute('u1', tours, compute);
-    const second = cache.getOrCompute('u1', tours, compute);
+    const first = cache.getOrCompute({ userId: 'u1', tours, compute });
+    const second = cache.getOrCompute({ userId: 'u1', tours, compute });
 
     expect(first).toBe(second);
     expect(compute).toHaveBeenCalledTimes(1);
@@ -33,15 +35,12 @@ describe('createHeatmapCache', () => {
     const cache = createHeatmapCache();
     const compute = vi.fn(() => ['computed']);
 
-    cache.getOrCompute('u1', [{ id: 'a', heatmapData: [1, 2] }], compute);
-    cache.getOrCompute(
-      'u1',
-      [
-        { id: 'a', heatmapData: [1, 2] },
-        { id: 'b', heatmapData: [1] },
-      ],
+    cache.getOrCompute({ userId: 'u1', tours: toursWith('a', 2), compute });
+    cache.getOrCompute({
+      userId: 'u1',
+      tours: [...toursWith('a', 2), ...toursWith('b', 1)],
       compute,
-    );
+    });
 
     expect(compute).toHaveBeenCalledTimes(2);
   });
@@ -50,8 +49,8 @@ describe('createHeatmapCache', () => {
     const cache = createHeatmapCache();
     const compute = vi.fn(() => ['computed']);
 
-    cache.getOrCompute('u1', [{ id: 'a', heatmapData: [1, 2] }], compute);
-    cache.getOrCompute('u1', [{ id: 'a', heatmapData: [1, 2, 3] }], compute);
+    cache.getOrCompute({ userId: 'u1', tours: toursWith('a', 2), compute });
+    cache.getOrCompute({ userId: 'u1', tours: toursWith('a', 3), compute });
 
     expect(compute).toHaveBeenCalledTimes(2);
   });
@@ -59,10 +58,10 @@ describe('createHeatmapCache', () => {
   it('keeps separate entries per user', () => {
     const cache = createHeatmapCache();
     const compute = vi.fn(() => ['computed']);
-    const tours = [{ id: 'a', heatmapData: [1, 2] }];
+    const tours = toursWith('a', 2);
 
-    cache.getOrCompute('u1', tours, compute);
-    cache.getOrCompute('u2', tours, compute);
+    cache.getOrCompute({ userId: 'u1', tours, compute });
+    cache.getOrCompute({ userId: 'u2', tours, compute });
 
     expect(compute).toHaveBeenCalledTimes(2);
   });
@@ -70,14 +69,40 @@ describe('createHeatmapCache', () => {
   it('evicts the oldest entry once maxEntries is exceeded', () => {
     const cache = createHeatmapCache(2);
     const compute = vi.fn(() => ['computed']);
-    const toursFor = (id) => [{ id, heatmapData: [1] }];
+    const tours = toursWith('a', 1);
 
-    cache.getOrCompute('u1', toursFor('a'), compute);
-    cache.getOrCompute('u2', toursFor('a'), compute);
-    cache.getOrCompute('u3', toursFor('a'), compute);
-    cache.getOrCompute('u1', toursFor('a'), compute);
+    cache.getOrCompute({ userId: 'u1', tours, compute });
+    cache.getOrCompute({ userId: 'u2', tours, compute });
+    cache.getOrCompute({ userId: 'u3', tours, compute });
+    cache.getOrCompute({ userId: 'u1', tours, compute });
 
     // u1 was evicted to make room for u3, so its second call recomputes.
+    expect(compute).toHaveBeenCalledTimes(4);
+  });
+
+  it('keeps exactly maxEntries users cached', () => {
+    const cache = createHeatmapCache(2);
+    const compute = vi.fn(() => ['computed']);
+    const tours = toursWith('a', 1);
+
+    cache.getOrCompute({ userId: 'u1', tours, compute });
+    cache.getOrCompute({ userId: 'u2', tours, compute });
+    cache.getOrCompute({ userId: 'u1', tours, compute });
+
+    expect(compute).toHaveBeenCalledTimes(2);
+  });
+
+  it('treats a recomputed entry as the newest when evicting', () => {
+    const cache = createHeatmapCache(2);
+    const compute = vi.fn(() => ['computed']);
+
+    cache.getOrCompute({ userId: 'u1', tours: toursWith('a', 1), compute });
+    cache.getOrCompute({ userId: 'u2', tours: toursWith('a', 1), compute });
+    cache.getOrCompute({ userId: 'u1', tours: toursWith('a', 2), compute });
+    cache.getOrCompute({ userId: 'u3', tours: toursWith('a', 1), compute });
+    cache.getOrCompute({ userId: 'u1', tours: toursWith('a', 2), compute });
+
+    // u2 was the oldest entry, so u1's refreshed result survives u3's arrival.
     expect(compute).toHaveBeenCalledTimes(4);
   });
 });

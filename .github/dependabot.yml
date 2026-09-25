@@ -18,8 +18,7 @@ updates:
     cooldown:
       default-days: 7
 
-  # Groups are split by dependency type: a mixed group reports as
-  # direct:production, which dependabot-auto-merge.yml always leaves to a human.
+  # Groups split by dependency type: a mixed group reports as direct:production, which is never auto-merged.
   - package-ecosystem: "npm"
     directory: "/functions"
     schedule:
@@ -49,8 +48,7 @@ updates:
     cooldown:
       default-days: 7
 
-  # frontend/ and e2e/ hold dev tooling only (the frontend ships without a bundler;
-  # the vendored MSAL/Leaflet under frontend/src/vendor/ are updated by hand, #564).
+  # A bump of @azure/msal-browser or leaflet fails verify-vendor until frontend/src/vendor/ is re-copied.
   - package-ecosystem: "npm"
     directories:
       - "/frontend"
@@ -58,6 +56,9 @@ updates:
     schedule:
       interval: "weekly"
     groups:
+      stryker-mutator:
+        patterns:
+          - "@stryker-mutator/*"
       patch-updates-dev:
         dependency-type: "development"
         patterns:

@@ -8,7 +8,7 @@ this repository ([AGENTS.md](AGENTS.md) points here). Read this file and
 ## What this project is
 
 **BikeBuddy** stores GPX rides (cycling or motorcycling), shows them as routes
-and a heatmap on a map, and attaches photos. Seven locales. Features:
+on a map, and attaches photos. Seven locales. Features:
 [README.md](README.md).
 
 - **Frontend**: plain HTML/CSS/JS static site on GitHub Pages, no framework and
@@ -70,28 +70,30 @@ design-decisions.md and the linked issues, not here.
 - The only `/* v8 ignore */` is the one-line `handler:` wrapper in each
   `app.http()` registration; no others, no `// Stryker disable`. No `.skip`,
   ESLint, TypeScript or `nosemgrep` suppression without understanding the
-  failure first; the reason goes on the same line. No test gaming.
+  failure first; the reason goes on the same line. No test gaming
+  (developer-guide.md, "Coverage" and "Mutation testing").
 - Never commit to `main`, skip hooks (`--no-verify`), force-push over others'
-  commits, or rewrite history on a branch you don't own.
+  commits, or rewrite history on a branch you don't own (CONTRIBUTING.md).
 - Never modify `.github/workflows/**`, repository secrets, branch protection,
-  or `.pre-commit-config.yaml`'s security hooks unless the user explicitly asks.
+  or `.pre-commit-config.yaml`'s security hooks unless the user explicitly asks;
+  the workflows hold the production credentials (#561, #563).
 - Never run `npm audit fix --force` or regenerate a lockfile from scratch; use
   targeted `overrides` ("Dependency updates and npm audit").
 - Never write real credentials anywhere (Cosmos or Storage keys,
   `ARM_CLIENT_SECRET`, `TF_BACKEND_ACCESS_KEY`, Graph credentials, access
   tokens), not in code, docs, commits or chat, not even as an example. The
-  Cosmos **emulator** key and Azurite's account key are public.
+  Cosmos **emulator** key and Azurite's account key are public
+  (developer-guide.md, "Secret scanning").
 
 ## Data and authorization changes
 
 Authorization is hand-written in every handler, so every endpoint is
 security-critical.
 
-- A new endpoint ships its authorization cases in the integration suite in the
-  same change: owner, another user, no token. The suite runs under `SKIP_AUTH`
-  today, so until it signs real test tokens the other-user and no-token cases
-  live in the handler unit tests with injected identities; name that gap in the
-  PR.
+- A new endpoint ships its authorization cases in the same change: a row in
+  `functions/test/integration/endpoints.js` (a unit test fails while a
+  registered route is missing there), which runs it with real test-signed
+  tokens as owner, another user and every rejected credential.
 - A document-shape change states how existing documents are read (there is no
   schema version yet, #577) and ships or updates a backfill with a dry run.
 - Call out any change to auth, ownership, partitioning or SAS scope in the
@@ -112,8 +114,8 @@ it leaves behind. A change to it is security-relevant (see above).
 - Locally only `tofu fmt`, `tofu validate`, `tofu plan`, `./buddy.sh quality
 iac`. Never `tofu apply` against production by hand; `deploy.yml` does it.
 - A plan that destroys or replaces a stateful resource (Cosmos account,
-  storage account) is a stop-and-ask. Their `prevent_destroy` guards are #543;
-  once added, they are never removed.
+  storage account) is a stop-and-ask. They carry `prevent_destroy`
+  guards (#543), which are never removed.
 - Call out any change under `infrastructure/**` in the PR with the plan's
   destroy/replace lines. A new scanner exception goes in `.trivyignore.yaml`
   with its reason and in design-decisions.md, "IaC scan exceptions".
@@ -156,8 +158,9 @@ iac`. Never `tofu apply` against production by hand; `deploy.yml` does it.
 - **Tests:** a UI change gets an e2e case for its journey; a functional change
   gets a unit test asserting behavior, not implementation; an authorization
   change gets its integration case. E2E specs reach the app only through the
-  page objects in `e2e/pages/`, which locate elements by id. Disagreeing with
-  the playbook is fine; departing from it silently is not.
+  page objects in `e2e/pages/`, which locate singletons by id and repeated
+  elements (rows, tiles, pins) by `data-testid`. Disagreeing with the playbook
+  is fine; departing from it silently is not.
 - **Docs sync:** a change to setup, the checklist, architecture,
   configuration, a design decision or a testing assumption updates the
   matching `docs/` file (and `CONTRIBUTING.md`/`README.md`) in the same change.
@@ -190,7 +193,7 @@ steps 1–4; `./buddy.sh quality check --stack` also runs 6–9.
 E2E_COVERAGE=1 ./buddy.sh test e2e   # 4. static UI journeys, axe, e2e coverage floor
 ./buddy.sh test mutation          # 5. if you changed a file in mutation-targets.mjs
 ./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
-./buddy.sh test integration       # 6. real Functions host, Cosmos emulator, Azurite
+./buddy.sh test integration       # 6. own host on :7072 with test-signed tokens, Cosmos, Azurite
 E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack   # 7. full-stack journeys
 (cd e2e && npm run lighthouse -- signed-out && npm run lighthouse -- signed-in)
                                   # 8. required if you touched frontend/**

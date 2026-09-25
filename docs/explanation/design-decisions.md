@@ -7,9 +7,18 @@ The _why_ behind the architecture. For _what_, see [Architecture](../reference/a
 Plain HTML/CSS/JS keeps the site truly static (no build pipeline) and trivially
 hostable on GitHub Pages. Every third-party script is **vendored** in
 `frontend/src/vendor/`: MSAL because loading it cross-origin from a CDN was
-blocked by the browser (ORB) on GitHub Pages, Leaflet and Leaflet.heat because a
-CDN that serves altered bytes would execute in the app's origin, where the Entra
-access tokens live. Vendoring lets `script-src` stay at `'self'`.
+blocked by the browser (ORB) on GitHub Pages, Leaflet because a CDN that serves
+altered bytes would execute in the app's origin, where the Entra access tokens
+live. Vendoring lets `script-src` stay at `'self'`.
+
+The vendored files stay byte-identical to the npm packages pinned as exact
+`devDependencies` in `frontend/package.json` (`@azure/msal-browser`,
+`leaflet`), so Dependabot proposes their updates (#564). The `verify-vendor`
+hook (`scripts/quality/verify-vendor.mjs`) fails while `vendor/` differs from
+`node_modules`; after a bump, `node scripts/quality/verify-vendor.mjs --write`
+re-copies the files and rewrites the `.msal-source`/`.leaflet-source`
+provenance with their SHA-256. A bump PR therefore cannot merge with stale
+vendored code.
 
 ## Node.js Functions on Flex Consumption
 
@@ -41,6 +50,68 @@ re-encoded as JPEG. GPS is read from the **original** EXIF before resize strips
 it, so geotagged photos can appear as map pins. Private blobs are served via
 short-lived **SAS URLs** rather than public containers.
 
+- Both sizes are rendered from the original, never one from the other, so
+  quality does not degrade through chained re-encodes. The thumbnail is 320 px,
+  the detail grid tile at typical device pixel ratios (#466); photos from before
+  #466 fall back to the full image.
+- The 100-megapixel input limit sits far below `sharp`'s ~268 MP default, so a
+  decompression bomb is refused before it allocates.
+- Multipart bodies are streamed with a byte limit instead of read with
+  `arrayBuffer()`: `Content-Length` can be absent or attacker-controlled (#550
+  tracks that the host still buffers the request first).
+- Blob names are built from the token's user id and the ids in the route, never
+  read back from a stored `blobName`, so a document can never point a request at
+  another user's blob.
+
+## Write ordering and concurrency
+
+A tour is a Cosmos document plus blobs, with no transaction across the two.
+The order is chosen so a failure leaves something harmless:
+
+- **Create:** blobs first, then the document; if the document write fails the
+  blobs are deleted and the error rethrown (a rollback failure surfaces too). A
+  document pointing at a missing blob would list fine and fail on download.
+- **Delete:** the document first, then its blobs with `deleteIfExists()`. A
+  leftover is an unreferenced blob that a retry or the account deletion reaps,
+  never a document pointing at nothing. `DeleteAccount` queues the Entra object
+  id first, so the intent survives a failure halfway through.
+- **Concurrent edits:** `EditTour` patches per field, because the realistic race
+  is an edit overlapping a photo upload; `UploadImage` appends to `/images/-`
+  atomically so concurrent uploads each keep their entry; `DeleteImage` must
+  rewrite the array, so it uses `IfMatch` and retries on 412. `GetMe` writes the
+  claims only into empty fields, with `IfMatch`, and turns a first-login 409
+  into a re-read.
+
+External ID sign-up does not reliably collect a display name, so BikeBuddy owns
+it: the token's `name` fills an empty profile, never overwrites a chosen one
+(#551). `GET /api/health` does no I/O, so it cannot become an unauthenticated
+probe of the backing services.
+
+## Map endpoint
+
+`GET /api/map` returns every tour's points within a point budget
+(`functions/src/lib/mapBudget.js`), computed per tour with Douglas-Peucker.
+The expensive part is that simplification, so a small LRU cache keys it on tour
+id and point count (`heatmapData` is set once at upload); the bound keeps a
+warm instance from growing. The frontend fetches `/api/map` in parallel with
+`/api/tours`, so a cold start is paid once.
+
+## Frontend behaviour
+
+- One Leaflet map: on mobile it moves into the detail panel instead of a second
+  instance being created. Closing the panel keeps the map where it is; only
+  "Show all" refits. Photo pin markers persist across renders to avoid flicker.
+- Back closes the open panel or modal while the selection stays (#442, #443).
+- Deletes are undoable: the DELETE is deferred behind an undo toast (#559 tracks
+  that closing the tab during that window loses the delete).
+- iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
+  viewport meta.
+- The line style is saved on change, not on every input event.
+- The account-deletion confirmation phrase (`DELETE`) is not translated: it is
+  a typed safety check, identical in every language.
+- Icons are inline SVG from one sprite (`icons.svg`), not emoji, so they render
+  the same on every platform.
+
 ## Account deletion (GDPR), out-of-band
 
 `DELETE /api/account` purges all app data immediately (tours, blobs, user doc)
@@ -52,8 +123,38 @@ Why out-of-band: deleting a directory user needs a tenant-wide
 `User.ReadWrite.All` Graph credential. Keeping that **only in CI** (never in the
 internet-facing Functions app) means a compromise of the web app can't delete
 arbitrary users. GDPR allows the identity removal to complete shortly after (the
-app data — the bulk of personal data — is already gone). The job only ever
-deletes ids the API queued, and is idempotent.
+app data — the bulk of personal data — is already gone).
+
+What the job accepts (`functions/scripts/lib/deletionJob.js`, unit-tested with
+fakes; a change to it is security-relevant):
+
+- Only queued ids shaped like a GUID reach Graph, URL-encoded. Anything else
+  (`../groups/…`, `a/b`) stays queued and fails the run for a human to look at.
+- A Graph 204 or 404 removes the queue entry, so a re-run is idempotent; a 5xx,
+  429 or network error keeps it for the next run and fails this one. One
+  failing id never stops the others.
+- Logs carry counts and masked ids (`…abcd`), never a full object id (#570
+  tracks purging Entra's soft-deleted users and #538 the data it cannot reach).
+- `--dry-run` lists what a real run would do without Graph credentials; manual
+  runs of `process-deletions.yml` default to it (input `dry_run`), the daily
+  cron runs for real, and runs never overlap.
+
+By hand, `./buddy.sh maintenance delete-users --dry-run` shows the queue; it
+reads the production Cosmos key through `az`, so it is for an operator with a
+reason, never a routine local command.
+
+## Backfills
+
+A document-shape change ships a backfill with a dry run (CLAUDE.md, "Data and
+authorization changes"). The existing ones, `functions/scripts/backfillTourStats.js`
+(elevation and moving-time stats) and `backfillImageThumbnails.js` (thumbnail
+blobs; the blob name is derived from the image's, so no document changes), are
+**dry by default**: they read in pages, report what they would change and what
+would fail, and write only with `--apply`. They are idempotent, fail the exit
+code on any failed item, and need `COSMOS_CONNECTION_STRING`, `COSMOS_DATABASE`
+and `BLOB_CONNECTION_STRING`. There is no schema version yet (#577): the stats
+backfill finds old documents by the missing `elevationGain` field, which
+`null` (no elevation in the GPX) distinguishes from "not migrated".
 
 ## OpenTofu, reproducibly
 
@@ -61,6 +162,10 @@ Infrastructure is OpenTofu with remote azurerm state, so local runs and CI share
 one source of truth. Globally-unique names carry a random suffix so the config
 applies cleanly in any subscription. The state-backend storage account is the one
 bootstrap prerequisite (it can't create itself).
+
+The Cosmos account is not zone-redundant: at this scale the cost target wins,
+and zone-redundant accounts are capacity-constrained in West Europe. Backup,
+not redundancy, is the answer to losing data (#541).
 
 ## Encryption at rest
 
@@ -134,10 +239,15 @@ never downloads one here: it runs the Chromium Playwright installs
 (`CHROME_PATH`), on a CI runner or a developer machine, never in production.
 Look again when `@lhci/cli` or `lighthouse` bumps `puppeteer-core`.
 
+Pinned tools outside a lockfile: Azure Functions Core Tools is installed as
+`azure-functions-core-tools@4.13.0` in CI and deploy, because 4.14.0 ships an
+`npm-shrinkwrap.json` that resolves a dependency from Microsoft's internal
+package feed (401 outside their network). Bump it once a fixed release exists.
+
 ## SAST rule packs
 
 OpenGrep runs `--config auto` and `--config p/security-audit` together.
-`auto` is what CollectionBuddy runs: the community rules for every language in
+`auto` selects the community rules for every language in
 the tree (JavaScript, TypeScript, HCL, Bash, HTML, JSON), including the
 taint rules that catch `eval(req.body)`-style injections at error severity.
 `p/security-audit` is the narrower audit pack the pre-commit hook ran before;
@@ -145,25 +255,28 @@ keeping it means the switch cannot lose a rule that was already enforced. Only
 error severity fails the job: the warning-level packs (i18n key formats, Azure
 hardening advice) are reported for triage, and the IaC ones are owned by the
 IaC scanner. Two findings were fixed on adoption (the language menu built
-markup with `innerHTML`; it now uses `textContent`) and one is suppressed
-inline: `applyI18n`'s `data-i18n-html` sink renders repo-owned translation
-markup by design.
+markup with `innerHTML`; it now uses `textContent`). `applyI18n`'s
+`data-i18n-html` sink no longer parses HTML at all: `lib/markup.js` splits a
+translation into text, `<strong>` and `<code>` runs and the UI builds those
+elements, so no finding needs a suppression.
 
 ## IaC scan exceptions
 
 TFLint and Trivy lint what defines production: `infrastructure/`. Every
 accepted finding is listed in `.trivyignore.yaml` or `.tflint.hcl` with its
-reason, instead of an inline suppression, so the list of trade-offs is one
-file long:
+reason, so the list of trade-offs stays short; the only inline suppressions
+are the two per-resource `prevent_destroy` exceptions below, reason on the same
+line:
 
-| Finding                                | Why it is accepted                                                                                           | Lifted by |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
-| AZU-0012 storage network default allow | browsers load photos by SAS URL, and Flex Consumption without paid VNet integration uses the public endpoint | #556      |
-| AZU-0057 storage logging               | billed per GB, read by nobody today                                                                          | #541      |
-| AZU-0058 no geo-redundant replication  | LRS keeps the cost target; backup is the answer to region loss                                               | #541      |
-| AZU-0060 no customer-managed key       | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
-| AZU-0061 no infrastructure encryption  | fixed at account creation, not retrofitted                                                                   | —         |
-| TFLint `…_missing_prevent_destroy`     | also blocks `destroy.yml`; decided together with a destroy path                                              | #543      |
+| Finding                                                           | Why it is accepted                                                                                           | Lifted by |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| AZU-0012 storage network default allow                            | browsers load photos by SAS URL, and Flex Consumption without paid VNet integration uses the public endpoint | #556      |
+| AZU-0057 storage logging                                          | billed per GB, read by nobody today                                                                          | #541      |
+| AZU-0058 no geo-redundant replication                             | LRS keeps the cost target; backup is the answer to region loss                                               | #541      |
+| AZU-0060 no customer-managed key                                  | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
+| AZU-0061 no infrastructure encryption                             | fixed at account creation, not retrofitted                                                                   | —         |
+| TFLint `…_missing_prevent_destroy` on the `images` container      | unused and empty; photos live in the unmanaged `tour-images` container                                       | #568      |
+| TFLint `…_missing_prevent_destroy` on the `deployments` container | holds only the Functions package, which every deploy re-uploads                                              | —         |
 
 The tools are installed from GitHub releases by version and SHA-256 (in
 `scripts/quality/iac.sh`), not through third-party install actions: Trivy's
@@ -176,9 +289,13 @@ Mutation testing runs on an explicit list of modules (`mutation-targets.mjs`),
 not on a glob: the pure logic whose behaviour unit tests can pin down, the
 Function handlers (called directly with fake requests) and `frontend/src/lib/`.
 Off the list: the Cosmos/Blob adapters and the multipart stream parser, which
-the integration suite exercises against the emulators, and the DOM layer
-`frontend/src/ui/`, which Playwright exercises; mutating those would measure
-the mocks. The same list sets the 100 % per-file coverage floor, so a module
+the integration suite exercises against the emulators; the system clock and id
+source `functions/src/lib/system.js` (nothing to mutate but the platform calls);
+the load-test instrumentation `lib/profiling.js` and its switch `LoadProfiling/`
+(never enabled in production; the load run's report checks them); the thin
+entry files of `functions/scripts/` (wiring only; their logic is in
+`scripts/lib/`, which is on the list); and the DOM layer `frontend/src/ui/`,
+which Playwright exercises. Mutating those would measure the mocks. The same list sets the 100 % per-file coverage floor, so a module
 cannot be mutation-tested without being fully covered, or the reverse.
 
 `ignoreStatic` (functions) skips mutants that only run at module load
@@ -186,7 +303,17 @@ cannot be mutation-tested without being fully covered, or the reverse.
 imported once per test file, so those mutants cannot be killed without
 reloading the module per mutant. Break thresholds start one point below the
 measured score and only move up; known equivalent mutants are listed here when
-one blocks a raise.
+one blocks a raise. Current survivors, all equivalent:
+
+- `parseGpx.js`: min/max comparisons on equal values, the elevation loop
+  starting at the first point, `difference >= 0`, the 1 km/h speed boundary,
+  and `toArray`'s empty-element branch.
+- `emulatorGuard.js`: the `'utf8'` read encoding (`JSON.parse` accepts the
+  Buffer either way).
+- `frontend/src/lib/mapData.js`: `|| []` → a non-empty array; a body that is not
+  a list settles every tour on empty data either way.
+- `frontend/src/lib/tours.js`: the static `SORT_OPTIONS` initialiser, which
+  only runs at import.
 
 ## Property tests
 

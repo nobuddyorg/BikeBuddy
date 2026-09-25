@@ -1,109 +1,108 @@
 'use strict';
 
 const { app } = require('@azure/functions');
-const { randomUUID } = require('crypto');
-const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
-const { gpxContainer } = require('../lib/blobStorage');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const blobStorage = require('../lib/blobStorage');
+const system = require('../lib/system');
 const { parseMultipart } = require('../lib/parseMultipart');
-const { parseGpx } = require('../lib/parseGpx');
+const { parseGpx, InvalidGpxError } = require('../lib/parseGpx');
+const { looksLikeXml } = require('../lib/fileSignatures');
+const { gpxBlobName } = require('../lib/blobNames');
+const { withRollback } = require('../lib/settle');
 const { tourMetaSchema, tourMetaError } = require('../lib/validation');
+const { toCreatedTourResponse } = require('../lib/tourResponse');
 const { unauthorized, error } = require('../lib/http');
 
-// "<?xml" or "<gpx", optionally behind a UTF-8 BOM.
-function isXmlMagic(buffer) {
-  const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
-  const start = buffer.slice(0, 3).equals(BOM) ? buffer.slice(3) : buffer;
-  const header = start.slice(0, 5).toString('ascii');
-  return header.startsWith('<?xml') || header.startsWith('<gpx');
-}
-
-// POST /api/tours/upload — parse a GPX upload, store it, create the tour.
-async function uploadTour(
-  request,
-  auth = authenticate,
-  getToursContainer = toursContainer,
-  getGpxContainer = gpxContainer,
-  parseFile = parseMultipart,
-) {
-  const user = await auth(request);
-  if (!user) return unauthorized();
-  const { userId } = user;
-
-  const metaParsed = tourMetaSchema.safeParse({
-    name: request.query.get('name') ?? undefined,
-    description: request.query.get('description') ?? undefined,
-  });
-  if (!metaParsed.success) return tourMetaError(metaParsed.error);
-
+async function readGpxUpload(request, { parseFile, parseTrack }) {
   let file;
   try {
     file = await parseFile(request);
-  } catch (err) {
-    return error(err.status ?? 500, err.message);
+  } catch (parseError) {
+    if (parseError.status !== 400) throw parseError;
+    return { response: error(400, parseError.message) };
   }
-
-  if (!isXmlMagic(file.buffer)) {
-    return error(400, 'File does not appear to be a valid GPX/XML file');
+  if (!looksLikeXml(file.buffer)) {
+    return { response: error(400, 'File does not appear to be a valid GPX/XML file') };
   }
-
-  let parsed;
   try {
-    parsed = parseGpx(file.buffer);
-  } catch {
-    return error(400, 'Could not parse GPX file');
+    return { file, track: parseTrack(file.buffer) };
+  } catch (gpxError) {
+    if (!(gpxError instanceof InvalidGpxError)) throw gpxError;
+    return { response: error(400, 'Could not parse GPX file') };
   }
+}
 
-  const tourId = randomUUID();
-  const container = await getGpxContainer();
-  const blockBlob = container.getBlockBlobClient(`${userId}/${tourId}.gpx`);
-
-  const tour = {
+function newTourDocument({ tourId, userId, metadata, track, gpxFileUrl, uploadedAt }) {
+  return {
     id: tourId,
     userId,
-    name: metaParsed.data.name ?? parsed.name ?? 'Untitled Tour',
-    description: metaParsed.data.description ?? '',
-    gpxFileUrl: blockBlob.url,
-    heatmapData: parsed.heatmapData,
+    name: metadata.name ?? track.name ?? 'Untitled Tour',
+    description: metadata.description ?? '',
+    gpxFileUrl,
+    heatmapData: track.heatmapData,
     images: [],
-    distance: parsed.distanceKm,
-    createdAt: parsed.date ?? new Date().toISOString(),
-    elevationGain: parsed.elevationGain,
-    elevationLoss: parsed.elevationLoss,
-    minElevation: parsed.minElevation,
-    maxElevation: parsed.maxElevation,
-    durationSeconds: parsed.durationSeconds,
-    movingSeconds: parsed.movingSeconds,
-    avgSpeed: parsed.avgSpeed,
+    distance: track.distanceKm,
+    createdAt: track.date ?? uploadedAt.toISOString(),
+    elevationGain: track.elevationGain,
+    elevationLoss: track.elevationLoss,
+    minElevation: track.minElevation,
+    maxElevation: track.maxElevation,
+    durationSeconds: track.durationSeconds,
+    movingSeconds: track.movingSeconds,
+    avgSpeed: track.avgSpeed,
   };
+}
 
-  // Sequential, not Promise.all: neither write needs the other's result, but
-  // Promise.all rejects on the first failure while the other lands anyway, and
-  // the two partial states are not equally bad. A tour pointing at a blob that
-  // was never written shows up in the list and fails at download; an orphaned
-  // blob is invisible and costs a few KB. Blob first, rolled back if the Cosmos
-  // create fails, leaves only the recoverable one.
-  await blockBlob.uploadData(file.buffer, {
-    blobHTTPHeaders: { blobContentType: 'application/gpx+xml' },
+// Blob first, rolled back if the create fails: a tour never points at a missing GPX.
+async function uploadTour(
+  request,
+  {
+    authenticate = authMiddleware.authenticate,
+    toursContainer = db.toursContainer,
+    gpxContainer = blobStorage.gpxContainer,
+    parseFile = parseMultipart,
+    parseTrack = parseGpx,
+    newId = system.newId,
+    now = system.currentTime,
+  } = {},
+) {
+  const user = await authenticate(request);
+  if (!user) return unauthorized();
+  const { userId } = user;
+
+  const metadata = tourMetaSchema.safeParse({
+    name: request.query.get('name') ?? undefined,
+    description: request.query.get('description') ?? undefined,
   });
-  try {
-    await getToursContainer().items.create(tour);
-  } catch (err) {
-    // Best-effort cleanup — the create failure is what the caller needs to see.
-    await blockBlob.deleteIfExists().catch(() => {});
-    throw err;
-  }
+  if (!metadata.success) return tourMetaError(metadata.error);
 
-  return {
-    status: 201,
-    jsonBody: {
-      tourId: tour.id,
-      gpxFileUrl: tour.gpxFileUrl,
-      name: tour.name,
-      distance: tour.distance,
-      createdAt: tour.createdAt,
-    },
-  };
+  const upload = await readGpxUpload(request, { parseFile, parseTrack });
+  if (upload.response) return upload.response;
+
+  const tourId = newId();
+  const blobName = gpxBlobName({ userId, tourId });
+  const container = await gpxContainer();
+  const tour = newTourDocument({
+    tourId,
+    userId,
+    metadata: metadata.data,
+    track: upload.track,
+    gpxFileUrl: blobStorage.blobUrl(container, blobName),
+    uploadedAt: now(),
+  });
+
+  await blobStorage.uploadBlob(container, {
+    blobName,
+    data: upload.file.buffer,
+    contentType: 'application/gpx+xml',
+  });
+  await withRollback(
+    () => db.createItem(toursContainer(), tour),
+    () => blobStorage.deleteBlobIfExists(container, blobName),
+  );
+
+  return { status: 201, jsonBody: toCreatedTourResponse(tour) };
 }
 
 app.http('UploadTour', {

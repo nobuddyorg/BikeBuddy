@@ -11,6 +11,14 @@
 | `ENTRA_TENANT_ID`          | Directory (tenant) GUID                                               |
 | `ENTRA_CLIENT_ID`          | App registration client id (also the token audience)                  |
 | `SKIP_AUTH`                | `"true"` skips JWT verification (local dev only)                      |
+| `ENTRA_OIDC_METADATA_URL`  | Test issuer's metadata URL; loopback only, refused inside Azure       |
+| `LOAD_PROFILING`           | `"true"` logs per-request timings and RU for the load-test report     |
+| `AzureWebJobsStorage`      | Functions host storage (`UseDevelopmentStorage=true` locally)         |
+| `FUNCTIONS_WORKER_RUNTIME` | `node`                                                                |
+
+The account-deletion job (`functions/scripts/process-deletions.js`) also reads
+`GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID` and `GRAPH_CLIENT_SECRET`; the API never
+does.
 
 Set by the deploy via `infrastructure/` Tofu variables; `SKIP_AUTH` is `false`
 automatically once `entra_client_id` is set. Should both ever end up set at
@@ -32,10 +40,18 @@ from `config.js.example`.
 
 ## GitHub Actions
 
-- **Secrets:** `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_SUBSCRIPTION_ID`, `ARM_TENANT_ID`, `TF_BACKEND_ACCESS_KEY`, `CODECOV_TOKEN`.
-- **Variables** (public, optional — unset = no-auth): `ENTRA_SUBDOMAIN`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`.
+- **Repository secrets:** `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`,
+  `ARM_SUBSCRIPTION_ID`, `ARM_TENANT_ID`, `TF_BACKEND_ACCESS_KEY` (deploy);
+  `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` (account-deletion
+  job); `LOAD_ACCESS_TOKEN` (k6 against the hosted API, optional).
+- **`ci` environment secrets:** `CODECOV_TOKEN`, `STRYKER_DASHBOARD_API_KEY`.
+- **Variables** (public, optional — unset = no-auth): `ENTRA_SUBDOMAIN`,
+  `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`; `LOAD_API_URL` (k6 hosted target).
+- **Required variable:** `BUDGET_CONTACT_EMAIL`, where budget alerts go;
+  deploy and destroy fail while it is unset.
 
 ## Infrastructure variables (`infrastructure/variables.tf`)
 
 `location` (default `northeurope`), `entra_*`, `budget_amount` (default 5),
-`budget_contact_email`, `budget_start_date`.
+`budget_contact_email` (required, no default; CI passes the
+`BUDGET_CONTACT_EMAIL` repository variable), `budget_start_date`.

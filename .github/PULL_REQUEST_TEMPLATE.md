@@ -10,12 +10,21 @@ Closes #
 
 -
 
+## Security-relevant
+
+<!-- Auth, ownership, partitioning, SAS scope or the deletion job: one line on what it now allows or denies. Otherwise "None". -->
+
+## Infrastructure
+
+<!-- A change under infrastructure/**: paste the plan's destroy/replace lines ("None" if there are none). Otherwise delete this section. -->
+
 ## Verification
 
-<!-- How did you test it? unit / e2e / manual -->
+<!-- The Definition of done in CLAUDE.md, run from the repo root in its order. Tick what ran; say why a step did not. -->
 
-- [ ] `cd functions && npm test`
-- [ ] e2e (static and/or full-stack) as relevant
-- [ ] `prek run --all-files`
+- [ ] `./buddy.sh quality check` (hooks, unit, frontend, static e2e with coverage)
+- [ ] `./buddy.sh test mutation` (a file in `mutation-targets.mjs` changed)
+- [ ] `./buddy.sh quality check --stack` (integration, full-stack e2e, Lighthouse, ZAP)
+- [ ] Load test comparison attached (a change to a hot path)
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

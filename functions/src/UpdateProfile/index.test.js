@@ -1,113 +1,141 @@
 'use strict';
 
 const { updateProfile } = require('./index');
+const { fakeUsersContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const { signedInAs, signedOut, fixedClock, NOW } = require('../../test/fakes/collaborators');
 
-const mockAuth = async () => ({ userId: 'u1', userEmail: 'ada@example.com' });
-const reqWith = (body) => ({ json: async () => body });
+const INVALID = 'A name (1–200 characters) or a supported language is required.';
+const STORED = { id: 'u1', name: null, email: 'ada@example.com', createdAt: 'x' };
+const OTHER_USER = { id: 'u2', name: 'Grace', email: 'grace@example.com', createdAt: 'y' };
 
-function makeContainer(
-  existing = { id: 'u1', name: null, email: 'ada@example.com', createdAt: 'x' },
-) {
-  const upsert = vi.fn((doc) => Promise.resolve({ resource: doc }));
-  const item = vi.fn().mockReturnValue({ read: async () => ({ resource: existing }) });
-  return { container: { item, items: { upsert } }, upsert, item };
+function setUp({
+  profiles = [STORED, OTHER_USER],
+  authenticate = signedInAs('u1', { userEmail: 'ada@example.com' }),
+} = {}) {
+  const users = fakeUsersContainer(profiles);
+  const run = (json) =>
+    updateProfile({ json }, { authenticate, usersContainer: () => users, now: fixedClock });
+  const withBody = (body) => async () => body;
+  const writes = () => users.calls.filter((call) => call.operation !== 'read');
+  return { users, run, withBody, writes };
 }
 
 describe('PATCH /api/me', () => {
-  it('returns 401 when auth fails', async () => {
-    const res = await updateProfile(
-      reqWith({ name: 'Ada' }),
-      async () => null,
-      () => makeContainer().container,
-    );
-    expect(res.status).toBe(401);
-  });
+  it('stores the chosen name and returns the profile', async () => {
+    const { users, run, withBody } = setUp();
 
-  it('updates the stored name and returns the doc', async () => {
-    const c = makeContainer();
-    const res = await updateProfile(reqWith({ name: 'Ada Lovelace' }), mockAuth, () => c.container);
+    const response = await run(withBody({ name: 'Ada Lovelace' }));
 
-    expect(res.status).toBe(200);
-    expect(c.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: 'Ada Lovelace' }),
-    );
-    expect(res.jsonBody.name).toBe('Ada Lovelace');
+    expect(response.status).toBe(200);
+    expect(response.jsonBody).toStrictEqual({
+      id: 'u1',
+      name: 'Ada Lovelace',
+      email: 'ada@example.com',
+      createdAt: 'x',
+      language: undefined,
+    });
+    expect(users.stored('u1', 'u1').name).toBe('Ada Lovelace');
   });
 
   it('strips HTML from the name', async () => {
-    const c = makeContainer();
-    const res = await updateProfile(reqWith({ name: '<b>Ada</b>' }), mockAuth, () => c.container);
-    expect(res.jsonBody.name).toBe('bAda/b');
+    const { run, withBody } = setUp();
+
+    expect((await run(withBody({ name: '<b>Ada</b>' }))).jsonBody.name).toBe('bAda/b');
   });
 
-  it('rejects an empty name', async () => {
-    const c = makeContainer();
-    const res = await updateProfile(reqWith({ name: '   ' }), mockAuth, () => c.container);
-    expect(res.status).toBe(400);
-    expect(res.jsonBody.error).toBe(
-      'A name (1–200 characters) or a supported language is required.',
-    );
-    expect(c.upsert).not.toHaveBeenCalled();
+  it('stores the language, leaving the name untouched', async () => {
+    const { users, run, withBody } = setUp({ profiles: [{ ...STORED, name: 'Ada' }] });
+
+    const response = await run(withBody({ language: 'de' }));
+
+    expect(response.jsonBody).toMatchObject({ name: 'Ada', language: 'de' });
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: 'Ada', language: 'de' });
   });
 
-  it('creates the doc when it does not exist yet', async () => {
-    const c = makeContainer(null);
-    const res = await updateProfile(reqWith({ name: 'New User' }), mockAuth, () => c.container);
-    expect(res.status).toBe(200);
-    expect(c.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: 'New User', email: 'ada@example.com' }),
-    );
+  it('stores the name, leaving the language untouched', async () => {
+    const { users, run, withBody } = setUp({ profiles: [{ ...STORED, language: 'de' }] });
+
+    await run(withBody({ name: 'New Name' }));
+
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: 'New Name', language: 'de' });
   });
 
-  it('updates the stored language and returns it, leaving name untouched', async () => {
-    const c = makeContainer({ id: 'u1', name: 'Ada', email: 'ada@example.com', createdAt: 'x' });
-    const res = await updateProfile(reqWith({ language: 'de' }), mockAuth, () => c.container);
+  it('creates the profile when GET /api/me has not run yet', async () => {
+    const { users, run, withBody } = setUp({ profiles: [] });
 
-    expect(res.status).toBe(200);
-    expect(c.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: 'Ada', language: 'de' }),
-    );
-    expect(res.jsonBody.language).toBe('de');
-    expect(res.jsonBody.name).toBe('Ada');
+    const response = await run(withBody({ language: 'fr' }));
+
+    expect(response.status).toBe(200);
+    expect(users.stored('u1', 'u1')).toMatchObject({
+      id: 'u1',
+      name: null,
+      email: 'ada@example.com',
+      language: 'fr',
+      createdAt: NOW.toISOString(),
+    });
   });
 
-  it('updates only the name, leaving the stored language untouched', async () => {
-    const c = makeContainer({ id: 'u1', name: 'Old', email: 'ada@example.com', language: 'de' });
-    const res = await updateProfile(reqWith({ name: 'New Name' }), mockAuth, () => c.container);
+  it('writes to the token user only, ignoring an id or email in the body', async () => {
+    const { users, run, withBody } = setUp();
 
-    expect(res.status).toBe(200);
-    expect(res.jsonBody.language).toBe('de');
-    expect(c.upsert).toHaveBeenCalledWith(expect.objectContaining({ language: 'de' }));
+    await run(withBody({ name: 'Ada', id: 'u2', email: 'attacker@example.com', userId: 'u2' }));
+
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: 'Ada', email: 'ada@example.com' });
+    expect(users.stored('u2', 'u2')).toEqual(expect.objectContaining(OTHER_USER));
+    expect(users.calls.map(({ operation, id }) => [operation, id])).toEqual([
+      ['read', 'u1'],
+      ['upsert', 'u1'],
+    ]);
   });
 
-  it('rejects an unsupported language code', async () => {
-    const c = makeContainer();
-    const res = await updateProfile(reqWith({ language: 'xx' }), mockAuth, () => c.container);
-    expect(res.status).toBe(400);
-    expect(c.upsert).not.toHaveBeenCalled();
+  it.each([
+    ['an empty name', { name: '   ' }],
+    ['an unsupported language', { language: 'xx' }],
+    ['neither name nor language', {}],
+    ['a JSON null', null],
+  ])('returns 400 for %s, writing nothing', async (_label, body) => {
+    const { run, withBody, writes } = setUp();
+
+    const response = await run(withBody(body));
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.error).toBe(INVALID);
+    expect(writes()).toEqual([]);
   });
 
-  it('rejects a body with neither name nor language', async () => {
-    const c = makeContainer();
-    const res = await updateProfile(reqWith({}), mockAuth, () => c.container);
-    expect(res.status).toBe(400);
-    expect(c.upsert).not.toHaveBeenCalled();
+  it('returns 400 for a body that is not JSON, writing nothing', async () => {
+    const { users, run } = setUp();
+
+    const response = await run(async () => JSON.parse('{"name": '));
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.error).toBe(INVALID);
+    expect(users.calls).toEqual([]);
   });
 
-  it('treats a null JSON body as empty and rejects it', async () => {
-    const c = makeContainer();
-    const res = await updateProfile(reqWith(null), mockAuth, () => c.container);
-    expect(res.status).toBe(400);
-    expect(c.upsert).not.toHaveBeenCalled();
+  it('rethrows a body read failure that is not malformed JSON', async () => {
+    const { run } = setUp();
+
+    await expect(
+      run(async () => {
+        throw new TypeError('body stream already read');
+      }),
+    ).rejects.toThrow('body stream already read');
   });
 
-  it('creates the doc with a null name when only language is provided for a new user', async () => {
-    const c = makeContainer(null);
-    const res = await updateProfile(reqWith({ language: 'fr' }), mockAuth, () => c.container);
+  it('re-throws read errors other than 404', async () => {
+    const { users, run, withBody } = setUp();
+    users.failOn('read', { error: cosmosError(503, 'Service unavailable') });
 
-    expect(res.status).toBe(200);
-    expect(c.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', name: null, email: 'ada@example.com', language: 'fr' }),
-    );
+    await expect(run(withBody({ name: 'Ada' }))).rejects.toThrow('Service unavailable');
+  });
+
+  it('returns 401 without reading or writing when the caller is not signed in', async () => {
+    const { users, run, withBody } = setUp({ authenticate: signedOut });
+
+    const response = await run(withBody({ name: 'Ada' }));
+
+    expect(response.status).toBe(401);
+    expect(users.calls).toEqual([]);
   });
 });

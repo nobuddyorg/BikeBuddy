@@ -2,13 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Pinch/double-tap zoom stays enabled for the page; the map's own
-       gesture conflict (see ui/map.js) is handled there instead of by
-       disabling zoom for the whole document. -->
+    <!-- Page zoom stays enabled; the map handles its own pinch in ui/map.js. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- GitHub Pages cannot set response headers, so the policy ships in the
-       document. A meta CSP cannot express frame-ancestors, HSTS or
-       Permissions-Policy — see docs/explanation/security.md. -->
+    <!-- GitHub Pages cannot send headers, so the policy is a meta tag (docs/explanation/security.md). -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.blob.core.windows.net http://127.0.0.1:10000; connect-src 'self' https://*.ciamlogin.com https://login.microsoftonline.com https://*.azurewebsites.net https://*.blob.core.windows.net http://127.0.0.1:10000; frame-src https://*.ciamlogin.com https://login.microsoftonline.com; font-src 'self'"
@@ -19,37 +15,35 @@
       name="description"
       content="Upload GPX rides (cycling or motorcycling) and see your routes on the map."
     />
-    <!-- Two metas, not one: matches the light/dark split the app already
-       renders via prefers-color-scheme (style.css), so browser chrome and
-       the install splash follow the active scheme instead of always dark. -->
     <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="favicon.png" type="image/png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <!-- Social link previews -->
     <meta property="og:title" content="BikeBuddy" />
     <meta property="og:description" content="Upload GPX rides and see your routes on the map." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://nobuddy.org/BikeBuddy/" />
     <meta name="twitter:card" content="summary" />
 
-    <!-- defer (not blocking parse) preserves document order, so app.js
-       (a module, deferred by default) still sees window.L/window.msal. -->
-    <!-- Leaflet, vendored — see vendor/.leaflet-source -->
+    <!-- defer keeps document order, so the module app.js still runs after Leaflet and MSAL. -->
     <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
     <script src="vendor/leaflet/leaflet.js" defer></script>
-    <!-- MSAL Browser (Microsoft Entra External ID auth). Vendored locally:
-       loading cross-origin from a CDN was blocked by the browser (ORB) on GitHub Pages. -->
+    <!-- Vendored: loading MSAL from a CDN was blocked (ORB) on GitHub Pages. -->
     <script src="vendor/msal-browser.min.js" defer></script>
-    <!-- App config — copy config.js.example to config.js and fill in Entra values -->
     <script src="config.js" defer></script>
 
-    <link rel="stylesheet" href="style.css" />
+    <!-- Linked in this order, which is the cascade order; no @import, so they load in parallel. -->
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/tours-and-map.css" />
+    <link rel="stylesheet" href="css/panels.css" />
+    <link rel="stylesheet" href="css/profile.css" />
+    <link rel="stylesheet" href="css/photos.css" />
+    <link rel="stylesheet" href="css/feedback.css" />
+    <link rel="stylesheet" href="css/responsive.css" />
+    <link rel="stylesheet" href="css/language-and-utilities.css" />
   </head>
   <body class="i18n-loading">
-    <!-- Gray placeholder shell, shown until i18n.init() (frontend/src/lib/i18n.js)
-         applies the detected locale — hides the real markup below, which ships
-         with hardcoded English text and would otherwise flash before the swap. -->
+    <!-- Shown until ui/i18n.js has translated the markup it covers. -->
     <div id="app-skeleton" class="app-skeleton" aria-hidden="true">
       <div class="skeleton-navbar">
         <div class="skeleton-block skeleton-navbar-logo"></div>
@@ -67,9 +61,8 @@
       </div>
     </div>
 
-    <!-- Top nav -->
     <header class="navbar">
-      <!-- The page's one level-1 heading; the visible brand is a reload button, which cannot hold a heading. -->
+      <!-- The page's one h1: the visible brand is a reload button, which cannot hold a heading. -->
       <h1 class="visually-hidden">BikeBuddy</h1>
       <button
         id="btn-brand-reload"
@@ -99,10 +92,8 @@
           disabled
           data-i18n="nav.upload"
           data-i18n-title="nav.uploadDisabledTitle"
-        >
-          Upload GPX
-        </button>
-        <button id="btn-login" class="btn btn-primary" data-i18n="nav.signIn">Sign In</button>
+        ></button>
+        <button id="btn-login" class="btn btn-primary" data-i18n="nav.signIn"></button>
         <div id="user-menu" class="user-menu hidden">
           <button
             id="btn-profile"
@@ -113,13 +104,12 @@
       </div>
     </header>
 
-    <!-- One main landmark for the whole app: on mobile the map is off-screen, so it cannot be the main. -->
-    <main class="app-layout">
-      <!-- Sidebar -->
-      <section class="sidebar" aria-labelledby="sidebar-title">
+    <!-- One main for the whole app: on mobile the map is off-screen, so it cannot be the main. -->
+    <main id="app-layout" class="app-layout">
+      <section id="sidebar" class="sidebar" aria-labelledby="sidebar-title">
         <div class="sidebar-header">
           <div class="sidebar-header-title">
-            <h2 id="sidebar-title" data-i18n="sidebar.myTours">My Tours</h2>
+            <h2 id="sidebar-title" data-i18n="sidebar.myTours"></h2>
             <span id="tour-count" class="badge">0</span>
             <button
               id="btn-stats-header"
@@ -128,26 +118,28 @@
               data-i18n-aria-label="stats.openAria"
               data-i18n-title="stats.openAria"
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M5 19V10h3v9H5zm5.5 0V5h3v14h-3zM16 19v-6h3v6h-3z" />
-              </svg>
+              <svg fill="currentColor" aria-hidden="true"><use href="icons.svg#stats" /></svg>
             </button>
           </div>
-          <button id="btn-select-mode" class="btn btn-ghost hidden" data-i18n="sidebar.select">
-            Select
-          </button>
+          <button
+            id="btn-select-mode"
+            class="btn btn-ghost hidden"
+            data-i18n="sidebar.select"
+          ></button>
         </div>
 
         <div id="auth-prompt" class="auth-prompt">
-          <p data-i18n="sidebar.signInPrompt">Sign in to see your tours.</p>
-          <button class="btn btn-primary btn-full" id="btn-login-sidebar" data-i18n="nav.signIn">
-            Sign In
-          </button>
+          <p data-i18n="sidebar.signInPrompt"></p>
+          <button
+            class="btn btn-primary btn-full"
+            id="btn-login-sidebar"
+            data-i18n="nav.signIn"
+          ></button>
         </div>
 
         <div id="tour-loading" class="tour-loading hidden">
           <span class="spinner" aria-hidden="true"></span>
-          <span data-i18n="sidebar.loading">Loading your tours…</span>
+          <span data-i18n="sidebar.loading"></span>
         </div>
 
         <div id="tour-controls" class="tour-controls hidden">
@@ -167,25 +159,10 @@
               data-i18n-aria-label="sidebar.searchClearAria"
               data-i18n-title="sidebar.searchClearAria"
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                />
-              </svg>
+              <svg aria-hidden="true"><use href="icons.svg#close" /></svg>
             </button>
           </div>
-          <select id="tour-sort" class="tour-sort" data-i18n-aria-label="sidebar.sortAria">
-            <option value="date-desc" data-i18n="sort.dateDesc">Newest first</option>
-            <option value="date-asc" data-i18n="sort.dateAsc">Oldest first</option>
-            <option value="name-asc" data-i18n="sort.nameAsc">Name A–Z</option>
-            <option value="name-desc" data-i18n="sort.nameDesc">Name Z–A</option>
-            <option value="length-desc" data-i18n="sort.lengthDesc">Longest first</option>
-            <option value="length-asc" data-i18n="sort.lengthAsc">Shortest first</option>
-          </select>
+          <select id="tour-sort" class="tour-sort" data-i18n-aria-label="sidebar.sortAria"></select>
           <div id="sort-menu" class="sort-menu">
             <button
               id="btn-sort-menu"
@@ -196,9 +173,7 @@
               data-i18n-aria-label="sidebar.sortAria"
               data-i18n-title="sidebar.sortAria"
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M9 3 5 6.99h3V14h2V6.99h3L9 3zm7 14.01V10h-2v7.01h-3L15 21l4-3.99h-3z" />
-              </svg>
+              <svg aria-hidden="true"><use href="icons.svg#sort" /></svg>
             </button>
             <ul
               id="sort-menu-list"
@@ -214,9 +189,7 @@
             data-i18n-aria-label="stats.openAria"
             data-i18n-title="stats.openAria"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M5 19V10h3v9H5zm5.5 0V5h3v14h-3zM16 19v-6h3v6h-3z" />
-            </svg>
+            <svg fill="currentColor" aria-hidden="true"><use href="icons.svg#stats" /></svg>
           </button>
         </div>
 
@@ -229,13 +202,9 @@
               data-i18n-aria-label="sidebar.deleteSelected"
             >
               <span class="btn-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
-                  />
-                </svg>
+                <svg fill="currentColor"><use href="icons.svg#trash" /></svg>
               </span>
-              <span class="btn-label" data-i18n="sidebar.deleteSelected">Delete</span>
+              <span class="btn-label" data-i18n="sidebar.deleteSelected"></span>
             </button>
             <button
               id="btn-cancel-select"
@@ -243,7 +212,7 @@
               data-i18n-aria-label="sidebar.cancelSelect"
             >
               <span class="btn-icon" aria-hidden="true">✕</span>
-              <span class="btn-label" data-i18n="sidebar.cancelSelect">Cancel</span>
+              <span class="btn-label" data-i18n="sidebar.cancelSelect"></span>
             </button>
           </div>
         </div>
@@ -268,29 +237,28 @@
           </button>
         </div>
 
-        <button id="btn-show-all" class="show-all-btn hidden">Show All Tours</button>
+        <button id="btn-show-all" class="show-all-btn hidden" data-i18n="tours.showAll"></button>
 
         <div id="no-tours" class="empty-state hidden">
-          <p data-i18n="sidebar.noToursYet">No tours yet.</p>
+          <p data-i18n="sidebar.noToursYet"></p>
           <button
             class="btn btn-primary btn-full"
             id="btn-upload-sidebar"
             data-i18n="sidebar.uploadFirst"
-          >
-            Upload your first GPX
-          </button>
+          ></button>
         </div>
 
         <div id="tour-load-error" class="empty-state hidden">
-          <p data-i18n="sidebar.loadError">Couldn't load your tours.</p>
-          <button class="btn btn-primary btn-full" id="btn-retry-tours" data-i18n="sidebar.retry">
-            Try again
-          </button>
+          <p data-i18n="sidebar.loadError"></p>
+          <button
+            class="btn btn-primary btn-full"
+            id="btn-retry-tours"
+            data-i18n="sidebar.retry"
+          ></button>
         </div>
       </section>
 
-      <!-- Map -->
-      <div class="map-container">
+      <div id="map-container" class="map-container">
         <div id="map"></div>
         <div class="map-top-controls">
           <label
@@ -301,44 +269,19 @@
             <input type="checkbox" id="filter-in-view-input" />
             <span
               ><span class="btn-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                >
-                  <circle cx="12" cy="12" r="7" />
-                  <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
-                  <line x1="12" y1="2" x2="12" y2="5" />
-                  <line x1="12" y1="19" x2="12" y2="22" />
-                  <line x1="2" y1="12" x2="5" y2="12" />
-                  <line x1="19" y1="12" x2="22" y2="12" />
-                </svg>
+                <svg><use href="icons.svg#in-view" /></svg>
               </span>
-              <span class="toggle-label-text" data-i18n="sidebar.filterInView">In view</span></span
-            >
+              <span class="toggle-label-text" data-i18n="sidebar.filterInView"></span
+            ></span>
           </label>
           <label id="pin-toggle" class="pin-toggle hidden" data-i18n-aria-label="map.photoPins">
             <input type="checkbox" id="pin-toggle-input" />
             <span
               ><span class="btn-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"
-                  />
-                  <circle cx="12" cy="12.5" r="3.5" />
-                </svg>
+                <svg><use href="icons.svg#camera" /></svg>
               </span>
-              <span class="toggle-label-text" data-i18n="map.photoPins">Photo pins</span></span
-            >
+              <span class="toggle-label-text" data-i18n="map.photoPins"></span
+            ></span>
           </label>
           <div id="line-style-wrap" class="line-style-wrap hidden">
             <button
@@ -350,22 +293,9 @@
               data-i18n-aria-label="map.lineStyle"
             >
               <span class="btn-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                >
-                  <line x1="4" y1="6" x2="20" y2="6" />
-                  <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none" />
-                  <line x1="4" y1="12" x2="20" y2="12" />
-                  <circle cx="15" cy="12" r="2" fill="currentColor" stroke="none" />
-                  <line x1="4" y1="18" x2="20" y2="18" />
-                  <circle cx="11" cy="18" r="2" fill="currentColor" stroke="none" />
-                </svg>
+                <svg><use href="icons.svg#line-style" /></svg>
               </span>
-              <span class="toggle-label-text" data-i18n="map.lineStyle">Line style</span>
+              <span class="toggle-label-text" data-i18n="map.lineStyle"></span>
             </button>
             <div
               id="line-style-menu"
@@ -374,16 +304,16 @@
               data-i18n-aria-label="map.lineStyle"
             >
               <label class="line-style-field">
-                <span data-i18n="map.lineStyleColor">Color</span>
+                <span data-i18n="map.lineStyleColor"></span>
                 <input id="line-style-color" type="color" />
               </label>
               <label class="line-style-field">
-                <span data-i18n="map.lineStyleWidth">Width</span>
+                <span data-i18n="map.lineStyleWidth"></span>
                 <input id="line-style-width" type="range" step="1" />
                 <span id="line-style-width-value" class="line-style-value"></span>
               </label>
               <label class="line-style-field">
-                <span data-i18n="map.lineStyleOpacity">Opacity</span>
+                <span data-i18n="map.lineStyleOpacity"></span>
                 <input id="line-style-opacity" type="range" step="5" />
                 <span id="line-style-opacity-value" class="line-style-value"></span>
               </label>
@@ -397,68 +327,53 @@
             aria-pressed="false"
           >
             <span class="btn-icon" aria-hidden="true">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M9 4H5a1 1 0 0 0-1 1v4" />
-                <path d="M15 4h4a1 1 0 0 1 1 1v4" />
-                <path d="M9 20H5a1 1 0 0 1-1-1v-4" />
-                <path d="M15 20h4a1 1 0 0 0 1-1v-4" />
-              </svg>
+              <svg><use href="icons.svg#expand" /></svg>
             </span>
           </button>
         </div>
         <div id="map-empty" class="map-empty-overlay hidden">
           <div class="map-empty-card">
             <div class="map-empty-icon">🗺️</div>
-            <h3 data-i18n="map.emptyTitle">No tours to display</h3>
-            <p data-i18n="map.emptyBody">Upload a GPX file to see your route on the map.</p>
+            <h3 data-i18n="map.emptyTitle"></h3>
+            <p data-i18n="map.emptyBody"></p>
           </div>
         </div>
         <div id="map-load-error" class="map-empty-overlay hidden">
           <div class="map-empty-card">
             <div class="map-empty-icon">⚠️</div>
-            <h3 data-i18n="map.loadErrorTitle">Couldn't load your tours</h3>
-            <button class="btn btn-primary" id="btn-retry-map" data-i18n="sidebar.retry">
-              Try again
-            </button>
+            <h3 data-i18n="map.loadErrorTitle"></h3>
+            <button class="btn btn-primary" id="btn-retry-map" data-i18n="sidebar.retry"></button>
           </div>
         </div>
         <div id="map-loading" class="map-empty-overlay hidden">
           <div class="map-empty-card map-loading-card">
             <span class="spinner" aria-hidden="true"></span>
-            <span data-i18n="map.loading">Loading your ride data…</span>
+            <span data-i18n="map.loading"></span>
           </div>
         </div>
       </div>
 
-      <!-- Tour detail panel (hidden until a tour is selected) -->
       <section id="detail-panel" class="detail-panel hidden" aria-labelledby="detail-name">
         <button id="btn-close-detail" class="detail-close" data-i18n-aria-label="common.close">
           ✕
         </button>
         <h2 id="detail-name" class="detail-title"></h2>
         <dl class="detail-meta">
-          <dt data-i18n="detail.date">Date</dt>
+          <dt data-i18n="detail.date"></dt>
           <dd id="detail-date">—</dd>
-          <dt data-i18n="detail.distance">Distance</dt>
+          <dt data-i18n="detail.distance"></dt>
           <dd id="detail-distance">—</dd>
-          <dt data-i18n="detail.elevationGain">Elevation gain</dt>
+          <dt data-i18n="detail.elevationGain"></dt>
           <dd id="detail-elevation-gain">—</dd>
-          <dt data-i18n="detail.duration">Duration</dt>
+          <dt data-i18n="detail.duration"></dt>
           <dd id="detail-duration">—</dd>
-          <dt data-i18n="detail.avgSpeed">Avg speed</dt>
+          <dt data-i18n="detail.avgSpeed"></dt>
           <dd id="detail-avg-speed">—</dd>
         </dl>
         <p id="detail-description" class="detail-description"></p>
 
         <section class="tour-images">
-          <h3 class="images-title" data-i18n="detail.photos">Photos</h3>
+          <h3 class="images-title" data-i18n="detail.photos"></h3>
           <div id="tour-image-grid" class="image-grid"></div>
           <div
             id="image-dropzone"
@@ -468,62 +383,42 @@
             data-i18n-aria-label="detail.addPhotosAria"
           >
             <input id="image-file" type="file" accept="image/jpeg,image/png" multiple hidden />
-            <p class="dropzone-text" data-i18n="detail.dropPhotos">
-              Drop or click to add photos (JPEG/PNG)
-            </p>
+            <p class="dropzone-text" data-i18n="detail.dropPhotos"></p>
           </div>
           <p id="image-error" class="upload-error hidden" role="alert"></p>
         </section>
 
         <div class="detail-actions">
-          <button id="btn-edit-tour" class="btn btn-secondary btn-full" data-i18n="detail.edit">
-            Edit
-          </button>
+          <button
+            id="btn-edit-tour"
+            class="btn btn-secondary btn-full"
+            data-i18n="detail.edit"
+          ></button>
           <button
             id="btn-download-gpx"
             class="btn btn-secondary btn-full"
             data-i18n="detail.downloadGpx"
-          >
-            Download GPX
-          </button>
+          ></button>
           <button
             id="btn-delete-tour"
             class="btn btn-danger btn-full"
             data-i18n="detail.deleteTour"
-          >
-            Delete Tour
-          </button>
+          ></button>
         </div>
       </section>
 
-      <!-- Mobile-only: opens the map full-screen (see .map-expanded) without it
-           occupying space on the list screen. -->
       <button
         id="btn-mobile-map-fab"
         class="mobile-map-fab hidden"
         data-i18n-aria-label="map.expandAria"
         data-i18n-title="map.expandTitle"
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-          <line x1="8" y1="2" x2="8" y2="18" />
-          <line x1="16" y1="6" x2="16" y2="22" />
-        </svg>
+        <svg aria-hidden="true"><use href="icons.svg#map" /></svg>
       </button>
     </main>
 
-    <!-- Toast notifications -->
     <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
 
-    <!-- Help modal -->
     <div
       id="help-modal"
       class="modal-overlay hidden"
@@ -535,53 +430,29 @@
         <button id="btn-close-help" class="modal-close" data-i18n-aria-label="common.close">
           ✕
         </button>
-        <h2 id="help-modal-title" class="profile-name" data-i18n="help.title">
-          How to use BikeBuddy
-        </h2>
-        <!-- Focusable so keyboard users can scroll it (it holds no controls). -->
+        <h2 id="help-modal-title" class="profile-name" data-i18n="help.title"></h2>
+        <!-- Focusable so keyboard users can scroll it; it holds no controls. -->
         <div class="help-content" tabindex="0" role="region" aria-labelledby="help-modal-title">
-          <h3 data-i18n="help.q1">🧭 What is this?</h3>
-          <p data-i18n="help.a1">
-            Upload GPX tracks from your rides — cycling or motorcycling — and see them as routes on
-            an interactive map.
-          </p>
-          <h3 data-i18n="help.q2">🔑 Sign in & your account</h3>
-          <p data-i18n-html="help.a2">
-            Sign in to upload tours and save them to your account. Your profile lets you set a
-            display name, switch language, export your data, or delete your account.
-          </p>
-          <h3 data-i18n="help.q3">⬆️ Upload a tour</h3>
-          <p data-i18n-html="help.a3">
-            Click <strong>Upload GPX</strong>, give it a name, and drop a <code>.gpx</code> file. It
-            appears on the map straight away.
-          </p>
-          <h3 data-i18n="help.q4">🔍 Find your tours</h3>
-          <p data-i18n-html="help.a4">
-            Use the search box to filter by name and the sort menu to order by date, name, or
-            length. Toggle <strong>In view</strong> to show only tours visible on the current map.
-          </p>
-          <h3 data-i18n="help.q5">🗑️ Select & delete multiple</h3>
-          <p data-i18n-html="help.a5">
-            Click <strong>Select</strong> in the sidebar to check off several tours and delete them
-            together.
-          </p>
-          <h3 data-i18n="help.q6">🗺️ Map & routes</h3>
-          <p data-i18n-html="help.a6">
-            Click a tour to focus it; <strong>Show All Tours</strong> brings back every route on the
-            map.
-          </p>
-          <h3 data-i18n="help.q7">📷 Photos & pins</h3>
-          <p data-i18n-html="help.a7">
-            Open a tour to add, view, or delete photos. Toggle
-            <strong>Photo pins</strong> on the map to show geotagged photos where they were taken.
-          </p>
-          <h3 data-i18n="help.q8">📱 On mobile</h3>
-          <p data-i18n="help.a8">Swipe a tour right to delete it, or left to open its details.</p>
+          <h3 data-i18n="help.q1"></h3>
+          <p data-i18n="help.a1"></p>
+          <h3 data-i18n="help.q2"></h3>
+          <p data-i18n-html="help.a2"></p>
+          <h3 data-i18n="help.q3"></h3>
+          <p data-i18n-html="help.a3"></p>
+          <h3 data-i18n="help.q4"></h3>
+          <p data-i18n-html="help.a4"></p>
+          <h3 data-i18n="help.q5"></h3>
+          <p data-i18n-html="help.a5"></p>
+          <h3 data-i18n="help.q6"></h3>
+          <p data-i18n-html="help.a6"></p>
+          <h3 data-i18n="help.q7"></h3>
+          <p data-i18n-html="help.a7"></p>
+          <h3 data-i18n="help.q8"></h3>
+          <p data-i18n="help.a8"></p>
         </div>
       </div>
     </div>
 
-    <!-- Profile modal -->
     <div
       id="profile-modal"
       class="modal-overlay hidden"
@@ -594,13 +465,13 @@
           ✕
         </button>
         <div id="profile-avatar" class="profile-avatar" aria-hidden="true"></div>
-        <h2 id="profile-modal-title" class="profile-name" data-i18n="profile.title">Account</h2>
+        <h2 id="profile-modal-title" class="profile-name" data-i18n="profile.title"></h2>
         <dl class="profile-meta">
-          <dt data-i18n="profile.email">Email</dt>
+          <dt data-i18n="profile.email"></dt>
           <dd id="profile-email">—</dd>
-          <dt data-i18n="profile.memberSince">Member since</dt>
+          <dt data-i18n="profile.memberSince"></dt>
           <dd id="profile-since">—</dd>
-          <dt data-i18n="profile.language">Language</dt>
+          <dt data-i18n="profile.language"></dt>
           <dd>
             <div id="lang-switcher" class="lang-switcher">
               <button
@@ -610,7 +481,12 @@
                 aria-expanded="false"
                 data-i18n-aria-label="profile.langAria"
               ></button>
-              <div id="lang-menu" class="lang-menu hidden" role="dialog" aria-label="Language">
+              <div
+                id="lang-menu"
+                class="lang-menu hidden"
+                role="dialog"
+                data-i18n-aria-label="profile.language"
+              >
                 <input
                   id="lang-search"
                   class="lang-search"
@@ -626,7 +502,7 @@
         </dl>
         <form id="profile-name-form" class="upload-form">
           <label class="field">
-            <span data-i18n="profile.displayName">Display name</span>
+            <span data-i18n="profile.displayName"></span>
             <input
               id="profile-name-input"
               type="text"
@@ -635,36 +511,36 @@
             />
           </label>
           <p id="profile-name-error" class="upload-error hidden" role="alert"></p>
-          <button type="submit" class="btn btn-secondary btn-full" data-i18n="profile.saveName">
-            Save name
-          </button>
+          <button
+            id="btn-save-profile-name"
+            type="submit"
+            class="btn btn-secondary btn-full"
+            data-i18n="profile.saveName"
+          ></button>
         </form>
         <div class="profile-actions">
-          <button id="btn-logout" class="btn btn-secondary btn-full" data-i18n="nav.signOut">
-            Sign Out
-          </button>
+          <button
+            id="btn-logout"
+            class="btn btn-secondary btn-full"
+            data-i18n="nav.signOut"
+          ></button>
           <button
             id="btn-export-data"
             class="btn btn-secondary btn-full"
             data-i18n="profile.exportData"
-          >
-            Export my data
-          </button>
+          ></button>
         </div>
         <div class="profile-danger-zone">
-          <h3 data-i18n="profile.dangerZone">Danger zone</h3>
+          <h3 data-i18n="profile.dangerZone"></h3>
           <button
             id="btn-delete-account"
             class="btn btn-danger btn-full"
             data-i18n="profile.deleteAccount"
-          >
-            Delete account
-          </button>
+          ></button>
         </div>
       </div>
     </div>
 
-    <!-- Upload modal -->
     <div
       id="upload-modal"
       class="modal-overlay hidden"
@@ -676,10 +552,10 @@
         <button id="btn-close-upload" class="modal-close" data-i18n-aria-label="common.close">
           ✕
         </button>
-        <h2 id="upload-modal-title" class="profile-name" data-i18n="upload.title">Upload a Tour</h2>
+        <h2 id="upload-modal-title" class="profile-name" data-i18n="upload.title"></h2>
         <form id="upload-form" class="upload-form">
           <label class="field">
-            <span data-i18n="upload.name">Name</span>
+            <span data-i18n="upload.name"></span>
             <input
               id="upload-name"
               type="text"
@@ -688,7 +564,7 @@
             />
           </label>
           <label class="field">
-            <span data-i18n="upload.description">Description</span>
+            <span data-i18n="upload.description"></span>
             <textarea
               id="upload-description"
               rows="2"
@@ -704,9 +580,7 @@
             data-i18n-aria-label="upload.chooseAria"
           >
             <input id="upload-file" type="file" accept=".gpx" hidden />
-            <p class="dropzone-text" data-i18n-html="upload.dropText">
-              Drag &amp; drop a <strong>.gpx</strong> file here, or click to choose
-            </p>
+            <p class="dropzone-text" data-i18n-html="upload.dropText"></p>
             <p id="dropzone-filename" class="dropzone-filename hidden"></p>
           </div>
           <div id="upload-progress" class="progress hidden">
@@ -719,14 +593,11 @@
             class="btn btn-primary btn-full"
             disabled
             data-i18n="upload.submit"
-          >
-            Upload
-          </button>
+          ></button>
         </form>
       </div>
     </div>
 
-    <!-- Image lightbox -->
     <div
       id="lightbox"
       class="modal-overlay lightbox hidden"
@@ -741,12 +612,7 @@
         data-i18n-aria-label="lightbox.deleteAria"
         data-i18n-title="lightbox.deleteAria"
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
-          />
-        </svg>
+        <svg fill="currentColor" aria-hidden="true"><use href="icons.svg#trash" /></svg>
       </button>
       <button
         id="btn-close-lightbox"
@@ -754,47 +620,28 @@
         class="lightbox-icon-btn lightbox-close"
         data-i18n-aria-label="common.close"
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M6 6l12 12M18 6L6 18"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          />
-        </svg>
+        <svg aria-hidden="true"><use href="icons.svg#close" /></svg>
       </button>
       <div id="lightbox-stage" class="lightbox-stage">
         <img id="lightbox-img" data-i18n-alt="lightbox.imgAlt" alt="Tour photo" />
         <div id="lightbox-error" class="lightbox-error hidden">
-          <p data-i18n="detail.photoLoadError">Photo failed to load</p>
+          <p data-i18n="detail.photoLoadError"></p>
           <button
             type="button"
             id="btn-lightbox-retry"
             class="btn btn-secondary"
             data-i18n="lightbox.retry"
-          >
-            Retry
-          </button>
+          ></button>
         </div>
       </div>
-      <div class="lightbox-navbar">
+      <div id="lightbox-navbar" class="lightbox-navbar">
         <button
           id="btn-lightbox-prev"
           type="button"
           class="lightbox-nav-btn"
           data-i18n-aria-label="lightbox.prevAria"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M15 4l-8 8 8 8"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <svg aria-hidden="true"><use href="icons.svg#chevron-left" /></svg>
         </button>
         <span id="lightbox-counter" class="lightbox-counter" aria-live="polite"></span>
         <button
@@ -803,21 +650,11 @@
           class="lightbox-nav-btn"
           data-i18n-aria-label="lightbox.nextAria"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M9 4l8 8-8 8"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <svg aria-hidden="true"><use href="icons.svg#chevron-right" /></svg>
         </button>
       </div>
     </div>
 
-    <!-- Edit tour modal -->
     <div
       id="edit-modal"
       class="modal-overlay hidden"
@@ -829,18 +666,18 @@
         <button id="btn-close-edit" class="modal-close" data-i18n-aria-label="common.close">
           ✕
         </button>
-        <h2 id="edit-modal-title" class="profile-name" data-i18n="edit.title">Edit Tour</h2>
+        <h2 id="edit-modal-title" class="profile-name" data-i18n="edit.title"></h2>
         <form id="edit-form" class="upload-form">
           <label class="field">
-            <span data-i18n="edit.name">Name</span>
+            <span data-i18n="edit.name"></span>
             <input id="edit-name" type="text" maxlength="200" required />
           </label>
           <label class="field">
-            <span data-i18n="edit.date">Date</span>
+            <span data-i18n="edit.date"></span>
             <input id="edit-date" type="date" required />
           </label>
           <label class="field">
-            <span data-i18n="edit.description">Description</span>
+            <span data-i18n="edit.description"></span>
             <textarea id="edit-description" rows="2" maxlength="2000"></textarea>
           </label>
           <p id="edit-error" class="upload-error hidden" role="alert"></p>
@@ -849,14 +686,11 @@
             type="submit"
             class="btn btn-primary btn-full"
             data-i18n="edit.save"
-          >
-            Save
-          </button>
+          ></button>
         </form>
       </div>
     </div>
 
-    <!-- Confirm modal: reused for delete-tour, delete-tours, delete-photo -->
     <div
       id="confirm-modal"
       class="modal-overlay hidden"
@@ -871,15 +705,16 @@
         <h2 id="confirm-modal-title" class="profile-name"></h2>
         <p id="confirm-modal-message"></p>
         <div class="confirm-modal-actions">
-          <button id="btn-confirm-cancel" class="btn btn-secondary" data-i18n="common.cancel">
-            Cancel
-          </button>
+          <button
+            id="btn-confirm-cancel"
+            class="btn btn-secondary"
+            data-i18n="common.cancel"
+          ></button>
           <button id="btn-confirm-ok" class="btn btn-danger"></button>
         </div>
       </div>
     </div>
 
-    <!-- Delete-account modal: a typed confirmation phrase, not just a click -->
     <div
       id="delete-account-modal"
       class="modal-overlay hidden"
@@ -899,9 +734,7 @@
           id="delete-account-modal-title"
           class="profile-name"
           data-i18n="confirm.deleteAccountTitle"
-        >
-          Delete your account
-        </h2>
+        ></h2>
         <p data-i18n="confirm.deleteAccount"></p>
         <label class="field">
           <span id="delete-account-hint"></span>
@@ -912,13 +745,10 @@
           class="btn btn-danger btn-full"
           disabled
           data-i18n="profile.deleteAccount"
-        >
-          Delete account
-        </button>
+        ></button>
       </div>
     </div>
 
-    <!-- Stats modal -->
     <div
       id="stats-modal"
       class="modal-overlay hidden"
@@ -930,34 +760,34 @@
         <button id="btn-close-stats" class="modal-close" data-i18n-aria-label="common.close">
           ✕
         </button>
-        <h2 id="stats-modal-title" class="profile-name" data-i18n="stats.title">Your stats</h2>
+        <h2 id="stats-modal-title" class="profile-name" data-i18n="stats.title"></h2>
         <dl class="stats-grid">
           <div class="stat-tile">
-            <dt data-i18n="stats.totalDistance">Total distance</dt>
+            <dt data-i18n="stats.totalDistance"></dt>
             <dd id="stats-total-distance">—</dd>
           </div>
           <div class="stat-tile">
-            <dt data-i18n="stats.totalRides">Total rides</dt>
+            <dt data-i18n="stats.totalRides"></dt>
             <dd id="stats-total-count">—</dd>
           </div>
           <div class="stat-tile">
-            <dt data-i18n="stats.thisYear">This year</dt>
+            <dt data-i18n="stats.thisYear"></dt>
             <dd id="stats-this-year">—</dd>
           </div>
           <div class="stat-tile">
-            <dt data-i18n="stats.lastYear">Last year</dt>
+            <dt data-i18n="stats.lastYear"></dt>
             <dd id="stats-last-year">—</dd>
           </div>
           <div class="stat-tile">
-            <dt data-i18n="stats.average">Average ride</dt>
+            <dt data-i18n="stats.average"></dt>
             <dd id="stats-average">—</dd>
           </div>
         </dl>
         <button id="btn-stats-longest" type="button" class="stats-longest hidden">
-          <span data-i18n="stats.longest">Longest ride</span>
+          <span data-i18n="stats.longest"></span>
           <span id="stats-longest-detail"></span>
         </button>
-        <p id="stats-empty" class="stats-empty hidden" data-i18n="stats.noRides">No rides yet.</p>
+        <p id="stats-empty" class="stats-empty hidden" data-i18n="stats.noRides"></p>
         <ul id="stats-per-year" class="stats-per-year"></ul>
       </div>
     </div>

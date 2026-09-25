@@ -2,62 +2,102 @@
 
 const { exportData } = require('./index');
 const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
+const { fakeToursContainer, fakeUsersContainer } = require('../../test/fakes/cosmosContainer');
+const { signedInAs, signedOut, fixedClock, NOW } = require('../../test/fakes/collaborators');
 
-const USER = {
+const PROFILE = {
   id: 'u1',
   name: 'Ada',
   email: 'ada@example.com',
   createdAt: '2026-01-01T00:00:00.000Z',
+  language: 'de',
 };
-const TOURS = [{ id: 't1', userId: 'u1', name: 'Alps' }];
+const TOUR = {
+  id: 't1',
+  userId: 'u1',
+  name: 'Alps',
+  heatmapData: [[48.1, 11.5]],
+  images: [{ id: 'i1', blobName: 'u1/t1/i1.jpg', lat: 48.1, lon: 11.5 }],
+};
+const OTHER_USERS_TOUR = { id: 't9', userId: 'u2', name: 'Not yours' };
 
-const mockAuth = async () => ({ userId: 'u1' });
-
-function makeUsers(resource = USER) {
-  return { item: vi.fn().mockReturnValue({ read: async () => ({ resource }) }) };
-}
-function makeTours(resources = TOURS) {
-  const fetchAll = vi.fn().mockResolvedValue({ resources });
-  const query = vi.fn().mockReturnValue({ fetchAll });
-  return { container: { items: { query } }, query, fetchAll };
+function setUp({
+  profiles = [PROFILE, { id: 'u2', name: 'Grace' }],
+  authenticate = signedInAs('u1'),
+} = {}) {
+  const users = fakeUsersContainer(profiles);
+  const tours = fakeToursContainer([TOUR, OTHER_USERS_TOUR]);
+  const run = () =>
+    exportData(
+      {},
+      { authenticate, usersContainer: () => users, toursContainer: () => tours, now: fixedClock },
+    );
+  return { users, tours, run };
 }
 
 describe('GET /api/me/export', () => {
-  it('returns 401 when auth fails', async () => {
-    const res = await exportData(
-      {},
-      async () => null,
-      makeUsers,
-      () => makeTours().container,
+  it("exports the caller's profile and every tour as stored, as a JSON download", async () => {
+    const { run } = setUp();
+
+    const response = await run();
+
+    expect(response.status).toBe(200);
+    expect(response.headers['Content-Disposition']).toBe(
+      'attachment; filename="bikebuddy-export.json"',
     );
-    expect(res.status).toBe(401);
+    expect(response.jsonBody).toStrictEqual({
+      exportedAt: NOW.toISOString(),
+      user: PROFILE,
+      tours: [TOUR],
+    });
   });
 
-  it('returns the user doc and their tours, scoped to the partition', async () => {
-    const tours = makeTours();
-    const res = await exportData({}, mockAuth, makeUsers, () => tours.container);
+  it('leaves out the system properties Cosmos adds to every document', async () => {
+    const { run } = setUp();
 
-    expect(res.status).toBe(200);
-    expect(res.headers['Content-Disposition']).toContain('bikebuddy-export.json');
-    expect(res.jsonBody.user).toEqual(USER);
-    expect(res.jsonBody.tours).toEqual(TOURS);
-    expect(res.jsonBody.exportedAt).toBeTruthy();
+    const { user, tours } = (await run()).jsonBody;
 
-    const [spec, options] = tours.query.mock.calls[0];
-    expect(spec.query).toMatch(/SELECT \* FROM c WHERE c\.userId = @userId/);
-    expect(spec.parameters).toEqual([{ name: '@userId', value: 'u1' }]);
-    expect(options).toEqual({ partitionKey: 'u1', maxItemCount: MAX_ITEMS_PER_REQUEST });
+    for (const document of [user, ...tours]) {
+      for (const key of ['_rid', '_self', '_etag', '_attachments', '_ts']) {
+        expect(document).not.toHaveProperty(key);
+      }
+    }
   });
 
-  it('exports user: null when the user doc does not exist yet', async () => {
-    const res = await exportData(
-      {},
-      mockAuth,
-      () => makeUsers(null),
-      () => makeTours().container,
-    );
+  it("reads only the token user's profile and partition", async () => {
+    const { users, tours, run } = setUp();
 
-    expect(res.status).toBe(200);
-    expect(res.jsonBody.user).toBeNull();
+    await run();
+
+    expect(users.calls).toEqual([{ operation: 'read', id: 'u1', partitionKey: 'u1' }]);
+    const [query] = tours.calls;
+    expect(query.options).toEqual({ partitionKey: 'u1', maxItemCount: MAX_ITEMS_PER_REQUEST });
+  });
+
+  it("never includes another user's data", async () => {
+    const { run } = setUp({ authenticate: signedInAs('u2') });
+
+    const { user, tours } = (await run()).jsonBody;
+
+    expect(user).toEqual({ id: 'u2', name: 'Grace' });
+    expect(tours.map((tour) => tour.id)).toEqual(['t9']);
+  });
+
+  it('exports user: null when the profile does not exist yet', async () => {
+    const { run } = setUp({ profiles: [] });
+
+    const response = await run();
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.user).toBeNull();
+  });
+
+  it('returns 401 without reading anything when the caller is not signed in', async () => {
+    const { users, tours, run } = setUp({ authenticate: signedOut });
+
+    const response = await run();
+
+    expect(response.status).toBe(401);
+    expect([...users.calls, ...tours.calls]).toEqual([]);
   });
 });

@@ -1,15 +1,23 @@
 name: Account Deletions
 
-# Out-of-band GDPR job: deletes Entra users queued by the API on account
-# deletion. The privileged Graph credential lives only here (CI secrets),
-# never in the public-facing Functions app.
+# The tenant-wide Graph credential lives only here, never in the public-facing Functions app.
 on:
   schedule:
     - cron: "0 3 * * *" # daily at 03:00 UTC
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: List what the run would delete without calling Graph or draining the queue (scheduled runs always delete)
+        type: boolean
+        default: true
 
 permissions:
   contents: read
+
+# Never two runs on the same queue; a running deletion is never cancelled.
+concurrency:
+  group: process-deletions
+  cancel-in-progress: false
 
 jobs:
   process:
@@ -20,11 +28,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: ./.github/actions/setup-node-packages
         with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: functions/package-lock.json
+          packages: functions
 
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
@@ -34,13 +40,10 @@ jobs:
              "subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}",
              "tenantId":"${{ secrets.ARM_TENANT_ID }}"}
 
-      - name: Install function dependencies
-        run: npm ci
-        working-directory: functions
-
       - name: Process pending deletions
-        run: ./buddy.sh maintenance delete-users
+        run: ./buddy.sh maintenance delete-users ${DRY_RUN:+--dry-run}
         env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || '' }}
           GRAPH_TENANT_ID: ${{ secrets.GRAPH_TENANT_ID }}
           GRAPH_CLIENT_ID: ${{ secrets.GRAPH_CLIENT_ID }}
           GRAPH_CLIENT_SECRET: ${{ secrets.GRAPH_CLIENT_SECRET }}

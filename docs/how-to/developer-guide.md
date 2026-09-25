@@ -17,6 +17,8 @@ can reproduce locally):
 ./buddy.sh development start-cosmos   # Cosmos emulator
 node functions/scripts/init-cosmos.js # create DB + containers
 ./buddy.sh development start-backend  # Azurite + Functions host (:7071)
+./buddy.sh development start-azurite  # only Azurite (what CI starts before the host)
+./buddy.sh development stop           # stop everything start-all started
 ```
 
 `buddy.sh` dispatches to `scripts/<group>/<command>.sh`; `./buddy.sh --help`
@@ -42,10 +44,14 @@ Every gate job is reachable through `buddy.sh` (raw `npm`/`prek` still work too)
 ./buddy.sh test integration     # Functions HTTP tests   (needs Cosmos + Azurite)
 ./buddy.sh test e2e-fullstack   # Playwright vs backend   (needs `development start-all`)
 ./buddy.sh test mutation        # Stryker mutation tests
+./buddy.sh test load <flow>     # k6 load test (a measurement, not a gate)
 
 ./buddy.sh quality hooks        # all lint/format/security hooks (the CI `prek` gate)
 ./buddy.sh quality check        # the Definition of done in order (--stack: with the local stack)
 ./buddy.sh quality format       # auto-format with Prettier
+./buddy.sh quality opengrep     # SAST with the CI rule packs
+./buddy.sh quality iac          # TFLint + Trivy on infrastructure/
+./buddy.sh quality zap          # OWASP ZAP passive scans (needs the local stack)
 ```
 
 CI gates: see the [gate workflow](../../.github/workflows/gate.yml).
@@ -93,22 +99,22 @@ It stops at the first red step. Mutation testing is left out (it is only
 required when you changed a file in `mutation-targets.mjs`); run
 `./buddy.sh test mutation` for it.
 
-| CI job                | Local command                                                           | Needs                                                       |
-| --------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `prek`                | `./buddy.sh quality hooks` (CI skips the hooks that have their own job) | —                                                           |
-| `unit`                | `./buddy.sh test unit`                                                  | —                                                           |
-| `frontend`            | `./buddy.sh test frontend`                                              | —                                                           |
-| `architecture`        | `cd functions && npm run depcruise && npm run knip`                     | —                                                           |
-| `opengrep`            | `./buddy.sh quality opengrep`                                           | Docker or the pinned binary ([Run OpenGrep](#run-opengrep)) |
-| `iac`                 | `./buddy.sh quality iac`                                                | — (downloads pinned TFLint and Trivy)                       |
-| `e2e`                 | `E2E_COVERAGE=1 ./buddy.sh test e2e`                                    | Chromium                                                    |
-| `mutation`            | `./buddy.sh test mutation` (`--force` for a full run, as on `main`)     | —                                                           |
-| `integration`         | `./buddy.sh test integration`                                           | Cosmos emulator, Azurite                                    |
-| `e2e-fullstack`       | `E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack`                          | Cosmos emulator, backend                                    |
-| `lighthouse`          | `cd e2e && npm run lighthouse -- signed-out` / `-- signed-in`           | backend for `signed-in`                                     |
-| `zap`                 | `./buddy.sh quality zap`                                                | Docker, backend                                             |
-| CodeQL (own workflow) | none locally; results under Security → Code scanning                    | —                                                           |
-| Load test (manual)    | `./buddy.sh test load <flow>` ([load testing](load-testing.md))         | backend, k6                                                 |
+| CI job                 | Local command                                                           | Needs                                             |
+| ---------------------- | ----------------------------------------------------------------------- | ------------------------------------------------- |
+| `prek`                 | `./buddy.sh quality hooks` (CI skips the hooks that have their own job) | —                                                 |
+| `unit`                 | `./buddy.sh test unit`                                                  | —                                                 |
+| `frontend`             | `./buddy.sh test frontend`                                              | —                                                 |
+| `architecture`         | `cd functions && npm run depcruise && npm run knip`                     | —                                                 |
+| `opengrep`             | `./buddy.sh quality opengrep`                                           | the pinned binary ([Run OpenGrep](#run-opengrep)) |
+| `iac`                  | `./buddy.sh quality iac`                                                | — (downloads pinned TFLint and Trivy)             |
+| `e2e`                  | `E2E_COVERAGE=1 ./buddy.sh test e2e`                                    | Chromium                                          |
+| `mutation`             | `./buddy.sh test mutation` (`--force` for a full run, as on `main`)     | —                                                 |
+| `integration`          | `./buddy.sh test integration`                                           | Cosmos emulator, Azurite                          |
+| `e2e-fullstack`        | `E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack`                          | Cosmos emulator, backend                          |
+| `lighthouse`           | `cd e2e && npm run lighthouse -- signed-out` / `-- signed-in`           | backend for `signed-in`                           |
+| `zap`                  | `./buddy.sh quality zap`                                                | Docker, backend                                   |
+| CodeQL (default setup) | none locally; results under Security → Code scanning                    | —                                                 |
+| Load test (manual)     | `./buddy.sh test load <flow>` ([load testing](load-testing.md))         | backend, k6                                       |
 
 ## Authentication & tokens
 
@@ -117,8 +123,8 @@ Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
 1. The SPA signs the user in with **MSAL** (popup) and requests the API scope
    `api://<clientId>/access_as_user`.
 2. MSAL returns an **access token** (JWT) whose audience (`aud`) is the app's
-   client id. The session is cached in `sessionStorage` (survives refresh,
-   cleared on tab close).
+   client id. MSAL caches the session in `localStorage` (survives refresh and
+   tab close; moving it off the shared origin is #562).
 3. The frontend sends it as `Authorization: Bearer <token>` on every API call.
 4. `functions/src/middleware/authMiddleware.js` validates it: it reads the
    issuer + JWKS URI from the tenant's OIDC discovery document, verifies the
@@ -138,11 +144,14 @@ To run against a **real** tenant locally, fill `ENTRA_*` in
 ## Deploy
 
 Push to `main` → `.github/workflows/deploy.yml` runs three jobs: OpenTofu apply,
-Functions publish (Flex, remote build), and GitHub Pages. To run the same steps
-by hand: `./buddy.sh infrastructure provision`, `./buddy.sh infrastructure publish-functions`,
-`./buddy.sh infrastructure generate-config` (see [Infrastructure](infrastructure.md)).
+Functions publish (Flex, remote build), and GitHub Pages. Each job calls a
+`buddy.sh` script (`infrastructure provision`, `publish-functions`,
+`generate-config`); never run them against production by hand, the workflow is
+the only path there (see [Infrastructure](infrastructure.md)).
 
-`destroy.yml` (manual) tears the infrastructure down.
+`destroy.yml` (manual, typed confirmation) runs `tofu destroy`; the destroy
+guards make it fail on the data resources by design
+([Teardown](infrastructure.md#teardown)).
 
 ## Secret scanning
 
@@ -263,8 +272,8 @@ cd functions && npm run depcruise
 | Rule                                | Holds that                                                                                                                   |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `no-circular`                       | no import cycles                                                                                                             |
-| `cosmos-only-in-db`                 | only `functions/src/lib/db.js` imports `@azure/cosmos` (operator scripts, the e2e cleanup and the query-cost guard excepted) |
-| `blob-only-in-blob-storage`         | only `functions/src/lib/blobStorage.js` imports `@azure/storage-blob` (backfill scripts excepted)                            |
+| `cosmos-only-in-db`                 | only `functions/src/lib/db.js` imports `@azure/cosmos` (`init-cosmos.js`, the e2e cleanup and the query-cost guard excepted) |
+| `blob-only-in-blob-storage`         | only `functions/src/lib/blobStorage.js` (and its test) imports `@azure/storage-blob`                                         |
 | `handlers-share-through-lib`        | a Function handler never imports another handler                                                                             |
 | `backend-lib-is-a-leaf`             | `lib/` and `middleware/` never import a handler                                                                              |
 | `frontend-lib-is-pure`              | `frontend/src/lib/` never imports `ui/` or `app.js`                                                                          |
@@ -348,7 +357,8 @@ E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack   # full-stack journeys
   `e2e/coverage-e2e/<suite>/` (HTML, `coverage-summary.md`) and fails the run
   below the suite's floor in `e2e/coverage.ts`. CI sets it for both suites.
 - **Rules**: never lower a threshold or a floor, never auto-ratchet one, no
-  `/* v8 ignore */`. A gap is closed with a test, or the logic is extracted
+  `/* v8 ignore */` except the one-line `handler:` wrapper in each
+  `app.http()` registration. A gap is closed with a test, or the logic is extracted
   until it can be tested; unreachable code is removed.
 - **Reporting**: each job's summary shows the coverage table; Codecov gets the
   lcov files with the flags `functions` and `frontend` (carried forward when a
@@ -367,10 +377,10 @@ threshold:
 cd frontend && npm run mutate      # one package
 ```
 
-| Package      | Break threshold | Measured when introduced |
-| ------------ | --------------- | ------------------------ |
-| `functions/` | 95 %            | 96.46 %                  |
-| `frontend/`  | 83 %            | 84.76 %                  |
+| Package      | Break threshold | Measured (full run) |
+| ------------ | --------------- | ------------------- |
+| `functions/` | 98 %            | 99.40 %             |
+| `frontend/`  | 98 %            | 99.80 %             |
 
 - **Incremental**: results are kept in `reports/stryker-incremental.json`; a
   rerun only tests mutants in changed code or covered by changed tests. CI
@@ -379,7 +389,7 @@ cd frontend && npm run mutate      # one package
   Measured on an unchanged tree: functions 2 min 36 s → 15 s, frontend
   62 s → 7.5 s.
 - **Reports**: the job summary lists every file worst score first
-  (`scripts/mutation-summary.mjs`); the HTML report is the
+  (`functions/scripts/mutation-summary.mjs`); the HTML report is the
   `mutation-report-<package>` artifact; the Stryker dashboard (badge) is fed
   from `main` only, the frontend as module `frontend`.
 - **Rules**: thresholds go up as survivors are killed, never down; no

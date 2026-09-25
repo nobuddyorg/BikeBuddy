@@ -2,9 +2,19 @@ name: Destroy
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: Deletes every resource in bikebuddy-rg, user data included. Type exactly "destroy bikebuddy-rg" to run.
+        type: string
+        required: true
 
 permissions:
   contents: read
+
+# deploy.yml's group: never destroy while an apply holds the state, and never cancel mid-run.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 env:
   ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
@@ -18,7 +28,15 @@ jobs:
     name: OpenTofu Destroy
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Gate it with required reviewers under Settings, Environments, destroy.
+    environment: destroy
     steps:
+      - name: Refuse without the typed confirmation
+        if: inputs.confirm != 'destroy bikebuddy-rg'
+        run: |
+          echo "::error::Type exactly 'destroy bikebuddy-rg' into the confirm input to run this workflow."
+          exit 1
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -27,17 +45,13 @@ jobs:
         with:
           tofu_version: "~1.8"
 
-      # package_path must resolve for config to parse, but destroy reads from
-      # state and never uploads — a placeholder zip is enough.
-      - name: Create placeholder package
-        run: |
-          echo placeholder > placeholder.txt
-          zip "$GITHUB_WORKSPACE/func.zip" placeholder.txt
-
       - name: OpenTofu Init
         run: tofu init
         working-directory: infrastructure
 
+      # Fails at plan time while prevent_destroy guards the resource group and the data resources.
       - name: OpenTofu Destroy
-        run: tofu destroy -auto-approve -var="package_path=$GITHUB_WORKSPACE/func.zip"
+        run: tofu destroy -auto-approve
         working-directory: infrastructure
+        env:
+          TF_VAR_budget_contact_email: ${{ vars.BUDGET_CONTACT_EMAIL }}

@@ -1,19 +1,16 @@
 // @ts-check
-'use strict';
 
-// Pure URL <-> state-patch mapping, kept separate from the history.pushState/
-// popstate wiring in ui/router.js so it's unit-testable without a DOM/window.
+import { DEFAULT_SORT } from './tours.js';
 
-const TOUR_HASH_RE = /^#\/tour\/([^/?#]+)$/;
-const DEFAULT_SORT = 'date-desc';
+const TOUR_HASH_PATTERN = /^#\/tour\/([^/?#]+)$/;
 
 export function parseAppUrl(search, hash) {
-  const params = new URLSearchParams(search || '');
-  const match = TOUR_HASH_RE.exec(hash || '');
+  const params = new URLSearchParams(search);
+  const match = TOUR_HASH_PATTERN.exec(hash);
   return {
-    tourId: match ? decodeURIComponent(match[1]) : null,
-    sort: params.get('sort') || null,
-    search: params.get('q') || null,
+    tourId: match ? decodeURIComponent(match[1]) : '',
+    sort: params.get('sort') || '',
+    search: params.get('q') || '',
     inView: params.get('inView') === '1',
   };
 }

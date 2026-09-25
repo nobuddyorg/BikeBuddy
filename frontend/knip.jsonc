@@ -14,4 +14,9 @@
     // Vendored upstream bundles loaded by <script> tags, kept byte-identical.
     "src/vendor/**",
   ],
+  "ignoreDependencies": [
+    // Pinned so Dependabot bumps them; scripts/quality/verify-vendor.mjs compares src/vendor/ with them.
+    "@azure/msal-browser",
+    "leaflet",
+  ],
 }

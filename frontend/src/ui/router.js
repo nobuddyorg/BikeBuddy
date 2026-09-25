@@ -1,13 +1,9 @@
-'use strict';
-
 import { state } from './state.js';
 import { parseAppUrl, buildAppUrl } from '../lib/url.js';
 
-// Each pushState call gets one entry here, in order, so a popstate can tell
-// how many layers (detail panel, a modal, the lightbox) it needs to close to
-// reach the depth the browser just navigated back to.
+// One entry per pushState, so popstate knows how many layers to close to reach its depth.
 const layerStack = [];
-let pendingTourId = null;
+let pendingTourId = '';
 
 function currentUrl() {
   return buildAppUrl(
@@ -21,9 +17,7 @@ function currentUrl() {
   );
 }
 
-// Restores sort/search/inView synchronously so they survive a reload. The
-// deep-linked tour id (if any) is only remembered here — state.tours isn't
-// loaded yet, so opening it has to wait for consumeDeepLinkTourId().
+// The deep-linked tour opens only once the tours have loaded (consumeDeepLinkTourId).
 export function readInitialUrl() {
   const parsed = parseAppUrl(location.search, location.hash);
   if (parsed.sort) state.sort = parsed.sort;
@@ -33,22 +27,17 @@ export function readInitialUrl() {
 }
 
 export function consumeDeepLinkTourId() {
-  const id = pendingTourId;
-  pendingTourId = null;
-  return id;
+  const tourId = pendingTourId;
+  pendingTourId = '';
+  return tourId;
 }
 
-// Re-syncs the URL with current state without adding a history entry — for
-// filter changes (sort/search/inView) and for selection changes that aren't
-// "opening a panel" (Show All Tours, the map filter chip's clear button).
+// Filter and selection changes replace the entry; only opening a layer adds one.
 export function syncUrl() {
   history.replaceState(history.state, '', currentUrl());
 }
 
-// Opening a panel/modal/lightbox: pushes a history entry so the OS/browser
-// Back gesture closes it instead of leaving the app. `close` runs once, from
-// the popstate handler below, when Back pops past this layer — never call it
-// directly from the open path itself.
+// Back pops the entry and runs `close` once; the open path must never call it itself.
 export function pushLayer(close) {
   layerStack.push(close);
   history.pushState({ depth: layerStack.length }, '', currentUrl());

@@ -1,0 +1,153 @@
+@media (max-width: 768px) {
+  /* On mobile the page scrolls, not the panes: the list is the home screen. */
+  body {
+    overflow-y: auto;
+  }
+
+  .app-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - var(--navbar-height));
+  }
+
+  /* The map stays off-screen until the map button or a tour's preview brings it up. */
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    overflow: visible;
+  }
+
+  /* The list grows with the page instead of scrolling in a capped box. */
+  .tour-list {
+    flex: none;
+    min-height: auto;
+    overflow-y: visible;
+  }
+
+  .mobile-map-fab {
+    display: flex;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 900;
+  }
+
+  /* No header row on mobile: long-press enters select mode (ui/tourGestures.js). */
+  .sidebar-header {
+    display: none;
+  }
+
+  /* Search and sort share one row; the <select> gives way to the icon menu. */
+  .tour-controls {
+    flex-direction: row;
+  }
+
+  .tour-search-wrap {
+    flex: 1;
+  }
+
+  .tour-sort {
+    display: none;
+  }
+
+  .sort-menu {
+    display: block;
+  }
+
+  .tour-stats-btn {
+    display: inline-flex;
+  }
+
+  /* The ? glyph is too small at .btn's base size inside its 44px target. */
+  #btn-help {
+    font-size: 18px;
+  }
+
+  /* Fixed, placed from the button's rect (ui/menus.js), since this row scrolls. */
+  .sort-menu-list {
+    position: fixed;
+  }
+
+  /* Icon-only here; each button's data-i18n-aria-label keeps its name. */
+  .selection-bar-actions .btn-label {
+    display: none;
+  }
+
+  /* Icon-only here too; each <label>'s data-i18n-aria-label keeps its name. */
+  .toggle-label-text {
+    display: none;
+  }
+
+  .pin-toggle {
+    padding: 7px;
+  }
+
+  /* Squares up with the expand button once its label is hidden. */
+  #btn-line-style {
+    width: 34px;
+    padding: 0;
+  }
+
+  /* Off-screen until expanded (.map-expanded) or moved into the detail panel (.in-detail). */
+  .map-container {
+    display: none;
+  }
+
+  .app-layout.map-expanded .map-container {
+    display: flex;
+    position: fixed;
+    inset: var(--navbar-height) 0 0 0;
+    z-index: 1050;
+  }
+
+  .map-container.in-detail {
+    display: block;
+    height: 200px;
+    /* Keeps .map-top-controls clear of .detail-close in the same corner. */
+    margin: 32px 0 16px;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .detail-panel {
+    position: fixed;
+    inset: var(--navbar-height) 0 0 0;
+    width: 100%;
+    max-height: none;
+    border-left: none;
+    /* Above Leaflet's controls (1000; #map has no stacking context), below .navbar (1100). */
+    z-index: 1050;
+  }
+
+  /* Mobile never keeps the map on one tour, so there is nothing to reset. */
+  .show-all-btn {
+    display: none;
+  }
+
+  /* No map beside the list on mobile, so the in-view filter is off there. */
+  #filter-in-view-toggle {
+    display: none;
+  }
+
+  .navbar {
+    padding: 0 12px;
+  }
+
+  /* The title would push the navbar buttons off narrow screens. */
+  .navbar-title {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn {
+    padding: 7px 10px;
+  }
+
+  .modal {
+    min-width: 0;
+    width: calc(100vw - 32px);
+    padding: 28px 20px;
+  }
+}

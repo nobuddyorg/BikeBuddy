@@ -2,9 +2,7 @@
 
 const { app } = require('@azure/functions');
 
-// GET /api/health — public, unauthenticated liveness probe for uptime checks
-// and CI readiness. Intentionally does no I/O so it stays fast and can't be
-// turned into an unauthenticated way to probe backing services.
+// Public liveness probe. No I/O, so it cannot be used to probe the backing services.
 async function health() {
   return { status: 200, jsonBody: { status: 'ok' } };
 }

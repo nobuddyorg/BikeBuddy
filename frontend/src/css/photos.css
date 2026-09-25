@@ -1,0 +1,302 @@
+.tour-images {
+  margin-top: 20px;
+}
+
+.images-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  /* Hairline gaps: the set reads as one contact sheet. */
+  gap: 1px;
+  margin-bottom: 10px;
+}
+
+.image-tile {
+  position: relative;
+  margin: 0;
+  min-width: 0;
+  animation: image-tile-in 0.5s ease-out backwards;
+}
+
+@keyframes image-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmers until the photo paints over it; an error replaces the whole tile. */
+.image-thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  display: block;
+  background: linear-gradient(
+    100deg,
+    var(--color-surface-2) 40%,
+    var(--color-surface) 50%,
+    var(--color-surface-2) 60%
+  );
+  background-size: 200% 100%;
+  animation: image-thumb-shimmer 1.4s ease-in-out infinite;
+}
+
+.image-thumb.is-loaded {
+  animation: none;
+  background: none;
+}
+
+@keyframes image-thumb-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-tile {
+    animation: none;
+  }
+
+  .image-thumb {
+    animation: none;
+  }
+}
+
+.image-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+/* A 44x44 tap target (WCAG 2.5.5) around the 22x22 circle. */
+.image-delete::before,
+.image-tile-retry::before,
+.image-tile-dismiss::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.image-tile:hover .image-delete,
+.image-delete:focus-visible {
+  opacity: 1;
+}
+
+.image-delete:hover {
+  background: var(--color-danger);
+}
+
+/* Touch devices can't hover, so the button always shows there. */
+@media (hover: none) {
+  .image-delete {
+    opacity: 1;
+  }
+}
+
+.dropzone-sm {
+  padding: 14px 12px;
+}
+
+.image-tile-pending,
+.image-tile-error {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  text-align: center;
+}
+
+.image-tile-error {
+  border: 1px solid var(--color-danger);
+}
+
+.image-progress-ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--color-primary) calc(var(--progress, 0) * 1%),
+    var(--color-border) 0
+  );
+}
+
+.image-tile-filename {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-tile-error-message {
+  font-size: 10px;
+  color: var(--color-danger-text);
+}
+
+.image-tile-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.image-tile-retry,
+.image-tile-dismiss {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.image-tile-dismiss:hover {
+  background: var(--color-danger);
+}
+
+/* The page's own surface, so the photo's colours are the only strong ones on screen. */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  /* Above .navbar (1100) and the mobile .detail-panel (700). */
+  z-index: 1700;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--color-bg) 95%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* Room at the top, so the buttons never sit on a tall photo's edge. */
+.lightbox-stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 16px 16px;
+  cursor: zoom-out;
+  /* The lightbox handles horizontal swipes itself (ui/lightbox.js). */
+  touch-action: none;
+}
+
+.lightbox-stage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  cursor: zoom-out;
+}
+
+.lightbox-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--color-text);
+  text-align: center;
+  cursor: default;
+}
+
+/* Solid, theme-matched circles stay legible on any photo in either theme. */
+.lightbox-icon-btn,
+.lightbox-nav-btn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.lightbox-icon-btn:hover,
+.lightbox-nav-btn:hover {
+  background: var(--color-surface-2);
+}
+
+.lightbox-icon-btn svg,
+.lightbox-nav-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.lightbox-icon-btn {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  z-index: 1;
+}
+
+.lightbox-delete {
+  left: max(12px, env(safe-area-inset-left));
+  color: var(--color-danger);
+}
+
+.lightbox-close {
+  right: max(12px, env(safe-area-inset-right));
+}
+
+/* A bar below the photo: swiping alone isn't discoverable, and nothing covers the photo. */
+.lightbox-navbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+}
+
+.lightbox-counter {
+  min-width: 56px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}

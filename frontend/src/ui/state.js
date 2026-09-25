@@ -1,23 +1,19 @@
-'use strict';
-
-import { loadLineStyle } from '../lib/lineStyle.js';
+import { DEFAULT_SORT } from '../lib/tours.js';
+import { loadLineStyle } from './lineStyleStorage.js';
 
 export const state = {
   user: null,
   tours: [],
   selectedTourId: null,
-  // Settles once the selected tour's detail has loaded and its gallery is drawn
-  // (tour-detail.js selectTour); a photo upload waits for it, or that render
-  // would wipe the upload's tiles.
+  // Photo uploads wait for this; the gallery render it ends with would wipe their tiles.
   detailLoading: Promise.resolve(),
   routeLayer: null,
-  routePointSets: [],
   lineStyle: loadLineStyle(),
   pinLayer: null,
   showPins: false,
   loadingTours: false,
   toursLoadFailed: false,
-  sort: 'date-desc',
+  sort: DEFAULT_SORT,
   search: '',
   filterInView: false,
   page: 1,

@@ -1,33 +1,30 @@
 // @ts-check
-'use strict';
 
 import { isStale, markFetched } from './sasCache.js';
 
-// One request for every tour still missing map data, rather than a detail fetch
-// each. Tours already holding fresh data are left alone until their signed
-// photo URLs go stale. A failure settles them on empty data, so the map still
-// renders and no retry storm follows. mapDataPromise lets a caller hand in a
-// fetch already started in parallel with the tour list itself, instead of
-// paying its cold-start latency a second time.
-export async function ensureMapData(apiFetch, tours, mapDataPromise = null) {
-  const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour));
+async function fetchMapEntries({ apiFetch, pendingResponse }) {
+  const response = await (pendingResponse ?? apiFetch('/api/map'));
+  if (!response.ok) throw new Error(`GET /api/map answered ${response.status}`);
+  return (await response.json()) || [];
+}
+
+// A failure settles the tours on empty data, so no retry storm follows, then rejects.
+export async function ensureMapData({ apiFetch, tours, now, pendingResponse }) {
+  const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour, now));
   if (missing.length === 0) return;
 
-  let byId = new Map();
+  let entriesById = new Map();
   try {
-    const res = await (mapDataPromise || apiFetch('/api/map'));
-    if (res.ok) byId = new Map(((await res.json()) || []).map((entry) => [entry.id, entry]));
-  } catch {
-    // network unavailable — fall through to empty data
-  }
-
-  for (const tour of missing) {
-    const entry = byId.get(tour.id);
-    tour.heatmapData = entry?.heatmapData || [];
-    // Only the pinnable photos come back here, so a tour that had the full
-    // gallery loaded no longer does — the next detail fetch has to run again.
-    tour.images = entry?.images || [];
-    tour.detailLoaded = false;
-    markFetched(tour);
+    const entries = await fetchMapEntries({ apiFetch, pendingResponse });
+    entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+  } finally {
+    for (const tour of missing) {
+      const entry = entriesById.get(tour.id);
+      tour.heatmapData = entry?.heatmapData || [];
+      // /api/map carries only the pinnable photos, so the full gallery must be fetched again.
+      tour.images = entry?.images || [];
+      tour.detailLoaded = false;
+      markFetched(tour, now);
+    }
   }
 }

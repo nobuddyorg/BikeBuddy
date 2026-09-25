@@ -1,107 +1,123 @@
 'use strict';
 
 const { app } = require('@azure/functions');
-const { randomUUID } = require('crypto');
-const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
-const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
-const { parseMultipart } = require('../lib/parseMultipart');
-const { resizeImage, resizeThumbnail } = require('../lib/resizeImage');
-const { thumbBlobName } = require('../lib/thumbBlobName');
-const { extractGps } = require('../lib/extractGps');
-const { isImageContentType } = require('../lib/validation');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const blobStorage = require('../lib/blobStorage');
+const system = require('../lib/system');
 const { loadOwnedTour } = require('../lib/ownedTour');
+const { parseMultipart } = require('../lib/parseMultipart');
+const { resizeVariants } = require('../lib/resizeImage');
+const { extractGps } = require('../lib/extractGps');
+const { imageBlobName, thumbnailBlobName } = require('../lib/blobNames');
+const { isJpegOrPng } = require('../lib/fileSignatures');
+const { isImageContentType } = require('../lib/validation');
+const { toSignedImage } = require('../lib/tourImages');
+const { settleAll, withRollback } = require('../lib/settle');
 const { error } = require('../lib/http');
 
 const MAX_TOUR_IMAGES = 20;
 
-// JPEG = FF D8 FF, PNG = 89 50 4E 47.
-function isJpegOrPng(buffer) {
-  if (buffer.length < 4) return false;
-  const jpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  const png = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
-  return jpeg || png;
-}
-
-// The default `resize` dependency: both sizes, generated from the original
-// buffer independently (not chained) so each keeps its own quality/rotation
-// pass rather than compounding a second lossy re-encode onto the first.
-async function resizeVariants(buffer) {
-  const [full, thumbnail] = await Promise.all([resizeImage(buffer), resizeThumbnail(buffer)]);
-  return { full, thumbnail };
-}
-
-// POST /api/tours/{tourId}/images — store a resized JPEG (plus a thumbnail
-// variant) and append it to the tour.
-async function uploadImage(
-  request,
-  auth = authenticate,
-  getToursContainer = toursContainer,
-  getImagesContainer = imagesContainer,
-  parseFile = parseMultipart,
-  resize = resizeVariants,
-  readGps = extractGps,
-) {
-  const guard = await loadOwnedTour(request, auth, getToursContainer);
-  if (guard.response) return guard.response;
-
-  const { userId } = guard.user;
-  const { tour } = guard;
-  const { tourId } = request.params;
-
-  if ((tour.images || []).length >= MAX_TOUR_IMAGES) {
-    return error(400, 'This tour already has the maximum of 20 photos.');
-  }
-
+async function readImageUpload(request, parseFile) {
   let file;
   try {
     file = await parseFile(request);
-  } catch (err) {
-    return error(err.status ?? 500, err.message);
+  } catch (parseError) {
+    if (parseError.status !== 400) throw parseError;
+    return { response: error(400, parseError.message) };
   }
-
-  // The declared type AND the actual bytes.
+  // The declared type and the actual bytes.
   if (!isImageContentType(file.mimeType) || !isJpegOrPng(file.buffer)) {
-    return error(400, 'Only JPEG or PNG images are accepted');
+    return { response: error(400, 'Only JPEG or PNG images are accepted') };
   }
+  return { file };
+}
 
-  // The resize re-encodes and drops EXIF, so GPS can only come from the original
-  // buffer. Nothing mutates it, so both can read it at once.
-  const [gps, { full, thumbnail }] = await Promise.all([readGps(file.buffer), resize(file.buffer)]);
+const deleteVariants = (container, blobName) =>
+  settleAll(
+    [blobName, thumbnailBlobName(blobName)].map((name) =>
+      blobStorage.deleteBlobIfExists(container, name),
+    ),
+    `Deleting the blobs of ${blobName} failed`,
+  );
 
-  const imageId = randomUUID();
-  const blobName = `${userId}/${tourId}/${imageId}.jpg`;
-  const container = await getImagesContainer();
-  const blockBlob = container.getBlockBlobClient(blobName);
-  const thumbBlockBlob = container.getBlockBlobClient(thumbBlobName(blobName));
-  await Promise.all([
-    blockBlob.uploadData(full, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } }),
-    thumbBlockBlob.uploadData(thumbnail, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } }),
+// Both uploads settle before a failure is reported, so the rollback races no upload.
+async function storeVariants(container, { blobName, variants }) {
+  const upload = (name, data) =>
+    blobStorage.uploadBlob(container, { blobName: name, data, contentType: 'image/jpeg' });
+  await withRollback(
+    () =>
+      settleAll(
+        [upload(blobName, variants.full), upload(thumbnailBlobName(blobName), variants.thumbnail)],
+        `Uploading the blobs of ${blobName} failed`,
+      ),
+    () => deleteVariants(container, blobName),
+  );
+}
+
+// An atomic append, not a replace: concurrent uploads each keep their own entry.
+async function appendImageEntry(container, { tourId, userId, image }) {
+  const target = { id: tourId, partitionKey: userId };
+  try {
+    await db.patchItem(container, {
+      ...target,
+      operations: [{ op: 'add', path: '/images/-', value: image }],
+    });
+  } catch (patchError) {
+    // A tour written before the images field existed: "add" creates the array.
+    if (patchError.code !== 400) throw patchError;
+    await db.patchItem(container, {
+      ...target,
+      operations: [{ op: 'add', path: '/images', value: [image] }],
+    });
+  }
+}
+
+async function uploadImage(
+  request,
+  {
+    authenticate = authMiddleware.authenticate,
+    toursContainer = db.toursContainer,
+    imagesContainer = blobStorage.imagesContainer,
+    parseFile = parseMultipart,
+    resize = resizeVariants,
+    readGps = extractGps,
+    newId = system.newId,
+    now = system.currentTime,
+  } = {},
+) {
+  const guard = await loadOwnedTour(request, { authenticate, toursContainer });
+  if (guard.response) return guard.response;
+  const { tour } = guard;
+  const { userId } = guard.user;
+
+  if (tour.images?.length >= MAX_TOUR_IMAGES) {
+    return error(400, 'This tour already has the maximum of 20 photos.');
+  }
+  const upload = await readImageUpload(request, parseFile);
+  if (upload.response) return upload.response;
+
+  // Only the original still has EXIF; nothing mutates the buffer, so both read it at once.
+  const [gps, variants] = await Promise.all([
+    readGps(upload.file.buffer),
+    resize(upload.file.buffer),
   ]);
+  const imageId = newId();
+  const blobName = imageBlobName({ userId, tourId: tour.id, imageId });
+  const container = await imagesContainer();
+  await storeVariants(container, { blobName, variants });
 
   const image = { id: imageId, blobName, ...(gps && { lat: gps.lat, lon: gps.lon }) };
-  // Each request's tour.images snapshot predates its own parse/resize work, so
-  // a read-modify-write .replace() would lose a concurrent upload's image.
-  // UploadTour always seeds images: [], so '/images/-' is valid here.
-  const tourItem = getToursContainer().item(tourId, userId);
-  try {
-    await tourItem.patch([{ op: 'add', path: '/images/-', value: image }]);
-  } catch (err) {
-    // Only reachable for a tour predating the images field: "add" on a path
-    // that isn't an existing array creates it instead.
-    if (err.code !== 400) throw err;
-    await tourItem.patch([{ op: 'add', path: '/images', value: [image] }]);
-  }
+  await withRollback(
+    () => appendImageEntry(toursContainer(), { tourId: tour.id, userId, image }),
+    () => deleteVariants(container, blobName),
+  );
 
-  const [url, thumbUrl] = await Promise.all([readSasUrl(blockBlob), readSasUrl(thumbBlockBlob)]);
+  const requestTime = now();
+  const signUrl = (name) => blobStorage.readSasUrl(container, { blobName: name, now: requestTime });
   return {
     status: 201,
-    jsonBody: {
-      id: imageId,
-      url,
-      thumbUrl,
-      ...(gps && { lat: gps.lat, lon: gps.lon }),
-    },
+    jsonBody: await toSignedImage(image, { userId, tourId: tour.id, signUrl }),
   };
 }
 
@@ -113,4 +129,4 @@ app.http('UploadImage', {
   handler: (request) => uploadImage(request),
 });
 
-module.exports = { uploadImage, isJpegOrPng };
+module.exports = { uploadImage };

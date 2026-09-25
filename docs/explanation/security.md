@@ -18,7 +18,17 @@ cross-user data access, file-upload handling, and SAS URL exposure.
 
 - Secrets live in GitHub Actions secrets, never in the repo.
 - The API validates JWTs (issuer, audience, RS256) and scopes Cosmos queries to
-  the caller's partition.
+  the caller's partition. Two local-only settings change that, and both fail
+  closed: `SKIP_AUTH` is refused once Entra is configured, and
+  `ENTRA_OIDC_METADATA_URL` (the integration suite's local test issuer) is
+  honoured only for a loopback URL outside Azure; any other value makes every
+  authenticated request fail rather than fall back to Entra.
+- Every endpoint is tested with real signed tokens for two users: the owner
+  succeeds, another user gets the same 404 as a nonexistent id, and every
+  rejected credential (none, malformed, expired, not yet valid, wrong audience
+  or issuer, foreign key, `alg: none`, HS256) gets 401 with nothing written
+  (`functions/test/integration/`). An ID token presented as an access token is
+  still accepted (#569).
 - Uploads are validated by magic bytes and resized server-side; images are served
   via short-lived SAS URLs, not public containers.
 

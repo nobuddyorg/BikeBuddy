@@ -1,8 +1,4 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { clearUsers, clearTours } from './usersDb';
-
-// Use-case journeys against the real backend: editing a tour and the
-// profile showing the provisioned account (email + join date).
+import { expect, fullstackTest } from './fullstack-test';
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -13,21 +9,15 @@ const GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-buddyTest.describe('user journeys', () => {
-  buddyTest.beforeEach(async () => {
-    await clearUsers();
-    await clearTours();
-  });
-
-  buddyTest('edit a tour: rename updates the list and detail panel', async ({ on, page }) => {
+fullstackTest.describe('user journeys', () => {
+  fullstackTest('edit a tour: rename updates the list and detail panel', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await on(page).main.do.uploadGpx({ name: 'Original Name', gpx: GPX });
 
-    // Upload auto-selects the new tour → detail panel open.
-    await expect(on(page).main.locators.detail.name).toHaveText('Original Name');
+    await expect(on(page).detail.locators.name).toHaveText('Original Name');
 
-    await on(page).main.do.openEdit();
+    await on(page).detail.do.openEdit();
     await expect(on(page).modal.edit()).toBeVisible();
     await on(page).a11y.check('edit tour modal');
     await on(page).modal.edit.do.setName('Renamed Tour');
@@ -35,96 +25,111 @@ buddyTest.describe('user journeys', () => {
     await on(page).modal.edit.do.submit();
 
     await expect(on(page).modal.edit()).toBeHidden();
-    await expect(on(page).main.locators.detail.name).toHaveText('Renamed Tour');
-    await expect(on(page).main.locators.detail.description).toHaveText('Now with a description');
-    await expect(on(page).main.locators.list.container).toContainText('Renamed Tour');
-    await expect(on(page).main.locators.list.container).not.toContainText('Original Name');
+    await expect(on(page).detail.locators.name).toHaveText('Renamed Tour');
+    await expect(on(page).detail.locators.description).toHaveText('Now with a description');
+    await expect(on(page).list.locators.container).toContainText('Renamed Tour');
+    await expect(on(page).list.locators.container).not.toContainText('Original Name');
   });
 
-  buddyTest('edit a tour: correcting the date updates the detail panel', async ({ on, page }) => {
-    await page.goto('/');
-    await expect(on(page).main.locators.userMenu).toBeVisible();
-    await on(page).main.do.uploadGpx({ name: 'Dated Tour', gpx: GPX });
-
-    // The GPX's <time> puts the tour on 1 May 2026.
-    await expect(on(page).main.locators.detail.date).toHaveText('1 May 2026');
-
-    await on(page).main.do.openEdit();
-    await expect(on(page).modal.edit()).toBeVisible();
-    await expect(on(page).modal.edit.locators.date).toHaveValue('2026-05-01');
-    await on(page).modal.edit.do.setDate('2026-06-15');
-    await on(page).modal.edit.do.submit();
-
-    await expect(on(page).modal.edit()).toBeHidden();
-    await expect(on(page).main.locators.detail.date).toHaveText('15 Jun 2026');
-  });
-
-  buddyTest(
-    'rejects a whitespace-only tour name and keeps the modal open',
+  fullstackTest(
+    'edit a tour: correcting the date updates the detail panel',
     async ({ on, page }) => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
-      await on(page).main.do.uploadGpx({ name: 'Keep Me', gpx: GPX });
+      await on(page).main.do.uploadGpx({ name: 'Dated Tour', gpx: GPX });
 
-      await on(page).main.do.openEdit();
+      // The GPX's <time> puts the tour on 1 May 2026.
+      await expect(on(page).detail.locators.date).toHaveText('1 May 2026');
+
+      await on(page).detail.do.openEdit();
       await expect(on(page).modal.edit()).toBeVisible();
-      // '#edit-name' has the HTML `required` attribute, so a truly empty value
-      // never reaches submitEdit()'s fetch — the browser blocks the submit
-      // natively. Whitespace passes that check but still fails the backend's
-      // nameSchema (stripped to '' server-side), exercising the real 400 path.
-      await on(page).modal.edit.do.setName('   ');
+      await expect(on(page).modal.edit.locators.date).toHaveValue('2026-05-01');
+      await on(page).modal.edit.do.setDate('2026-06-15');
       await on(page).modal.edit.do.submit();
 
-      await expect(on(page).modal.edit()).toBeVisible();
-      await expect(on(page).modal.edit.locators.error).toBeVisible();
-      await expect(on(page).main.locators.detail.name).toHaveText('Keep Me');
+      await expect(on(page).modal.edit()).toBeHidden();
+      await expect(on(page).detail.locators.date).toHaveText('15 Jun 2026');
     },
   );
 
-  buddyTest('edit display name updates the avatar initials and persists', async ({ on, page }) => {
-    await page.goto('/');
-    await expect(on(page).main.locators.userMenu).toBeVisible();
+  fullstackTest(
+    'edit display name updates the avatar initials and persists',
+    async ({ on, page }) => {
+      await page.goto('/');
+      await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.openProfile();
-    await expect(on(page).modal.profile()).toBeVisible();
-    await on(page).modal.profile.do.setName('Alpine Rider');
-    await on(page).modal.profile.do.saveName();
+      await on(page).main.do.openProfile();
+      await expect(on(page).modal.profile()).toBeVisible();
+      await on(page).modal.profile.do.setName('Alpine Rider');
+      await on(page).modal.profile.do.saveName();
 
-    // Avatar shows first+last initials: "Alpine Rider" → "AR".
-    await expect(on(page).main.locators.buttons.profile).toHaveText('AR');
+      // Avatar shows first+last initials: "Alpine Rider" → "AR".
+      await expect(on(page).main.locators.buttons.profile).toHaveText('AR');
 
-    // Reopen → the name persisted (input + title).
-    await on(page).modal.profile.do.close();
-    await on(page).main.do.openProfile();
-    await expect(on(page).modal.profile.locators.nameInput).toHaveValue('Alpine Rider');
-    await expect(on(page).modal.profile.locators.title).toHaveText('Alpine Rider');
-  });
+      // After a reload, GET /api/me must return the chosen name, not the token's name claim.
+      await page.reload();
+      await expect(on(page).main.locators.buttons.profile).toHaveText('AR');
+      await on(page).main.do.openProfile();
+      await expect(on(page).modal.profile.locators.nameInput).toHaveValue('Alpine Rider');
+      await expect(on(page).modal.profile.locators.title).toHaveText('Alpine Rider');
+    },
+  );
 
-  buddyTest('rejects an empty profile name and keeps the previous one', async ({ on, page }) => {
-    await page.goto('/');
-    await expect(on(page).main.locators.userMenu).toBeVisible();
+  fullstackTest(
+    'profile shows the provisioned email and a real join date',
+    async ({ on, page }) => {
+      await page.goto('/');
+      await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.openProfile();
-    await expect(on(page).modal.profile()).toBeVisible();
-    await on(page).modal.profile.do.setName('Valid Name');
-    await on(page).modal.profile.do.saveName();
-    await expect(on(page).main.locators.buttons.profile).toHaveText('VN');
+      await on(page).main.do.openProfile();
+      await expect(on(page).modal.profile()).toBeVisible();
+      await expect(on(page).modal.profile.locators.email).toContainText('@');
+      // "Member since" must be a real date, not the "—" placeholder.
+      await expect(on(page).modal.profile.locators.since).not.toHaveText('—');
+    },
+  );
 
-    await on(page).modal.profile.do.setName('');
-    await on(page).modal.profile.do.saveName();
+  // The API answers these with 400, which the browser logs.
+  fullstackTest.describe('rejected edits', () => {
+    fullstackTest.use({ allowedConsoleErrors: { matching: [/status of 400/] } });
 
-    await expect(on(page).modal.profile.locators.nameError).toBeVisible();
-    await expect(on(page).main.locators.buttons.profile).toHaveText('VN');
-  });
+    fullstackTest(
+      'rejects a whitespace-only tour name and keeps the modal open',
+      async ({ on, page }) => {
+        await page.goto('/');
+        await expect(on(page).main.locators.userMenu).toBeVisible();
+        await on(page).main.do.uploadGpx({ name: 'Keep Me', gpx: GPX });
 
-  buddyTest('profile shows the provisioned email and a real join date', async ({ on, page }) => {
-    await page.goto('/');
-    await expect(on(page).main.locators.userMenu).toBeVisible();
+        await on(page).detail.do.openEdit();
+        await expect(on(page).modal.edit()).toBeVisible();
+        // `required` blocks an empty name in the browser; whitespace reaches the API's 400.
+        await on(page).modal.edit.do.setName('   ');
+        await on(page).modal.edit.do.submit();
 
-    await on(page).main.do.openProfile();
-    await expect(on(page).modal.profile()).toBeVisible();
-    await expect(on(page).modal.profile.locators.email).toContainText('@');
-    // "Member since" must be a real date, not the "—" placeholder.
-    await expect(on(page).modal.profile.locators.since).not.toHaveText('—');
+        await expect(on(page).modal.edit()).toBeVisible();
+        await expect(on(page).modal.edit.locators.error).toBeVisible();
+        await expect(on(page).detail.locators.name).toHaveText('Keep Me');
+      },
+    );
+
+    fullstackTest(
+      'rejects an empty profile name and keeps the previous one',
+      async ({ on, page }) => {
+        await page.goto('/');
+        await expect(on(page).main.locators.userMenu).toBeVisible();
+
+        await on(page).main.do.openProfile();
+        await expect(on(page).modal.profile()).toBeVisible();
+        await on(page).modal.profile.do.setName('Valid Name');
+        await on(page).modal.profile.do.saveName();
+        await expect(on(page).main.locators.buttons.profile).toHaveText('VN');
+
+        await on(page).modal.profile.do.setName('');
+        await on(page).modal.profile.do.saveName();
+
+        await expect(on(page).modal.profile.locators.nameError).toBeVisible();
+        await expect(on(page).main.locators.buttons.profile).toHaveText('VN');
+      },
+    );
   });
 });

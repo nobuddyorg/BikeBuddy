@@ -4,81 +4,90 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const css = readFileSync(resolve(here, '../src/style.css'), 'utf8');
+const tokens = readFileSync(resolve(here, '../src/css/base.css'), 'utf8');
 
-function readVar(name, source) {
+function readColor(name, source) {
   const match = source.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
   if (!match) throw new Error(`--${name} not found`);
   return match[1];
 }
 
-// :root holds the light theme; the dark theme only overrides a subset inside
-// the prefers-color-scheme block that follows it.
-const rootBlock = css.slice(
-  css.indexOf(':root'),
-  css.indexOf('@media (prefers-color-scheme: dark)'),
+// :root holds the light theme; the dark block after it overrides a subset.
+const rootBlock = tokens.slice(
+  tokens.indexOf(':root'),
+  tokens.indexOf('@media (prefers-color-scheme: dark)'),
 );
-const darkBlock = css.slice(css.indexOf('@media (prefers-color-scheme: dark)'));
+const darkBlock = tokens.slice(tokens.indexOf('@media (prefers-color-scheme: dark)'));
 
 function relativeLuminance(hex) {
-  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-  const [r, g, b] = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const channels = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16) / 255);
+  const [red, green, blue] = channels.map((channel) =>
+    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  );
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
 }
 
-function contrastRatio(hexA, hexB) {
-  const [l1, l2] = [relativeLuminance(hexA), relativeLuminance(hexB)].sort((a, b) => b - a);
-  return (l1 + 0.05) / (l2 + 0.05);
+function contrastRatio(foreground, background) {
+  const [lighter, darker] = [relativeLuminance(foreground), relativeLuminance(background)].sort(
+    (a, b) => b - a,
+  );
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 const AA_NORMAL_TEXT = 4.5;
 
-describe('WCAG AA contrast (issue #438)', () => {
+describe('WCAG AA contrast of the colour tokens', () => {
   it('white text on --color-primary-strong (.btn-primary) clears 4.5:1', () => {
-    const bg = readVar('color-primary-strong', rootBlock);
-    expect(contrastRatio('#ffffff', bg)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    const background = readColor('color-primary-strong', rootBlock);
+    expect(contrastRatio('#ffffff', background)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
   it('white text on --color-primary-strong-hover clears 4.5:1', () => {
-    const bg = readVar('color-primary-strong-hover', rootBlock);
-    expect(contrastRatio('#ffffff', bg)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    const background = readColor('color-primary-strong-hover', rootBlock);
+    expect(contrastRatio('#ffffff', background)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
   it('white text on --color-danger-strong (.btn-danger) clears 4.5:1', () => {
-    const bg = readVar('color-danger-strong', rootBlock);
-    expect(contrastRatio('#ffffff', bg)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    const background = readColor('color-danger-strong', rootBlock);
+    expect(contrastRatio('#ffffff', background)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
   it('white text on --color-danger-strong-hover clears 4.5:1', () => {
-    const bg = readVar('color-danger-strong-hover', rootBlock);
-    expect(contrastRatio('#ffffff', bg)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    const background = readColor('color-danger-strong-hover', rootBlock);
+    expect(contrastRatio('#ffffff', background)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
   it('--color-primary-text on the light surface clears 4.5:1 (.show-all-btn, mark, wordmark)', () => {
-    const fg = readVar('color-primary-text', rootBlock);
-    const surface = readVar('color-surface', rootBlock);
-    expect(contrastRatio(fg, surface)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    const foreground = readColor('color-primary-text', rootBlock);
+    const surface = readColor('color-surface', rootBlock);
+    expect(contrastRatio(foreground, surface)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
   it('--color-primary-text on the dark surface clears 4.5:1', () => {
-    const fg = readVar('color-primary-text', darkBlock);
-    const surface = readVar('color-surface', darkBlock);
-    expect(contrastRatio(fg, surface)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    const foreground = readColor('color-primary-text', darkBlock);
+    const surface = readColor('color-surface', darkBlock);
+    expect(contrastRatio(foreground, surface)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
   it('--color-danger-text (the profile danger-zone heading) clears 4.5:1 in both themes', () => {
     expect(
-      contrastRatio(readVar('color-danger-text', rootBlock), readVar('color-surface', rootBlock)),
+      contrastRatio(
+        readColor('color-danger-text', rootBlock),
+        readColor('color-surface', rootBlock),
+      ),
     ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
     expect(
-      contrastRatio(readVar('color-danger-text', darkBlock), readVar('color-surface', darkBlock)),
+      contrastRatio(
+        readColor('color-danger-text', darkBlock),
+        readColor('color-surface', darkBlock),
+      ),
     ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
   it('--color-text-muted clears 4.5:1 on --color-surface-2 (selected row, chips) in both themes', () => {
     for (const block of [rootBlock, darkBlock]) {
-      const muted = readVar('color-text-muted', block);
-      const surface2 = readVar('color-surface-2', block);
+      const muted = readColor('color-text-muted', block);
+      const surface2 = readColor('color-surface-2', block);
       expect(contrastRatio(muted, surface2)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
     }
   });

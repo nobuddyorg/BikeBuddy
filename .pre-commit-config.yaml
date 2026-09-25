@@ -13,8 +13,7 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
       - id: end-of-file-fixer
-        # Vendored files must stay byte-identical to what upstream published,
-        # otherwise their checksums no longer verify.
+        # Vendored files stay byte-identical to upstream (verify-vendor below).
         exclude: ^frontend/src/vendor/
       - id: mixed-line-ending
         exclude: ^frontend/src/vendor/
@@ -28,36 +27,28 @@ repos:
     rev: v1.50.1
     hooks:
       - id: typos
-        # Vendored minified bundle (short var names) + i18n locale files (German /
-        # Spanish words) trip the English spell checker. Plans/specs under
-        # docs/superpowers/ often quote those same locale strings verbatim as
-        # code-block anchors, so they trip it too.
+        # Minified vendor code and non-English locale strings (also quoted in docs/superpowers/) trip it.
         exclude: ^(frontend/src/(vendor|locales)/|docs/superpowers/(plans|specs)/)
 
   # gitleaks: secrets, with Azure rules and the emulator-key allowlist in .gitleaks.toml.
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
-      # Staged changes, on commit (gitleaks' own `dir` mode ignores .gitignore,
-      # so it would flag a real functions/local.settings.json).
+      # Staged changes only: `dir` mode ignores .gitignore and would flag a real local.settings.json.
       - id: gitleaks
-      # Every commit reachable from HEAD: the staged hook sees nothing in CI, but
-      # CI's depth-1 checkout makes this the full tree of the tested commit.
+      # Every commit reachable from HEAD; in CI's depth-1 checkout, the full tree of the tested commit.
       - id: gitleaks
         alias: gitleaks-history
         name: Detect hardcoded secrets (git history)
         entry: gitleaks git --redact --verbose
 
-  # zizmor: detects security vulnerabilities in GitHub Actions workflows. No
-  # --fix: a fix made in CI is discarded, so the hook reports and the developer
-  # applies it (`zizmor --fix .github`).
+  # zizmor: GitHub Actions security. No --fix: a fix made in CI is discarded (run `zizmor --fix .github`).
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: v1.30.1
     hooks:
       - id: zizmor
 
-  # zizmor covers security; actionlint covers syntax, expression types, job
-  # references, composite-action inputs and ShellCheck on run: blocks.
+  # actionlint: syntax, expression types, job references, composite-action inputs, ShellCheck on run: blocks.
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.12
     hooks:
@@ -66,8 +57,7 @@ repos:
         files: ^\.github/(workflows|actions)/
         pass_filenames: false
 
-  # lockfile-lint: every lockfile resolves from the npm registry over https with
-  # integrity hashes. Its own pinned install, so CI's prek job needs no node_modules.
+  # lockfile-lint: npm registry over https with integrity hashes; its own pinned install.
   - repo: local
     hooks:
       - id: lockfile-lint
@@ -93,10 +83,10 @@ repos:
     hooks:
       - id: prettier
         name: Prettier
-        entry: bash -c "cd functions && npx prettier --check 'src/**/*.js' 'test/**/*.js'"
+        entry: bash -c "cd functions && npx prettier --check 'src/**/*.js' 'test/**/*.js' 'scripts/**/*.{js,mjs}'"
         language: system
         pass_filenames: false
-        files: ^functions/(src|test)/
+        files: ^functions/(src|test|scripts)/
         stages: [pre-commit]
 
   # Prettier check (e2e/ TypeScript) — reuses functions' prettier; fix with: cd e2e && npm run format
@@ -121,8 +111,7 @@ repos:
         files: ^e2e/(.*\.ts|eslint\.config\.js|tsconfig\.json|package\.json)$
         stages: [pre-commit]
 
-  # Type checks: tsc --noEmit for e2e/, and the `// @ts-check` files of
-  # functions/ and frontend/.
+  # tsc --noEmit for e2e/ and the `// @ts-check` files of functions/ and frontend/.
   - repo: local
     hooks:
       - id: tsc
@@ -141,8 +130,7 @@ repos:
         files: ^e2e/(.*\.ts|tsconfig\.json)$
         stages: [pre-commit]
 
-  # dependency-cruiser: layer boundaries and cycles over the whole graph (a
-  # few seconds), so it runs whole. Rules: .dependency-cruiser.cjs.
+  # dependency-cruiser: layer boundaries and cycles over the whole graph; rules in .dependency-cruiser.cjs.
   - repo: local
     hooks:
       - id: depcruise
@@ -154,8 +142,7 @@ repos:
         exclude: ^frontend/src/vendor/
         stages: [pre-commit]
 
-  # Knip: unused files, exports and dependencies in all three packages. Scoped
-  # to what can change that graph: sources, package.json, Knip's own config.
+  # Knip: unused files, exports and dependencies in all three packages.
   - repo: local
     hooks:
       - id: knip
@@ -177,9 +164,25 @@ repos:
         pass_filenames: false
         files: ^load/.*\.(js|mjs)$
         stages: [pre-commit]
+      - id: prettier-scripts
+        name: Prettier (root scripts)
+        entry: functions/node_modules/.bin/prettier --check --config functions/.prettierrc.json
+        language: system
+        files: ^(scripts/.*\.mjs|mutation-targets\.mjs)$
+        stages: [pre-commit]
 
-  # ESLint (frontend/) — browser + ESM; reuses functions' eslint install. Runs
-  # from the repo root so the files are inside ESLint's base path.
+  # frontend/src/vendor/ byte-identical to the pinned npm packages; after a bump: node scripts/quality/verify-vendor.mjs --write
+  - repo: local
+    hooks:
+      - id: verify-vendor
+        name: Vendored libraries match frontend/node_modules
+        entry: node scripts/quality/verify-vendor.mjs
+        language: system
+        pass_filenames: false
+        files: ^(frontend/src/vendor/|frontend/package(-lock)?\.json$|scripts/quality/verify-vendor\.mjs$)
+        stages: [pre-commit]
+
+  # ESLint (frontend/): runs from the repo root so the files are inside ESLint's base path.
   - repo: local
     hooks:
       - id: eslint-frontend
@@ -196,16 +199,15 @@ repos:
     hooks:
       - id: prettier-frontend
         name: Prettier (frontend)
-        # --config: frontend/ has no .prettierrc, so point at functions' config
-        # explicitly (Prettier resolves config from each file's directory).
-        entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../frontend/*.js' '../frontend/src/*.{js,css,html}' '../frontend/src/lib/**/*.js' '../frontend/test/**/*.js'"
+        # frontend/ has no .prettierrc, and Prettier resolves config from each file's directory.
+        entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../frontend/*.js' '../frontend/src/*.{js,css,html}' '../frontend/src/{lib,ui}/**/*.js' '../frontend/src/css/*.css' '../frontend/test/**/*.js'"
         language: system
         pass_filenames: false
         files: ^frontend/.*\.(js|css|html)$
         exclude: ^frontend/src/vendor/
         stages: [pre-commit]
 
-  # ShellCheck for shell scripts (auto-installs in its own env).
+  # ShellCheck (auto-installs in its own env).
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.11.0.1
     hooks:
@@ -235,7 +237,7 @@ repos:
       - id: editorconfig-checker
         alias: ec
 
-  # OpenTofu fmt + validate (needs the tofu CLI; CI installs it for the prek job).
+  # OpenTofu fmt + validate: needs the tofu CLI.
   - repo: local
     hooks:
       - id: tofu-fmt
@@ -253,8 +255,7 @@ repos:
         files: ^infrastructure/.*\.tf$
         stages: [pre-commit]
 
-  # TFLint (azurerm ruleset) + Trivy config scan of infrastructure/, pinned and
-  # checksum-verified by the script. CI runs it in its own iac job (SARIF upload).
+  # TFLint + Trivy over infrastructure/; CI's prek job skips it for its own iac job.
   - repo: local
     hooks:
       - id: iac
@@ -265,9 +266,7 @@ repos:
         files: ^(infrastructure/.*\.tf|\.tflint\.hcl|\.trivyignore\.yaml|scripts/quality/iac\.sh)$
         stages: [pre-commit]
 
-  # OpenGrep SAST, the same pinned version and rule packs as gate.yml's opengrep
-  # job (which is the CI gate, so CI's prek job skips this hook). No --autofix:
-  # findings are fixed by hand. Exclusions: .semgrepignore.
+  # OpenGrep SAST; CI's prek job skips it for gate.yml's opengrep job. Exclusions: .semgrepignore.
   - repo: local
     hooks:
       - id: opengrep

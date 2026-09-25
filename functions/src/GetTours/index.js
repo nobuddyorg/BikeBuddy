@@ -1,24 +1,27 @@
 'use strict';
 
 const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer, queryUserItems } = require('../lib/db');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
 const { unauthorized } = require('../lib/http');
 
-// GET /api/tours — newest first, without heatmapData: the detail endpoint
-// fetches that per tour, so the list payload stays small.
-async function getTours(request, auth = authenticate, getContainer = toursContainer) {
-  const user = await auth(request);
+// The list projection: heatmapData stays out of list responses.
+const LIST_QUERY =
+  'SELECT c.id, c.name, c.description, c.distance, c.createdAt ' +
+  'FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC';
+
+async function getTours(
+  request,
+  { authenticate = authMiddleware.authenticate, toursContainer = db.toursContainer } = {},
+) {
+  const user = await authenticate(request);
   if (!user) return unauthorized();
 
-  const resources = await queryUserItems(
-    getContainer(),
-    user.userId,
-    'SELECT c.id, c.name, c.description, c.distance, c.createdAt ' +
-      'FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC',
-  );
-
-  return { status: 200, jsonBody: resources };
+  const tours = await db.queryUserItems(toursContainer(), {
+    userId: user.userId,
+    query: LIST_QUERY,
+  });
+  return { status: 200, jsonBody: tours };
 }
 
 app.http('GetTours', {
