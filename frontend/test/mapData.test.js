@@ -59,6 +59,24 @@ describe('ensureMapData', () => {
     expect(tours[1].heatmapData).toEqual([[3, 4]]);
   });
 
+  it('refills a tour missing either its track or its photos', async () => {
+    const tours = [
+      { id: 'no-track', images: [], fetchedAt: NOW },
+      { id: 'no-photos', heatmapData: [], fetchedAt: NOW },
+    ];
+    const apiFetch = vi.fn(async () =>
+      ok([
+        { id: 'no-track', heatmapData: [[1, 1]], images: [] },
+        { id: 'no-photos', heatmapData: [], images: [{ id: 'i1' }] },
+      ]),
+    );
+
+    await ensureMapData({ apiFetch, tours, now: NOW });
+
+    expect(tours[0].heatmapData).toEqual([[1, 1]]);
+    expect(tours[1].images).toEqual([{ id: 'i1' }]);
+  });
+
   it('settles tours missing from the response on empty data', async () => {
     const tours = [{ id: 'gone' }];
 

@@ -32,10 +32,14 @@ describe('isImageFile', () => {
     expect(isImageFile(file({ name: 'p.bin', type: 'image/jpeg' }))).toBe(true);
     expect(isImageFile(file({ name: 'photo.PNG', type: '' }))).toBe(true);
     expect(isImageFile(file({ name: 'photo.jpeg', type: '' }))).toBe(true);
+    expect(isImageFile(file({ name: 'photo.jpg', type: '' }))).toBe(true);
   });
 
   it('rejects non-images', () => {
     expect(isImageFile(file({ name: 'p.gif', type: 'image/gif' }))).toBe(false);
+    expect(isImageFile(file({ name: 'p.bin', type: 'image/pngx' }))).toBe(false);
+    expect(isImageFile(file({ name: 'p.bin', type: 'x-image/png' }))).toBe(false);
+    expect(isImageFile(file({ name: 'photo.png.exe', type: '' }))).toBe(false);
     expect(isImageFile(null)).toBe(false);
   });
 });
@@ -118,7 +122,7 @@ describe('validateImageQuota', () => {
 describe('defaultTourName', () => {
   it('drops the .gpx extension, whatever its case', () => {
     expect(defaultTourName('Alpine Loop.GPX')).toBe('Alpine Loop');
-    expect(defaultTourName('ride.gpx.gpx')).toBe('ride.gpx');
+    expect(defaultTourName('my.gpx.tracks.gpx')).toBe('my.gpx.tracks');
   });
 });
 

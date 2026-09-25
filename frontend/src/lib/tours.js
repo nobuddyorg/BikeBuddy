@@ -41,7 +41,7 @@ export function fuzzyMatchIndices(query, text) {
   const needle = query.trim().toLowerCase();
   const haystack = (text || '').toLowerCase();
   const indices = [];
-  for (let position = 0; position < haystack.length && indices.length < needle.length; position++) {
+  for (let position = 0; position < haystack.length; position++) {
     if (haystack[position] === needle[indices.length]) indices.push(position);
   }
   const matched = indices.length === needle.length;
@@ -49,7 +49,7 @@ export function fuzzyMatchIndices(query, text) {
 }
 
 function contiguousScore({ haystack, needle, start }) {
-  if (start === 0 && haystack.length === needle.length) return EXACT_SCORE;
+  if (haystack === needle) return EXACT_SCORE;
   if (start === 0) return PREFIX_SCORE;
   if (haystack[start - 1] === ' ' || haystack[start - 1] === '-') return WORD_START_SCORE;
   return SUBSTRING_SCORE;
@@ -59,7 +59,7 @@ function contiguousScore({ haystack, needle, start }) {
 export function matchScore(query, text) {
   const needle = query.trim().toLowerCase();
   if (!needle) return { matched: true, score: 0 };
-  const haystack = (text || '').toLowerCase();
+  const haystack = text.toLowerCase();
   const start = haystack.indexOf(needle);
   if (start !== -1) return { matched: true, score: contiguousScore({ haystack, needle, start }) };
   const { matched, indices } = fuzzyMatchIndices(needle, haystack);
@@ -80,10 +80,9 @@ function relevance({ tour, query }) {
 export function visibleTours({ tours, sort, search, locale }) {
   const byKey = sorters(locale);
   const sorter = byKey[sort] || byKey[DEFAULT_SORT];
-  const query = (search || '').trim();
-  if (!query) return [...tours].sort(sorter);
+  // Without a query every tour matches neutrally, so the chosen sort alone decides.
   return tours
-    .flatMap((tour) => relevance({ tour, query }))
+    .flatMap((tour) => relevance({ tour, query: search || '' }))
     .sort((a, b) => b.score - a.score || sorter(a.tour, b.tour))
     .map(({ tour }) => tour);
 }
@@ -92,7 +91,7 @@ export function visibleTours({ tours, sort, search, locale }) {
 export function toursInView(tours, bounds) {
   const { south, west, north, east } = bounds;
   return tours.filter((tour) =>
-    (tour.heatmapData || []).some(
+    tour.heatmapData?.some(
       ([lat, lon]) => lat >= south && lat <= north && lon >= west && lon <= east,
     ),
   );
@@ -124,13 +123,11 @@ export function tourListView({ tours, sort, search, locale, page, inViewBounds }
 export function matchRuns(text, indices) {
   const matched = new Set(indices);
   const runs = [];
-  let runStart = 0;
-  while (runStart < text.length) {
-    const isMatched = matched.has(runStart);
-    let runEnd = runStart;
-    while (runEnd < text.length && matched.has(runEnd) === isMatched) runEnd++;
-    runs.push({ text: text.slice(runStart, runEnd), matched: isMatched });
-    runStart = runEnd;
+  for (let index = 0; index < text.length; index++) {
+    const isMatched = matched.has(index);
+    const lastRun = runs[runs.length - 1];
+    if (lastRun?.matched === isMatched) lastRun.text += text[index];
+    else runs.push({ text: text[index], matched: isMatched });
   }
   return runs;
 }

@@ -13,6 +13,8 @@ describe('parseAppUrl', () => {
   it('returns an empty tourId for an unrelated or empty hash', () => {
     expect(parseAppUrl('', '')).toMatchObject({ tourId: '' });
     expect(parseAppUrl('', '#something-else')).toMatchObject({ tourId: '' });
+    expect(parseAppUrl('', '#/tour/abc/photos')).toMatchObject({ tourId: '' });
+    expect(parseAppUrl('', '#x#/tour/abc')).toMatchObject({ tourId: '' });
   });
 
   it('reads sort, q and inView from the query string', () => {

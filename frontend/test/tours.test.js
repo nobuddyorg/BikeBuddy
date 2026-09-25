@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   fuzzyMatchIndices,
   matchScore,
@@ -85,6 +86,14 @@ describe('matchScore', () => {
     expect(matchScore('xyz', 'Beach Ride').matched).toBe(false);
   });
 
+  it('ignores the case and padding of the query', () => {
+    expect(matchScore('  BEACH ', 'Beach Ride')).toEqual(matchScore('beach', 'Beach Ride'));
+  });
+
+  it('scores a scatter by its spread, not by where it starts', () => {
+    expect(score('ab', 'xxa1b')).toBe(score('ab', 'a1b'));
+  });
+
   it('treats an empty query as a neutral match', () => {
     expect(matchScore('', 'Beach Ride')).toEqual({ matched: true, score: 0 });
   });
@@ -155,6 +164,41 @@ describe('visibleTours', () => {
     }
   });
 
+  it('sorts a tour without a name before any named one, whatever the input order', () => {
+    const alps = { id: 'alps', name: 'Alps' };
+    const zeta = { id: 'zeta', name: 'Zeta' };
+    const unnamed = { id: 'unnamed' };
+    for (const tours of [
+      [zeta, unnamed, alps],
+      [alps, zeta, unnamed],
+      [unnamed, alps, zeta],
+      [zeta, alps, unnamed],
+    ]) {
+      expect(visibleIds({ tours, sort: 'name-asc', search: '' })).toEqual([
+        'unnamed',
+        'alps',
+        'zeta',
+      ]);
+      expect(visibleIds({ tours, sort: 'name-desc', search: '' })).toEqual([
+        'zeta',
+        'alps',
+        'unnamed',
+      ]);
+    }
+  });
+
+  it('ranks every scatter wider than the ceiling alike, so the sort decides', () => {
+    const widest = { id: 'widest', name: `a${'z'.repeat(398)}b` };
+    const nearlyAsWide = { id: 'nearly', name: `a${'z'.repeat(397)}b` };
+    const tours = [nearlyAsWide, widest];
+    expect(visibleIds({ tours, sort: 'name-desc', search: 'ab' })).toEqual(['widest', 'nearly']);
+    expect(visibleIds({ tours, sort: 'name-asc', search: 'ab' })).toEqual(['nearly', 'widest']);
+  });
+
+  it('never matches a tour with neither a name nor a description', () => {
+    expect(visibleIds({ tours: [{ id: 'blank' }], sort: 'date-desc', search: 'here' })).toEqual([]);
+  });
+
   it('searches a tour without a name by its description only', () => {
     const unnamed = [{ id: 'u', description: 'coastal ride', createdAt: '2026-01-01T00:00:00Z' }];
     expect(visibleIds({ tours: unnamed, sort: 'date-desc', search: 'coast' })).toEqual(['u']);
@@ -221,6 +265,14 @@ describe('toursInView', () => {
     expect(toursInView([t], BOUNDS)).toEqual([t]);
   });
 
+  it('drops a tour just past any one edge, and keeps one on each edge', () => {
+    const at = (lat, lon) => ({ id: `${lat},${lon}`, heatmapData: [[lat, lon]] });
+    const outside = [at(39.9, 10), at(50.1, 10), at(45, 4.9), at(45, 15.1)];
+    const onEdges = [at(40, 10), at(50, 10), at(45, 5), at(45, 15)];
+    expect(toursInView(outside, BOUNDS)).toEqual([]);
+    expect(toursInView(onEdges, BOUNDS)).toEqual(onEdges);
+  });
+
   it('treats a tour with no heatmapData yet as out of view', () => {
     const t = { id: 'a' };
     expect(toursInView([t], BOUNDS)).toEqual([]);
@@ -285,6 +337,22 @@ describe('paginate', () => {
 });
 
 describe('SORT_OPTIONS', () => {
+  it('offers the sorts in menu order, each with an English label', () => {
+    const english = JSON.parse(
+      readFileSync(new URL('../src/locales/en.json', import.meta.url), 'utf8'),
+    );
+    expect(SORT_OPTIONS.map((option) => option.key)).toEqual([
+      'date-desc',
+      'date-asc',
+      'name-asc',
+      'name-desc',
+      'length-desc',
+      'length-asc',
+    ]);
+    for (const { labelKey } of SORT_OPTIONS) expect(english[labelKey]).toBeTruthy();
+    expect(new Set(SORT_OPTIONS.map((option) => option.labelKey)).size).toBe(SORT_OPTIONS.length);
+  });
+
   it('lists every sort once, newest first as the default', () => {
     const keys = SORT_OPTIONS.map((option) => option.key);
     expect(new Set(keys).size).toBe(keys.length);

@@ -54,7 +54,7 @@ describe('buildUploadQuery', () => {
   });
 
   it('leaves blank fields out so the backend applies its defaults', () => {
-    expect(buildUploadQuery({ name: '   ', description: '' })).toBe('');
+    expect(buildUploadQuery({ name: '   ', description: '  ' })).toBe('');
     expect(buildUploadQuery({ name: '', description: 'Coast' })).toBe('description=Coast');
   });
 });

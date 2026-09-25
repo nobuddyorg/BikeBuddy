@@ -26,6 +26,19 @@ describe('supportedLocaleCodes', () => {
   });
 });
 
+describe('SUPPORTED_LOCALES', () => {
+  it('describes every locale completely for the language menu and Intl', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      expect(locale.label).not.toBe('');
+      expect(locale.flag).not.toBe('');
+      expect(locale.short).toBe(locale.code.toUpperCase());
+      expect(locale.intlLocale.startsWith(`${locale.code}-`)).toBe(true);
+    }
+    const labels = SUPPORTED_LOCALES.map((locale) => locale.label);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+});
+
 describe('localeMeta', () => {
   it('describes a supported locale', () => {
     expect(localeMeta('de')).toMatchObject({ code: 'de', intlLocale: 'de-DE' });
@@ -47,7 +60,7 @@ describe('pickLocale', () => {
 
   it('falls back to en when nothing matches', () => {
     expect(pickLocale({ stored: 'xx', languages: ['ja', 'ko'] })).toBe('en');
-    expect(pickLocale({ stored: null })).toBe('en');
+    expect(pickLocale({ stored: null, languages: [] })).toBe('en');
   });
 });
 
@@ -173,7 +186,8 @@ describe('filterLocales', () => {
 
   it('matches the name, code or short label, ignoring case and padding', () => {
     expect(codes('deut')).toEqual(['de']);
-    expect(codes(' NL ')).toEqual(['nl']);
+    expect(codes('  deut  ')).toEqual(['de']);
+    expect(codes('NL')).toEqual(['nl']);
     expect(codes('pt')).toEqual(['pt']);
   });
 

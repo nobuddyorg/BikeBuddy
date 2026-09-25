@@ -23,13 +23,12 @@ export function localeMeta(code) {
 // 'de-DE' / 'DE' → 'de'; unsupported and empty candidates drop out.
 export function supportedLocaleCodes(candidates) {
   return candidates
-    .filter(Boolean)
     .map((candidate) => String(candidate).toLowerCase().split('-')[0])
     .filter(isSupported);
 }
 
-/** @param {{ stored?: string | null, languages?: readonly string[] }} preferences */
-export function pickLocale({ stored, languages = [] }) {
+/** @param {{ stored?: string | null, languages: readonly string[] }} preferences */
+export function pickLocale({ stored, languages }) {
   return supportedLocaleCodes([stored, ...languages])[0] ?? DEFAULT_LOCALE;
 }
 

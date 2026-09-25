@@ -13,28 +13,24 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function readStored(raw) {
+  try {
+    return JSON.parse(raw) ?? {};
+  } catch {
+    return {}; // corrupted JSON counts as nothing stored
+  }
+}
+
 // A tampered or stale stored entry falls back to the defaults field by field.
 export function parseLineStyle(raw) {
-  if (!raw) return { ...DEFAULT_LINE_STYLE };
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return { ...DEFAULT_LINE_STYLE };
-  }
-  if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_LINE_STYLE };
-
-  const color =
-    typeof parsed.color === 'string' && HEX_COLOR.test(parsed.color)
-      ? parsed.color
-      : DEFAULT_LINE_STYLE.color;
-  const weight = Number.isFinite(parsed.weight)
-    ? clamp(parsed.weight, WEIGHT_MIN, WEIGHT_MAX)
+  const stored = readStored(raw);
+  const color = HEX_COLOR.test(stored.color) ? stored.color : DEFAULT_LINE_STYLE.color;
+  const weight = Number.isFinite(stored.weight)
+    ? clamp(stored.weight, WEIGHT_MIN, WEIGHT_MAX)
     : DEFAULT_LINE_STYLE.weight;
-  const opacity = Number.isFinite(parsed.opacity)
-    ? clamp(parsed.opacity, OPACITY_MIN, OPACITY_MAX)
+  const opacity = Number.isFinite(stored.opacity)
+    ? clamp(stored.opacity, OPACITY_MIN, OPACITY_MAX)
     : DEFAULT_LINE_STYLE.opacity;
-
   return { color, weight, opacity };
 }
 

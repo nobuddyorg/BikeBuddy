@@ -5,8 +5,8 @@ import { DEFAULT_SORT } from './tours.js';
 const TOUR_HASH_PATTERN = /^#\/tour\/([^/?#]+)$/;
 
 export function parseAppUrl(search, hash) {
-  const params = new URLSearchParams(search || '');
-  const match = TOUR_HASH_PATTERN.exec(hash || '');
+  const params = new URLSearchParams(search);
+  const match = TOUR_HASH_PATTERN.exec(hash);
   return {
     tourId: match ? decodeURIComponent(match[1]) : '',
     sort: params.get('sort') || '',

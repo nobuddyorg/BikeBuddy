@@ -2,7 +2,7 @@
 
 // Like Promise.allSettled over `worker(item)`, with at most `limit` running at once.
 export async function runWithConcurrency({ items, limit, worker }) {
-  const outcomes = new Array(items.length);
+  const outcomes = [];
   let next = 0;
 
   async function runNext() {
