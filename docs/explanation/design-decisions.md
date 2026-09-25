@@ -120,6 +120,12 @@ warm instance from growing. The frontend fetches `/api/map` in parallel with
   a typed safety check, identical in every language.
 - Icons are inline SVG from one sprite (`icons.svg`), not emoji, so they render
   the same on every platform.
+- The service worker fetches every same-origin file network-first and keeps
+  its cache current, so a deploy reaches returning users on their next load
+  and the page never runs one deploy's HTML with another's modules. The cache
+  is only the offline copy. Cache-first behind a hand-bumped `CACHE_NAME` was
+  dropped after a missed bump left users on stale code (#544); the name now
+  changes only to discard an old cache.
 
 ## Account deletion (GDPR), out-of-band
 
