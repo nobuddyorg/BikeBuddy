@@ -73,6 +73,7 @@ describe('POST /api/tours/upload', () => {
     expect(storedTour()).toMatchObject({
       id: TOUR_ID,
       userId: 'u1',
+      schemaVersion: 1,
       name: 'Test Tour',
       description: '',
       images: [],

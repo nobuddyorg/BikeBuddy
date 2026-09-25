@@ -14,6 +14,7 @@ const { withRollback } = require('../lib/settle');
 const { nameSchema, tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { toCreatedTourResponse } = require('../lib/tourResponse');
 const { ERROR_KEYS, unauthorized, error } = require('../lib/http');
+const { TOUR_SCHEMA_VERSION } = require('../lib/schemaVersion');
 
 async function readGpxUpload(request, { parseFile, parseTrack }) {
   let file;
@@ -46,6 +47,7 @@ function newTourDocument({ tourId, userId, metadata, track, gpxFileUrl, uploaded
   return {
     id: tourId,
     userId,
+    schemaVersion: TOUR_SCHEMA_VERSION,
     name: metadata.name ?? trackName(track.name),
     description: metadata.description ?? '',
     gpxFileUrl,

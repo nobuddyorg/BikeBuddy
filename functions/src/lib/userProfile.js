@@ -2,6 +2,7 @@
 'use strict';
 
 const { nameSchema, stripHtml } = require('./validation');
+const { USER_SCHEMA_VERSION } = require('./schemaVersion');
 
 const MAX_PROFILE_TEXT_LENGTH = 200;
 
@@ -39,6 +40,7 @@ function missingProfileFields({ stored, claims }) {
 /** @param {{ userId: string, profile: { name: string | null, email: string | null }, createdAt: Date }} values */
 const newUserDocument = ({ userId, profile, createdAt }) => ({
   id: userId,
+  schemaVersion: USER_SCHEMA_VERSION,
   name: profile.name,
   email: profile.email,
   createdAt: createdAt.toISOString(),

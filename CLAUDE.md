@@ -95,8 +95,9 @@ security-critical.
   `functions/test/integration/endpoints.js` (a unit test fails while a
   registered route is missing there), which runs it with real test-signed
   tokens as owner, another user and every rejected credential.
-- A document-shape change states how existing documents are read (there is no
-  schema version yet, #577) and ships or updates a backfill with a dry run.
+- A document-shape change states how existing documents are read, bumps
+  `functions/src/lib/schemaVersion.js`, and ships or updates a backfill with a
+  dry run (design-decisions.md, "Backfills").
 - Call out any change to auth, ownership, partitioning or SAS scope in the
   commit message and PR description as security-relevant, with one line on
   what it now allows or denies.

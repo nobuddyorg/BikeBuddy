@@ -189,9 +189,27 @@ blobs; the blob name is derived from the image's, so no document changes), are
 **dry by default**: they read in pages, report what they would change and what
 would fail, and write only with `--apply`. They are idempotent, fail the exit
 code on any failed item, and need `COSMOS_CONNECTION_STRING`, `COSMOS_DATABASE`
-and `BLOB_CONNECTION_STRING`. There is no schema version yet (#577): the stats
-backfill finds old documents by the missing `elevationGain` field, which
-`null` (no elevation in the GPX) distinguishes from "not migrated".
+and `BLOB_CONNECTION_STRING`. The stats backfill finds old documents by the
+missing `elevationGain` field, which `null` (no elevation in the GPX)
+distinguishes from "not migrated".
+
+New documents carry `schemaVersion` (#577,
+`functions/src/lib/schemaVersion.js`); one without it predates versioning.
+`backfillSchemaVersion.js` marks a tour as version 1 once it has its stats (adding the `images` array a tour from
+before photos lacks) and counts the tours still waiting for the stats backfill.
+Once its dry run reports nothing left to mark or wait for, the shims for old
+shapes can go: the `images`-less branch in `UploadImage` and the `?? null`
+stats in `toTourResponse`.
+
+Runbook, from a machine with `az login` to the subscription:
+
+1. Note the time: Cosmos keeps 7 days of point-in-time restore
+   ([infrastructure.md](../how-to/infrastructure.md)).
+2. `./buddy.sh maintenance backfill tour-stats`, read the dry run, then again
+   with `--apply`.
+3. The same for `thumbnails`, then `schema-version`.
+4. Put the dry-run and apply summaries in the PR or issue that needed the
+   backfill: that is the record that it ran.
 
 ## OpenTofu, reproducibly
 
