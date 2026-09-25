@@ -1,18 +1,16 @@
-// The end-of-test report: per scenario the request count, rate, failures and
-// p50/p95/p99; then every threshold. Markdown for stdout and the job summary,
-// JSON for load/compare.mjs.
+// Markdown for stdout and the job summary; the JSON is what load/compare.mjs reads.
 import { PROFILE, PROFILE_NAME } from './profile.js';
 import { SEED } from './seed.js';
 import { API_URL, TARGET } from './target.js';
 
-const ms = (value) => `${value.toFixed(1)} ms`;
+const milliseconds = (value) => `${value.toFixed(1)} ms`;
 const percent = (value) => `${(value * 100).toFixed(2)}%`;
 
 function scenarioRow(metrics, scenario) {
   const requests = metrics[`http_reqs{scenario:${scenario}}`].values;
   const failed = metrics[`http_req_failed{scenario:${scenario}}`].values;
   const duration = metrics[`http_req_duration{scenario:${scenario}}`].values;
-  return `| ${scenario} | ${requests.count} | ${requests.rate.toFixed(2)} | ${failed.passes} (${percent(failed.rate)}) | ${ms(duration.med)} | ${ms(duration['p(95)'])} | ${ms(duration['p(99)'])} |`;
+  return `| ${scenario} | ${requests.count} | ${requests.rate.toFixed(2)} | ${failed.passes} (${percent(failed.rate)}) | ${milliseconds(duration.med)} | ${milliseconds(duration['p(95)'])} | ${milliseconds(duration['p(99)'])} |`;
 }
 
 function thresholdRows(metrics) {
@@ -41,7 +39,7 @@ function markdown(flow, data) {
     '| --- | --- | --- | --- | --- | --- | --- |',
     ...scenarios.map((scenario) => scenarioRow(metrics, scenario)),
     '',
-    `All requests, setup and teardown included: ${metrics.http_reqs.values.count}, ${metrics.http_req_failed.values.passes} failed, ${metrics.http_req_timeouts?.values.count ?? 0} timed out; p50 ${ms(all.med)}, p95 ${ms(all['p(95)'])}, p99 ${ms(all['p(99)'])}.`,
+    `All requests, setup and teardown included: ${metrics.http_reqs.values.count}, ${metrics.http_req_failed.values.passes} failed, ${metrics.http_req_timeouts?.values.count ?? 0} timed out; p50 ${milliseconds(all.med)}, p95 ${milliseconds(all['p(95)'])}, p99 ${milliseconds(all['p(99)'])}.`,
     '',
     'Thresholds are calibrated at the normal profile; peak and stress are meant to find where they break.',
     '',

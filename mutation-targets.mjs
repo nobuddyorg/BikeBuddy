@@ -1,10 +1,4 @@
-// The modules under both mutation testing (each package's stryker.config.mjs
-// `mutate`) and a 100 % per-file coverage floor (each package's
-// vitest.config.js), so the two lists cannot drift. Paths are relative to the
-// package. Off the list on purpose: the Cosmos/Blob adapters and the multipart
-// stream parser (exercised by the integration suite, not unit tests) and the
-// DOM layer frontend/src/ui/ (exercised by Playwright). Why the list is
-// explicit: docs/explanation/design-decisions.md, "Mutation scope".
+// Feeds both Stryker's `mutate` and Vitest's per-file floor; paths relative to each package (design-decisions.md, "Mutation scope").
 
 export const FUNCTIONS_TARGETS = [
   'src/DeleteAccount/index.js',
@@ -49,8 +43,7 @@ export const FRONTEND_TARGETS = [
   'src/lib/url.js',
 ];
 
-// Every file on a list is fully covered; a gap is closed with a test or by
-// extracting the logic, never by lowering this (CLAUDE.md, hard rules).
+// Never lowered (CLAUDE.md, hard rules): close a gap with a test or by extracting the logic.
 export const PER_FILE_FLOOR = { statements: 100, branches: 100, functions: 100, lines: 100 };
 
 /** Vitest `coverage.thresholds` entries: one per target file. */
