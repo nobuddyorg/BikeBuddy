@@ -159,8 +159,9 @@ iac`. Never `tofu apply` against production by hand; `deploy.yml` does it.
 - **Tests:** a UI change gets an e2e case for its journey; a functional change
   gets a unit test asserting behavior, not implementation; an authorization
   change gets its integration case. E2E specs reach the app only through the
-  page objects in `e2e/pages/`, which locate elements by id. Disagreeing with
-  the playbook is fine; departing from it silently is not.
+  page objects in `e2e/pages/`, which locate singletons by id and repeated
+  elements (rows, tiles, pins) by `data-testid`. Disagreeing with the playbook
+  is fine; departing from it silently is not.
 - **Docs sync:** a change to setup, the checklist, architecture,
   configuration, a design decision or a testing assumption updates the
   matching `docs/` file (and `CONTRIBUTING.md`/`README.md`) in the same change.
