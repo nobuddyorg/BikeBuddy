@@ -25,6 +25,13 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/tourResponse.js',
   'src/lib/validation.js',
   'src/middleware/authMiddleware.js',
+  'scripts/lib/cli.js',
+  'scripts/lib/deletionJob.js',
+  'scripts/lib/localCosmos.js',
+  'scripts/lib/mutationSummary.mjs',
+  'scripts/lib/queryItems.js',
+  'scripts/lib/thumbnailBackfill.js',
+  'scripts/lib/tourStatsBackfill.js',
 ];
 
 export const FRONTEND_TARGETS = [

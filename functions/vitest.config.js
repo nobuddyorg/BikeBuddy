@@ -18,15 +18,16 @@ export default defineConfig({
     pool: 'forks',
     // Unit tests live next to the modules; integration tests (test/integration)
     // need a running func host and run via vitest.integration.config.js.
-    include: ['src/**/*.test.js'],
+    include: ['src/**/*.test.js', 'scripts/**/*.test.{js,mjs}'],
     setupFiles: ['test/fast-check.setup.js'],
     coverage: {
       provider: 'v8',
       // lcov → Codecov; json-summary → CI job summary; text → CI log
       reporter: ['text', 'lcov', 'json-summary'],
-      include: ['src/**/*.js'],
+      include: ['src/**/*.js', 'scripts/lib/**/*.{js,mjs}'],
       exclude: [
         'src/**/*.test.js',
+        'scripts/**/*.test.{js,mjs}',
         // Infrastructure files exercised by Azurite integration tests, not unit tests:
         'src/lib/db.js',
         'src/lib/blobStorage.js',
