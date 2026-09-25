@@ -138,8 +138,7 @@ describe('parseMultipart', () => {
     });
   });
 
-  // busboy reports a dropped connection on the file stream once a part has
-  // started and on itself before; both must settle the promise as a 400.
+  // A dropped connection surfaces on the file stream or on busboy; both must settle as a 400.
   it('rejects a request that ends mid-file as a client error', async () => {
     const truncated = Buffer.from(
       `--${BOUNDARY}\r\n` +

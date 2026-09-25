@@ -1,6 +1,6 @@
 'use strict';
 
-const { isGeotagged, geotaggedImages, toSignedImage } = require('./tourImages');
+const { isGeotagged, geotaggedImages, imageBlobNames, toSignedImage } = require('./tourImages');
 
 const signUrl = async (blobName) => `https://blob/${blobName}?sig=x`;
 
@@ -23,6 +23,22 @@ describe('geotaggedImages', () => {
 
   it('treats a tour without an images field as having none', () => {
     expect(geotaggedImages({})).toEqual([]);
+  });
+});
+
+describe('imageBlobNames', () => {
+  it('names the full image and the thumbnail of every image under the given user', () => {
+    const tour = { id: 't1', images: [{ id: 'a', blobName: 'other/t1/a.jpg' }, { id: 'b' }] };
+    expect(imageBlobNames({ userId: 'u1', tour })).toEqual([
+      'u1/t1/a.jpg',
+      'u1/t1/a_thumb.jpg',
+      'u1/t1/b.jpg',
+      'u1/t1/b_thumb.jpg',
+    ]);
+  });
+
+  it('has no names for a tour without an images field', () => {
+    expect(imageBlobNames({ userId: 'u1', tour: { id: 't1' } })).toEqual([]);
   });
 });
 

@@ -3,8 +3,7 @@
 const fc = require('fast-check');
 const { douglasPeucker, simplifyToTarget } = require('./simplify');
 
-// Tracks as [lat, lon] pairs in a realistic band (the flat-earth metric is only
-// meant for track scale), including duplicates and back-and-forth.
+// Tracks in a band where the flat-earth metric holds, with duplicates and back-and-forth.
 const point = fc.tuple(
   fc.double({ min: -60, max: 60, noNaN: true }),
   fc.double({ min: -179, max: 179, noNaN: true }),

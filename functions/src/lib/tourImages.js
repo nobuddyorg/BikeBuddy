@@ -7,9 +7,15 @@ const isGeotagged = (image) => typeof image.lat === 'number' && typeof image.lon
 
 const geotaggedImages = (tour) => tour.images?.filter(isGeotagged) ?? [];
 
+/** Every image blob of a tour, full size and thumbnail, named from the caller's id. */
+const imageBlobNames = ({ userId, tour }) =>
+  (tour.images ?? []).flatMap((image) => {
+    const blobName = imageBlobName({ userId, tourId: tour.id, imageId: image.id });
+    return [blobName, thumbnailBlobName(blobName)];
+  });
+
 /**
- * An image entry as the browser gets it: short-lived URLs for the full image
- * and its thumbnail, named from the caller's id, never a stored blob name.
+ * Signed URLs for the image and its thumbnail, named from the caller's id, never a stored name.
  *
  * @param {{ id: string, lat?: number, lon?: number }} image
  * @param {{ userId: string, tourId: string, signUrl: (blobName: string) => Promise<string> }} context
@@ -28,4 +34,4 @@ async function toSignedImage(image, { userId, tourId, signUrl }) {
   };
 }
 
-module.exports = { isGeotagged, geotaggedImages, toSignedImage };
+module.exports = { isGeotagged, geotaggedImages, imageBlobNames, toSignedImage };

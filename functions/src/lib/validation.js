@@ -17,8 +17,7 @@ const tourMetaSchema = z.object({
   createdAt: z.iso.datetime().optional(),
 });
 
-// The frontend renders the error verbatim through i18n, so these are keys from
-// frontend/src/locales/, never Zod's English wording.
+// The frontend shows these through i18n (frontend/src/locales/), never Zod's English.
 const TOUR_META_ERROR_KEYS = {
   name: 'errors.tourName',
   description: 'errors.tourDescription',

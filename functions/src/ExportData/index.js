@@ -1,30 +1,41 @@
 'use strict';
 
 const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const { usersContainer, toursContainer, readItem, queryUserItems } = require('../lib/db');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const system = require('../lib/system');
+const { toExportDocument } = require('../lib/exportDocument');
 const { unauthorized } = require('../lib/http');
 
-// GET /api/me/export — GDPR data portability.
+const ALL_OWN_TOURS_QUERY = 'SELECT * FROM c WHERE c.userId = @userId';
+
+// GDPR data portability: every document of the caller, as stored.
 async function exportData(
   request,
-  auth = authenticate,
-  getUsers = usersContainer,
-  getTours = toursContainer,
+  {
+    authenticate = authMiddleware.authenticate,
+    usersContainer = db.usersContainer,
+    toursContainer = db.toursContainer,
+    now = system.currentTime,
+  } = {},
 ) {
-  const user = await auth(request);
+  const user = await authenticate(request);
   if (!user) return unauthorized();
   const { userId } = user;
 
-  const [userDoc, tours] = await Promise.all([
-    readItem(getUsers(), userId, userId),
-    queryUserItems(getTours(), userId, 'SELECT * FROM c WHERE c.userId = @userId'),
+  const [profile, tours] = await Promise.all([
+    db.readItem(usersContainer(), { id: userId, partitionKey: userId }),
+    db.queryUserItems(toursContainer(), { userId, query: ALL_OWN_TOURS_QUERY }),
   ]);
 
   return {
     status: 200,
     headers: { 'Content-Disposition': 'attachment; filename="bikebuddy-export.json"' },
-    jsonBody: { exportedAt: new Date().toISOString(), user: userDoc ?? null, tours },
+    jsonBody: {
+      exportedAt: now().toISOString(),
+      user: profile ? toExportDocument(profile) : null,
+      tours: tours.map(toExportDocument),
+    },
   };
 }
 

@@ -3,13 +3,11 @@
 
 const { simplifyToTarget } = require('./simplify');
 
-// Every tour's track is one heat layer in the browser; above this many points
-// in total, each track is simplified to its proportional share.
+// Above this many points in total, each track is simplified to its proportional share.
 const TOTAL_POINT_BUDGET = 100000;
 const MIN_POINTS_PER_TOUR = 20;
 
-// Below the heat layer's dot footprint at maximum zoom (frontend heatmapZoom.js),
-// so a simplified straight stretch still reads as one trail.
+// Under the heat layer's dot footprint at maximum zoom, so a straight stretch stays one trail.
 const MAX_GAP_METERS = 50;
 
 /** @returns {[number, number][][]} one track per tour, in order */

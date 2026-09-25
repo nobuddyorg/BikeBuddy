@@ -48,8 +48,7 @@ function farthestFromChord(points) {
   return { index, distance: maximumDistance };
 }
 
-// A heat layer draws a dot per point, not a line, so maxGapMeters forces a split
-// wherever keeping only a chord's endpoints would leave a visible gap.
+// A heat layer draws dots, not lines: maxGapMeters splits chords that would leave a gap.
 function douglasPeucker(points, { epsilonMeters, maxGapMeters = Infinity }) {
   if (points.length < 3) return points;
 

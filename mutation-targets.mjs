@@ -3,10 +3,11 @@
 // vitest.config.js), so the two lists cannot drift. Paths are relative to the
 // package. Off the list on purpose: the Cosmos/Blob adapters and the multipart
 // stream parser (exercised by the integration suite, not unit tests), the
-// load-test instrumentation lib/profiling.js and its switch LoadProfiling/
-// (never loaded in production; checked by the load run's report), and the DOM
-// layer frontend/src/ui/ (exercised by Playwright). Why the list is explicit:
-// docs/explanation/design-decisions.md, "Mutation scope".
+// system clock and id source lib/system.js (nothing to mutate but the platform
+// calls), the load-test instrumentation lib/profiling.js and its switch
+// LoadProfiling/ (never loaded in production; checked by the load run's
+// report), and the DOM layer frontend/src/ui/ (exercised by Playwright). Why
+// the list is explicit: docs/explanation/design-decisions.md, "Mutation scope".
 
 export const FUNCTIONS_TARGETS = [
   'src/DeleteAccount/index.js',
@@ -23,6 +24,7 @@ export const FUNCTIONS_TARGETS = [
   'src/UploadImage/index.js',
   'src/UploadTour/index.js',
   'src/lib/blobNames.js',
+  'src/lib/exportDocument.js',
   'src/lib/extractGps.js',
   'src/lib/fileSignatures.js',
   'src/lib/heatmapCache.js',
@@ -31,9 +33,11 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/ownedTour.js',
   'src/lib/parseGpx.js',
   'src/lib/resizeImage.js',
+  'src/lib/settle.js',
   'src/lib/simplify.js',
   'src/lib/tourImages.js',
   'src/lib/tourResponse.js',
+  'src/lib/userProfile.js',
   'src/lib/validation.js',
   'src/middleware/authMiddleware.js',
 ];

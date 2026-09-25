@@ -10,8 +10,7 @@ const FULL_QUALITY = 82;
 const THUMBNAIL_WIDTH = 320;
 const THUMBNAIL_QUALITY = 70;
 
-// Far above any camera, far below sharp's ~268 megapixel default: bounds the
-// decode memory of a crafted upload.
+// Bounds the decode memory of a crafted upload, far below sharp's ~268 megapixel default.
 const MAX_INPUT_PIXELS = 100_000_000;
 
 async function resizeImage(buffer, maxInputPixels = MAX_INPUT_PIXELS) {

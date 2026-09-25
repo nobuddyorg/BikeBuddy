@@ -16,9 +16,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     pool: 'forks',
-    // Unit tests live next to the modules; integration tests (test/integration)
-    // need a running func host and run via vitest.integration.config.js.
-    include: ['src/**/*.test.js'],
+    // Unit tests live next to the modules, or in test/unit when they span several;
+    // test/integration needs a running host (vitest.integration.config.js).
+    include: ['src/**/*.test.js', 'test/unit/**/*.test.js'],
     setupFiles: ['test/fast-check.setup.js'],
     coverage: {
       provider: 'v8',

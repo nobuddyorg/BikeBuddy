@@ -62,8 +62,7 @@ function minimumAndMaximum(values) {
   return [minimum, maximum];
 }
 
-// A delta counts only once it moves the threshold away from the last counted
-// elevation, so jitter around a plateau never adds up to climbing.
+// A delta counts once it is past the threshold from the last counted elevation.
 function computeElevationStats(points) {
   const elevations = points.map((point) => point.elevation).filter(Number.isFinite);
   if (elevations.length === 0) {
@@ -119,13 +118,11 @@ function computeDurationStats(points) {
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 
-// A NaN coordinate would poison the distance and reach Leaflet's fitBounds; the
-// range checks reject NaN too, and match the EXIF check in extractGps.js.
+// Also rejects NaN, which would poison the distance; bounds match extractGps.js.
 const isValidPoint = ({ latitude, longitude }) =>
   latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 
-// fast-xml-parser yields an object for one element, an array for several, and
-// undefined for none.
+// fast-xml-parser yields an object for one element, an array for several, undefined for none.
 function toArray(value) {
   if (Array.isArray(value)) return value;
   return value == null ? [] : [value];
@@ -160,8 +157,7 @@ function parseDocument(input) {
 }
 
 /**
- * Elevation and duration fields are null, not 0, when the file has no
- * <ele>/<time>: the frontend shows "unknown" rather than zero.
+ * Elevation and duration are null, not 0, without <ele>/<time>: the frontend shows "unknown".
  *
  * @param {string|Buffer} input
  * @returns {{

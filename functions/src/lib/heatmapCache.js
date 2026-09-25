@@ -3,14 +3,12 @@
 
 const DEFAULT_MAX_ENTRIES = 500;
 
-// Id plus point count stands in for "unchanged": heatmapData is written once at
-// upload and never edited.
+// Id and point count stand in for "unchanged": heatmapData is never edited after upload.
 function signatureFor(tours) {
   return tours.map((tour) => `${tour.id}:${tour.heatmapData?.length || 0}`).join('|');
 }
 
-// Per-user memo of the budgeted map response; beyond maxEntries the entry set
-// longest ago is evicted.
+// Per-user memo of the budgeted map; past maxEntries the oldest entry is evicted.
 function createHeatmapCache(maxEntries = DEFAULT_MAX_ENTRIES) {
   const entries = new Map();
 

@@ -15,8 +15,7 @@ function openIdConfigUrl(environment) {
   return `https://${subdomain}.ciamlogin.com/${tenantId}/v2.0/.well-known/openid-configuration`;
 }
 
-// Issuer and jwks_uri come from the metadata because the issuer host differs
-// across Entra surfaces; a warm instance can outlive a change to either.
+// Read from the metadata (the issuer host varies by Entra surface), refreshed on warm instances.
 const CONFIG_TTL_MS = 60 * 60 * 1000;
 
 let cachedConfig;
@@ -46,8 +45,7 @@ const resolveEmail = (payload) =>
   payload.email || payload.preferred_username || payload.emails?.[0] || null;
 const resolveName = (payload) => payload.name || payload.given_name || null;
 
-// A configured tenant means a deployed environment: the bypass throws there
-// instead of falling through to real auth and leaving the setting unnoticed.
+// A configured tenant means deployed: the bypass throws there instead of silently falling back.
 function isDevBypassActive(environment) {
   if (environment.SKIP_AUTH !== 'true') return false;
   if (environment.ENTRA_CLIENT_ID || environment.ENTRA_TENANT_ID) {
@@ -56,9 +54,7 @@ function isDevBypassActive(environment) {
   return true;
 }
 
-// Only these become a 401: an Entra or network outage must not tell every
-// signed-in user they are signed out. A `kid` absent from the key set is the
-// token's fault, unlike a failed key fetch.
+// Only these become a 401, never an outage; an unknown kid is the token's fault, not the fetch's.
 const CLIENT_TOKEN_ERRORS = new Set([
   'JsonWebTokenError', // malformed, bad signature, wrong audience/issuer, bad alg
   'TokenExpiredError',
@@ -85,8 +81,7 @@ async function verifyToken(token, { kid, jwksClientFactory, configLoader, enviro
 }
 
 /**
- * The caller for a valid token, null for a missing or rejected one; throws when
- * verification could not run, so the caller answers a retryable 5xx, not a 401.
+ * The caller, or null for a missing or rejected token; throws when verification cannot run (a 5xx).
  */
 async function authenticate(
   request,

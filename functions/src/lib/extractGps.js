@@ -4,8 +4,7 @@
 const sharp = require('sharp');
 const exifReader = require('exif-reader');
 
-// EXIF stores [degrees, minutes, seconds] plus a hemisphere reference, but some
-// decoders hand over a signed decimal instead.
+// EXIF gives [degrees, minutes, seconds] and a hemisphere; some decoders a signed decimal.
 function toDecimal(value, hemisphere) {
   const decimal = Array.isArray(value) ? degreesMinutesSeconds(value) : value;
   if (!Number.isFinite(decimal)) return null;

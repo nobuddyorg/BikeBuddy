@@ -1,7 +1,6 @@
 'use strict';
 
-// Not an endpoint: the host loads it with the handlers (package.json "main"),
-// and it only turns the load-test instrumentation on under LOAD_PROFILING=true.
+// Not an endpoint: loaded with the handlers, it switches on the load-test instrumentation.
 const { app } = require('@azure/functions');
 const profiling = require('../lib/profiling');
 

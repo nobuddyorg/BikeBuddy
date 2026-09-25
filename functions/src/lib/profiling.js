@@ -1,8 +1,7 @@
 // @ts-check
 'use strict';
 
-// Load-test instrumentation (docs/how-to/load-testing.md, "Backend report"):
-// each record is one `LOADPROF {json}` line in the Functions host log.
+// Load-test instrumentation: one "LOADPROF {json}" host log line per record.
 
 const { AsyncLocalStorage } = require('node:async_hooks');
 const { monitorEventLoopDelay } = require('node:perf_hooks');
@@ -78,8 +77,7 @@ function startSampling({ write, readMemory, intervalMs = SAMPLE_INTERVAL_MS }) {
   return timer;
 }
 
-// An `on: 'request'` plugin sees every HTTP request, including each query page
-// and retry, which `operation` plugins miss. The emulator's charges are nominal.
+// 'request', not 'operation': only it sees each query page and retry.
 function cosmosPlugin({ write, now }) {
   return async (context, diagnosticNode, next) => {
     const startedAt = now();

@@ -114,11 +114,11 @@ describe('douglasPeucker', () => {
   });
 
   it('keeps consecutive points within maxGapMeters on a long straight run', () => {
-    const points = Array.from({ length: 200 }, (_, i) => [48.0, 11.0 + i * 0.0001]);
+    const points = Array.from({ length: 200 }, (_, index) => [48.0, 11.0 + index * 0.0001]);
     const result = douglasPeucker(points, { epsilonMeters: 5, maxGapMeters: 50 });
     expect(result.length).toBeGreaterThan(2);
-    for (let i = 1; i < result.length; i++) {
-      expect(distanceMeters(result[i - 1], result[i])).toBeLessThanOrEqual(50);
+    for (let index = 1; index < result.length; index++) {
+      expect(distanceMeters(result[index - 1], result[index])).toBeLessThanOrEqual(50);
     }
   });
 
@@ -134,7 +134,7 @@ describe('douglasPeucker', () => {
 });
 
 describe('simplifyToTarget', () => {
-  const straightLine = Array.from({ length: 200 }, (_, i) => [48.0, 11.0 + i * 0.0001]);
+  const straightLine = Array.from({ length: 200 }, (_, index) => [48.0, 11.0 + index * 0.0001]);
 
   it('returns the input unchanged when already at or below target', () => {
     const points = [
@@ -157,11 +157,14 @@ describe('simplifyToTarget', () => {
   });
 
   it('exceeds targetCount rather than violate maxGapMeters', () => {
-    const longStraightLine = Array.from({ length: 500 }, (_, i) => [48.0, 11.0 + i * 0.0001]);
+    const longStraightLine = Array.from({ length: 500 }, (_, index) => [
+      48.0,
+      11.0 + index * 0.0001,
+    ]);
     const result = simplifyToTarget(longStraightLine, { targetCount: 5, maxGapMeters: 50 });
     expect(result.length).toBeGreaterThan(5);
-    for (let i = 1; i < result.length; i++) {
-      expect(distanceMeters(result[i - 1], result[i])).toBeLessThanOrEqual(50);
+    for (let index = 1; index < result.length; index++) {
+      expect(distanceMeters(result[index - 1], result[index])).toBeLessThanOrEqual(50);
     }
   });
 
@@ -188,9 +191,9 @@ describe('simplifyToTarget', () => {
   });
 
   it('uses every iteration it is given to refine the epsilon search', () => {
-    const wiggly = Array.from({ length: 2000 }, (_, i) => [
-      48.0 + 0.01 * Math.sin(i * 0.05),
-      11.0 + i * 0.0002,
+    const wiggly = Array.from({ length: 2000 }, (_, index) => [
+      48.0 + 0.01 * Math.sin(index * 0.05),
+      11.0 + index * 0.0002,
     ]);
     // After three halvings of [0, 1000] the search lands on 34 points; a fourth would give 98+.
     expect(simplifyToTarget(wiggly, { targetCount: 100, maxIterations: 3 }).length).toBeLessThan(

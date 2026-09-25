@@ -1,64 +1,53 @@
 'use strict';
 
 const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer, queryUserItems } = require('../lib/db');
-const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
-const { thumbnailBlobName } = require('../lib/blobNames');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const blobStorage = require('../lib/blobStorage');
 const { unauthorized } = require('../lib/http');
 const { createHeatmapCache } = require('../lib/heatmapCache');
 const { budgetHeatmapData, TOTAL_POINT_BUDGET, MAX_GAP_METERS } = require('../lib/mapBudget');
-const { geotaggedImages } = require('../lib/tourImages');
+const { geotaggedImages, toSignedImage } = require('../lib/tourImages');
+const system = require('../lib/system');
 
+const MAP_QUERY = 'SELECT c.id, c.heatmapData, c.images FROM c WHERE c.userId = @userId';
 const defaultHeatmapCache = createHeatmapCache();
 
-// GET /api/map — every tour's track points and pinnable photos in one query,
-// instead of a detail fetch each. Photos without coordinates can't be
-// pinned, so they cost no signature here; the gallery still gets them all.
+// A photo without coordinates cannot become a pin, so it gets no signed URL here.
 async function getMapData(
   request,
-  auth = authenticate,
-  getContainer = toursContainer,
-  getImagesContainer = imagesContainer,
-  totalPointBudget = TOTAL_POINT_BUDGET,
-  maxGapMeters = MAX_GAP_METERS,
-  heatmapCache = defaultHeatmapCache,
+  {
+    authenticate = authMiddleware.authenticate,
+    toursContainer = db.toursContainer,
+    imagesContainer = blobStorage.imagesContainer,
+    now = system.currentTime,
+    heatmapCache = defaultHeatmapCache,
+    budget = { totalPointBudget: TOTAL_POINT_BUDGET, maxGapMeters: MAX_GAP_METERS },
+  } = {},
 ) {
-  const user = await auth(request);
+  const user = await authenticate(request);
   if (!user) return unauthorized();
+  const { userId } = user;
 
-  const tours = await queryUserItems(
-    getContainer(),
-    user.userId,
-    'SELECT c.id, c.heatmapData, c.images FROM c WHERE c.userId = @userId',
-  );
-
-  const container = tours.some((tour) => geotaggedImages(tour).length > 0)
-    ? await getImagesContainer()
-    : null;
-
+  const tours = await db.queryUserItems(toursContainer(), { userId, query: MAP_QUERY });
   const heatmapDataByTour = heatmapCache.getOrCompute({
-    userId: user.userId,
+    userId,
     tours,
-    compute: () => budgetHeatmapData(tours, { totalPointBudget, maxGapMeters }),
+    compute: () => budgetHeatmapData(tours, budget),
   });
+  const signUrl = blobStorage.readUrlSigner({ container: imagesContainer, now: now() });
 
   const jsonBody = await Promise.all(
-    tours.map(async (tour, i) => ({
+    tours.map(async (tour, index) => ({
       id: tour.id,
-      heatmapData: heatmapDataByTour[i],
+      heatmapData: heatmapDataByTour[index],
       images: await Promise.all(
-        geotaggedImages(tour).map(async (img) => {
-          const [url, thumbUrl] = await Promise.all([
-            readSasUrl(container.getBlockBlobClient(img.blobName)),
-            readSasUrl(container.getBlockBlobClient(thumbnailBlobName(img.blobName))),
-          ]);
-          return { id: img.id, url, thumbUrl, lat: img.lat, lon: img.lon };
-        }),
+        geotaggedImages(tour).map((image) =>
+          toSignedImage(image, { userId, tourId: tour.id, signUrl }),
+        ),
       ),
     })),
   );
-
   return { status: 200, jsonBody };
 }
 

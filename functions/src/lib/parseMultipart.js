@@ -12,8 +12,7 @@ function badRequest(message) {
   return error;
 }
 
-// busboy's wording is English-only and says nothing an uploader can act on, so
-// it is logged, and the client gets a fixed message.
+// busboy's wording is logged, not returned: it says nothing an uploader can act on.
 function malformedRequest(error) {
   console.warn(`upload: malformed multipart (${error.name}: ${error.message})`);
   return badRequest('Invalid multipart request');
@@ -23,8 +22,7 @@ function createParser(headers) {
   try {
     return Busboy({
       headers,
-      // busboy signals 'limit' on reaching fileSize, and the frontend accepts
-      // exactly 10 MB. Tour metadata travels in the query, so no form fields.
+      // busboy fires 'limit' on reaching fileSize, and a file of exactly 10 MB is allowed.
       limits: { fileSize: MAX_FILE_BYTES + 1, files: 1, fields: 0 },
     });
   } catch (error) {
@@ -47,9 +45,7 @@ function collectFirstFile(parser, { resolve, reject }) {
 }
 
 /**
- * The first file field of a multipart request, streamed through busboy so the
- * size limit bounds memory: Content-Length can be absent or false.
- * Rejects with `.status` 400 for anything the client got wrong.
+ * Streams the first file through busboy, so the size limit bounds memory; client errors get 400.
  *
  * @param {import('@azure/functions').HttpRequest} request
  * @returns {Promise<{ filename: string, mimeType: string, buffer: Buffer }>}

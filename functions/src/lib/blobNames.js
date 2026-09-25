@@ -9,8 +9,7 @@ const gpxBlobName = ({ userId, tourId }) => `${userBlobPrefix(userId)}${tourId}.
 const imageBlobName = ({ userId, tourId, imageId }) =>
   `${userBlobPrefix(userId)}${tourId}/${imageId}.jpg`;
 
-// Images are always re-encoded to .jpg; the thumbnail's name derives from the
-// full image's, so a document stores only one.
+// The thumbnail's name derives from the full image's (always .jpg), so a document stores one.
 const thumbnailBlobName = (blobName) => blobName.replace(/\.jpg$/, '_thumb.jpg');
 
 module.exports = { userBlobPrefix, gpxBlobName, imageBlobName, thumbnailBlobName };

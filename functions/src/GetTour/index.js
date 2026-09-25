@@ -1,59 +1,53 @@
 'use strict';
 
 const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
-const { imagesContainer, gpxContainer, readSasUrl } = require('../lib/blobStorage');
-const { thumbnailBlobName } = require('../lib/blobNames');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const blobStorage = require('../lib/blobStorage');
+const system = require('../lib/system');
 const { loadOwnedTour } = require('../lib/ownedTour');
-const { toTourResponse } = require('../lib/tourResponse');
+const { gpxBlobName } = require('../lib/blobNames');
+const { toSignedImage } = require('../lib/tourImages');
+const { toTourDetailResponse, gpxDownloadDisposition } = require('../lib/tourResponse');
 
-// GET /api/tours/{tourId} — the full document, with every stored blobName
-// swapped for a short-lived signed URL so the private container can be read
-// directly by the browser.
+// Tours seeded without an upload have no GPX blob, and so nothing to download.
+async function signedGpxDownload({ tour, userId, gpxContainer, now }) {
+  if (!tour.gpxFileUrl) return {};
+  const gpxFileUrl = await blobStorage.readSasUrl(await gpxContainer(), {
+    blobName: gpxBlobName({ userId, tourId: tour.id }),
+    now,
+    contentDisposition: gpxDownloadDisposition(tour.name),
+  });
+  return { gpxFileUrl };
+}
+
 async function getTour(
   request,
-  auth = authenticate,
-  getContainer = toursContainer,
-  getImagesContainer = imagesContainer,
-  getGpxContainer = gpxContainer,
+  {
+    authenticate = authMiddleware.authenticate,
+    toursContainer = db.toursContainer,
+    imagesContainer = blobStorage.imagesContainer,
+    gpxContainer = blobStorage.gpxContainer,
+    now = system.currentTime,
+  } = {},
 ) {
-  const guard = await loadOwnedTour(request, auth, getContainer);
+  const guard = await loadOwnedTour(request, { authenticate, toursContainer });
   if (guard.response) return guard.response;
   const { tour } = guard;
+  const { userId } = guard.user;
+  const requestTime = now();
 
-  if (tour.images?.length) {
-    const container = await getImagesContainer();
-    tour.images = await Promise.all(
-      tour.images.map(async (img) => {
-        const [url, thumbUrl] = await Promise.all([
-          readSasUrl(container.getBlockBlobClient(img.blobName)),
-          readSasUrl(container.getBlockBlobClient(thumbnailBlobName(img.blobName))),
-        ]);
-        return {
-          id: img.id,
-          url,
-          thumbUrl,
-          ...(typeof img.lat === 'number' && { lat: img.lat, lon: img.lon }),
-        };
-      }),
-    );
-  } else {
-    tour.images = [];
-  }
+  const signUrl = blobStorage.readUrlSigner({ container: imagesContainer, now: requestTime });
+  const [images, download] = await Promise.all([
+    Promise.all(
+      (tour.images ?? []).map((image) =>
+        toSignedImage(image, { userId, tourId: tour.id, signUrl }),
+      ),
+    ),
+    signedGpxDownload({ tour, userId, gpxContainer, now: requestTime }),
+  ]);
 
-  if (tour.gpxFileUrl) {
-    const container = await getGpxContainer();
-    const filename = `${(tour.name || 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
-    tour.gpxFileUrl = await readSasUrl(
-      container.getBlockBlobClient(`${tour.userId}/${tour.id}.gpx`),
-      {
-        contentDisposition: `attachment; filename="${filename}"`,
-      },
-    );
-  }
-
-  return { status: 200, jsonBody: toTourResponse(tour) };
+  return { status: 200, jsonBody: toTourDetailResponse({ tour, images, ...download }) };
 }
 
 app.http('GetTour', {
