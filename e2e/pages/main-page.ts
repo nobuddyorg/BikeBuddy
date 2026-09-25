@@ -261,6 +261,7 @@ export function initMainPage(page: Page): MainPage {
       // Chromium's synthesized compatibility click arrives asynchronously, and
       // CI's Linux Chromium needs more margin than local macOS: at swipeTour's
       // 300ms, a tap right after a swipe intermittently missed its row.
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- a raw-CDP tap's compatibility click arrives asynchronously, with no event to wait for
       await page.waitForTimeout(500);
     },
     // The bug this covers (#275: a long-press's ghost click undoing its own
@@ -275,12 +276,14 @@ export function initMainPage(page: Page): MainPage {
       const y = box.y + box.height / 2;
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- the hold itself: a long press is a timed gesture
       await page.waitForTimeout(700);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       // The ghost click can arrive after touchEnd resolves, and web-first
       // assertions pass on the first successful poll rather than once the state
       // settles — so without this wait a test could pass before the ghost click
       // even had its chance to fire. 500ms clears the app's 400ms window.
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- negative wait: the ghost click must get its chance to fire (app window: 400ms)
       await page.waitForTimeout(500);
     },
     // Positive dx swipes right (delete, #289); negative left is now a no-op
@@ -306,6 +309,7 @@ export function initMainPage(page: Page): MainPage {
         });
       }
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- a raw-CDP swipe's snap-back has no completion event
       await page.waitForTimeout(300);
     },
     closeDetail: async () => locators.buttons.closeDetail.click(),
@@ -375,6 +379,7 @@ export function initMainPage(page: Page): MainPage {
       for (let i = 0; i < times; i++) {
         if ((await locators.mapControls.zoomOut.getAttribute('aria-disabled')) === 'true') break;
         await locators.mapControls.zoomOut.click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- Leaflet drops zoom clicks mid-animation and exposes no DOM signal for its end
         await page.waitForTimeout(300);
       }
     },
@@ -382,6 +387,7 @@ export function initMainPage(page: Page): MainPage {
       for (let i = 0; i < times; i++) {
         if ((await locators.mapControls.zoomIn.getAttribute('aria-disabled')) === 'true') break;
         await locators.mapControls.zoomIn.click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- Leaflet drops zoom clicks mid-animation and exposes no DOM signal for its end
         await page.waitForTimeout(300);
       }
     },

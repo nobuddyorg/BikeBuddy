@@ -1,10 +1,11 @@
+// @ts-check
 'use strict';
 
 // Pure tour-list logic: sorting, fuzzy search, paging.
 
 const tourTime = (t) => new Date(t.createdAt).getTime() || 0;
 
-export const SORTERS = {
+const SORTERS = {
   'date-desc': (a, b) => tourTime(b) - tourTime(a),
   'date-asc': (a, b) => tourTime(a) - tourTime(b),
   'name-asc': (a, b) => (a.name || '').localeCompare(b.name || ''),
@@ -50,9 +51,9 @@ export function matchScore(query, text) {
     if (t[idx - 1] === ' ' || t[idx - 1] === '-') return 800;
     return 600;
   }
+  // q is non-empty here, so a match has at least one index.
   const indices = fuzzyMatchIndices(q, t);
   if (!indices) return null;
-  if (indices.length === 0) return 0;
   const span = indices[indices.length - 1] - indices[0] + 1;
   return Math.max(1, 400 - span);
 }

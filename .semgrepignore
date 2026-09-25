@@ -1,0 +1,10 @@
+# OpenGrep's ignore file (v1.30.0 has no flag to rename it off the Semgrep default);
+# the one place a path is excluded from SAST. OpenGrep scans only git-tracked files.
+
+# Vendored upstream bundles (MSAL, Leaflet), kept byte-identical and checksum-verified.
+frontend/src/vendor/
+
+# Installed and generated output.
+node_modules/
+coverage/
+reports/

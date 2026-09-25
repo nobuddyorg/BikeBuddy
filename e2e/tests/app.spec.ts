@@ -24,6 +24,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).main.locators.buttons.login).toBeHidden();
     await expect(on(page).main.locators.buttons.upload).toBeEnabled();
     await expect(on(page).main.locators.authPrompt).toBeHidden();
+    await on(page).a11y.check('signed in, empty list');
   });
 
   buddyTest('shows the empty state when there are no tours', async ({ on, page }) => {
@@ -42,6 +43,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
       await expect(on(page).main.locators.list.loadError).toBeVisible();
       await expect(on(page).main.locators.list.empty).toBeHidden();
       await expect(on(page).main.locators.mapLoadError).toBeVisible();
+      await on(page).a11y.check('tour load error');
 
       await page.route('**/api/tours', emptyToursRoute);
       await on(page).main.locators.list.retryButton.click();
@@ -62,6 +64,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     });
     await expect(on(page).modal.upload.locators.error).toBeVisible();
     await expect(on(page).modal.upload.locators.error).toContainText('.gpx');
+    await on(page).a11y.check('upload modal with a file error');
 
     await on(page).modal.upload.do.close();
     await expect(on(page).modal.upload()).toBeHidden();
@@ -83,6 +86,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await on(page).main.do.openProfile();
     await expect(on(page).modal.profile()).toBeVisible();
     await expect(on(page).modal.profile.locators.email).toContainText('@');
+    await on(page).a11y.check('profile modal');
     await on(page).modal.profile.do.close();
     await expect(on(page).modal.profile()).toBeHidden();
   });
@@ -92,6 +96,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).main.locators.buttons.login).toBeVisible();
     await expect(on(page).main.locators.userMenu).toBeHidden();
     await expect(on(page).main.locators.authPrompt).toBeVisible();
+    await on(page).a11y.check('signed out');
   });
 
   buddyTest('help modal explains the app and closes', async ({ on, page }) => {
@@ -99,6 +104,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).modal.help()).toBeVisible();
     await expect(on(page).modal.help()).toContainText('How to use BikeBuddy');
     await expect(on(page).modal.help()).toContainText('Upload GPX');
+    await on(page).a11y.check('help modal');
     await on(page).modal.help.do.close();
     await expect(on(page).modal.help()).toBeHidden();
   });
@@ -141,6 +147,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
         () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       );
       expect(overflows).toBe(false);
+      await on(page).a11y.check('mobile list');
     },
   );
 });

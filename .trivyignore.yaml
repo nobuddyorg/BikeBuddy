@@ -1,0 +1,32 @@
+# Accepted Trivy misconfiguration findings for infrastructure/, one entry per
+# finding with the reason (the IaC scan fails on HIGH/CRITICAL otherwise).
+# Run: ./buddy.sh quality iac. Background: docs/explanation/design-decisions.md,
+# "IaC scan exceptions".
+misconfigurations:
+  - id: AZU-0012
+    paths: ["storage.tf"]
+    statement: >-
+      Storage must stay reachable from browsers: photos are served to the SPA by
+      short-lived SAS URLs, and Flex Consumption without VNet integration (a paid
+      add-on) reaches it over the public endpoint. Access is key/SAS-only, TLS 1.2,
+      no public containers. Managed identity instead of keys: #556.
+  - id: AZU-0057
+    paths: ["storage.tf"]
+    statement: >-
+      Storage analytics logging is billed per GB and not read by anyone today;
+      revisit with #541 (backup and recovery).
+  - id: AZU-0058
+    paths: ["storage.tf"]
+    statement: >-
+      LRS, not GRS, to stay inside the cost target; losing the region loses the
+      photos, which #541 (backup and soft delete) covers.
+  - id: AZU-0060
+    paths: ["storage.tf"]
+    statement: >-
+      Microsoft-managed keys by design (design-decisions.md, "Encryption at rest"):
+      a customer-managed key needs Key Vault, above the cost target.
+  - id: AZU-0061
+    paths: ["storage.tf"]
+    statement: >-
+      Infrastructure encryption is fixed at account creation; not retrofitted to the
+      existing account (design-decisions.md, "Encryption at rest").

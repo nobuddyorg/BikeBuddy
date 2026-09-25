@@ -53,7 +53,7 @@ const SYNTHETIC_USER = {
 
 // One-way on purpose: a user with no saved language keeps the active locale
 // until they pick one in settings, rather than having it written back.
-export function syncLanguageFromUser(user) {
+function syncLanguageFromUser(user) {
   if (user.language && user.language !== i18n.getLocale()) {
     i18n.setLanguage(user.language);
   }

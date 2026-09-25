@@ -77,6 +77,152 @@ would add an Azure Key Vault (cost + operational overhead) and push past the
 account creation, so it isn't retrofitted to the existing storage account; it
 could be enabled on a fresh deployment if ever required.
 
+## No CI output on pull requests
+
+The gate writes nothing into a pull request: no bot comments, no issues, no
+check runs of reporting actions (`comment: false` for Codecov, `check_run:
+false` for the JUnit reporter, `allow_issue_writing: false` for ZAP). The
+exceptions are statuses GitHub or Codecov attach to the commit, not text:
+code scanning's per-tool checks for the SARIF uploads, and Codecov's patch and
+project statuses. Beyond those, each job's pass/fail is the signal; tables and
+numbers go to the run's job summary, reports to artifacts, and SARIF findings
+to code scanning ([Where to find CI results](../how-to/developer-guide.md#where-to-find-ci-results)).
+
+Why: comments pile up with every push and go stale, a second check run per tool
+doubles the list a reviewer scans, and a reporting action that can write to the
+PR needs `pull-requests: write`, a permission an untrusted PR's workflow should
+not hold. The summary is one click away and always matches the commit it ran
+on.
+
+The same rule keeps every check runnable locally: a job's command is a
+`buddy.sh` or `npm` script a contributor runs as is, and the summary step only
+formats its output ([Run the checks CI runs, locally](../how-to/developer-guide.md#run-the-checks-ci-runs-locally)).
+
+## Dependency updates and npm audit
+
+Dependabot opens weekly, grouped PRs for npm (`functions/`, `frontend/`,
+`e2e/`), GitHub Actions and pre-commit hooks, each with a 7-day cooldown. Only
+**patch updates of direct devDependencies** merge themselves
+(`dependabot-auto-merge.yml`): a devDependency reaches the CI runner, a runtime
+dependency (`sharp`, `jsonwebtoken`, `jwks-rsa`, `@azure/*`) reaches
+production, and an action reaches the deploy credentials. Groups are split by
+dependency type, because a mixed group reports as `direct:production` and would
+never qualify. Every lockfile entry must resolve from the npm registry over
+https with an integrity hash (lockfile-lint, pre-commit).
+
+`npm audit` findings are handled with the smallest change that removes them:
+
+1. An in-range lockfile update (`npm update <pkg>` or a plain `npm audit fix`)
+   when the parent's semver range already allows the fixed version.
+2. Otherwise a targeted `overrides` entry with a floor at the fixed version,
+   and a line in the PR saying which parent pins the vulnerable one.
+3. When no fix exists, the risk is written down here: package, advisory, why it
+   is not reachable (e.g. dev tooling only), and when to look again.
+
+Never `npm audit fix --force` (it jumps majors) and never a from-scratch
+lockfile regeneration (it moves every transitive dependency at once).
+
+Current overrides: `functions/` and `frontend/` pin `qs` to `^6.16.0`,
+because Stryker's `typed-rest-client` pins a vulnerable `qs` exactly
+(GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g). `e2e/` pins `tmp` to `0.2.7` and
+`uuid` to `^14.0.2` for `@lhci/cli` (GHSA-52f5-9888-hmc6, GHSA-w5hq-g745-h8pq).
+
+Accepted risk: `extract-zip` (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3; no
+fixed release) under `@lhci/cli` → `lighthouse` → `puppeteer-core` →
+`@puppeteer/browsers`. It unpacks downloaded browser archives, and Lighthouse CI
+never downloads one here: it runs the Chromium Playwright installs
+(`CHROME_PATH`), on a CI runner or a developer machine, never in production.
+Look again when `@lhci/cli` or `lighthouse` bumps `puppeteer-core`.
+
+## SAST rule packs
+
+OpenGrep runs `--config auto` and `--config p/security-audit` together.
+`auto` is what CollectionBuddy runs: the community rules for every language in
+the tree (JavaScript, TypeScript, HCL, Bash, HTML, JSON), including the
+taint rules that catch `eval(req.body)`-style injections at error severity.
+`p/security-audit` is the narrower audit pack the pre-commit hook ran before;
+keeping it means the switch cannot lose a rule that was already enforced. Only
+error severity fails the job: the warning-level packs (i18n key formats, Azure
+hardening advice) are reported for triage, and the IaC ones are owned by the
+IaC scanner. Two findings were fixed on adoption (the language menu built
+markup with `innerHTML`; it now uses `textContent`) and one is suppressed
+inline: `applyI18n`'s `data-i18n-html` sink renders repo-owned translation
+markup by design.
+
+## IaC scan exceptions
+
+TFLint and Trivy lint what defines production: `infrastructure/`. Every
+accepted finding is listed in `.trivyignore.yaml` or `.tflint.hcl` with its
+reason, instead of an inline suppression, so the list of trade-offs is one
+file long:
+
+| Finding                                | Why it is accepted                                                                                           | Lifted by |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| AZU-0012 storage network default allow | browsers load photos by SAS URL, and Flex Consumption without paid VNet integration uses the public endpoint | #556      |
+| AZU-0057 storage logging               | billed per GB, read by nobody today                                                                          | #541      |
+| AZU-0058 no geo-redundant replication  | LRS keeps the cost target; backup is the answer to region loss                                               | #541      |
+| AZU-0060 no customer-managed key       | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
+| AZU-0061 no infrastructure encryption  | fixed at account creation, not retrofitted                                                                   | —         |
+| TFLint `…_missing_prevent_destroy`     | also blocks `destroy.yml`; decided together with a destroy path                                              | #543      |
+
+The tools are installed from GitHub releases by version and SHA-256 (in
+`scripts/quality/iac.sh`), not through third-party install actions: Trivy's
+distribution channels were compromised once, and a hash pin is what a
+repointed tag cannot move.
+
+## Mutation scope
+
+Mutation testing runs on an explicit list of modules (`mutation-targets.mjs`),
+not on a glob: the pure logic whose behaviour unit tests can pin down, the
+Function handlers (called directly with fake requests) and `frontend/src/lib/`.
+Off the list: the Cosmos/Blob adapters and the multipart stream parser, which
+the integration suite exercises against the emulators, and the DOM layer
+`frontend/src/ui/`, which Playwright exercises; mutating those would measure
+the mocks. The same list sets the 100 % per-file coverage floor, so a module
+cannot be mutation-tested without being fully covered, or the reverse.
+
+`ignoreStatic` (functions) skips mutants that only run at module load
+(`app.http()` registration, top-level schema constants): handlers are
+imported once per test file, so those mutants cannot be killed without
+reloading the module per mutant. Break thresholds start one point below the
+measured score and only move up; known equivalent mutants are listed here when
+one blocks a raise.
+
+## Property tests
+
+Property tests are for functions whose input space is too large for examples
+and whose invariant is easy to state: the GPX parser and simplifier take
+arbitrary user files, and the open bug list is mostly edge cases examples
+missed (#575, #548, #552, #554). The first run found three: fast-xml-parser's
+internal error escaping `parseGpx` on malformed markup, `Math.min(...)`
+overflowing the stack on a 150,000-point track (#575), and a test assumption
+(`-0` does not survive being written into XML). The first two are fixed and
+kept as example tests. Out-of-order timestamps (negative duration, #575) are
+not a property yet: what the duration should be is still that issue's call.
+
+## Why load testing is manual and local by default
+
+The k6 flows ([load testing](../how-to/load-testing.md)) run on demand
+(`./buddy.sh test load`, or the `Load test (k6)` workflow's Run button), never
+on push or pull request, and against the local stack unless a run explicitly
+targets production.
+
+- **A measurement, not a gate.** A shared runner's latency varies by more than
+  most regressions a gate would catch, so a p95 threshold on every PR would
+  either flap or be set so loose it never fails. What must not regress is
+  asserted deterministically instead: RU per request, operations per request,
+  single-partition queries and response size in the integration suite
+  ("Deterministic guards" in the guide).
+- **Local by default.** The local stack has the same code, queries and
+  document shapes as production, costs nothing, and can be profiled
+  (`LOAD_PROFILING=true`); the emulator's request charges are nominal, so RU
+  are compared as operation counts, not absolute cost.
+- **Production only on purpose.** Cosmos DB Serverless bills every request and
+  real users share the capacity, and there is no staging environment. A hosted
+  run needs `confirm_production`, is refused before any secret is read
+  otherwise, runs one at a time, and uses a dedicated account's token
+  (`LOAD_ACCESS_TOKEN`), since the auth bypass never exists there (#545).
+
 ## Cost
 
 Everything targets the free/serverless tier (< €5/month), enforced by a budget

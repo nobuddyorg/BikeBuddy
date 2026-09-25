@@ -75,6 +75,7 @@ buddyTest.describe('URL state', () => {
 
     await expect(on(page).main.locators.detail.panel).toBeVisible();
     await expect(on(page).main.locators.detail.name).toHaveText('Alpine Loop');
+    await on(page).a11y.check('tour list and detail panel');
   });
 
   buddyTest('an unknown tour id degrades to the full-map view', async ({ on, page }) => {

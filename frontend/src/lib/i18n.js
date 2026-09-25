@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Dependency-free i18n. The pure helpers are unit-tested; the browser runtime
@@ -13,8 +14,8 @@ export const SUPPORTED_LOCALES = [
   { code: 'pt', label: 'Português', flag: '🇵🇹', short: 'PT', dateLocale: 'pt-PT' },
 ];
 
-export const DEFAULT_LOCALE = 'en';
-export const STORAGE_KEY = 'bikebuddy-lang';
+const DEFAULT_LOCALE = 'en';
+const STORAGE_KEY = 'bikebuddy-lang';
 
 export function isSupported(code) {
   return SUPPORTED_LOCALES.some((l) => l.code === code);
@@ -28,6 +29,7 @@ export function normalizeLocale(raw) {
 }
 
 // Stored override → first matching browser language → fallback.
+/** @param {{ stored?: string | null, languages?: readonly string[], fallback?: string }} [options] */
 export function pickLocale({ stored, languages = [], fallback = DEFAULT_LOCALE } = {}) {
   const fromStore = normalizeLocale(stored);
   if (fromStore) return fromStore;
@@ -64,8 +66,11 @@ export function getLocale() {
   return currentLocale;
 }
 
+// currentLocale only ever holds a supported code (pickLocale / DEFAULT_LOCALE).
 export function getLocaleMeta() {
-  return SUPPORTED_LOCALES.find((l) => l.code === currentLocale) || SUPPORTED_LOCALES[0];
+  return /** @type {(typeof SUPPORTED_LOCALES)[number]} */ (
+    SUPPORTED_LOCALES.find((l) => l.code === currentLocale)
+  );
 }
 
 export function dateLocale() {
@@ -132,12 +137,14 @@ export const I18N_ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
 // The two content sinks stay written out rather than joining the table above:
 // folding them in would bury which of the two interprets markup.
 export function applyI18n(root = document) {
-  root.querySelectorAll('[data-i18n]').forEach((el) => {
+  /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-i18n]')).forEach((el) => {
     el.textContent = t(el.dataset.i18n);
   });
-  root.querySelectorAll('[data-i18n-html]').forEach((el) => {
-    el.innerHTML = t(el.dataset.i18nHtml);
-  });
+  /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-i18n-html]')).forEach(
+    (el) => {
+      el.innerHTML = t(el.dataset.i18nHtml); // nosemgrep: insecure-document-method, insecure-innerhtml -- the markup sink by design: data-i18n-html keys resolve to repo-owned locale strings, never user input
+    },
+  );
   for (const attr of I18N_ATTRS) {
     const dataAttr = `data-i18n-${attr}`;
     root.querySelectorAll(`[${dataAttr}]`).forEach((el) => {

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const { XMLParser } = require('fast-xml-parser');
@@ -38,6 +39,17 @@ const ELEVATION_NOISE_THRESHOLD_M = 3;
 // "moving time" and the average-speed figure it feeds.
 const MOVING_SPEED_FLOOR_KMH = 1;
 
+// A loop, not Math.min(...values): spreading 100k+ values overflows the stack (#575).
+function minMax(values) {
+  let min = values[0];
+  let max = values[0];
+  for (const v of values) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  return [min, max];
+}
+
 // Cumulative gain/loss with a noise floor: only counts a delta once it moves
 // ELEVATION_NOISE_THRESHOLD_M away from the last accepted elevation, so GPS
 // jitter around a plateau doesn't accumulate into fake climbing.
@@ -46,8 +58,7 @@ function computeElevationStats(points, thresholdM = ELEVATION_NOISE_THRESHOLD_M)
   if (elevations.length === 0) {
     return { elevationGain: null, elevationLoss: null, minElevation: null, maxElevation: null };
   }
-  const minElevation = Math.min(...elevations);
-  const maxElevation = Math.max(...elevations);
+  const [minElevation, maxElevation] = minMax(elevations);
   if (elevations.length < 2) {
     return { elevationGain: null, elevationLoss: null, minElevation, maxElevation };
   }
@@ -113,7 +124,10 @@ const isValidPoint = ([lat, lon]) =>
 
 // fast-xml-parser yields an object, an array, or undefined for a repeated
 // element.
-const toArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+function toArray(v) {
+  if (Array.isArray(v)) return v;
+  return v == null ? [] : [v];
+}
 
 /**
  * Parse a GPX string or Buffer and return tour metadata + heatmap points.
@@ -133,7 +147,14 @@ const toArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
  */
 function parseGpx(gpxInput) {
   if (Buffer.isBuffer(gpxInput)) gpxInput = gpxInput.toString('utf8');
-  const doc = parser.parse(gpxInput);
+  // Malformed markup surfaces as the same validation error as a non-GPX document,
+  // never as the XML parser's internal message.
+  let doc;
+  try {
+    doc = parser.parse(gpxInput);
+  } catch {
+    throw new Error('Not a valid GPX file');
+  }
   const gpx = doc?.gpx;
   if (!gpx) throw new Error('Not a valid GPX file');
 

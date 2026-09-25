@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Only what Knip's static analysis cannot follow, each with its reason.
+  "entry": [
+    // Started by name: lighthouserc's startServerCommand and run.mjs's execFileSync.
+    "lighthouse/serve-pages.mjs",
+    "lighthouse/seed.mjs",
+    // Started by playwright.config.ts's webServer.command, a shell string.
+    "serve.mjs",
+  ],
+}

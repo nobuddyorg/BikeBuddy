@@ -21,8 +21,13 @@ with `./buddy.sh quality hooks`. The full CI quality gates are defined in
 
 ## Before you push
 
-Run the same checks CI runs — see
-[Tests, lint, format](docs/how-to/developer-guide.md#tests-lint-format).
+Work through the [Definition of done](CLAUDE.md#definition-of-done), in its
+order; it is the same for people and AI assistants. `./buddy.sh quality check`
+runs the part that needs no services, `--stack` the rest against the local
+stack. Each command is explained in
+[Run the checks CI runs, locally](docs/how-to/developer-guide.md#run-the-checks-ci-runs-locally).
+Which layer a new test belongs in: [TEST_STRATEGY.md](TEST_STRATEGY.md) and
+[testing.md](docs/reference/testing.md).
 
 ## Reporting issues
 

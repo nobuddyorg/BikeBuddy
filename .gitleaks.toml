@@ -1,0 +1,35 @@
+# gitleaks' default rules (incl. azure-ad-client-secret and generic-api-key) plus
+# rules for Azure Cosmos / Storage credentials. The Cosmos emulator key, public by
+# design, is the one allowlisted value. How to handle a false positive:
+# docs/how-to/developer-guide.md, "Secret scanning".
+[extend]
+useDefault = true
+
+[[rules]]
+id = "azure-cosmos-connection-string"
+description = "Cosmos DB connection string with an account key for a hosted (*.documents.azure.com) account"
+regex = '''AccountEndpoint=https://[a-z0-9-]+\.documents\.azure\.com(?::\d+)?/?;\s*AccountKey=([A-Za-z0-9+/]{86}==)'''
+secretGroup = 1
+keywords = ["documents.azure.com"]
+
+[[rules]]
+id = "azure-storage-connection-string"
+description = "Storage connection string with an account key (*.core.windows.net)"
+regex = '''(?i)AccountName=[a-z0-9]{3,24};\s*AccountKey=([A-Za-z0-9+/]{86}==)'''
+secretGroup = 1
+keywords = ["accountkey"]
+
+[[rules]]
+id = "azure-storage-sas"
+description = "Shared access signature for an Azure Storage account (URL or SharedAccessSignature= setting)"
+regex = '''(?i)(?:[a-z0-9]{3,24}\.(?:blob|queue|table|file|dfs)\.core\.windows\.net/[^\s"'<>]*\?|SharedAccessSignature=)[^\s"'<>]*\bsig=([A-Za-z0-9%+/=]{40,})'''
+secretGroup = 1
+keywords = ["sig="]
+
+# The well-known Cosmos emulator key (docs: "Emulator well-known key"), matched by
+# content so it stays exempt wherever it appears and nothing else does.
+# UseDevelopmentStorage=true (Azurite) carries no secret and matches no rule.
+[[allowlists]]
+description = "Cosmos DB emulator key: public by design"
+targetRules = ["generic-api-key", "azure-cosmos-connection-string", "azure-storage-connection-string"]
+regexes = ['''^C2y6yDjf5/R\+ob0N8A7Cgv30VRDJIWEHLM\+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw==$''']

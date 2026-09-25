@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Read by coverage.ts in the runner and every worker.
+process.env.E2E_SUITE = 'static';
+
 const PORT = Number(process.env.E2E_PORT) || 4281;
 const isCI = !!process.env.CI;
 
@@ -8,14 +11,16 @@ const isCI = !!process.env.CI;
 export default defineConfig({
   testDir: './tests',
   globalSetup: './global-setup.ts',
+  globalTeardown: './global-teardown.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   reporter: isCI
     ? [
         ['github'],
-        ['junit', { outputFile: 'reports/e2e-results.xml' }],
-        ['html', { open: 'never' }],
+        // JSON feeds the job summary (.github/actions/playwright-results); HTML is the failure artifact.
+        ['json', { outputFile: 'reports/e2e-results.json' }],
+        ['html', { open: 'never', outputFolder: 'playwright-report' }],
       ]
     : [['list']],
   use: {

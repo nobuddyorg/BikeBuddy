@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const { unauthorized, error } = require('./http');

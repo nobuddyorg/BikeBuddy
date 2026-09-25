@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Pure URL <-> state-patch mapping, kept separate from the history.pushState/
@@ -23,6 +24,7 @@ export function buildAppUrl({ tourId, sort, search, inView }, path) {
   if (search) params.set('q', search);
   if (inView) params.set('inView', '1');
   const query = params.toString();
+  const queryString = query ? `?${query}` : '';
   const hash = tourId ? `#/tour/${encodeURIComponent(tourId)}` : '';
-  return `${path}${query ? `?${query}` : ''}${hash}`;
+  return `${path}${queryString}${hash}`;
 }

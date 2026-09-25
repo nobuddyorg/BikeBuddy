@@ -51,7 +51,7 @@ const tApi = i18n.tApi;
 
 // The map half of selecting a tour. Returns null if the selection moved on
 // while detail was loading.
-export async function focusTourOnMap(tourId) {
+async function focusTourOnMap(tourId) {
   const tour = state.tours.find((t) => t.id === tourId);
   if (!tour) return null;
   await ensureDetail(tour);
@@ -72,11 +72,12 @@ export async function selectTour(tourId) {
   // Pushed after the URL already reflects the new tour, so Back returns here
   // and closes the panel (#443) — the tour stays selected, matching #442.
   pushLayer(closeDetailPanel);
-  const loaded = await focusTourOnMap(tourId);
-  if (loaded) {
+  state.detailLoading = focusTourOnMap(tourId).then((loaded) => {
+    if (!loaded) return;
     renderDetailMeta(loaded); // elevation/duration/avgSpeed only land with this fetch
     renderGallery(loaded);
-  }
+  });
+  await state.detailLoading;
 }
 
 // Neither surface leaves the map/pins scoped to the just-closed tour, and

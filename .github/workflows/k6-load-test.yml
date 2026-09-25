@@ -1,0 +1,133 @@
+name: Load test (k6)
+
+# Manual only: a measurement, never a gate. How to run and read it:
+# docs/how-to/load-testing.md. Nothing here runs on push or pull_request.
+on:
+  workflow_dispatch:
+    inputs:
+      flow:
+        description: Script under load/ to run
+        type: choice
+        options: [smoke, browse, upload, edit, export]
+        default: smoke
+      profile:
+        description: "Load shape and seed size: normal (everyday, 200 tours), peak (5x users, 500), stress (steps to 20x, 1,000)"
+        type: choice
+        options: [normal, peak, stress]
+        default: normal
+      target:
+        description: "local-stack: Cosmos emulator + Azurite + Functions host started in this run. hosted: production, as the load-test account."
+        type: choice
+        options: [local-stack, hosted]
+        default: local-stack
+      confirm_production:
+        description: Required for target=hosted -- the run writes to and loads production (Cosmos Serverless bills every request)
+        type: boolean
+        default: false
+
+run-name: k6 ${{ inputs.flow }} (${{ inputs.profile }}) against ${{ inputs.target }}
+
+permissions:
+  contents: read
+
+jobs:
+  load_test:
+    name: k6 ${{ inputs.flow }} (${{ inputs.profile }}) against ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    # stress seeds 1,000 tours and runs nine minutes on a runner that also hosts the stack.
+    timeout-minutes: 45
+    # One run per target at a time: two against production would add up on its bill.
+    concurrency:
+      group: k6-${{ inputs.target }}
+    steps:
+      # Before checkout, before any secret is read.
+      - name: Refuse the hosted target without confirmation
+        if: inputs.target == 'hosted' && !inputs.confirm_production
+        run: |
+          echo "::error::target=hosted loads production; run again with confirm_production ticked."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-node-packages
+        if: inputs.target == 'local-stack'
+        with:
+          packages: functions
+
+      # The Functions host logs per-invocation timings, Cosmos RU and event-loop delay
+      # for the backend report (docs/how-to/load-testing.md, "Backend report").
+      - name: Enable backend profiling
+        if: inputs.target == 'local-stack'
+        run: |
+          {
+            echo "LOAD_PROFILING=true"
+            echo "languageWorkers__node__arguments=--cpu-prof --cpu-prof-dir=${GITHUB_WORKSPACE}/load-results/cpu"
+          } >> "$GITHUB_ENV"
+
+      - uses: ./.github/actions/start-local-stack
+        if: inputs.target == 'local-stack'
+        with:
+          start-backend: "true"
+
+      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
+        with:
+          k6-version: "2.3.0"
+
+      # Same command a developer runs; the production URL and token are read only for a hosted run.
+      - name: Run k6
+        id: k6
+        run: ./buddy.sh test load "$FLOW" --profile "$PROFILE" --target "$TARGET" ${CONFIRM:+--confirm-production}
+        env:
+          FLOW: ${{ inputs.flow }}
+          PROFILE: ${{ inputs.profile }}
+          TARGET: ${{ inputs.target }}
+          CONFIRM: ${{ inputs.confirm_production && 'true' || '' }}
+          FUNC_LOG: /tmp/func.log
+          LOAD_API_URL: ${{ inputs.target == 'hosted' && vars.LOAD_API_URL || '' }}
+          LOAD_ACCESS_TOKEN: ${{ inputs.target == 'hosted' && secrets.LOAD_ACCESS_TOKEN || '' }}
+
+      # k6's table from handleSummary; for the local stack also the backend report
+      # (load/backend-report.mjs). The HTML charts and raw profiles ride in the artifact.
+      - name: Add the k6 and backend reports to the job summary
+        if: ${{ !cancelled() && steps.k6.outcome != 'skipped' }}
+        env:
+          FLOW: ${{ inputs.flow }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          reports=("load-results/$FLOW.md")
+          if [ "$TARGET" = local-stack ]; then reports+=("load-results/$FLOW.backend.md"); fi
+          for report in "${reports[@]}"; do
+            if [ ! -f "$report" ]; then
+              echo "::error::$report is missing, so the run never reached it."
+              exit 1
+            fi
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      # The worker writes its --cpu-prof files only when it exits: stop the host, then add
+      # the top functions by self time to the backend report (summary and artifact).
+      - name: Add the CPU profile to the backend report
+        if: ${{ !cancelled() && steps.k6.outcome != 'skipped' && inputs.target == 'local-stack' }}
+        env:
+          FLOW: ${{ inputs.flow }}
+        run: |
+          pkill -f "func start" || true
+          for _ in $(seq 1 30); do
+            compgen -G "load-results/cpu/*.cpuprofile" > /dev/null && break
+            sleep 1
+          done
+          node load/backend-report.mjs "$FLOW" --log /tmp/func.log --cpu load-results/cpu > /dev/null
+          sed -n '/^### CPU profile/,$p' "load-results/$FLOW.backend.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the k6 results
+        if: ${{ !cancelled() && steps.k6.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: k6-${{ inputs.flow }}-${{ inputs.profile }}-${{ inputs.target }}
+          path: load-results
+          retention-days: 30
+
+      - if: ${{ failure() && inputs.target == 'local-stack' }}
+        run: tail -n 200 /tmp/func.log || true

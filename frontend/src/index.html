@@ -69,6 +69,8 @@
 
     <!-- Top nav -->
     <header class="navbar">
+      <!-- The page's one level-1 heading; the visible brand is a reload button, which cannot hold a heading. -->
+      <h1 class="visually-hidden">BikeBuddy</h1>
       <button
         id="btn-brand-reload"
         type="button"
@@ -111,12 +113,13 @@
       </div>
     </header>
 
-    <div class="app-layout">
+    <!-- One main landmark for the whole app: on mobile the map is off-screen, so it cannot be the main. -->
+    <main class="app-layout">
       <!-- Sidebar -->
-      <aside class="sidebar">
+      <section class="sidebar" aria-labelledby="sidebar-title">
         <div class="sidebar-header">
           <div class="sidebar-header-title">
-            <h2 data-i18n="sidebar.myTours">My Tours</h2>
+            <h2 id="sidebar-title" data-i18n="sidebar.myTours">My Tours</h2>
             <span id="tour-count" class="badge">0</span>
             <button
               id="btn-stats-header"
@@ -284,10 +287,10 @@
             Try again
           </button>
         </div>
-      </aside>
+      </section>
 
       <!-- Map -->
-      <main class="map-container">
+      <div class="map-container">
         <div id="map"></div>
         <div class="map-top-controls">
           <label
@@ -432,10 +435,10 @@
             <span data-i18n="map.loading">Loading your ride data…</span>
           </div>
         </div>
-      </main>
+      </div>
 
       <!-- Tour detail panel (hidden until a tour is selected) -->
-      <aside id="detail-panel" class="detail-panel hidden">
+      <section id="detail-panel" class="detail-panel hidden" aria-labelledby="detail-name">
         <button id="btn-close-detail" class="detail-close" data-i18n-aria-label="common.close">
           ✕
         </button>
@@ -491,7 +494,7 @@
             Delete Tour
           </button>
         </div>
-      </aside>
+      </section>
 
       <!-- Mobile-only: opens the map full-screen (see .map-expanded) without it
            occupying space on the list screen. -->
@@ -515,7 +518,7 @@
           <line x1="16" y1="6" x2="16" y2="22" />
         </svg>
       </button>
-    </div>
+    </main>
 
     <!-- Toast notifications -->
     <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
@@ -535,7 +538,8 @@
         <h2 id="help-modal-title" class="profile-name" data-i18n="help.title">
           How to use BikeBuddy
         </h2>
-        <div class="help-content">
+        <!-- Focusable so keyboard users can scroll it (it holds no controls). -->
+        <div class="help-content" tabindex="0" role="region" aria-labelledby="help-modal-title">
           <h3 data-i18n="help.q1">🧭 What is this?</h3>
           <p data-i18n="help.a1">
             Upload GPX tracks from your rides — cycling or motorcycling — and see them as routes on

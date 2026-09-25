@@ -5,19 +5,23 @@ import { buddyTest, expect } from '../pages/buddy-test';
 // against the static frontend (no backend) since theming is presentation-only.
 
 buddyTest.describe('system dark/light mode', () => {
-  buddyTest('light OS preference renders the light palette and Voyager tiles', async ({ page }) => {
-    await page.emulateMedia({ colorScheme: 'light' });
-    await page.goto('/');
+  buddyTest(
+    'light OS preference renders the light palette and Voyager tiles',
+    async ({ on, page }) => {
+      await page.emulateMedia({ colorScheme: 'light' });
+      await page.goto('/');
 
-    const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(bg).toBe('rgb(248, 250, 252)');
+      const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+      expect(bg).toBe('rgb(248, 250, 252)');
 
-    await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /voyager/);
-  });
+      await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /voyager/);
+      await on(page).a11y.check('light theme');
+    },
+  );
 
   buddyTest(
     'dark OS preference renders the dark palette and Dark Matter tiles',
-    async ({ page }) => {
+    async ({ on, page }) => {
       await page.emulateMedia({ colorScheme: 'dark' });
       await page.goto('/');
 
@@ -25,6 +29,7 @@ buddyTest.describe('system dark/light mode', () => {
       expect(bg).toBe('rgb(15, 17, 23)');
 
       await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_all/);
+      await on(page).a11y.check('dark theme');
     },
   );
 

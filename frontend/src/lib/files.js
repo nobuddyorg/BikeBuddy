@@ -1,10 +1,11 @@
+// @ts-check
 'use strict';
 
 // Fast UX feedback only — the backend re-validates by magic bytes.
 // Each check returns an i18n message key, or null when the upload is fine.
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGE_BATCH = 20;
 export const MAX_TOUR_IMAGES = 20;
 

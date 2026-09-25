@@ -30,6 +30,16 @@ import {
 
 const t = i18n.t;
 
+// One <span> per [className, text] pair; textContent, so no string is parsed as markup.
+function spans(parts) {
+  return parts.map(([className, text]) => {
+    const span = document.createElement('span');
+    if (className) span.className = className;
+    span.textContent = text;
+    return span;
+  });
+}
+
 export function setupLanguageSwitcher() {
   const elBtnLang = $('btn-lang');
   const elLangMenu = $('lang-menu');
@@ -37,7 +47,12 @@ export function setupLanguageSwitcher() {
   const elLangList = $('lang-list');
   const meta = i18n.getLocaleMeta();
   // Full name, not the short code: there is room for it here.
-  elBtnLang.innerHTML = `<span class="lang-flag">${meta.flag}</span><span class="lang-name">${meta.label}</span>`;
+  elBtnLang.replaceChildren(
+    ...spans([
+      ['lang-flag', meta.flag],
+      ['lang-name', meta.label],
+    ]),
+  );
 
   for (const loc of i18n.SUPPORTED_LOCALES) {
     const li = document.createElement('li');
@@ -48,7 +63,13 @@ export function setupLanguageSwitcher() {
     btn.dataset.code = loc.code;
     btn.dataset.search = `${loc.label} ${loc.code} ${loc.short}`.toLowerCase();
     btn.setAttribute('aria-selected', String(loc.code === i18n.getLocale()));
-    btn.innerHTML = `<span class="lang-flag">${loc.flag}</span><span>${loc.label}</span><span class="lang-code">${loc.short}</span>`;
+    btn.append(
+      ...spans([
+        ['lang-flag', loc.flag],
+        ['', loc.label],
+        ['lang-code', loc.short],
+      ]),
+    );
     btn.addEventListener('click', () => selectLanguage(loc.code));
     li.appendChild(btn);
     elLangList.appendChild(li);

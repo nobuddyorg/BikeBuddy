@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Groups points whose pixel distance to some existing group member is

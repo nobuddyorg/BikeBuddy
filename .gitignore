@@ -24,6 +24,9 @@ functions/.cosmos-emulator.pem
 # Playwright (e2e)
 e2e/reports/
 e2e/playwright-report/
+e2e/playwright-report-fullstack/
+e2e/lighthouse-reports/
+e2e/.lighthouseci/
 e2e/test-results/
 .playwright-mcp/
 
@@ -62,7 +65,6 @@ functions/reports/mutation/
 
 # Claude Code
 .claude/
-CLAUDE.md
 .superpowers/
 
 # understand anything
@@ -74,3 +76,11 @@ infrastructure/.terraform.lock.hcl
 infrastructure/terraform.tfstate
 infrastructure/terraform.tfstate.backup
 func.zip
+iac-reports/
+coverage-e2e/
+frontend/.stryker-tmp/
+zap-reports/
+report_json.json
+report_html.html
+report_md.md
+load-results/

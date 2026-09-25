@@ -72,5 +72,6 @@ buddyTest.describe('photo pins (mobile)', () => {
     await expect(on(page).main.locators.pins.toggle).toBeVisible();
     await on(page).main.do.showPins(true);
     await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+    await on(page).a11y.check('mobile map with photo pins');
   });
 });

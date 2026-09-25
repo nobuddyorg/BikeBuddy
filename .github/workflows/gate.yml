@@ -12,169 +12,268 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Results go to each job's summary and artifacts, never into the PR (#591):
+# docs/how-to/developer-guide.md, "Where to find CI results".
 jobs:
+  # Unconditional: hygiene and secret scanning must see every file.
   prek:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      # functions/ holds the shared ESLint/Prettier install; frontend/ and e2e/ type-check
+      # (and e2e/ lints) with their own.
+      - uses: ./.github/actions/setup-node-packages
         with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: functions/package-lock.json
+          packages: functions frontend e2e
 
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
           tofu_version: "~1.8"
 
-      - name: Install function dependencies
-        run: npm ci
-        working-directory: functions
-
       - name: Run prek
-        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
         with:
           extra-args: "--all-files"
         env:
-          SKIP: no-commit-to-branch
+          # opengrep and the architecture checks have their own jobs below.
+          SKIP: no-commit-to-branch,opengrep,depcruise,knip,iac
 
-  unit:
-    needs: prek
+  # A push to main forces every job: it is the event that deploys, and a merge
+  # may combine unrelated changes. Skipped jobs report success to required checks.
+  changes:
     runs-on: ubuntu-latest
-    # CODECOV_TOKEN is stored as an environment secret on the "ci" environment
-    environment: ci
+    timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: write # post coverage comment
-      checks: write # publish test results check
+      pull-requests: read # paths-filter lists a PR's changed files through the API
+    outputs:
+      functions: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.functions == 'true' }}
+      frontend: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.frontend == 'true' }}
+      e2e: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.e2e == 'true' }}
+      infrastructure: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.infrastructure == 'true' }}
+      sast: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.sast == 'true' }}
+      code: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.code == 'true' }}
+    steps:
+      - name: Force a full run on pushes to main
+        id: force
+        run: echo "value=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      # The workflow and its composite actions are in every filter, so a CI
+      # change always exercises what it changed.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            ci: &ci
+              - '.github/workflows/gate.yml'
+              - '.github/actions/**'
+            functions:
+              - *ci
+              - 'functions/**'
+              - 'mutation-targets.mjs'
+              - '.zap/**'
+              - 'scripts/development/**'
+            frontend:
+              - *ci
+              - 'frontend/**'
+              - 'mutation-targets.mjs'
+              - '.zap/**'
+            e2e:
+              - *ci
+              - 'e2e/**'
+            infrastructure:
+              - *ci
+              - 'infrastructure/**'
+              - '.tflint.hcl'
+              - '.trivyignore.yaml'
+              - 'scripts/quality/iac.sh'
+            # The JS/TS module graph and the configs of the checks that read it.
+            code:
+              - *ci
+              - 'functions/**'
+              - 'frontend/**'
+              - 'e2e/**'
+              - '.dependency-cruiser*'
+            # Everything scripts/quality/opengrep.sh scans, and its config.
+            sast:
+              - *ci
+              - 'functions/**'
+              - 'frontend/**'
+              - 'e2e/**'
+              - 'scripts/**'
+              - 'load/**'
+              - 'infrastructure/**'
+              - '.semgrepignore'
+
+  unit:
+    needs: [prek, changes]
+    if: needs.changes.outputs.functions == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # CODECOV_TOKEN is stored as an environment secret on the "ci" environment
+    environment: ci
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: ./.github/actions/setup-node-packages
         with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: functions/package-lock.json
+          packages: functions
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: functions
-
+      # Vitest's own thresholds (global + a 100 % floor per file in mutation-targets.mjs) are the gate.
       - name: Run tests with coverage
         run: npm run test:ci
         working-directory: functions
 
-      - name: Enforce local coverage threshold
-        run: npm run check:coverage
-        working-directory: functions
-
-      - name: Publish test results
-        if: ${{ github.event_name == 'pull_request' && !cancelled() && !env.ACT }}
+      - name: Add test results to job summary
+        if: ${{ !cancelled() && !env.ACT }}
         uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.20.0
         with:
           check_name: "Unit Tests"
           files: functions/reports/test-results.xml
           compare_to_earlier_commit: false
-          comment_mode: always
+          comment_mode: off
+          check_run: false
           test_changes_limit: 0
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Informational PR comment/badge only — "Enforce local coverage threshold"
-      # above is the actual gate, so this never fails the job.
-      - name: Coverage summary
-        uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
-        if: ${{ github.event_name == 'pull_request' && !cancelled() && !env.ACT }}
+      # Reads the json-summary reporter vitest.config.js adds for this step.
+      - name: Add coverage report to job summary
+        if: ${{ !cancelled() && !env.ACT }}
+        uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2
         with:
-          filename: functions/coverage/cobertura-coverage.xml
-          badge: true
-          format: markdown
-          output: both
-          thresholds: "80 90"
-          fail_below_min: false
-
-      - name: Add coverage PR comment
-        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
-        if: ${{ github.event_name == 'pull_request' && !env.ACT }}
-        with:
-          recreate: true
-          path: code-coverage-results.md
+          working-directory: functions
+          vite-config-path: vitest.config.js
+          file-coverage-mode: none
+          comment-on: "none"
+          name: functions
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         if: ${{ !env.ACT }}
         with:
-          files: functions/coverage/cobertura-coverage.xml
+          files: functions/coverage/lcov.info
+          flags: functions
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: nobuddyorg/BikeBuddy
           fail_ci_if_error: true
 
-  frontend:
-    needs: unit
+  # Whole-graph checks over functions/, frontend/ and e2e/; each output is a job-summary section.
+  architecture:
+    needs: [prek, changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      checks: write
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: ./.github/actions/setup-node-packages
         with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          packages: functions frontend e2e
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: frontend
+      # `shell: bash` adds pipefail; the implicit `bash -e` would report tee's status, not the command's.
+      - name: Check architectural boundaries
+        shell: bash
+        run: npm run --silent depcruise 2>&1 | tee depcruise-output.txt
+        working-directory: functions
+
+      - name: Add architecture check to job summary
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/summary-section
+        with:
+          title: "🏗️ Architectural boundaries (dependency-cruiser)"
+          file: functions/depcruise-output.txt
+
+      # `--silent` drops npm's banner: Knip prints nothing when clean, so an empty file means clean.
+      - name: Check for dead code and unused dependencies
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: npm run --silent knip 2>&1 | tee knip-output.txt
+        working-directory: functions
+
+      - name: Add dead-code check to job summary
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/summary-section
+        with:
+          title: "🧹 Dead code and unused dependencies (Knip)"
+          file: functions/knip-output.txt
+          empty-message: "✅ No unused files, exports or dependencies."
+
+  frontend:
+    needs: [prek, changes]
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # CODECOV_TOKEN is stored as an environment secret on the "ci" environment
+    environment: ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-node-packages
+        with:
+          packages: frontend
 
       - name: Run unit tests (Vitest)
         run: npm run test:ci
         working-directory: frontend
 
-      - name: Publish test results
-        if: ${{ github.event_name == 'pull_request' && !cancelled() && !env.ACT }}
+      - name: Add test results to job summary
+        if: ${{ !cancelled() && !env.ACT }}
         uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.20.0
         with:
           check_name: "Frontend Unit Tests"
           files: frontend/reports/unit-results.xml
           compare_to_earlier_commit: false
-          comment_mode: always
+          comment_mode: off
+          check_run: false
           test_changes_limit: 0
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add coverage report to job summary
+        if: ${{ !cancelled() && !env.ACT }}
+        uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2
+        with:
+          working-directory: frontend
+          vite-config-path: vitest.config.js
+          file-coverage-mode: none
+          comment-on: "none"
+          name: frontend
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        if: ${{ !env.ACT }}
+        with:
+          files: frontend/coverage/lcov.info
+          flags: frontend
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: nobuddyorg/BikeBuddy
+          fail_ci_if_error: true
 
   e2e:
-    needs: unit
+    needs: [prek, changes]
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      checks: write
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: ./.github/actions/setup-node-packages
         with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: e2e
+          packages: e2e
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
@@ -183,21 +282,32 @@ jobs:
       - name: Run static UI tests (Playwright)
         run: npm run test:ci
         working-directory: e2e
+        env:
+          E2E_COVERAGE: "1"
 
-      - name: Publish test results
-        if: ${{ github.event_name == 'pull_request' && !cancelled() && !env.ACT }}
-        uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.20.0
+      - name: Publish the end-to-end results
+        if: ${{ !cancelled() && !env.ACT }}
+        uses: ./.github/actions/playwright-results
         with:
-          check_name: "E2E Tests"
-          files: e2e/reports/e2e-results.xml
-          compare_to_earlier_commit: false
-          comment_mode: always
-          test_changes_limit: 0
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          title: "End-to-end tests (static UI)"
+          report-file: e2e/reports/e2e-results.json
+          report-dir: e2e/playwright-report
+          artifact-name: playwright-report
+          job-status: ${{ job.status }}
+          coverage-dir: e2e/coverage-e2e/static
+          coverage-artifact-name: e2e-coverage-static
 
+  # Scoped to mutation-targets.mjs. PRs run incrementally on main's cached results;
+  # main reruns every mutant (--force) and seeds the cache every PR restores.
   mutation:
-    needs: unit
+    needs: [prek, changes]
+    if: needs.changes.outputs.functions == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [functions, frontend]
     # STRYKER_DASHBOARD_API_KEY is stored as an environment secret on the "ci" environment
     environment: ci
     steps:
@@ -205,141 +315,353 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      # frontend/'s summary script lives in functions/scripts (mutation-testing-metrics).
+      - uses: ./.github/actions/setup-node-packages
         with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: functions/package-lock.json
+          packages: ${{ matrix.package == 'functions' && 'functions' || 'functions frontend' }}
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: functions
+      # Keyed on what incremental mode cannot see: dependencies and the test/mutation config.
+      - name: Restore the incremental mutation report
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ matrix.package }}/reports/stryker-incremental.json
+          key: stryker-incremental-${{ matrix.package }}-${{ hashFiles(format('{0}/package-lock.json', matrix.package), format('{0}/stryker.config.mjs', matrix.package), format('{0}/vitest.mutation.config.js', matrix.package), 'mutation-targets.mjs') }}-${{ github.run_id }}
+          restore-keys: stryker-incremental-${{ matrix.package }}-${{ hashFiles(format('{0}/package-lock.json', matrix.package), format('{0}/stryker.config.mjs', matrix.package), format('{0}/vitest.mutation.config.js', matrix.package), 'mutation-targets.mjs') }}-
 
+      # Dashboard key only on main, so the published report and badge track one branch.
       - name: Run Stryker mutation tests
-        run: npm run mutate
-        working-directory: functions
+        run: npx stryker run ${FULL_RUN:+--force}
+        working-directory: ${{ matrix.package }}
         env:
-          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
+          FULL_RUN: ${{ github.ref == 'refs/heads/main' && 'true' || '' }}
+          STRYKER_DASHBOARD_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.STRYKER_DASHBOARD_API_KEY || '' }}
+
+      # Built from reports/mutation/mutation.json; the console log is mostly expected per-mutant failures.
+      - name: Add mutation report to job summary
+        if: ${{ !cancelled() }}
+        run: npm run mutation:summary
+        working-directory: ${{ matrix.package }}
+
+      - name: Upload mutation report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-report-${{ matrix.package }}
+          path: ${{ matrix.package }}/reports/mutation
+          retention-days: 30
 
   e2e-fullstack:
-    needs: unit
+    needs: [prek, changes]
+    if: needs.changes.outputs.functions == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      checks: write
-    env:
-      COSMOS_CONNECTION_STRING: "AccountEndpoint=http://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw=="
-      COSMOS_DATABASE: bikebuddy
-      BLOB_CONNECTION_STRING: "UseDevelopmentStorage=true"
-      SKIP_AUTH: "true"
-      FUNCTIONS_WORKER_RUNTIME: node
-      AzureWebJobsStorage: "UseDevelopmentStorage=true"
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: ./.github/actions/setup-node-packages
         with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            functions/package-lock.json
-            e2e/package-lock.json
+          packages: functions e2e
 
-      # Pinned: azure-functions-core-tools@4.14.0 ships a bundled npm-shrinkwrap.json
-      # that resolves chalk@6.0.0 from Microsoft's internal Azure DevOps Artifacts feed
-      # (pkgs.dev.azure.com/azfunc/...) instead of the public npm registry, which returns
-      # 401/403 for anyone outside Microsoft's network. 4.13.0 predates that broken
-      # shrinkwrap and isn't deprecated. Bump once a fixed >=4.14.1 is released.
-      - run: npm install -g azure-functions-core-tools@4.13.0 @azure/static-web-apps-cli
-
-      - run: ./buddy.sh development start-cosmos
-      - run: ./buddy.sh development start-azurite
-
-      - run: npm ci
-        working-directory: functions
-
-      - run: node scripts/init-cosmos.js
-        working-directory: functions
-
-      - run: ./buddy.sh development start-backend
-
-      - run: npm ci
-        working-directory: e2e
+      - uses: ./.github/actions/start-local-stack
+        with:
+          start-backend: "true"
+          swa-cli: "true"
 
       - run: npx playwright install --with-deps chromium
         working-directory: e2e
 
       - run: npm run test:fullstack
         working-directory: e2e
+        env:
+          E2E_COVERAGE: "1"
 
       - if: ${{ failure() }}
         run: cat /tmp/func.log || true
 
-      - name: Publish test results
-        if: ${{ github.event_name == 'pull_request' && !cancelled() && !env.ACT }}
-        uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.20.0
+      - name: Publish the end-to-end results
+        if: ${{ !cancelled() && !env.ACT }}
+        uses: ./.github/actions/playwright-results
         with:
-          check_name: "E2E Tests (full stack)"
-          files: e2e/reports/e2e-fullstack-results.xml
-          compare_to_earlier_commit: false
-          comment_mode: always
-          test_changes_limit: 0
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          title: "End-to-end tests (full stack)"
+          report-file: e2e/reports/e2e-fullstack-results.json
+          report-dir: e2e/playwright-report-fullstack
+          artifact-name: playwright-report-fullstack
+          job-status: ${{ job.status }}
+          coverage-dir: e2e/coverage-e2e/fullstack
+          coverage-artifact-name: e2e-coverage-fullstack
 
-  integration:
-    needs: unit
+  # Against frontend/src served as GitHub Pages serves it (e2e/lighthouse/serve-pages.mjs),
+  # signed out and signed in (devMode, seeded local stack). Accessibility is axe's gate
+  # (e2e/axe.ts); Lighthouse asserts it too, as a second lens.
+  lighthouse:
+    needs: [prek, changes]
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      checks: write
-    env:
-      COSMOS_CONNECTION_STRING: "AccountEndpoint=http://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw=="
-      COSMOS_DATABASE: bikebuddy
-      BLOB_CONNECTION_STRING: "UseDevelopmentStorage=true"
-      SKIP_AUTH: "true"
-      FUNCTIONS_WORKER_RUNTIME: node
-      AzureWebJobsStorage: "UseDevelopmentStorage=true"
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: ./.github/actions/setup-node-packages
         with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: functions/package-lock.json
+          packages: functions e2e
 
-      # Pinned: see comment on the same install step in the e2e-fullstack job above.
-      - run: npm install -g azure-functions-core-tools@4.13.0
+      - uses: ./.github/actions/start-local-stack
+        with:
+          start-backend: "true"
 
-      - run: ./buddy.sh development start-cosmos
-      - run: ./buddy.sh development start-azurite
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
 
-      - run: npm ci
-        working-directory: functions
+      - name: Run Lighthouse CI
+        run: npm run lighthouse
+        working-directory: e2e
 
-      - run: node scripts/init-cosmos.js
-        working-directory: functions
+      - name: Add Lighthouse scores to job summary
+        if: ${{ !cancelled() }}
+        run: npm run lighthouse:summary
+        working-directory: e2e
+
+      - name: Upload Lighthouse reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lighthouse-reports
+          path: e2e/lighthouse-reports
+          retention-days: 30
+
+  # Passive scans only: the frontend served as GitHub Pages serves it, and the API's
+  # read-only surface (.zap/openapi.yaml) on the local Functions host. Only rules
+  # promoted to FAIL in .zap/rules-*.tsv break the job (-I). Local: ./buddy.sh quality zap.
+  zap:
+    needs: [prek, changes]
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.functions == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-node-packages
+        with:
+          packages: functions
+
+      - uses: ./.github/actions/start-local-stack
+        with:
+          start-backend: "true"
+
+      - name: Serve the frontend as GitHub Pages does
+        run: |
+          node e2e/lighthouse/serve-pages.mjs 4175 signed-out &
+          timeout 30 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:4175/BikeBuddy/; do sleep 1; done'
+
+      - name: ZAP baseline scan -- frontend
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: "http://127.0.0.1:4175/BikeBuddy/"
+          rules_file_name: ".zap/rules-frontend.tsv"
+          cmd_options: "-I"
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: "zap-report-frontend"
+
+      # The action writes report_json.json into the workspace root; rendered before the API pass overwrites it.
+      - name: Add the frontend ZAP results to the job summary
+        if: ${{ !cancelled() }}
+        run: node scripts/quality/zap-summary.mjs --title '🕷️ OWASP ZAP baseline -- frontend' --rules .zap/rules-frontend.tsv report_json.json
+
+      # -S: safe mode, no active scan. The workspace is mounted at /zap/wrk in the ZAP container.
+      - name: ZAP API scan (passive) -- Functions host
+        uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
+        with:
+          target: "/zap/wrk/.zap/openapi.yaml"
+          format: openapi
+          rules_file_name: ".zap/rules-api.tsv"
+          cmd_options: "-S -I"
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: "zap-report-api"
+
+      - name: Add the API ZAP results to the job summary
+        if: ${{ !cancelled() }}
+        run: node scripts/quality/zap-summary.mjs --title '🕷️ OWASP ZAP API scan (passive) -- Functions host' --rules .zap/rules-api.tsv report_json.json
+
+      - if: ${{ failure() }}
+        run: cat /tmp/func.log || true
+
+  integration:
+    needs: [prek, changes]
+    if: needs.changes.outputs.functions == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-node-packages
+        with:
+          packages: functions
 
       # The integration suite's globalSetup starts the func host and stops it after.
+      - uses: ./.github/actions/start-local-stack
+
       - run: npm run test:integration:ci
         working-directory: functions
 
-      - name: Publish test results
-        if: ${{ github.event_name == 'pull_request' && !cancelled() && !env.ACT }}
+      - name: Add test results to job summary
+        if: ${{ !cancelled() && !env.ACT }}
         uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.20.0
         with:
           check_name: "Integration Tests"
           files: functions/reports/integration-results.xml
           compare_to_earlier_commit: false
-          comment_mode: always
+          comment_mode: off
+          check_run: false
           test_changes_limit: 0
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Needs no node_modules, so it is its own job; the only job allowed to write
+  # code-scanning results. Local equivalent: ./buddy.sh quality opengrep.
+  opengrep:
+    needs: [prek, changes]
+    if: needs.changes.outputs.sast == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `shell: bash` adds pipefail, so a failed download cannot pass.
+      - name: Run OpenGrep
+        shell: bash
+        run: ./buddy.sh quality opengrep --sarif-output=opengrep-results.sarif --json-output=opengrep-results.json
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          sarif_file: opengrep-results.sarif
+          category: opengrep
+
+      # OpenGrep's SARIF leaves a result's `level` unset; severity lives on the rule.
+      # An inline `nosemgrep` stays in the SARIF with `suppressions` set; it is dropped here.
+      - name: Join findings to their rule's severity
+        run: |
+          jq '
+            (reduce (.runs[].tool.driver.rules[]) as $rule ({}; .[$rule.id] = ($rule.defaultConfiguration.level // "warning"))) as $levelById
+            | [.runs[].results[] | select((.suppressions // []) | length == 0) | {
+                level: ($levelById[.ruleId] // "warning"),
+                ruleId,
+                message: .message.text,
+                file: (.locations[0].physicalLocation.artifactLocation.uri // "?"),
+                line: (.locations[0].physicalLocation.region.startLine // 1)
+              }]
+          ' opengrep-results.sarif > opengrep-findings.json
+
+      - name: Add scan results to job summary
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo '## 🔍 SAST (OpenGrep)'
+            echo
+            jq -r '
+              length as $total
+              | (map(select(.level == "error")) | length) as $errors
+              | "**Total findings:** \($total) (\($errors) at error severity, blocking; full detail in the Security tab, category `opengrep`)\n"
+              + (if $total > 0
+                 then "\n| Severity | Rule | Location |\n|---|---|---|\n" + (
+                   sort_by(.level != "error", .level != "warning")
+                   | map("| \(.level) | `\(.ruleId)` | \(.file):\(.line) |")
+                   | join("\n")
+                 )
+                 else "" end)
+            ' opengrep-findings.json
+            # SARIF carries a parse error as free text only; the JSON output names its file.
+            jq -r '
+              [.errors[] | select(.path) | {
+                path,
+                line: (.spans[0].start.line // "?"),
+                kind: (.type | if type == "array" then .[0] else . end)
+              }]
+              | sort_by(.line)
+              | unique_by(.path)
+              | length as $count
+              | "\n**Partially analyzed files:** \($count) (no finding in their unparsed lines is reported)\n"
+              + (if $count > 0
+                 then "\n| File | First error at line | Error |\n|---|---|---|\n"
+                   + (map("| \(.path) | \(.line) | \(.kind) |") | join("\n"))
+                 else "" end)
+            ' opengrep-results.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # After the upload, so the Security tab stays populated either way. WARNING/INFO stay report-only.
+      - name: Fail on error-severity findings
+        run: |
+          count=$(jq 'map(select(.level == "error")) | length' opengrep-findings.json)
+          if [ "$count" -gt 0 ]; then
+            jq -r '
+              map(select(.level == "error"))[]
+              | "::error file=\(.file),line=\(.line)::\(.ruleId): \(.message)"
+            ' opengrep-findings.json
+            echo "$count error-severity OpenGrep finding(s): see the annotations above, the job summary, or the Security tab (category opengrep)."
+            exit 1
+          fi
+          echo "No error-severity findings."
+
+  # TFLint + Trivy config over infrastructure/ (scripts/quality/iac.sh, the same
+  # command as the pre-commit hook). Accepted findings: .trivyignore.yaml.
+  iac:
+    needs: [prek, changes]
+    if: needs.changes.outputs.infrastructure == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # GITHUB_TOKEN: `tflint --init` fetches the azurerm ruleset through the GitHub API.
+      - name: Run TFLint and Trivy
+        id: iac
+        run: ./buddy.sh quality iac --report iac-reports
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Upload TFLint SARIF to code scanning
+        if: ${{ !cancelled() && hashFiles('iac-reports/tflint.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          sarif_file: iac-reports/tflint.sarif
+          category: iac-tflint
+
+      - name: Upload Trivy SARIF to code scanning
+        if: ${{ !cancelled() && hashFiles('iac-reports/trivy.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          sarif_file: iac-reports/trivy.sarif
+          category: iac
+
+      - name: Add TFLint results to job summary
+        if: ${{ !cancelled() && steps.iac.outcome != 'skipped' }}
+        uses: ./.github/actions/summary-section
+        with:
+          title: "🧱 TFLint (infrastructure)"
+          file: iac-reports/tflint.txt
+          empty-message: "✅ No TFLint issues."
+
+      - name: Add Trivy results to job summary
+        if: ${{ !cancelled() && steps.iac.outcome != 'skipped' }}
+        uses: ./.github/actions/summary-section
+        with:
+          title: "🛡️ Trivy config scan (infrastructure; fails on HIGH/CRITICAL)"
+          file: iac-reports/trivy.txt

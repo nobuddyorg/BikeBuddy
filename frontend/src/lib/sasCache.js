@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Image and GPX URLs are SAS links storage stops honouring after an hour

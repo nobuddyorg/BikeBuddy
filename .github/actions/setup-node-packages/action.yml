@@ -1,0 +1,40 @@
+name: Set up Node.js and install packages
+description: Node.js (the one version CI pins) with an npm cache keyed on the given packages' lockfiles, then `npm ci` in each package.
+
+inputs:
+  packages:
+    description: Space-separated package directories to install (functions, frontend, e2e).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the lockfiles
+      id: lockfiles
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        {
+          echo 'paths<<EOF'
+          for package in $PACKAGES; do echo "$package/package-lock.json"; done
+          echo 'EOF'
+        } >> "$GITHUB_OUTPUT"
+
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: "24"
+        cache: npm
+        cache-dependency-path: ${{ steps.lockfiles.outputs.paths }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        for package in $PACKAGES; do
+          echo "::group::npm ci ($package)"
+          npm ci --prefix "$package"
+          echo "::endgroup::"
+        done

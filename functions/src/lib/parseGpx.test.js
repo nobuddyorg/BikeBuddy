@@ -313,6 +313,24 @@ describe('parseGpx', () => {
     });
   });
 
+  // Shrunk counterexamples from parseGpx.property.test.js, kept as examples.
+  describe('property-test regressions', () => {
+    it('reports malformed markup as an invalid GPX file, not a parser internal', () => {
+      expect(() => parseGpx('<')).toThrow('Not a valid GPX file');
+    });
+
+    it('computes min/max elevation of a 150,000-point track without a stack overflow (#575)', () => {
+      const points = Array.from({ length: 150_000 }, (_, i) => [
+        48 + i * 1e-6,
+        11,
+        500 + (i % 100),
+      ]);
+      const result = parseGpx(makeGpxWithExtras(points));
+      expect(result.minElevation).toBe(500);
+      expect(result.maxElevation).toBe(599);
+    }, 30_000); // a 150,000-point document takes seconds to build and parse
+  });
+
   describe('duration and speed stats', () => {
     it('returns elapsed duration spanning the first to last timestamp', () => {
       const result = parseGpx(
@@ -358,6 +376,21 @@ describe('parseGpx', () => {
       expect(result.durationSeconds).toBeNull();
       expect(result.movingSeconds).toBeNull();
       expect(result.avgSpeed).toBeNull();
+    });
+
+    it('skips a segment whose timestamp does not advance (no infinite speed)', () => {
+      // A repeated timestamp at a new position would be 0 s for 133 km: the
+      // segment is dropped instead of counting as an infinitely fast move.
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, undefined, '2026-01-01T10:00:00Z'],
+          [49, 12, undefined, '2026-01-01T10:00:00Z'],
+          [49, 12.001, undefined, '2026-01-01T10:00:10Z'],
+        ]),
+      );
+      expect(result.durationSeconds).toBe(10);
+      expect(result.movingSeconds).toBe(10);
+      expect(Number.isFinite(result.avgSpeed)).toBe(true);
     });
 
     it('returns null average speed when every segment is a stop', () => {

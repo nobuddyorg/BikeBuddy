@@ -34,12 +34,48 @@ repos:
         # code-block anchors, so they trip it too.
         exclude: ^(frontend/src/(vendor|locales)/|docs/superpowers/(plans|specs)/)
 
-  # zizmor: detects security vulnerabilities in GitHub Actions workflows
+  # gitleaks: secrets, with Azure rules and the emulator-key allowlist in .gitleaks.toml.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      # Staged changes, on commit (gitleaks' own `dir` mode ignores .gitignore,
+      # so it would flag a real functions/local.settings.json).
+      - id: gitleaks
+      # Every commit reachable from HEAD: the staged hook sees nothing in CI, but
+      # CI's depth-1 checkout makes this the full tree of the tested commit.
+      - id: gitleaks
+        alias: gitleaks-history
+        name: Detect hardcoded secrets (git history)
+        entry: gitleaks git --redact --verbose
+
+  # zizmor: detects security vulnerabilities in GitHub Actions workflows. No
+  # --fix: a fix made in CI is discarded, so the hook reports and the developer
+  # applies it (`zizmor --fix .github`).
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: v1.30.1
     hooks:
       - id: zizmor
-        args: ["--fix"]
+
+  # zizmor covers security; actionlint covers syntax, expression types, job
+  # references, composite-action inputs and ShellCheck on run: blocks.
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+        # Every workflow at once, so an edited composite action re-checks the workflows that call it.
+        files: ^\.github/(workflows|actions)/
+        pass_filenames: false
+
+  # lockfile-lint: every lockfile resolves from the npm registry over https with
+  # integrity hashes. Its own pinned install, so CI's prek job needs no node_modules.
+  - repo: local
+    hooks:
+      - id: lockfile-lint
+        name: lockfile-lint
+        entry: bash -c 'for lockfile in "$@"; do lockfile-lint --path "$lockfile" --type npm --allowed-hosts npm --validate-https --validate-integrity --validate-package-names || exit 1; done' --
+        language: node
+        additional_dependencies: ["lockfile-lint@5.0.1"]
+        files: ^(functions|frontend|e2e)/package-lock\.json$
 
   # ESLint (functions/)
   - repo: local
@@ -49,7 +85,7 @@ repos:
         entry: bash -c 'cd functions && npm run lint'
         language: system
         pass_filenames: false
-        files: ^functions/(src|test)/
+        files: ^functions/(src|test|scripts)/|^functions/(eslint\.config\.js|package\.json)$
         stages: [pre-commit]
 
   # Prettier check (functions/) — auto-fix with: npm run format
@@ -74,13 +110,81 @@ repos:
         files: ^e2e/.*\.ts$
         stages: [pre-commit]
 
+  # ESLint (e2e/) — typescript-eslint type-checked + eslint-plugin-playwright.
+  - repo: local
+    hooks:
+      - id: eslint-e2e
+        name: ESLint (e2e)
+        entry: bash -c 'cd e2e && npm run lint'
+        language: system
+        pass_filenames: false
+        files: ^e2e/(.*\.ts|eslint\.config\.js|tsconfig\.json|package\.json)$
+        stages: [pre-commit]
+
+  # Type checks: tsc --noEmit for e2e/, and the `// @ts-check` files of
+  # functions/ and frontend/.
+  - repo: local
+    hooks:
+      - id: tsc
+        name: TypeScript (functions + frontend @ts-check)
+        entry: bash -c 'cd functions && npm run typecheck && cd ../frontend && npm run typecheck'
+        language: system
+        pass_filenames: false
+        files: ^(functions|frontend)/(src/.*\.js|scripts/.*\.js|tsconfig\.json)$
+        exclude: ^frontend/src/vendor/
+        stages: [pre-commit]
+      - id: tsc-e2e
+        name: TypeScript (e2e)
+        entry: bash -c 'cd e2e && npm run typecheck'
+        language: system
+        pass_filenames: false
+        files: ^e2e/(.*\.ts|tsconfig\.json)$
+        stages: [pre-commit]
+
+  # dependency-cruiser: layer boundaries and cycles over the whole graph (a
+  # few seconds), so it runs whole. Rules: .dependency-cruiser.cjs.
+  - repo: local
+    hooks:
+      - id: depcruise
+        name: dependency-cruiser
+        entry: bash -c 'cd functions && npm run --silent depcruise'
+        language: system
+        pass_filenames: false
+        files: ^((functions|frontend)/(src|scripts|test)/.*\.(js|mjs)|e2e/.*\.(ts|mjs)|\.dependency-cruiser(-known-violations)?\.(cjs|json))$
+        exclude: ^frontend/src/vendor/
+        stages: [pre-commit]
+
+  # Knip: unused files, exports and dependencies in all three packages. Scoped
+  # to what can change that graph: sources, package.json, Knip's own config.
+  - repo: local
+    hooks:
+      - id: knip
+        name: Knip (dead code and unused dependencies)
+        entry: bash -c 'cd functions && npm run --silent knip'
+        language: system
+        pass_filenames: false
+        files: ^((functions|frontend)/(src|scripts|test)/.*\.(js|mjs)|e2e/.*\.(ts|mjs)|(functions|frontend|e2e)/(package\.json|knip\.jsonc))$
+        exclude: ^frontend/src/vendor/
+        stages: [pre-commit]
+
+  # Prettier check (load/, the k6 scripts) — reuses functions' prettier.
+  - repo: local
+    hooks:
+      - id: prettier-load
+        name: Prettier (load)
+        entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../load/**/*.{js,mjs}'"
+        language: system
+        pass_filenames: false
+        files: ^load/.*\.(js|mjs)$
+        stages: [pre-commit]
+
   # ESLint (frontend/) — browser + ESM; reuses functions' eslint install. Runs
   # from the repo root so the files are inside ESLint's base path.
   - repo: local
     hooks:
       - id: eslint-frontend
         name: ESLint (frontend)
-        entry: functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js frontend/src frontend/test
+        entry: functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js --max-warnings 0 frontend/src frontend/test
         language: system
         pass_filenames: false
         files: ^frontend/(src|test)/.*\.js$
@@ -149,19 +253,26 @@ repos:
         files: ^infrastructure/.*\.tf$
         stages: [pre-commit]
 
-  # OpenGrep SAST — install auto-bootstrapped on first run (local and CI).
+  # TFLint (azurerm ruleset) + Trivy config scan of infrastructure/, pinned and
+  # checksum-verified by the script. CI runs it in its own iac job (SARIF upload).
   - repo: local
     hooks:
-      - id: opengrep-check
+      - id: iac
+        name: TFLint + Trivy (infrastructure)
+        entry: scripts/quality/iac.sh
+        language: system
+        pass_filenames: false
+        files: ^(infrastructure/.*\.tf|\.tflint\.hcl|\.trivyignore\.yaml|scripts/quality/iac\.sh)$
+        stages: [pre-commit]
+
+  # OpenGrep SAST, the same pinned version and rule packs as gate.yml's opengrep
+  # job (which is the CI gate, so CI's prek job skips this hook). No --autofix:
+  # findings are fixed by hand. Exclusions: .semgrepignore.
+  - repo: local
+    hooks:
+      - id: opengrep
         name: OpenGrep
-        entry: >-
-          bash -lc '
-          if ! command -v opengrep &>/dev/null &&
-             [ ! -f "$HOME/.opengrep/cli/latest/opengrep" ]; then
-            curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh \
-              -o /tmp/opengrep-install.sh && bash /tmp/opengrep-install.sh; fi &&
-          ${HOME}/.opengrep/cli/latest/opengrep \
-            --config p/security-audit --error --autofix'
+        entry: scripts/quality/opengrep.sh
         language: system
         pass_filenames: false
         stages: [pre-commit]

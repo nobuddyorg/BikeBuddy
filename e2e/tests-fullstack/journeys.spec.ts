@@ -29,6 +29,7 @@ buddyTest.describe('user journeys', () => {
 
     await on(page).main.do.openEdit();
     await expect(on(page).modal.edit()).toBeVisible();
+    await on(page).a11y.check('edit tour modal');
     await on(page).modal.edit.do.setName('Renamed Tour');
     await on(page).modal.edit.do.setDescription('Now with a description');
     await on(page).modal.edit.do.submit();

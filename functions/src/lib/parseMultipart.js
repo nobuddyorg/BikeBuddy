@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const Busboy = require('busboy');
@@ -6,7 +7,7 @@ const { Readable } = require('stream');
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 function badRequest(message) {
-  const err = new Error(message);
+  const err = /** @type {Error & { status?: number }} */ (new Error(message));
   err.status = 400;
   return err;
 }

@@ -25,6 +25,7 @@ buddyTest.describe('account data (GDPR)', () => {
 
     await on(page).main.do.openProfile();
     await expect(on(page).modal.profile()).toBeVisible();
+    await on(page).a11y.check('profile modal with data');
 
     // Export → a JSON file download.
     const downloadPromise = page.waitForEvent('download');

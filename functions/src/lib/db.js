@@ -1,10 +1,23 @@
+// @ts-check
 'use strict';
 
 const { CosmosClient } = require('@azure/cosmos');
+const { enabled: profilingEnabled, cosmosPlugin } = require('./profiling');
 
 let cosmosClient;
 function getClient() {
-  if (!cosmosClient) cosmosClient = new CosmosClient(process.env.COSMOS_CONNECTION_STRING);
+  if (!cosmosClient) {
+    // `plugins` is a supported but untyped CosmosClientOptions field; it is only
+    // set for a load-test run (LOAD_PROFILING=true), never in production.
+    cosmosClient = new CosmosClient(
+      /** @type {import('@azure/cosmos').CosmosClientOptions} */ ({
+        connectionString: process.env.COSMOS_CONNECTION_STRING ?? '',
+        ...(profilingEnabled() && {
+          plugins: [{ on: 'request', plugin: cosmosPlugin() }],
+        }),
+      }),
+    );
+  }
   return cosmosClient;
 }
 
@@ -15,7 +28,7 @@ async function readItem(container, id, partitionKey) {
     const { resource } = await container.item(id, partitionKey).read();
     return resource;
   } catch (err) {
-    if (err.code !== 404) throw err;
+    if (/** @type {{ code?: number }} */ (err).code !== 404) throw err;
     return undefined;
   }
 }

@@ -1,0 +1,43 @@
+# The read-only surface of the Functions API, for the passive API pass of
+# gate.yml's zap job. Only GET operations: ZAP's import requests every listed
+# operation, and the writes (upload, PATCH, DELETE incl. /api/account) are not
+# for a passive scan. Keep in step with functions/src/*/index.js (#574).
+openapi: 3.0.3
+info:
+  title: BikeBuddy API (read-only surface)
+  version: "1"
+servers:
+  - url: http://127.0.0.1:7071/api
+paths:
+  /health:
+    get:
+      responses:
+        "200": { description: Liveness }
+  /me:
+    get:
+      responses:
+        "200": { description: The signed-in user (provisioned on first call) }
+  /me/export:
+    get:
+      responses:
+        "200": { description: All of the user's data as JSON }
+  /tours:
+    get:
+      responses:
+        "200": { description: The user's tours (list DTOs) }
+  /map:
+    get:
+      responses:
+        "200": { description: Map polylines for every tour }
+  /tours/{tourId}:
+    get:
+      parameters:
+        - name: tourId
+          in: path
+          required: true
+          schema: { type: string }
+          # A well-formed id that does not exist: exercises the not-found path.
+          example: 00000000-0000-4000-8000-000000000000
+      responses:
+        "200": { description: One tour with its track and images }
+        "404": { description: Not the caller's tour }

@@ -1,5 +1,16 @@
 import { defineConfig } from 'vitest/config';
 
+import { FUNCTIONS_TARGETS, perFileThresholds } from '../mutation-targets.mjs';
+
+// Declared before the per-file floors: the CI coverage summary action reads the
+// first `statements: N` in this file as the global threshold.
+const GLOBAL_COVERAGE_THRESHOLDS = {
+  statements: 99,
+  branches: 99,
+  functions: 99,
+  lines: 99,
+};
+
 export default defineConfig({
   test: {
     globals: true,
@@ -8,10 +19,11 @@ export default defineConfig({
     // Unit tests live next to the modules; integration tests (test/integration)
     // need a running func host and run via vitest.integration.config.js.
     include: ['src/**/*.test.js'],
+    setupFiles: ['test/fast-check.setup.js'],
     coverage: {
       provider: 'v8',
-      // cobertura → CodeCoverageSummary (PR comment); lcov → Codecov; text → CI log
-      reporter: ['text', 'cobertura', 'lcov'],
+      // lcov → Codecov; json-summary → CI job summary; text → CI log
+      reporter: ['text', 'lcov', 'json-summary'],
       include: ['src/**/*.js'],
       exclude: [
         'src/**/*.test.js',
@@ -19,6 +31,13 @@ export default defineConfig({
         'src/lib/db.js',
         'src/lib/blobStorage.js',
       ],
+      thresholds: {
+        ...GLOBAL_COVERAGE_THRESHOLDS,
+        // Never write the local measurement back into this file.
+        autoUpdate: false,
+        // Built from the list Stryker mutates, so the two cannot drift.
+        ...perFileThresholds(FUNCTIONS_TARGETS),
+      },
     },
   },
 });

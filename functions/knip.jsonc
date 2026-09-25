@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Only what Knip's static analysis cannot follow, each with its reason.
+  "entry": [
+    // Named only as a string in stryker.config.mjs (vitest.configFile).
+    "vitest.mutation.config.js",
+    // Registered with the Functions host via app.http(); the host loads them, nothing imports them.
+    "src/*/index.js",
+    // Operator scripts run as `node scripts/<name>.js` (buddy.sh, workflows, docs); the summary runs via npm.
+    "scripts/*.{js,mjs}",
+    // The frontend's ESLint config, named only as a string in .pre-commit-config.yaml and the docs.
+    "eslint.frontend.config.js",
+  ],
+  "ignoreBinaries": [
+    // Azure Functions Core Tools: a global CLI (start-local-stack action / buddy.sh setup), not an npm dependency.
+    "func",
+  ],
+}
