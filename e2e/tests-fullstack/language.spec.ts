@@ -1,9 +1,6 @@
 import { expect, fullstackTest } from './fullstack-test';
 import { devUserProfiles } from './store';
 
-// Language selection lives in profile settings and persists to the user doc,
-// unlike the old navbar-only, localStorage-only picker.
-
 fullstackTest.describe('language preference', () => {
   fullstackTest(
     'switching language in settings persists it and translates the UI',
@@ -32,13 +29,11 @@ fullstackTest.describe('language preference', () => {
       await on(page).modal.profile.do.switchLanguage({ search: 'deu', code: 'de' });
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
 
-      // Simulate a different browser/device: no local override, but the
-      // account still has the saved language.
+      // A second device: no local choice, only the account's.
       await on(page).main.do.forgetLocalSettings();
       await page.reload();
 
-      // Momentarily falls back to browser detection, then devSignIn()'s
-      // /api/me re-fetch sees the saved language and re-applies it.
+      // Browser detection first, then GET /api/me's saved language.
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
     },
   );

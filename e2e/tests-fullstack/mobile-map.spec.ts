@@ -1,11 +1,5 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// The mobile redesign moves the map off the list home screen: a FAB opens it
-// full-screen (all tours, or just the checked ones in select mode), and the
-// detail panel gets a small live preview of just that tour, reparenting the
-// single shared Leaflet instance (ui/map.js's moveMapIntoDetailPanel /
-// restoreMapToAppLayout) rather than a second map.
-
 fullstackTest.describe('mobile map access', () => {
   fullstackTest.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
@@ -21,9 +15,7 @@ fullstackTest.describe('mobile map access', () => {
     await expect(on(page).main.locators.sidebar).toBeVisible();
     await expect(on(page).map()).toBeHidden();
     await expect(on(page).main.locators.buttons.mobileMapFab).toBeVisible();
-    // The map is never focused on a single tour in the background on mobile
-    // (see closeDetailPanel's mobile branch), so there's nothing for this
-    // button to reset — the FAB is the only way to the map.
+    // A phone never keeps the map on one tour behind the list, so there is nothing to reset.
     await expect(on(page).list.locators.buttons.showAll).toBeHidden();
   });
 

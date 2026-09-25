@@ -1,9 +1,5 @@
 import { expect, mockTour, staticTest } from '../fixtures/api-mocks';
 
-// #443: the app never touched the URL or history, so a tour couldn't be
-// linked/bookmarked, a reload dropped sort/search/"in view", and the mobile
-// Back gesture left the app instead of closing whatever panel was open.
-
 const ALPINE_LOOP_ID = '11111111-1111-4111-8111-111111111111';
 
 staticTest.use({

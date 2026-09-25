@@ -1,8 +1,5 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// #289: swipe a tour row (touch only) to delete that single tour directly,
-// with the same confirm-modal safety net as every other delete path.
-
 fullstackTest.describe('swipe to delete a tour', () => {
   fullstackTest.use({ hasTouch: true });
 
@@ -44,13 +41,11 @@ fullstackTest.describe('swipe to delete a tour', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      // 30px is well under bindTourSwipe's 72px threshold — no dialog
-      // should even appear, so nothing to accept/dismiss here.
+      // Under ui/tourGestures.js's 72 px threshold.
       await on(page).list.row('Swipe Tour A').do.swipe(30);
 
       await expect(on(page).list.locators.names).toHaveCount(2);
-      // The row must still open normally afterwards — snapping back shouldn't
-      // leave it in a stuck or half-transformed state.
+      // Not left stuck or half-transformed.
       await on(page).list.row('Swipe Tour A').do.click();
       await expect(on(page).detail.locators.name).toHaveText('Swipe Tour A');
     },

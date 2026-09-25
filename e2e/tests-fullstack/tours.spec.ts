@@ -3,9 +3,6 @@ import { expect, fullstackTest } from './fullstack-test';
 import { PHOTOS } from './seed';
 import { DEV_USER_ID, devUserBlobNames, devUserTours } from './store';
 
-// The core lifecycle against the real backend (Functions + Cosmos emulator + Azurite)
-// behind the SWA proxy, checked in the store as well as in the UI.
-
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>CI E2E Tour</name><time>2026-06-01T10:00:00Z</time></metadata>
@@ -45,8 +42,6 @@ fullstackTest('tour lifecycle: upload → list → detail → photo → delete',
   await expect.poll(devUserBlobNames, AFTER_UNDO_WINDOW).toEqual([]);
 });
 
-// #338: re-download the originally uploaded file, via the signed blob URL from
-// GET /api/tours/{id}.
 fullstackTest('download GPX from the detail panel', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();
@@ -58,8 +53,7 @@ fullstackTest('download GPX from the detail panel', async ({ on, page }) => {
   const downloadPromise = page.waitForEvent('download');
   await on(page).detail.do.downloadGpx();
   const download = await downloadPromise;
-  // The filename comes from the signed URL's Content-Disposition, which GetTour
-  // sanitizes the same way (spaces → "_").
+  // Named by the signed URL's Content-Disposition (GetTour's gpxDownloadDisposition).
   expect(download.suggestedFilename()).toBe(`${tourName.replace(/[^a-z0-9-_]+/gi, '_')}.gpx`);
 });
 
@@ -71,8 +65,7 @@ fullstackTest('multi-image upload: per-file success and error handling', async (
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
   await expect(on(page).detail.locators.name).toHaveText(tourName);
 
-  // setInputFiles needs a uniform array shape, so the valid photos are passed
-  // as payloads too.
+  // setInputFiles takes no mixed array, so the valid photos are payloads too.
   await on(page).detail.do.addPhotos([
     { name: 'photo1.jpg', mimeType: 'image/jpeg', buffer: readFileSync(PHOTOS.untagged) },
     { name: 'photo2.jpg', mimeType: 'image/jpeg', buffer: readFileSync(PHOTOS.untagged) },

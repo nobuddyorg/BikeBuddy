@@ -1,8 +1,6 @@
 import { expect, fullstackTest } from './fullstack-test';
 import { PHOTOS, type Seeder } from './seed';
 
-// Photo pins, from photos whose EXIF carries a GPS position.
-
 fullstackTest.describe('photo pins', () => {
   fullstackTest.beforeEach(async ({ seed }) => {
     const tourId = await seed.tour({
@@ -33,8 +31,7 @@ fullstackTest.describe('photo pins', () => {
       await on(page).map.do.showPins();
       await expect(on(page).map.locators.pins.markers).toHaveCount(2);
 
-      // Past the region-level cutoff pins hide entirely, rather than
-      // clutter a country-level view with photos from unrelated places.
+      // Below the region-level cutoff pins hide rather than crowd unrelated places together.
       await on(page).map.do.zoomOut(15);
       await expect(on(page).map.locators.pins.markers).toHaveCount(0);
 
@@ -48,8 +45,6 @@ fullstackTest.describe('photo pins', () => {
   );
 });
 
-// #274: a tour's markers must never leak in photos from other tours, and the
-// toggle must follow the current scope rather than the whole library.
 async function seedToursAAndB(seed: Seeder) {
   const tourA = await seed.tour({
     name: 'Tour A',
@@ -98,15 +93,11 @@ fullstackTest.describe('photo pins scoped to selected tour', () => {
       await expect(on(page).detail.locators.name).toHaveText('Tour B');
       await expect(on(page).map.locators.pins.markers).toHaveCount(1);
 
-      // Tour C has no geotagged photos at all, so the toggle hides rather than
-      // showing zero markers.
       await on(page).list.row('Tour C (no photos)').do.click();
       await expect(on(page).detail.locators.name).toHaveText('Tour C (no photos)');
       await expect(on(page).map.locators.pins.toggle).toBeHidden();
 
-      // Closing the panel drops the selection and widens pins straight back
-      // to every tour's — there's nothing left for "Show All Tours" to widen
-      // from after a close.
+      // Closing drops the selection, so pins widen straight back to every tour's.
       await on(page).list.row('Tour A').do.click();
       await on(page).detail.do.close();
       await expect(on(page).map.locators.pins.toggle).toBeVisible();
@@ -115,9 +106,7 @@ fullstackTest.describe('photo pins scoped to selected tour', () => {
   );
 });
 
-// #331: a tap must focus the map, not just highlight the row (tap now opens
-// the detail panel directly, same as a click — see long-press-select.spec.ts).
-// Pins are the observable proxy — the scoping reads state.selectedTourId.
+// Pins are the observable proxy for which tour a tap selected.
 fullstackTest.describe('a tap scopes pins to just that tour', () => {
   fullstackTest.use({ hasTouch: true });
 

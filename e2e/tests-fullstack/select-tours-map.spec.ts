@@ -1,8 +1,6 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// #298: the map must show exactly the checked set. #map-empty is the simplest
-// proxy for that — one tour has route data and the other doesn't, and toggling
-// between them flips it only when the scoping is right.
+// The empty-map overlay is the proxy for the map showing exactly the checked tours.
 
 fullstackTest.describe('selecting tours drives the map', () => {
   fullstackTest.beforeEach(async ({ seed }) => {
@@ -42,15 +40,13 @@ fullstackTest.describe('selecting tours drives the map', () => {
     await expect(on(page).list.locators.selection.count).toHaveText('1 selected');
     await expect(on(page).map.locators.empty).toBeVisible();
 
-    // Nothing checked, still in select mode: the map falls back to all tours
-    // rather than staying empty.
+    // Nothing checked in select mode: the map falls back to all tours.
     await on(page).list.row('MapSelect Tour No Data').do.click();
     await expect(on(page).list.locators.selection.count).toHaveText('0 selected');
     await expect(on(page).list.locators.selection.bar).toBeVisible();
     await expect(on(page).map.locators.empty).toBeHidden();
 
-    // Re-checked, so the cancel below tests the exit path rather than the
-    // empty-selection fallback again.
+    // Re-checked, so the cancel below tests the exit path, not the fallback again.
     await on(page).list.row('MapSelect Tour No Data').do.click();
     await expect(on(page).map.locators.empty).toBeVisible();
 

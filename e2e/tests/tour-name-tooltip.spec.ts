@@ -1,7 +1,6 @@
 import { expect, mockTour, staticTest } from '../fixtures/api-mocks';
 
-// #445: a long tour name is ellipsis-truncated in the sidebar; its title
-// carries the raw name (not the search-highlight markup), so hovering reveals it.
+// A long name is ellipsis-truncated in the sidebar; hovering reveals it through the title.
 
 const LONG_NAME = 'Tegernsee round trip via Bad Wiessee and back over the hill and down again';
 

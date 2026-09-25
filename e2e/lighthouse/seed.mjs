@@ -1,6 +1,4 @@
-// Seeds the local Functions host (SKIP_AUTH, so every request is the local dev
-// user) with tours for the signed-in Lighthouse run: deterministic tracks of a
-// realistic size, so the map and list render what a real account shows.
+// Seeds the local Functions host (SKIP_AUTH) with deterministic tracks of a realistic size.
 const API = process.env.LIGHTHOUSE_API_URL ?? 'http://127.0.0.1:7071';
 // Writes as whoever the API takes the caller for: only a host on this machine qualifies.
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);

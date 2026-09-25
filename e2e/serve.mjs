@@ -1,7 +1,4 @@
-// Minimal static file server for ../frontend/src (no dependencies). config.js
-// is served from memory in devMode, so a developer's own config.js never
-// decides what the static suite tests. /api/* is mocked per page by
-// fixtures/api-mocks.ts; unmocked, it answers 404.
+// Static server for ../frontend/src; config.js comes from memory, so a local one never applies.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';

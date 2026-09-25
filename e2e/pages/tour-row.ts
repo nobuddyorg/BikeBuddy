@@ -39,9 +39,7 @@ export interface TourRow {
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// Raw CDP touch events, not Playwright's mouse API: the row's gestures branch on the pointer
-// type, and Chromium suppresses the compatibility click of a mouse press that removes its
-// target, so a mouse simulation passes even against a broken ghost-click guard.
+// Raw CDP touch, not the mouse: gestures branch on pointer type, and a mouse hides ghost clicks.
 async function touchGesture(
   page: Page,
   perform: (
@@ -84,7 +82,7 @@ export function initTourRow(page: Page, { list, name }: { list: Locator; name: s
         const at = { x: start.x + (dx * step) / SWIPE_STEPS, y: start.y };
         await send({ type: 'touchMove', at, atMs: step * SWIPE_STEP_MS });
       }
-      // Released after the finger stopped: no velocity, so no fling whose cancelling tap loses its click.
+      // Released after the finger stopped: no fling, whose cancelling tap would lose its click.
       await send({ type: 'touchEnd', atMs: SWIPE_STEPS * SWIPE_STEP_MS + RELEASE_AFTER_STOP_MS });
     });
     // The snap-back is a CSS transition; a no-op swipe never moved the row at all.

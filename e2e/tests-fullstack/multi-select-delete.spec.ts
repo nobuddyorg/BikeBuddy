@@ -1,8 +1,5 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// #272: delete several tours at once, from across a page boundary, without
-// disturbing the ones left unselected.
-
 // Eleven tours over a page size of ten: Tour 01 (newest) leads page 1, Tour 11 is alone on page 2.
 const TOUR_COUNT = 11;
 const tourName = (number: number) => `MultiSelect Tour ${String(number).padStart(2, '0')}`;

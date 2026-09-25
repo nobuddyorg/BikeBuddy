@@ -1,6 +1,5 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// Fuzzy search and sort over the tour list, against the real backend's distances.
 // One step each: the matching and ordering rules are unit-tested (frontend/test/tours.test.js).
 
 // A longer longitude span is a longer track: Alpine < Black < Coastal.

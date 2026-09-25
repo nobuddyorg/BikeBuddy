@@ -3,8 +3,7 @@ import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 
-// Seeding goes through the API as the user, so every seeded tour and photo is one the
-// handlers produced: a real id, a stored GPX, and photo blobs behind every image entry.
+// Through the API as the user, so every seeded tour and photo is a shape the handlers produce.
 
 const fixture = (name: string) => fileURLToPath(new URL(`../fixtures/${name}`, import.meta.url));
 

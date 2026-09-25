@@ -2,9 +2,7 @@ import { CosmosClient, type Database, type SqlQuerySpec } from '@azure/cosmos';
 import { BlobServiceClient, type ContainerClient } from '@azure/storage-blob';
 import { assertEmulatorSettings } from '../emulator-guard';
 
-// The emulators behind the full-stack host, opened to read back what the API persisted and
-// to clean up after it; seeding goes through the API (seed.ts). Every read and delete is
-// scoped to the one identity the suite runs as, never a cross-partition query.
+// Only to read back what the API persisted and to clean up; seeding goes through the API.
 
 /** The SKIP_AUTH identity of every full-stack request (functions/src/middleware/authMiddleware.js). */
 export const DEV_USER_ID = 'local-dev-user';

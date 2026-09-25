@@ -1,9 +1,5 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// #308 removed swipe-left-to-open-details in favor of a plain tap opening it
-// directly (see long-press-select.spec.ts) — this only guards that a left
-// swipe is now inert rather than a half-working leftover gesture.
-
 fullstackTest.describe('swiping left on a tour row', () => {
   fullstackTest.use({ hasTouch: true });
 
@@ -19,8 +15,7 @@ fullstackTest.describe('swiping left on a tour row', () => {
 
     await expect(on(page).detail()).toBeHidden();
 
-    // The row must still open normally afterwards — the swipe shouldn't
-    // leave it in a stuck or half-transformed state.
+    // Not left stuck or half-transformed.
     await on(page).list.row('Swipe Tour A').do.tap();
     await expect(on(page).detail.locators.name).toHaveText('Swipe Tour A');
   });

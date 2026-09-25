@@ -1,8 +1,6 @@
 import { expect, staticTest } from '../fixtures/api-mocks';
 
-// #216: site chrome and map tiles follow the OS prefers-color-scheme setting,
-// including live updates if the OS theme changes mid-session. The palette's
-// values and contrast are pinned by frontend/test/contrast.test.js.
+// The palette's values and contrast are pinned by frontend/test/contrast.test.js.
 
 staticTest.describe('system dark/light mode', () => {
   staticTest('light OS preference renders light map tiles', async ({ on, page }) => {

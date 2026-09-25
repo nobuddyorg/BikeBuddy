@@ -1,12 +1,6 @@
 import { expect, fullstackTest } from './fullstack-test';
 import { DEV_USER_ID, devUserProfiles } from './store';
 
-// Registration = the first authenticated visit provisioning a user record (GET
-// /api/me creates the document). Each test starts without the dev user's
-// document, so it proves the record is created, not merely already present.
-// devMode + SKIP_AUTH supply the identity, so this covers the app's own
-// provisioning rather than the Entra OTP UI.
-
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 fullstackTest.describe('user registration', () => {

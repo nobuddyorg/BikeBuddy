@@ -2,9 +2,7 @@ import { buddyTest } from '../pages/buddy-test';
 import { createSeeder, type Seeder } from './seed';
 import { resetDevUser } from './store';
 
-// Every request runs as the one SKIP_AUTH user until per-test identities reach this suite
-// (#584), so tests run one at a time and each starts and ends with that user's documents
-// and blobs gone; the teardown runs even when the test failed.
+// Every request runs as the one SKIP_AUTH user, so each test starts and ends without its data.
 export const fullstackTest = buddyTest.extend<{ seed: Seeder }>({
   page: async ({ page }, use) => {
     await resetDevUser();

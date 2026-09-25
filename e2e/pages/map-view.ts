@@ -42,9 +42,9 @@ export function initMapView(page: Page): MapView {
   };
 
   // Leaflet drops a click mid-animation, so each step waits for data-zoom (set on zoomend).
-  // At its limit Leaflet marks the button aria-disabled, and click() would wait forever.
   const zoom = async ({ button, steps }: { button: Locator; steps: number }) => {
     for (let step = 0; step < steps; step++) {
+      // At its limit Leaflet disables the button, and click() would wait forever.
       if ((await button.getAttribute('aria-disabled')) === 'true') return;
       const zoomBefore = await root.getAttribute('data-zoom');
       await button.click();

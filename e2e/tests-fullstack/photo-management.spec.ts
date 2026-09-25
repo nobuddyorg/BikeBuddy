@@ -1,8 +1,6 @@
 import { expect, fullstackTest } from './fullstack-test';
 import { PHOTOS } from './seed';
 
-// Deleting a single photo, the lightbox, and retrying a failed upload.
-
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>Photo Mgmt Tour</name><time>2026-06-01T10:00:00Z</time></metadata>
@@ -20,8 +18,6 @@ fullstackTest(
 
     const tourName = `Photo Delete ${Date.now()}`;
     await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-    // addImage() targets state.selectedTourId, and uploadGpx only waits for the
-    // tour to reach the list, not to be selected.
     await expect(on(page).detail.locators.name).toHaveText(tourName);
     await on(page).detail.do.addPhotos(PHOTOS.untagged);
     await on(page).detail.do.addPhotos(PHOTOS.untagged);

@@ -1,8 +1,7 @@
 import type { Page, Route } from '@playwright/test';
 import { buddyTest } from '../pages/buddy-test';
 
-// The static suite's backend: every /api/* call the app makes, answered in the shapes the
-// handlers project (functions/src/lib/tourResponse.js, userProfile.js, GetTours, GetMapData).
+// Every /api/* call, answered in the shapes the handlers project (lib/tourResponse.js et al.).
 
 interface MockPhoto {
   id: string;
@@ -91,7 +90,6 @@ async function mockApi(page: Page, tours: MockTour[]) {
   });
 }
 
-// Routes registered later win, so a spec can still override one endpoint with page.route.
 // An object, not a bare array: test.use() would read an array as [value, options].
 export const staticTest = buddyTest.extend<{ mockAccount: { tours: MockTour[] }; mockedApi: void }>(
   {

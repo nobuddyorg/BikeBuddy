@@ -2,8 +2,6 @@ import { readFileSync } from 'node:fs';
 import { expect, fullstackTest } from './fullstack-test';
 import { DEV_USER_ID, devUserBlobNames, devUserProfiles, devUserTours } from './store';
 
-// GDPR account export + deletion against the real backend, checked in the store.
-
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>Account Tour</name></metadata>

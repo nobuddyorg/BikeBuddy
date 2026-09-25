@@ -1,8 +1,5 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// Use-case journeys against the real backend: editing a tour and the
-// profile showing the provisioned account (email + join date).
-
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>Journey Tour</name><time>2026-05-01T10:00:00Z</time></metadata>
@@ -18,7 +15,6 @@ fullstackTest.describe('user journeys', () => {
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await on(page).main.do.uploadGpx({ name: 'Original Name', gpx: GPX });
 
-    // Upload auto-selects the new tour → detail panel open.
     await expect(on(page).detail.locators.name).toHaveText('Original Name');
 
     await on(page).detail.do.openEdit();

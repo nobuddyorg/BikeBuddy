@@ -27,8 +27,7 @@ function readFrontendConfig(): FrontendConfig {
   return sandbox.window.BIKEBUDDY_CONFIG ?? {};
 }
 
-// The SWA CLI serves frontend/src from disk, so a developer's own config.js would decide
-// which backend the suite tests; one that points anywhere else stops the run.
+// The SWA CLI serves config.js from disk: one pointing at another backend stops the run.
 function ensureFullStackConfig() {
   if (!existsSync(CONFIG_PATH)) {
     const source = `'use strict';\nwindow.BIKEBUDDY_CONFIG = ${JSON.stringify(FULLSTACK_CONFIG, null, 2)};\n`;

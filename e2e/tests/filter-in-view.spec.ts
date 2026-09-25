@@ -1,9 +1,6 @@
 import { expect, mockTour, staticTest } from '../fixtures/api-mocks';
 
-// #315: a toggle narrows the tour list to tours whose track is (even partly)
-// on screen. The map fits every loaded tour on load, so a tour with a track is
-// in view right away; a tour with no recorded track is never in view,
-// wherever the map looks. That pair needs no second, later fit.
+// The load-time fit shows every track, and a tour without one is never in view: no panning needed.
 
 staticTest.use({
   mockAccount: {

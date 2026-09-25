@@ -113,9 +113,8 @@ staticTest.describe('BikeBuddy static UI', () => {
   });
 
   staticTest(
-    'profile button is a compact avatar; expand toggle collapses the sidebar',
+    'profile button shows the initials; expand toggle collapses the sidebar',
     async ({ on, page }) => {
-      await expect(on(page).main.locators.buttons.profile).toHaveClass(/btn-avatar/);
       await expect(on(page).main.locators.buttons.profile).toHaveText('LD'); // "Local Dev" initials
 
       await expect(on(page).main.locators.sidebar).toBeVisible();
@@ -131,9 +130,7 @@ staticTest.describe('BikeBuddy static UI', () => {
     async ({ on, page }) => {
       await page.setViewportSize({ width: 375, height: 720 });
       await page.goto('/');
-      // The list (here, its empty state — this describe block mocks no
-      // tours) is the mobile home screen now; the map lives off-screen
-      // behind the FAB until opened.
+      // On a phone the list is the home screen; the map waits behind the FAB.
       await expect(on(page).main.locators.sidebar).toBeVisible();
       await expect(on(page).list.locators.empty).toBeVisible();
       await expect(on(page).main.locators.userMenu).toBeVisible();

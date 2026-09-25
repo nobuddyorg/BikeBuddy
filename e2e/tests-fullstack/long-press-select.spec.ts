@@ -1,17 +1,9 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// #275: long-press enters select mode, mobile's replacement for the Select
-// button. A plain tap opens the detail panel directly, the same as a mouse
-// click (swipe-left-to-open-details was removed).
-//
-// The topmost row is the primary case on purpose. Entering select mode reveals
-// #selection-bar above the list and shifts every row down mid-gesture, so the
-// trailing ghost click's fixed coordinates can land on the bar itself — on
-// Cancel, worst case. Only genuine touch events catch it.
+// The topmost row on purpose: select mode's bar shifts rows down, so a ghost click could hit Cancel.
 
 fullstackTest.describe('long-press to enter select mode', () => {
-  // Chromium's touch-to-pointer translation and ghost-click synthesis are not
-  // worth trusting on a context never marked touch-capable.
+  // Chromium synthesizes touch pointers and ghost clicks reliably only on a touch context.
   fullstackTest.use({ hasTouch: true });
 
   fullstackTest.beforeEach(async ({ seed }) => {
@@ -78,8 +70,6 @@ fullstackTest.describe('long-press to enter select mode', () => {
 
       await on(page).list.row('Long Press Tour A').do.tap();
 
-      // Edit/Delete on the panel must act on the newly tapped tour, not the
-      // one that was open before.
       await expect(on(page).detail.locators.name).toHaveText('Long Press Tour A');
       await expect(on(page).list.row('Long Press Tour A').locators.content).toHaveAttribute(
         'aria-current',

@@ -62,10 +62,7 @@ function createPageTree(page: Page) {
   };
 }
 
-// `on(page)` gives a readable entry point into the page object model, e.g.
-//   await on(page).main.do.uploadGpx({ name, gpx });
-//   await on(page).list.row(name).do.tap();
-//   await expect(on(page).modal.profile()).toBeVisible();
+// `on(page)` is the entry into the page-object tree, e.g. on(page).list.row(name).do.tap().
 interface BuddyFixtures {
   on: typeof createPageTree;
   /** Console errors a test causes on purpose (e.g. a mocked 500), matched against text and URL. */

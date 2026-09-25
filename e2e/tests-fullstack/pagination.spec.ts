@@ -1,7 +1,6 @@
 import { expect, fullstackTest } from './fullstack-test';
 
-// #230: the sidebar list paginates at 10 tours per page. The page arithmetic is
-// unit-tested (frontend/test/tours.test.js); these are one step of each journey.
+// One step each: the page arithmetic is unit-tested (frontend/test/tours.test.js).
 
 // Eleven matching tours plus one other: two pages, and still two after searching.
 const MATCHING_TOURS = 11;
@@ -44,8 +43,7 @@ fullstackTest.describe('tour list pagination', () => {
       await on(page).list.do.nextPage();
       await expect(on(page).list.locators.pager.label).toHaveText('Page 2 of 2');
 
-      // All eleven "Pagination Tour N" still span two pages, so page 2 would stay in range:
-      // this proves the explicit reset on search, not clamping.
+      // Page 2 stays in range for all eleven matches: a reset, not a clamp.
       await on(page).list.do.search('pagination tour');
       await expect(on(page).list.locators.names).toHaveCount(10);
       await expect(on(page).list.locators.pager.label).toHaveText('Page 1 of 2');

@@ -1,10 +1,5 @@
 import { expect, mockPhoto, mockTour, staticTest } from '../fixtures/api-mocks';
 
-// Closing the detail panel drops the selection and widens the map back to
-// every tour's routes and pins, without re-fitting the camera on desktop
-// (closeDetailPanel in ui/tourPanel.js), so closing doesn't yank the view
-// around. Only "Show all tours" re-fits.
-
 staticTest.use({
   mockAccount: {
     tours: [

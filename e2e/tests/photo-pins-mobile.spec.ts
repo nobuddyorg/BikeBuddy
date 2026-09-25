@@ -1,8 +1,6 @@
 import { expect, mockPhoto, mockTour, staticTest } from '../fixtures/api-mocks';
 
-// Regression guard for #239: the "Photo pins" toggle sits on the map and has to
-// stay visible and tappable on the mobile map view, reached via the FAB. The
-// full-stack photo-pins spec only runs at desktop width.
+// The full-stack photo-pins spec runs at desktop width only; the toggle must work on a phone too.
 
 staticTest.use({
   viewport: { width: 390, height: 844 },
@@ -32,8 +30,7 @@ staticTest('toggle is visible and reveals pins on the mobile map view', async ({
 
   await on(page).main.do.openMobileMap();
 
-  // The toggle appears once geotagged images are loaded, and must be tappable
-  // (not covered) on the phone-width map view.
+  // Must be tappable, not covered, on the phone-width map view.
   await expect(on(page).map.locators.pins.toggle).toBeVisible();
   await on(page).map.do.showPins();
   await expect(on(page).map.locators.pins.markers).toHaveCount(2);
