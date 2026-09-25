@@ -57,7 +57,8 @@ export async function loadTours() {
   // pay the same cold-start latency, so starting them together instead of in
   // sequence roughly halves the wait before the map can render.
   const pendingMapResponse = apiFetch('/api/map');
-  pendingMapResponse.catch(() => {}); // avoid an unhandled-rejection warning if renderAllRoutes never consumes it
+  // Marked handled: ensureMapData awaits it only while a tour still lacks map data.
+  pendingMapResponse.catch(() => {});
   await fetchTours();
   renderSidebar();
   await renderAllRoutes({ pendingMapResponse });

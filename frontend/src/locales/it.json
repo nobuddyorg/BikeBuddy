@@ -184,6 +184,9 @@
   "toast.accountDeleted": "I tuoi dati sono stati eliminati. Il tuo accesso verrà rimosso completamente a breve.",
   "toast.accountDeleteError": "Impossibile eliminare il tuo account. Riprova.",
   "toast.tourUploaded": "Giro caricato.",
+  "toast.tourDetailError": "Impossibile caricare i dettagli di questo giro.",
+  "toast.signInError": "Accesso non riuscito. Riprova.",
+  "toast.unexpectedError": "Qualcosa è andato storto. Ricarica la pagina per riprovare.",
 
   "confirm.deleteTourTitle": "Eliminare il giro?",
   "confirm.deleteTourMessage": "Eliminare “{name}”? L'operazione non può essere annullata.",

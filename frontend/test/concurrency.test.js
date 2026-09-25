@@ -59,18 +59,35 @@ describe('runWithConcurrency', () => {
     const seen = [];
     await runWithConcurrency({
       items,
-      limit: 3,
+      limit: 1,
       worker: async (item) => {
         seen.push(item);
         if (item === 2) throw new Error('boom');
       },
     });
-    expect(seen.sort((a, b) => a - b)).toEqual(items);
+    expect(seen).toEqual(items);
+  });
+
+  it('reports every outcome in input order, failures included', async () => {
+    const failure = new Error('boom');
+    const outcomes = await runWithConcurrency({
+      items: ['a', 'b', 'c'],
+      limit: 2,
+      worker: async (item, index) => {
+        if (item === 'b') throw failure;
+        return `${item}${index}`;
+      },
+    });
+    expect(outcomes).toEqual([
+      { item: 'a', status: 'fulfilled', value: 'a0' },
+      { item: 'b', status: 'rejected', reason: failure },
+      { item: 'c', status: 'fulfilled', value: 'c2' },
+    ]);
   });
 
   it('handles an empty list', async () => {
     const worker = vi.fn();
-    await runWithConcurrency({ items: [], limit: 3, worker });
+    expect(await runWithConcurrency({ items: [], limit: 3, worker })).toEqual([]);
     expect(worker).not.toHaveBeenCalled();
   });
 });

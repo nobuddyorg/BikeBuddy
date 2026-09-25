@@ -69,6 +69,12 @@ export function selectFile(file) {
   if (!uploadNameInput.value) uploadNameInput.value = defaultTourName(file.name);
 }
 
+function showUploadFailure(message) {
+  showUploadError(message);
+  hideElement(uploadProgress);
+  submitUploadButton.disabled = false;
+}
+
 export async function submitUpload(event) {
   event.preventDefault();
   const [file] = selectedFiles;
@@ -78,14 +84,15 @@ export async function submitUpload(event) {
     name: uploadNameInput.value,
     description: uploadDescriptionInput.value,
   });
-
   const token = await getAccessToken();
   submitUploadButton.disabled = true;
   hideElement(uploadError);
   showElement(uploadProgress);
   uploadProgressBar.style.width = '0%';
+
+  let created;
   try {
-    const { tourId } = await xhrUpload({
+    created = await xhrUpload({
       url: `${API_BASE}/api/tours/upload?${query}`,
       file,
       token,
@@ -93,13 +100,13 @@ export async function submitUpload(event) {
         uploadProgressBar.style.width = `${percent}%`;
       },
     });
-    closeUpload();
-    await loadTours();
-    selectTour(tourId); // success → jump to the new tour's route
-    toast(t('toast.tourUploaded'), { type: 'success' });
   } catch (error) {
-    showUploadError(i18n.tApi(error.message));
-    hideElement(uploadProgress);
-    submitUploadButton.disabled = false;
+    showUploadFailure(i18n.tApi(error.message));
+    return;
   }
+  // Past this point the tour exists: nothing below may offer the upload again.
+  closeUpload();
+  toast(t('toast.tourUploaded'), { type: 'success' });
+  await loadTours();
+  await selectTour(created.tourId);
 }

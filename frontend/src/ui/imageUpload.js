@@ -11,6 +11,7 @@ import { createImageTile, renderErrorTile, renderRetryableErrorTile } from './ga
 const t = i18n.t;
 
 const UPLOAD_CONCURRENCY = 3;
+const UNREADABLE_RESPONSE = 'errors.uploadUnreadable';
 
 // One in-flight upload: pending (progress ring) → error (retry/dismiss) or done
 // (swapped for the markup createImageTile produces).
@@ -59,7 +60,9 @@ async function uploadOne({ job, tour, token }) {
     job.tile.setDone(image);
     renderPins(); // a newly uploaded geotagged photo may add a marker
   } catch (error) {
-    job.tile.setRetryableError(i18n.tApi(error.message));
+    // The photo was stored; a retry would upload it a second time.
+    if (error.message === UNREADABLE_RESPONSE) job.tile.setError(t(UNREADABLE_RESPONSE));
+    else job.tile.setRetryableError(i18n.tApi(error.message));
   }
 }
 

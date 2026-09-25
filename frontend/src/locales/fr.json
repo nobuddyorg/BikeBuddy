@@ -184,6 +184,9 @@
   "toast.accountDeleted": "Tes données ont été supprimées. Ta connexion sera entièrement supprimée sous peu.",
   "toast.accountDeleteError": "Impossible de supprimer ton compte. Réessaie.",
   "toast.tourUploaded": "Sortie importée.",
+  "toast.tourDetailError": "Impossible de charger les détails de cette sortie.",
+  "toast.signInError": "La connexion a échoué. Réessaie.",
+  "toast.unexpectedError": "Une erreur s'est produite. Recharge la page pour réessayer.",
 
   "confirm.deleteTourTitle": "Supprimer la sortie ?",
   "confirm.deleteTourMessage": "Supprimer « {name} » ? Cette action est irréversible.",

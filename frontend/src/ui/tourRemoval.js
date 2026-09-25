@@ -19,30 +19,26 @@ function showTours() {
   return renderAllRoutes();
 }
 
+async function deleteTourOnServer(tour) {
+  const response = await apiFetch(`/api/tours/${tour.id}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error(`DELETE /api/tours/${tour.id} answered ${response.status}`);
+}
+
 async function deleteOnServer(tours) {
-  const ids = tours.map((tour) => tour.id);
-  const succeeded = [];
-  const failed = [];
-  await runWithConcurrency({
-    items: ids,
+  const outcomes = await runWithConcurrency({
+    items: tours,
     limit: DELETE_CONCURRENCY,
-    worker: async (id) => {
-      try {
-        const response = await apiFetch(`/api/tours/${id}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('delete failed');
-        succeeded.push(id);
-      } catch {
-        failed.push(id);
-      }
-    },
+    worker: deleteTourOnServer,
   });
-  if (failed.length === 0) return;
+  const failures = outcomes.filter((outcome) => outcome.status === 'rejected');
+  if (failures.length === 0) return;
+  failures.forEach((failure) => console.error(failure.reason));
   // A failed background delete must not leave the tour missing from the UI.
-  state.tours.push(...tours.filter((tour) => failed.includes(tour.id)));
+  state.tours.push(...failures.map((failure) => failure.item));
   await showTours();
   const message = deletionFailureMessage({
-    succeededCount: succeeded.length,
-    totalCount: ids.length,
+    succeededCount: tours.length - failures.length,
+    totalCount: tours.length,
   });
   toast(t(message.key, message.params), { type: 'error' });
 }

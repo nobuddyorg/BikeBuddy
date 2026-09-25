@@ -184,6 +184,9 @@
   "toast.accountDeleted": "Your data has been deleted. Your login will be fully removed shortly.",
   "toast.accountDeleteError": "Could not delete your account. Please try again.",
   "toast.tourUploaded": "Tour uploaded.",
+  "toast.tourDetailError": "Couldn't load this tour's details.",
+  "toast.signInError": "Sign-in failed. Please try again.",
+  "toast.unexpectedError": "Something went wrong. Reload the page to try again.",
 
   "confirm.deleteTourTitle": "Delete tour?",
   "confirm.deleteTourMessage": "Delete “{name}”? This cannot be undone.",

@@ -98,10 +98,9 @@ self.addEventListener('install', (event) => {
       .then((cache) =>
         Promise.all(
           PRECACHE_URLS.map((url) =>
-            // config.js is generated per-deployment and gitignored — a dev
-            // checkout without one (or any other single missing asset) must
-            // not sink the whole precache.
-            cache.add(url).catch(() => {}),
+            // config.js is generated per deployment and gitignored, so a dev
+            // checkout may lack it; every other asset must be there.
+            url === 'config.js' ? cache.add(url).catch(() => {}) : cache.add(url),
           ),
         ),
       )

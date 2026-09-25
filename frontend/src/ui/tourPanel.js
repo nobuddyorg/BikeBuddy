@@ -9,7 +9,7 @@ import {
 import { buildTourPatch, toDateInputValue } from '../lib/tours.js';
 import { parseErrorMessage } from '../lib/upload.js';
 import { state } from './state.js';
-import { apiFetch } from './api.js';
+import { apiRequest } from './api.js';
 import { toast } from './toast.js';
 import { redrawAllRoutesInPlace, renderRoutes, SINGLE_TOUR_PADDING_PX } from './routes.js';
 import { renderPins } from './pins.js';
@@ -51,8 +51,9 @@ const selectedTour = () => state.tours.find((tour) => tour.id === state.selected
 // The map half of selecting a tour. Resolves to whether the tour is still the
 // selected one once its detail has loaded.
 async function focusTourOnMap(tour) {
-  await ensureDetail(tour);
+  const loaded = await ensureDetail(tour);
   if (state.selectedTourId !== tour.id) return false;
+  if (!loaded) toast(t('toast.tourDetailError'), { type: 'error' });
   hideElement(mapEmptyOverlay);
   renderRoutes([tour.heatmapData || []], SINGLE_TOUR_PADDING_PX);
   renderPins();
@@ -122,35 +123,35 @@ export async function submitEdit(event) {
   if (!tour) return;
 
   hideElement(editError);
-  try {
-    const response = await apiFetch(`/api/tours/${tour.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(
-        buildTourPatch({
-          name: editNameInput.value,
-          description: editDescriptionInput.value,
-          date: editDateInput.value,
-          createdAt: tour.createdAt,
-        }),
-      ),
-    });
-    if (!response.ok) {
-      showEditError(i18n.tApi(parseErrorMessage(await response.text(), t('errors.saveChanges'))));
-      return;
-    }
-    const updated = await response.json();
-    Object.assign(tour, {
-      name: updated.name,
-      description: updated.description,
-      createdAt: updated.createdAt,
-    });
-    closeEdit();
-    announce(TOURS_CHANGED);
-    renderDetailPanel(tour);
-  } catch {
+  const { response, networkError } = await apiRequest(`/api/tours/${tour.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(
+      buildTourPatch({
+        name: editNameInput.value,
+        description: editDescriptionInput.value,
+        date: editDateInput.value,
+        createdAt: tour.createdAt,
+      }),
+    ),
+  });
+  if (networkError) {
     showEditError(t('errors.network'));
+    return;
   }
+  if (!response.ok) {
+    showEditError(i18n.tApi(parseErrorMessage(await response.text(), t('errors.saveChanges'))));
+    return;
+  }
+  const updated = await response.json();
+  Object.assign(tour, {
+    name: updated.name,
+    description: updated.description,
+    createdAt: updated.createdAt,
+  });
+  closeEdit();
+  announce(TOURS_CHANGED);
+  renderDetailPanel(tour);
 }
 
 // Split from renderDetailPanel so selectTour can refresh just the meta once
@@ -185,8 +186,8 @@ function renderDetailPanel(tour) {
 export async function downloadSelectedGpx() {
   const tour = selectedTour();
   if (!tour) return;
-  await ensureDetail(tour);
-  if (!tour.gpxFileUrl) {
+  const loaded = await ensureDetail(tour);
+  if (!loaded || !tour.gpxFileUrl) {
     toast(t('toast.gpxDownloadError'), { type: 'error' });
     return;
   }

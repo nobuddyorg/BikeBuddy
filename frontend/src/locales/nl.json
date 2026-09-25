@@ -184,6 +184,9 @@
   "toast.accountDeleted": "Je gegevens zijn verwijderd. Je inlog wordt binnenkort volledig verwijderd.",
   "toast.accountDeleteError": "Je account kon niet worden verwijderd. Probeer het opnieuw.",
   "toast.tourUploaded": "Rit geüpload.",
+  "toast.tourDetailError": "De details van deze rit konden niet worden geladen.",
+  "toast.signInError": "Aanmelden mislukt. Probeer het opnieuw.",
+  "toast.unexpectedError": "Er is iets misgegaan. Laad de pagina opnieuw om het nog eens te proberen.",
 
   "confirm.deleteTourTitle": "Rit verwijderen?",
   "confirm.deleteTourMessage": "“{name}” verwijderen? Dit kan niet ongedaan worden gemaakt.",

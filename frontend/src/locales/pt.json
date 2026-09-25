@@ -184,6 +184,9 @@
   "toast.accountDeleted": "Os teus dados foram eliminados. O teu acesso será totalmente removido em breve.",
   "toast.accountDeleteError": "Não foi possível eliminar a tua conta. Tenta novamente.",
   "toast.tourUploaded": "Percurso carregado.",
+  "toast.tourDetailError": "Não foi possível carregar os detalhes deste percurso.",
+  "toast.signInError": "Falha ao iniciar sessão. Tenta novamente.",
+  "toast.unexpectedError": "Algo correu mal. Recarrega a página para tentar novamente.",
 
   "confirm.deleteTourTitle": "Eliminar percurso?",
   "confirm.deleteTourMessage": "Eliminar “{name}”? Esta ação não pode ser revertida.",

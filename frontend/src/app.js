@@ -59,6 +59,7 @@ import {
   wireDropzone,
 } from './ui/modal.js';
 import { cancelConfirm } from './ui/confirm.js';
+import { toast } from './ui/toast.js';
 import { readInitialUrl, initHistory, syncUrl, pushLayer } from './ui/router.js';
 
 const t = i18n.t;
@@ -134,9 +135,9 @@ function wireTourActions() {
   dom.sidebarUploadButton.addEventListener('click', openUpload);
   dom.editForm.addEventListener('submit', submitEdit);
   dom.uploadForm.addEventListener('submit', submitUpload);
-  dom.showAllButton.addEventListener('click', () => {
+  dom.showAllButton.addEventListener('click', async () => {
     closeDetailPanel();
-    renderAllRoutes();
+    await renderAllRoutes();
   });
   dom.retryToursButton.addEventListener('click', loadTours);
   dom.retryMapButton.addEventListener('click', loadTours);
@@ -299,25 +300,33 @@ wireMapExpand();
 wireModals();
 document.addEventListener('keydown', handleModalKey);
 
-(async () => {
+// A failure nothing else caught (a floating promise in an event handler) still
+// reaches the user instead of only the console.
+function reportUnexpectedError(error) {
+  console.error(error);
+  toast(t('toast.unexpectedError'), { type: 'error' });
+}
+window.addEventListener('unhandledrejection', (event) => reportUnexpectedError(event.reason));
+
+async function start() {
   try {
     await i18n.init(); // detect locale, load messages, translate the static markup
-    setupLanguageSwitcher();
-    setupSortMenu();
-    setupLineStyleMenu();
-    initAuth();
   } finally {
-    // Belt-and-suspenders: i18n.init() already does this once translation is
-    // applied, but a failure anywhere above must not leave the skeleton
-    // covering the page forever.
+    // i18n.init() reveals the page once translated; a failure there must not
+    // leave the skeleton covering it forever.
     document.body.classList.remove('i18n-loading');
   }
-})();
+  setupLanguageSwitcher();
+  setupSortMenu();
+  setupLineStyleMenu();
+  await initAuth();
+}
 
-// Offline support is a progressive enhancement — registration failing (an
-// unsupported browser, a blocked extension) shouldn't affect the rest of the app.
+start().catch(reportUnexpectedError);
+
+// Offline support is a progressive enhancement: the app works without it.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js').catch((error) => console.warn(error));
   });
 }

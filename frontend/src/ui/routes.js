@@ -57,37 +57,49 @@ export function renderRoutes(pointSets, paddingPx) {
   fitToPoints(pointSets, paddingPx);
 }
 
-async function loadAllPointSets(pendingMapResponse) {
-  showElement(mapLoadingOverlay);
-  await ensureMapData({
-    apiFetch,
-    tours: state.tours,
-    now: Date.now(),
-    mapDataPromise: pendingMapResponse,
-  });
-  hideElement(mapLoadingOverlay);
-  return routePointSets(state.tours);
+// Resolves to whether the map data loaded; the tours are drawable either way.
+async function loadMapData(pendingMapResponse) {
+  try {
+    await ensureMapData({
+      apiFetch,
+      tours: state.tours,
+      now: Date.now(),
+      pendingResponse: pendingMapResponse,
+    });
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
 }
 
-function showAllToursOverlays(pointSets) {
+async function loadAllPointSets(pendingMapResponse) {
+  showElement(mapLoadingOverlay);
+  const loaded = await loadMapData(pendingMapResponse);
+  hideElement(mapLoadingOverlay);
+  return { pointSets: routePointSets(state.tours), loaded };
+}
+
+function showOverlays({ pointSets, loaded }) {
   const empty = hasNoPoints(pointSets);
-  setVisible(mapLoadErrorOverlay, empty && state.toursLoadFailed);
-  setVisible(mapEmptyOverlay, empty && !state.toursLoadFailed);
+  const failed = state.toursLoadFailed || !loaded;
+  setVisible(mapLoadErrorOverlay, empty && failed);
+  setVisible(mapEmptyOverlay, empty && !failed);
   renderPins();
 }
 
 export async function renderAllRoutes({ pendingMapResponse } = {}) {
-  const pointSets = await loadAllPointSets(pendingMapResponse);
+  const { pointSets, loaded } = await loadAllPointSets(pendingMapResponse);
   renderRoutes(pointSets, ALL_TOURS_PADDING_PX);
-  showAllToursOverlays(pointSets);
+  showOverlays({ pointSets, loaded });
 }
 
 // Every route, without touching pan/zoom: closing a tour's detail on desktop
 // keeps the camera where it is; only "Show all tours" re-fits.
 export async function redrawAllRoutesInPlace() {
-  const pointSets = await loadAllPointSets();
+  const { pointSets, loaded } = await loadAllPointSets();
   drawRoutes(pointSets);
-  showAllToursOverlays(pointSets);
+  showOverlays({ pointSets, loaded });
 }
 
 // Mirrors the checked set while in select mode, falling back to all tours when
@@ -100,10 +112,9 @@ export async function renderSelectedToursRoutes() {
     return;
   }
   const requested = selectionKey(state.selectedIds);
-  await ensureMapData({ apiFetch, tours: state.tours, now: Date.now() });
+  const loaded = await loadMapData();
   if (selectionKey(state.selectedIds) !== requested) return;
   const pointSets = routePointSets(state.tours.filter((tour) => state.selectedIds.has(tour.id)));
   renderRoutes(pointSets, ALL_TOURS_PADDING_PX);
-  setVisible(mapEmptyOverlay, hasNoPoints(pointSets));
-  renderPins();
+  showOverlays({ pointSets, loaded });
 }

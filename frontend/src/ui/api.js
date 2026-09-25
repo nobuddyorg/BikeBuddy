@@ -31,8 +31,21 @@ export async function getAccessToken() {
   if (!account) return '';
   try {
     return (await msalClient.acquireTokenSilent({ ...LOGIN_REQUEST, account })).accessToken;
-  } catch {
+  } catch (error) {
+    if (!(error instanceof msal.InteractionRequiredAuthError)) throw error;
     return (await msalClient.acquireTokenPopup({ ...LOGIN_REQUEST, account })).accessToken;
+  }
+}
+
+// A request that got no response at all (offline, a blocked token popup) as
+// its own outcome, so a caller can word it apart from an error status without
+// wrapping its own code in the try.
+export async function apiRequest(path, options = {}) {
+  try {
+    return { response: await apiFetch(path, options) };
+  } catch (networkError) {
+    console.error(networkError);
+    return { networkError };
   }
 }
 

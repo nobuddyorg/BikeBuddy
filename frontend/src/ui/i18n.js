@@ -34,26 +34,34 @@ async function loadMessages(code) {
   return response.json();
 }
 
+// Without its messages the page still works, in English or as bare keys.
+async function loadMessagesOr({ code, fallback }) {
+  try {
+    return await loadMessages(code);
+  } catch (error) {
+    console.error(error);
+    return fallback;
+  }
+}
+
 // English is always loaded too, as the per-key fallback.
 export async function init() {
   let stored = null;
   try {
     stored = localStorage.getItem(STORAGE_KEY);
   } catch {
-    /* storage unavailable */
+    // Storage can be blocked (private mode, site settings); fall back to the browser language.
   }
   currentLocale = pickLocale({
     stored,
     languages: navigator.languages?.length ? navigator.languages : [navigator.language],
   });
 
-  if (currentLocale === DEFAULT_LOCALE) {
-    messages = await loadMessages(DEFAULT_LOCALE).catch(() => ({}));
-    fallbackMessages = messages;
-  } else {
-    fallbackMessages = await loadMessages(DEFAULT_LOCALE).catch(() => ({}));
-    messages = await loadMessages(currentLocale).catch(() => fallbackMessages);
-  }
+  fallbackMessages = await loadMessagesOr({ code: DEFAULT_LOCALE, fallback: {} });
+  messages =
+    currentLocale === DEFAULT_LOCALE
+      ? fallbackMessages
+      : await loadMessagesOr({ code: currentLocale, fallback: fallbackMessages });
 
   document.documentElement.lang = currentLocale;
   applyI18n(document);
@@ -68,7 +76,7 @@ export function setLanguage(code) {
   try {
     localStorage.setItem(STORAGE_KEY, code);
   } catch {
-    /* storage unavailable */
+    // Storage can be blocked; the reload then shows the choice for this visit only.
   }
   location.reload();
 }

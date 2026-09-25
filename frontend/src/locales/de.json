@@ -184,6 +184,9 @@
   "toast.accountDeleted": "Deine Daten wurden gelöscht. Deine Anmeldung wird in Kürze vollständig entfernt.",
   "toast.accountDeleteError": "Konto konnte nicht gelöscht werden. Bitte versuche es erneut.",
   "toast.tourUploaded": "Tour hochgeladen.",
+  "toast.tourDetailError": "Die Details dieser Tour konnten nicht geladen werden.",
+  "toast.signInError": "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
+  "toast.unexpectedError": "Etwas ist schiefgelaufen. Lade die Seite neu, um es erneut zu versuchen.",
 
   "confirm.deleteTourTitle": "Tour löschen?",
   "confirm.deleteTourMessage": "„{name}“ löschen? Das kann nicht rückgängig gemacht werden.",

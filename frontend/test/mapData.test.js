@@ -68,21 +68,24 @@ describe('ensureMapData', () => {
     expect(tours[0]).toMatchObject({ id: 'gone', heatmapData: [], images: [] });
   });
 
-  it('settles on empty data when the request fails', async () => {
+  it('settles on empty data, then rejects, when the request fails', async () => {
     const tours = [{ id: 't1' }];
 
-    await ensureMapData({ apiFetch: async () => ({ ok: false }), tours, now: NOW });
+    await expect(
+      ensureMapData({ apiFetch: async () => ({ ok: false, status: 503 }), tours, now: NOW }),
+    ).rejects.toThrow('GET /api/map answered 503');
 
-    expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
+    // Settled, so the next render does not fire the failing request again.
+    expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [], fetchedAt: NOW });
   });
 
-  it('settles on empty data when the network throws', async () => {
+  it('settles on empty data, then rejects, when the network throws', async () => {
     const tours = [{ id: 't1' }];
-
     const apiFetch = async () => {
       throw new Error('offline');
     };
-    await ensureMapData({ apiFetch, tours, now: NOW });
+
+    await expect(ensureMapData({ apiFetch, tours, now: NOW })).rejects.toThrow('offline');
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
   });
@@ -123,9 +126,9 @@ describe('ensureMapData', () => {
   it('consumes a pre-started fetch instead of issuing its own', async () => {
     const tours = [{ id: 't1' }];
     const apiFetch = vi.fn();
-    const mapDataPromise = Promise.resolve(ok([{ id: 't1', heatmapData: [[1, 1]], images: [] }]));
+    const pendingResponse = Promise.resolve(ok([{ id: 't1', heatmapData: [[1, 1]], images: [] }]));
 
-    await ensureMapData({ apiFetch, tours, now: NOW, mapDataPromise });
+    await ensureMapData({ apiFetch, tours, now: NOW, pendingResponse });
 
     expect(apiFetch).not.toHaveBeenCalled();
     expect(tours[0].heatmapData).toEqual([[1, 1]]);
