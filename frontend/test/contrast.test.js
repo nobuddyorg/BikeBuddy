@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const tokens = readFileSync(resolve(here, '../src/css/tokens.css'), 'utf8');
+const tokens = readFileSync(resolve(here, '../src/css/base.css'), 'utf8');
 
 function readColor(name, source) {
   const match = source.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));

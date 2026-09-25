@@ -200,7 +200,7 @@ repos:
       - id: prettier-frontend
         name: Prettier (frontend)
         # frontend/ has no .prettierrc, and Prettier resolves config from each file's directory.
-        entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../frontend/*.js' '../frontend/src/*.{js,css,html}' '../frontend/src/lib/**/*.js' '../frontend/test/**/*.js'"
+        entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../frontend/*.js' '../frontend/src/*.{js,css,html}' '../frontend/src/{lib,ui}/**/*.js' '../frontend/src/css/*.css' '../frontend/test/**/*.js'"
         language: system
         pass_filenames: false
         files: ^frontend/.*\.(js|css|html)$
