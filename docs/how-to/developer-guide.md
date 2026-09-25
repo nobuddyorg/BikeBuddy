@@ -197,7 +197,7 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
 `opengrep` job in `gate.yml` and as a pre-commit hook, both through one script:
 
 ```bash
-./buddy.sh quality opengrep   # installs the pinned version on first run
+./buddy.sh quality opengrep   # installs the pinned, checksum-verified release binary on first run
 ```
 
 - **Rule packs**: `--config auto` (the community rules for the languages

@@ -258,6 +258,22 @@ https with an integrity hash (lockfile-lint, pre-commit).
 Never `npm audit fix --force` (it jumps majors) and never a from-scratch
 lockfile regeneration (it moves every transitive dependency at once).
 
+What Dependabot does not see is pinned by hand, so every run uses the same
+build until someone bumps it on purpose (#566):
+
+- **OpenTofu providers**: `infrastructure/.terraform.lock.hcl` is committed,
+  with hashes for linux and macOS on amd64 and arm64. To bump:
+  `tofu init -upgrade -backend=false`, then
+  `tofu providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_amd64 -platform=darwin_arm64`.
+- **Emulator images**: the Cosmos emulator and Azurite run by digest (a
+  multi-arch index) in `scripts/development/start-{cosmos,azurite}.sh` and
+  `setup.sh`. To bump: pull the tag, then copy the digest that
+  `docker image inspect --format '{{json .RepoDigests}}'` prints.
+- **Scanners**: OpenGrep, TFLint and Trivy download a pinned release and check
+  its sha256 before running (`scripts/quality/opengrep.sh`, `iac.sh`).
+- **Function package**: `functions/.funcignore` keeps tests, scripts and tool
+  configs out of what `func azure functionapp publish` uploads.
+
 Current overrides: `functions/` and `frontend/` pin `qs` to `^6.16.0`,
 because Stryker's `typed-rest-client` pins a vulnerable `qs` exactly
 (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g). `e2e/` pins `tmp` to `0.2.7` and

@@ -29,7 +29,7 @@ steps=(
   "Install pre-commit hooks?|cd \"$REPO_ROOT\" && prek install"
   "Write functions/local.settings.json with local-dev defaults?|cp \"$REPO_ROOT/functions/local.settings.json.example\" \"$REPO_ROOT/functions/local.settings.json\" && echo 'wrote local.settings.json'"
   "Write frontend/src/config.js with local-dev defaults?|cp \"$REPO_ROOT/frontend/src/config.js.example\" \"$REPO_ROOT/frontend/src/config.js\" && echo 'wrote config.js'"
-  "Pull the Cosmos DB emulator image (Docker must be running)?|docker pull mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview"
+  "Pull the Cosmos DB emulator image (Docker must be running)?|docker pull mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview@sha256:2db1f9e74c506bcf6fc347aa937aea1c00fa756061296a5a9efba530ce86ec02"
 )
 
 echo
