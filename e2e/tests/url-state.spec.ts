@@ -73,8 +73,8 @@ buddyTest.describe('URL state', () => {
     await page.goto(`/#/tour/${tourA.id}`);
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await expect(on(page).main.locators.detail.panel).toBeVisible();
-    await expect(on(page).main.locators.detail.name).toHaveText('Alpine Loop');
+    await expect(on(page).detail()).toBeVisible();
+    await expect(on(page).detail.locators.name).toHaveText('Alpine Loop');
     await on(page).a11y.check('tour list and detail panel');
   });
 
@@ -82,8 +82,8 @@ buddyTest.describe('URL state', () => {
     await page.goto('/#/tour/does-not-exist');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await expect(on(page).main.locators.detail.panel).toBeHidden();
-    await expect(on(page).main.locators.list.active).toHaveCount(0);
+    await expect(on(page).detail()).toBeHidden();
+    await expect(on(page).list.locators.current).toHaveCount(0);
     // The dead id shouldn't linger in the address bar once it's known to be
     // bad - polled, since page.url() is a plain synchronous snapshot and the
     // cleanup only runs once loadTours() finishes resolving the deep link.
@@ -94,13 +94,13 @@ buddyTest.describe('URL state', () => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.selectTour('Alpine Loop');
-    await expect(on(page).main.locators.detail.panel).toBeVisible();
+    await on(page).list.row('Alpine Loop').do.click();
+    await expect(on(page).detail()).toBeVisible();
     expect(page.url()).toContain(`/tour/${tourA.id}`);
 
     await page.goBack();
 
-    await expect(on(page).main.locators.detail.panel).toBeHidden();
+    await expect(on(page).detail()).toBeHidden();
   });
 
   buddyTest('Back closes an open modal instead of leaving the app', async ({ on, page }) => {
@@ -121,16 +121,16 @@ buddyTest.describe('URL state', () => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.search('Alpine');
-    await on(page).main.do.sortBy('name-asc');
-    await on(page).main.do.filterInView(true);
-    await expect(on(page).main.locators.search).toHaveValue('Alpine');
+    await on(page).list.do.search('Alpine');
+    await on(page).list.do.sortBy('name-asc');
+    await on(page).list.do.showOnlyToursInView();
+    await expect(on(page).list.locators.search).toHaveValue('Alpine');
 
     await page.reload();
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await expect(on(page).main.locators.search).toHaveValue('Alpine');
-    await expect(on(page).main.locators.sort).toHaveValue('name-asc');
-    await expect(on(page).main.locators.filterInView.toggleInput).toBeChecked();
+    await expect(on(page).list.locators.search).toHaveValue('Alpine');
+    await expect(on(page).list.locators.sort).toHaveValue('name-asc');
+    await expect(on(page).list.locators.filterInView.toggleInput).toBeChecked();
   });
 });

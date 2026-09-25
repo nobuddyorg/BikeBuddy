@@ -25,43 +25,43 @@ buddyTest.describe('multi-select bulk delete', () => {
   buddyTest('selects across a page boundary and deletes only those', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
-    await expect(on(page).main.locators.list.count).toHaveText('22');
+    await expect(on(page).list.locators.count).toHaveText('22');
 
-    await on(page).main.do.enterSelectMode();
-    await expect(on(page).main.locators.selection.bar).toBeVisible();
-    await expect(on(page).main.locators.selection.count).toHaveText('0 selected');
+    await on(page).list.do.enterSelectMode();
+    await expect(on(page).list.locators.selection.bar).toBeVisible();
+    await expect(on(page).list.locators.selection.count).toHaveText('0 selected');
 
     // Newest-first by default, so Tour 01 leads page 1 and Tour 22 is last on
     // page 3 (01-10, 11-20, 21-22).
-    await on(page).main.do.toggleTourSelection('MultiSelect Tour 01');
-    await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
+    await on(page).list.row('MultiSelect Tour 01').do.click();
+    await expect(on(page).list.locators.selection.count).toHaveText('1 selected');
 
-    await on(page).main.do.pagerNext();
-    await on(page).main.do.pagerNext();
-    await on(page).main.do.toggleTourSelection('MultiSelect Tour 22');
-    await expect(on(page).main.locators.selection.count).toHaveText('2 selected');
+    await on(page).list.do.nextPage();
+    await on(page).list.do.nextPage();
+    await on(page).list.row('MultiSelect Tour 22').do.click();
+    await expect(on(page).list.locators.selection.count).toHaveText('2 selected');
 
-    await on(page).main.do.deleteSelected();
+    await on(page).list.do.deleteSelected();
 
-    await expect(on(page).main.locators.list.container).not.toContainText('MultiSelect Tour 01');
-    await expect(on(page).main.locators.list.container).not.toContainText('MultiSelect Tour 22');
-    await expect(on(page).main.locators.list.count).toHaveText('20');
+    await expect(on(page).list.locators.container).not.toContainText('MultiSelect Tour 01');
+    await expect(on(page).list.locators.container).not.toContainText('MultiSelect Tour 22');
+    await expect(on(page).list.locators.count).toHaveText('20');
     // Select mode auto-exits once every selected tour succeeds.
-    await expect(on(page).main.locators.selection.bar).toBeHidden();
+    await expect(on(page).list.locators.selection.bar).toBeHidden();
   });
 
   buddyTest('cancel exits select mode without deleting anything', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.enterSelectMode();
+    await on(page).list.do.enterSelectMode();
     // Tour 01 is guaranteed to be on page 1 (see the timestamp comment above).
-    await on(page).main.do.toggleTourSelection('MultiSelect Tour 01');
-    await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
+    await on(page).list.row('MultiSelect Tour 01').do.click();
+    await expect(on(page).list.locators.selection.count).toHaveText('1 selected');
 
-    await on(page).main.do.cancelSelect();
+    await on(page).list.do.cancelSelect();
 
-    await expect(on(page).main.locators.selection.bar).toBeHidden();
-    await expect(on(page).main.locators.list.count).toHaveText('22');
+    await expect(on(page).list.locators.selection.bar).toBeHidden();
+    await expect(on(page).list.locators.count).toHaveText('22');
   });
 });

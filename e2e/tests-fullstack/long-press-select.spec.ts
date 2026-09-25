@@ -41,15 +41,15 @@ buddyTest.describe('long-press to enter select mode', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
       // Default sort is date-desc (newest first): Tour A is topmost.
-      await expect(on(page).main.locators.list.names.first()).toHaveText('Long Press Tour A');
-      await expect(on(page).main.locators.selection.bar).toBeHidden();
+      await expect(on(page).list.locators.names.first()).toHaveText('Long Press Tour A');
+      await expect(on(page).list.locators.selection.bar).toBeHidden();
 
-      await on(page).main.do.longPressTour('Long Press Tour A');
+      await on(page).list.row('Long Press Tour A').do.longPress();
 
-      await expect(on(page).main.locators.selection.bar).toBeVisible();
-      await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
+      await expect(on(page).list.locators.selection.bar).toBeVisible();
+      await expect(on(page).list.locators.selection.count).toHaveText('1 selected');
       // A long-press, not a tap: the panel must stay shut.
-      await expect(on(page).main.locators.detail.name).toBeHidden();
+      await expect(on(page).detail.locators.name).toBeHidden();
     },
   );
 
@@ -57,10 +57,10 @@ buddyTest.describe('long-press to enter select mode', () => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.selectTour('Long Press Tour A');
+    await on(page).list.row('Long Press Tour A').do.click();
 
-    await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour A');
-    await expect(on(page).main.locators.selection.bar).toBeHidden();
+    await expect(on(page).detail.locators.name).toHaveText('Long Press Tour A');
+    await expect(on(page).list.locators.selection.bar).toBeHidden();
   });
 
   buddyTest(
@@ -69,15 +69,14 @@ buddyTest.describe('long-press to enter select mode', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      await on(page).main.do.tapTour('Long Press Tour A');
+      await on(page).list.row('Long Press Tour A').do.tap();
 
-      await expect(
-        on(page).main.locators.list.container.locator('.tour-item.active', {
-          hasText: 'Long Press Tour A',
-        }),
-      ).toBeVisible();
-      await expect(on(page).main.locators.selection.bar).toBeHidden();
-      await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour A');
+      await expect(on(page).list.row('Long Press Tour A').locators.content).toHaveAttribute(
+        'aria-current',
+        'true',
+      );
+      await expect(on(page).list.locators.selection.bar).toBeHidden();
+      await expect(on(page).detail.locators.name).toHaveText('Long Press Tour A');
     },
   );
 
@@ -87,24 +86,18 @@ buddyTest.describe('long-press to enter select mode', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      await on(page).main.do.tapTour('Long Press Tour B');
-      await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour B');
+      await on(page).list.row('Long Press Tour B').do.tap();
+      await expect(on(page).detail.locators.name).toHaveText('Long Press Tour B');
 
-      // Chromium's gesture recognizer needs settle time *before* a new touch
-      // sequence that follows a raw-CDP tap. Nothing else here chains two
-      // independent touch gestures back to back.
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- Chromium's gesture recognizer needs settle time between two raw-CDP touch sequences
-      await page.waitForTimeout(500);
-      await on(page).main.do.tapTour('Long Press Tour A');
+      await on(page).list.row('Long Press Tour A').do.tap();
 
       // Edit/Delete on the panel must act on the newly tapped tour, not the
       // one that was open before.
-      await expect(on(page).main.locators.detail.name).toHaveText('Long Press Tour A');
-      await expect(
-        on(page).main.locators.list.container.locator('.tour-item.active', {
-          hasText: 'Long Press Tour A',
-        }),
-      ).toBeVisible();
+      await expect(on(page).detail.locators.name).toHaveText('Long Press Tour A');
+      await expect(on(page).list.row('Long Press Tour A').locators.content).toHaveAttribute(
+        'aria-current',
+        'true',
+      );
     },
   );
 
@@ -114,12 +107,12 @@ buddyTest.describe('long-press to enter select mode', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      await on(page).main.do.longPressTour('Long Press Tour A');
-      await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
+      await on(page).list.row('Long Press Tour A').do.longPress();
+      await expect(on(page).list.locators.selection.count).toHaveText('1 selected');
 
       // Short click while already in select mode still toggles.
-      await on(page).main.do.toggleTourSelection('Long Press Tour B');
-      await expect(on(page).main.locators.selection.count).toHaveText('2 selected');
+      await on(page).list.row('Long Press Tour B').do.click();
+      await expect(on(page).list.locators.selection.count).toHaveText('2 selected');
     },
   );
 });

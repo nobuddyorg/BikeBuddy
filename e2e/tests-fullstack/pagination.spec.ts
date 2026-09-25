@@ -30,28 +30,28 @@ buddyTest.describe('tour list pagination', () => {
   buddyTest('pages through 25 tours, 10 per page', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
-    await expect(on(page).main.locators.list.count).toHaveText('25');
+    await expect(on(page).list.locators.count).toHaveText('25');
 
-    await expect(on(page).main.locators.list.names).toHaveCount(10);
-    await expect(on(page).main.locators.pager.label).toHaveText('Page 1 of 3');
-    await expect(on(page).main.locators.pager.prev).toBeDisabled();
-    await expect(on(page).main.locators.pager.next).toBeEnabled();
+    await expect(on(page).list.locators.names).toHaveCount(10);
+    await expect(on(page).list.locators.pager.label).toHaveText('Page 1 of 3');
+    await expect(on(page).list.locators.pager.previous).toBeDisabled();
+    await expect(on(page).list.locators.pager.next).toBeEnabled();
 
-    await on(page).main.do.pagerNext();
-    await expect(on(page).main.locators.list.names).toHaveCount(10);
-    await expect(on(page).main.locators.pager.label).toHaveText('Page 2 of 3');
-    await expect(on(page).main.locators.pager.prev).toBeEnabled();
-    await expect(on(page).main.locators.pager.next).toBeEnabled();
+    await on(page).list.do.nextPage();
+    await expect(on(page).list.locators.names).toHaveCount(10);
+    await expect(on(page).list.locators.pager.label).toHaveText('Page 2 of 3');
+    await expect(on(page).list.locators.pager.previous).toBeEnabled();
+    await expect(on(page).list.locators.pager.next).toBeEnabled();
 
-    await on(page).main.do.pagerNext();
-    await expect(on(page).main.locators.list.names).toHaveCount(5);
-    await expect(on(page).main.locators.pager.label).toHaveText('Page 3 of 3');
-    await expect(on(page).main.locators.pager.next).toBeDisabled();
-    await expect(on(page).main.locators.pager.prev).toBeEnabled();
+    await on(page).list.do.nextPage();
+    await expect(on(page).list.locators.names).toHaveCount(5);
+    await expect(on(page).list.locators.pager.label).toHaveText('Page 3 of 3');
+    await expect(on(page).list.locators.pager.next).toBeDisabled();
+    await expect(on(page).list.locators.pager.previous).toBeEnabled();
 
-    await on(page).main.do.pagerPrev();
-    await expect(on(page).main.locators.list.names).toHaveCount(10);
-    await expect(on(page).main.locators.pager.label).toHaveText('Page 2 of 3');
+    await on(page).list.do.previousPage();
+    await expect(on(page).list.locators.names).toHaveCount(10);
+    await expect(on(page).list.locators.pager.label).toHaveText('Page 2 of 3');
   });
 
   buddyTest(
@@ -60,15 +60,15 @@ buddyTest.describe('tour list pagination', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      await on(page).main.do.pagerNext();
-      await expect(on(page).main.locators.pager.label).toHaveText('Page 2 of 3');
+      await on(page).list.do.nextPage();
+      await expect(on(page).list.locators.pager.label).toHaveText('Page 2 of 3');
 
       // Matches all 24 "Pagination Tour N" docs (excludes the "Zzyzx" one) — still
       // spans multiple pages, so this proves the explicit reset-on-search, not
       // just clamping (clamping alone wouldn't correct an in-range stale page).
-      await on(page).main.do.search('pagination tour');
-      await expect(on(page).main.locators.list.names).toHaveCount(10);
-      await expect(on(page).main.locators.pager.label).toHaveText('Page 1 of 3');
+      await on(page).list.do.search('pagination tour');
+      await expect(on(page).list.locators.names).toHaveCount(10);
+      await expect(on(page).list.locators.pager.label).toHaveText('Page 1 of 3');
     },
   );
 
@@ -76,9 +76,9 @@ buddyTest.describe('tour list pagination', () => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.pagerNext();
-    await on(page).main.do.search('zzyzx');
-    await expect(on(page).main.locators.list.names).toHaveText(['Zzyzx Unique Tour']);
-    await expect(on(page).main.locators.pager.container).toBeHidden();
+    await on(page).list.do.nextPage();
+    await on(page).list.do.search('zzyzx');
+    await expect(on(page).list.locators.names).toHaveText(['Zzyzx Unique Tour']);
+    await expect(on(page).list.locators.pager.container).toBeHidden();
   });
 });

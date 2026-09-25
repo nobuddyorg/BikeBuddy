@@ -2,10 +2,15 @@ import test, { Page } from '@playwright/test';
 import { expectNoAxeViolations } from '../axe';
 import { coverageEnabled, coverageReport, type Suite } from '../coverage';
 import { initMainPage } from './main-page';
+import { initTourList } from './tour-list';
+import { initDetailPanel } from './detail-panel';
+import { initMapView } from './map-view';
 import { initUploadModal } from './upload-modal';
 import { initProfileModal } from './profile-modal';
 import { initEditModal } from './edit-modal';
 import { initHelpModal } from './help-modal';
+import { initConfirmModal } from './confirm-modal';
+import { initLightbox } from './lightbox';
 
 // Lazy getters: only the page objects a test actually touches get constructed.
 function createPageTree(page: Page) {
@@ -16,6 +21,15 @@ function createPageTree(page: Page) {
     },
     get main() {
       return initMainPage(page);
+    },
+    get list() {
+      return initTourList(page);
+    },
+    get detail() {
+      return initDetailPanel(page);
+    },
+    get map() {
+      return initMapView(page);
     },
     get modal() {
       return {
@@ -31,6 +45,12 @@ function createPageTree(page: Page) {
         get help() {
           return initHelpModal(page);
         },
+        get confirm() {
+          return initConfirmModal(page);
+        },
+        get lightbox() {
+          return initLightbox(page);
+        },
       };
     },
   };
@@ -38,6 +58,7 @@ function createPageTree(page: Page) {
 
 // `on(page)` gives a readable entry point into the page object model, e.g.
 //   await on(page).main.do.uploadGpx({ name, gpx });
+//   await on(page).list.row(name).do.tap();
 //   await expect(on(page).modal.profile()).toBeVisible();
 export const buddyTest = test.extend<{ on: typeof createPageTree; jsCoverage: void }>({
   on: async ({}, use) => {

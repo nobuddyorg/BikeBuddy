@@ -63,15 +63,15 @@ buddyTest.describe('photo pins (mobile)', () => {
   buddyTest('toggle is visible and reveals pins on the mobile map view', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
-    await expect(on(page).main.locators.list.container).toContainText('Geotagged Tour');
+    await expect(on(page).list.locators.container).toContainText('Geotagged Tour');
 
     await on(page).main.do.openMobileMap();
 
     // The toggle appears once geotagged images are loaded, and must be tappable
     // (not covered) on the phone-width map view.
-    await expect(on(page).main.locators.pins.toggle).toBeVisible();
-    await on(page).main.do.showPins(true);
-    await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+    await expect(on(page).map.locators.pins.toggle).toBeVisible();
+    await on(page).map.do.showPins();
+    await expect(on(page).map.locators.pins.markers).toHaveCount(2);
     await on(page).a11y.check('mobile map with photo pins');
   });
 });

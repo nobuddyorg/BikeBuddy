@@ -34,13 +34,13 @@ buddyTest(
     await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
     // addImage() targets state.selectedTourId, and uploadGpx only waits for the
     // tour to reach the list, not to be selected.
-    await expect(on(page).main.locators.detail.name).toHaveText(tourName);
-    await on(page).main.do.addImage(SAMPLE_JPG);
-    await on(page).main.do.addImage(SAMPLE_JPG);
-    await expect(on(page).main.locators.image.thumbs).toHaveCount(2);
+    await expect(on(page).detail.locators.name).toHaveText(tourName);
+    await on(page).detail.do.addPhotos(SAMPLE_JPG);
+    await on(page).detail.do.addPhotos(SAMPLE_JPG);
+    await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(2);
 
-    await on(page).main.do.deleteImage(0);
-    await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
+    await on(page).detail.do.deletePhoto(0);
+    await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
   },
 );
 
@@ -50,17 +50,17 @@ buddyTest('opens and closes the lightbox for a photo', async ({ on, page }) => {
 
   const tourName = `Lightbox ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
-  await on(page).main.do.addImage(SAMPLE_JPG);
-  await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
+  await on(page).detail.do.addPhotos(SAMPLE_JPG);
+  await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
 
-  await expect(on(page).main.locators.lightbox.root).toBeHidden();
-  await on(page).main.do.openLightbox(0);
-  await expect(on(page).main.locators.lightbox.root).toBeVisible();
-  await expect(on(page).main.locators.lightbox.img).toHaveAttribute('src', /.+/);
+  await expect(on(page).modal.lightbox()).toBeHidden();
+  await on(page).detail.do.openPhoto(0);
+  await expect(on(page).modal.lightbox()).toBeVisible();
+  await expect(on(page).modal.lightbox.locators.image).toHaveAttribute('src', /.+/);
 
-  await on(page).main.do.closeLightbox();
-  await expect(on(page).main.locators.lightbox.root).toBeHidden();
+  await on(page).modal.lightbox.do.close();
+  await expect(on(page).modal.lightbox()).toBeHidden();
 });
 
 buddyTest('retries a failed upload and it succeeds the second time', async ({ on, page }) => {
@@ -69,7 +69,7 @@ buddyTest('retries a failed upload and it succeeds the second time', async ({ on
 
   const tourName = `Retry Upload ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
 
   // Only the first attempt fails; the retry goes to the real backend.
   let attempt = 0;
@@ -82,11 +82,11 @@ buddyTest('retries a failed upload and it succeeds the second time', async ({ on
     }
   });
 
-  await on(page).main.do.addImage(SAMPLE_JPG);
-  await expect(on(page).main.locators.image.errorTiles).toHaveCount(1);
-  await expect(on(page).main.locators.image.retryButtons).toHaveCount(1);
+  await on(page).detail.do.addPhotos(SAMPLE_JPG);
+  await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(1);
+  await expect(on(page).detail.locators.photos.retryButtons).toHaveCount(1);
 
-  await on(page).main.do.retryImage();
-  await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
-  await expect(on(page).main.locators.image.errorTiles).toHaveCount(0);
+  await on(page).detail.do.retryPhoto();
+  await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
+  await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(0);
 });

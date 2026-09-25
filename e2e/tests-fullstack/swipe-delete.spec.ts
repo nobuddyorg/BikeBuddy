@@ -32,13 +32,13 @@ buddyTest.describe('swipe to delete a tour', () => {
     async ({ on, page }) => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
-      await expect(on(page).main.locators.list.names).toHaveCount(2);
+      await expect(on(page).list.locators.names).toHaveCount(2);
 
-      await on(page).main.do.swipeTour('Swipe Tour A', 120);
-      await on(page).main.locators.confirmModal.ok.click();
+      await on(page).list.row('Swipe Tour A').do.swipeToDelete();
+      await on(page).modal.confirm.do.confirm();
 
-      await expect(on(page).main.locators.list.names).toHaveCount(1);
-      await expect(on(page).main.locators.list.names.first()).toHaveText('Swipe Tour B');
+      await expect(on(page).list.locators.names).toHaveCount(1);
+      await expect(on(page).list.locators.names.first()).toHaveText('Swipe Tour B');
     },
   );
 
@@ -46,12 +46,12 @@ buddyTest.describe('swipe to delete a tour', () => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.swipeTour('Swipe Tour A', 120);
-    await expect(on(page).main.locators.confirmModal.cancel).toBeVisible();
+    await on(page).list.row('Swipe Tour A').do.swipeToDelete();
+    await expect(on(page).modal.confirm()).toBeVisible();
     await on(page).a11y.check('delete confirm dialog');
-    await on(page).main.locators.confirmModal.cancel.click();
+    await on(page).modal.confirm.do.dismiss();
 
-    await expect(on(page).main.locators.list.names).toHaveCount(2);
+    await expect(on(page).list.locators.names).toHaveCount(2);
   });
 
   buddyTest('a swipe short of the threshold snaps back with no action', async ({ on, page }) => {
@@ -60,25 +60,26 @@ buddyTest.describe('swipe to delete a tour', () => {
 
     // 30px is well under bindTourSwipe's 72px threshold — no dialog
     // should even appear, so nothing to accept/dismiss here.
-    await on(page).main.do.swipeTour('Swipe Tour A', 30);
+    await on(page).list.row('Swipe Tour A').do.swipe(30);
 
-    await expect(on(page).main.locators.list.names).toHaveCount(2);
+    await expect(on(page).list.locators.names).toHaveCount(2);
     // The row must still open normally afterwards — snapping back shouldn't
     // leave it in a stuck or half-transformed state.
-    await on(page).main.do.selectTour('Swipe Tour A');
-    await expect(on(page).main.locators.detail.name).toHaveText('Swipe Tour A');
+    await on(page).list.row('Swipe Tour A').do.click();
+    await expect(on(page).detail.locators.name).toHaveText('Swipe Tour A');
   });
 
   buddyTest('swiping while in select mode is a no-op', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
-    await on(page).main.do.longPressTour('Swipe Tour A');
-    await expect(on(page).main.locators.selection.bar).toBeVisible();
+    await on(page).list.row('Swipe Tour A').do.longPress();
+    await expect(on(page).list.locators.selection.bar).toBeVisible();
 
-    await on(page).main.do.swipeTour('Swipe Tour A', 120);
+    await on(page).list.row('Swipe Tour A').do.swipe(120);
 
-    await expect(on(page).main.locators.list.names).toHaveCount(2);
-    await expect(on(page).main.locators.selection.bar).toBeVisible();
+    await expect(on(page).modal.confirm()).toBeHidden();
+    await expect(on(page).list.locators.names).toHaveCount(2);
+    await expect(on(page).list.locators.selection.bar).toBeVisible();
   });
 });

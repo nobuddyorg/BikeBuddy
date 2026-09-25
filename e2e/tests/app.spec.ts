@@ -19,7 +19,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
 
   buddyTest('loads and auto signs in (dev mode)', async ({ on, page }) => {
     await expect(page).toHaveTitle(/BikeBuddy/);
-    await expect(on(page).main.locators.map).toBeVisible();
+    await expect(on(page).map()).toBeVisible();
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).main.locators.buttons.login).toBeHidden();
     await expect(on(page).main.locators.buttons.upload).toBeEnabled();
@@ -28,8 +28,8 @@ buddyTest.describe('BikeBuddy static UI', () => {
   });
 
   buddyTest('shows the empty state when there are no tours', async ({ on, page }) => {
-    await expect(on(page).main.locators.list.empty).toBeVisible();
-    await expect(on(page).main.locators.list.count).toHaveText('0');
+    await expect(on(page).list.locators.empty).toBeVisible();
+    await expect(on(page).list.locators.count).toHaveText('0');
   });
 
   buddyTest(
@@ -40,16 +40,16 @@ buddyTest.describe('BikeBuddy static UI', () => {
       );
       await page.reload();
 
-      await expect(on(page).main.locators.list.loadError).toBeVisible();
-      await expect(on(page).main.locators.list.empty).toBeHidden();
-      await expect(on(page).main.locators.mapLoadError).toBeVisible();
+      await expect(on(page).list.locators.loadError).toBeVisible();
+      await expect(on(page).list.locators.empty).toBeHidden();
+      await expect(on(page).map.locators.loadError).toBeVisible();
       await on(page).a11y.check('tour load error');
 
       await page.route('**/api/tours', emptyToursRoute);
-      await on(page).main.locators.list.retryButton.click();
+      await on(page).list.do.retryLoad();
 
-      await expect(on(page).main.locators.list.loadError).toBeHidden();
-      await expect(on(page).main.locators.list.empty).toBeVisible();
+      await expect(on(page).list.locators.loadError).toBeHidden();
+      await expect(on(page).list.locators.empty).toBeVisible();
     },
   );
 
@@ -141,7 +141,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
       // tours) is the mobile home screen now; the map lives off-screen
       // behind the FAB until opened.
       await expect(on(page).main.locators.sidebar).toBeVisible();
-      await expect(on(page).main.locators.list.empty).toBeVisible();
+      await expect(on(page).list.locators.empty).toBeVisible();
       await expect(on(page).main.locators.userMenu).toBeVisible();
       const overflows = await page.evaluate(
         () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,

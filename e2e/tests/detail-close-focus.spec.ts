@@ -80,27 +80,27 @@ buddyTest.describe('closing the detail panel', () => {
   });
 
   buddyTest('drops the selection and widens pins back to every tour', async ({ on, page }) => {
-    await on(page).main.do.showPins(true);
-    await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+    await on(page).map.do.showPins();
+    await expect(on(page).map.locators.pins.markers).toHaveCount(2);
 
-    await on(page).main.do.selectTour('Alpine Loop');
-    await expect(on(page).main.locators.detail.name).toHaveText('Alpine Loop');
-    await expect(on(page).main.locators.pins.markers).toHaveCount(1);
+    await on(page).list.row('Alpine Loop').do.click();
+    await expect(on(page).detail.locators.name).toHaveText('Alpine Loop');
+    await expect(on(page).map.locators.pins.markers).toHaveCount(1);
 
-    await on(page).main.do.closeDetail();
+    await on(page).detail.do.close();
 
-    await expect(on(page).main.locators.detail.panel).toBeHidden();
-    await expect(on(page).main.locators.list.active).toHaveCount(0);
-    await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+    await expect(on(page).detail()).toBeHidden();
+    await expect(on(page).list.locators.current).toHaveCount(0);
+    await expect(on(page).map.locators.pins.markers).toHaveCount(2);
   });
 
   buddyTest('clicking the already-open tour again closes it', async ({ on, page }) => {
-    await on(page).main.do.selectTour('Alpine Loop');
-    await expect(on(page).main.locators.detail.name).toHaveText('Alpine Loop');
+    await on(page).list.row('Alpine Loop').do.click();
+    await expect(on(page).detail.locators.name).toHaveText('Alpine Loop');
 
-    await on(page).main.do.selectTour('Alpine Loop');
+    await on(page).list.row('Alpine Loop').do.click();
 
-    await expect(on(page).main.locators.detail.panel).toBeHidden();
-    await expect(on(page).main.locators.list.active).toHaveCount(0);
+    await expect(on(page).detail()).toBeHidden();
+    await expect(on(page).list.locators.current).toHaveCount(0);
   });
 });

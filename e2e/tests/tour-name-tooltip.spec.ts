@@ -59,12 +59,12 @@ buddyTest.describe('tour name tooltip', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      const name = on(page).main.locators.list.names.first();
+      const name = on(page).list.locators.names.first();
       await expect(name).toHaveAttribute('title', LONG_NAME);
 
       // Searching wraps part of the name in <mark> - the tooltip must stay the
       // plain name, not that markup or its rendered text with gaps.
-      await on(page).main.do.search('Wiessee');
+      await on(page).list.do.search('Wiessee');
       await expect(name).toHaveAttribute('title', LONG_NAME);
     },
   );

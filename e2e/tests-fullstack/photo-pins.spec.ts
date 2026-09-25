@@ -35,27 +35,27 @@ buddyTest.describe('photo pins', () => {
     async ({ on, page }) => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
-      await expect(on(page).main.locators.list.container).toContainText('Geotagged Tour');
+      await expect(on(page).list.locators.container).toContainText('Geotagged Tour');
 
       // Visible but off.
-      await expect(on(page).main.locators.pins.toggle).toBeVisible();
-      await expect(on(page).main.locators.pins.toggleInput).not.toBeChecked();
-      await expect(on(page).main.locators.pins.markers).toHaveCount(0);
+      await expect(on(page).map.locators.pins.toggle).toBeVisible();
+      await expect(on(page).map.locators.pins.toggleInput).not.toBeChecked();
+      await expect(on(page).map.locators.pins.markers).toHaveCount(0);
 
-      await on(page).main.do.showPins(true);
-      await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+      await on(page).map.do.showPins();
+      await expect(on(page).map.locators.pins.markers).toHaveCount(2);
 
       // Past the region-level cutoff pins hide entirely, rather than
       // clutter a country-level view with photos from unrelated places.
-      await on(page).main.do.zoomOut(15);
-      await expect(on(page).main.locators.pins.markers).toHaveCount(0);
+      await on(page).map.do.zoomOut(15);
+      await expect(on(page).map.locators.pins.markers).toHaveCount(0);
 
       // Back in past the cutoff: zoomend re-runs the grouping.
-      await on(page).main.do.zoomIn(15);
-      await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+      await on(page).map.do.zoomIn(15);
+      await expect(on(page).map.locators.pins.markers).toHaveCount(2);
 
-      await on(page).main.do.showPins(false);
-      await expect(on(page).main.locators.pins.markers).toHaveCount(0);
+      await on(page).map.do.hidePins();
+      await expect(on(page).map.locators.pins.markers).toHaveCount(0);
     },
   );
 });
@@ -116,34 +116,34 @@ buddyTest.describe('photo pins scoped to selected tour', () => {
     async ({ on, page }) => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
-      await expect(on(page).main.locators.list.count).toHaveText('3');
+      await expect(on(page).list.locators.count).toHaveText('3');
 
       // Nothing selected yet: both A's and B's pins show.
-      await expect(on(page).main.locators.pins.toggle).toBeVisible();
-      await on(page).main.do.showPins(true);
-      await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+      await expect(on(page).map.locators.pins.toggle).toBeVisible();
+      await on(page).map.do.showPins();
+      await expect(on(page).map.locators.pins.markers).toHaveCount(2);
 
-      await on(page).main.do.selectTour('Tour A');
-      await expect(on(page).main.locators.detail.name).toHaveText('Tour A');
-      await expect(on(page).main.locators.pins.markers).toHaveCount(1);
+      await on(page).list.row('Tour A').do.click();
+      await expect(on(page).detail.locators.name).toHaveText('Tour A');
+      await expect(on(page).map.locators.pins.markers).toHaveCount(1);
 
-      await on(page).main.do.selectTour('Tour B');
-      await expect(on(page).main.locators.detail.name).toHaveText('Tour B');
-      await expect(on(page).main.locators.pins.markers).toHaveCount(1);
+      await on(page).list.row('Tour B').do.click();
+      await expect(on(page).detail.locators.name).toHaveText('Tour B');
+      await expect(on(page).map.locators.pins.markers).toHaveCount(1);
 
       // Tour C has no geotagged photos at all, so the toggle hides rather than
       // showing zero markers.
-      await on(page).main.do.selectTour('Tour C (no photos)');
-      await expect(on(page).main.locators.detail.name).toHaveText('Tour C (no photos)');
-      await expect(on(page).main.locators.pins.toggle).toBeHidden();
+      await on(page).list.row('Tour C (no photos)').do.click();
+      await expect(on(page).detail.locators.name).toHaveText('Tour C (no photos)');
+      await expect(on(page).map.locators.pins.toggle).toBeHidden();
 
       // Closing the panel drops the selection and widens pins straight back
       // to every tour's — there's nothing left for "Show All Tours" to widen
       // from after a close.
-      await on(page).main.do.selectTour('Tour A');
-      await on(page).main.do.closeDetail();
-      await expect(on(page).main.locators.pins.toggle).toBeVisible();
-      await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+      await on(page).list.row('Tour A').do.click();
+      await on(page).detail.do.close();
+      await expect(on(page).map.locators.pins.toggle).toBeVisible();
+      await expect(on(page).map.locators.pins.markers).toHaveCount(2);
     },
   );
 });
@@ -190,19 +190,20 @@ buddyTest.describe('a tap scopes pins to just that tour', () => {
   buddyTest('tapping a row scopes pins to just that tour', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
-    await expect(on(page).main.locators.list.count).toHaveText('2');
+    await expect(on(page).list.locators.count).toHaveText('2');
 
     // Nothing tapped yet: both A's and B's pins show.
-    await expect(on(page).main.locators.pins.toggle).toBeVisible();
-    await on(page).main.do.showPins(true);
-    await expect(on(page).main.locators.pins.markers).toHaveCount(2);
+    await expect(on(page).map.locators.pins.toggle).toBeVisible();
+    await on(page).map.do.showPins();
+    await expect(on(page).map.locators.pins.markers).toHaveCount(2);
 
     // A tap, like a click, opens the detail panel directly.
-    await on(page).main.do.tapTour('Tour A');
-    await expect(on(page).main.locators.detail.name).toHaveText('Tour A');
-    await expect(
-      on(page).main.locators.list.container.locator('.tour-item.active', { hasText: 'Tour A' }),
-    ).toBeVisible();
-    await expect(on(page).main.locators.pins.markers).toHaveCount(1);
+    await on(page).list.row('Tour A').do.tap();
+    await expect(on(page).detail.locators.name).toHaveText('Tour A');
+    await expect(on(page).list.row('Tour A').locators.content).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    await expect(on(page).map.locators.pins.markers).toHaveCount(1);
   });
 });

@@ -1,47 +1,37 @@
 import { buddyTest, expect } from '../pages/buddy-test';
 
 // #216: site chrome and map tiles follow the OS prefers-color-scheme setting,
-// including live updates if the OS theme changes mid-session. These run
-// against the static frontend (no backend) since theming is presentation-only.
+// including live updates if the OS theme changes mid-session. The palette's
+// values and contrast are pinned by frontend/test/contrast.test.js.
 
 buddyTest.describe('system dark/light mode', () => {
-  buddyTest(
-    'light OS preference renders the light palette and Voyager tiles',
-    async ({ on, page }) => {
-      await page.emulateMedia({ colorScheme: 'light' });
-      await page.goto('/');
-
-      const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-      expect(bg).toBe('rgb(248, 250, 252)');
-
-      await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /voyager/);
-      await on(page).a11y.check('light theme');
-    },
-  );
-
-  buddyTest(
-    'dark OS preference renders the dark palette and Dark Matter tiles',
-    async ({ on, page }) => {
-      await page.emulateMedia({ colorScheme: 'dark' });
-      await page.goto('/');
-
-      const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-      expect(bg).toBe('rgb(15, 17, 23)');
-
-      await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_all/);
-      await on(page).a11y.check('dark theme');
-    },
-  );
-
-  buddyTest('switching the OS theme live updates both CSS and map tiles', async ({ page }) => {
+  buddyTest('light OS preference renders light map tiles', async ({ on, page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/');
-    await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /voyager/);
+
+    await expect(on(page).map()).toHaveAttribute('data-tiles', 'light');
+    await on(page).a11y.check('light theme');
+  });
+
+  buddyTest('dark OS preference renders dark map tiles', async ({ on, page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/');
+
+    await expect(on(page).map()).toHaveAttribute('data-tiles', 'dark');
+    await on(page).a11y.check('dark theme');
+  });
+
+  buddyTest('switching the OS theme live updates both CSS and map tiles', async ({ on, page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/');
+    await expect(on(page).map()).toHaveAttribute('data-tiles', 'light');
+    const lightBackground = await on(page)
+      .main()
+      .evaluate((body) => getComputedStyle(body).backgroundColor);
 
     await page.emulateMedia({ colorScheme: 'dark' });
 
-    const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(bg).toBe('rgb(15, 17, 23)');
-    await expect(page.locator('.leaflet-tile').first()).toHaveAttribute('src', /dark_all/);
+    await expect(on(page).main()).not.toHaveCSS('background-color', lightBackground);
+    await expect(on(page).map()).toHaveAttribute('data-tiles', 'dark');
   });
 });

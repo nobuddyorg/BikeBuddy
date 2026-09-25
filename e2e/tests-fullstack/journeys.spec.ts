@@ -25,9 +25,9 @@ buddyTest.describe('user journeys', () => {
     await on(page).main.do.uploadGpx({ name: 'Original Name', gpx: GPX });
 
     // Upload auto-selects the new tour → detail panel open.
-    await expect(on(page).main.locators.detail.name).toHaveText('Original Name');
+    await expect(on(page).detail.locators.name).toHaveText('Original Name');
 
-    await on(page).main.do.openEdit();
+    await on(page).detail.do.openEdit();
     await expect(on(page).modal.edit()).toBeVisible();
     await on(page).a11y.check('edit tour modal');
     await on(page).modal.edit.do.setName('Renamed Tour');
@@ -35,10 +35,10 @@ buddyTest.describe('user journeys', () => {
     await on(page).modal.edit.do.submit();
 
     await expect(on(page).modal.edit()).toBeHidden();
-    await expect(on(page).main.locators.detail.name).toHaveText('Renamed Tour');
-    await expect(on(page).main.locators.detail.description).toHaveText('Now with a description');
-    await expect(on(page).main.locators.list.container).toContainText('Renamed Tour');
-    await expect(on(page).main.locators.list.container).not.toContainText('Original Name');
+    await expect(on(page).detail.locators.name).toHaveText('Renamed Tour');
+    await expect(on(page).detail.locators.description).toHaveText('Now with a description');
+    await expect(on(page).list.locators.container).toContainText('Renamed Tour');
+    await expect(on(page).list.locators.container).not.toContainText('Original Name');
   });
 
   buddyTest('edit a tour: correcting the date updates the detail panel', async ({ on, page }) => {
@@ -47,16 +47,16 @@ buddyTest.describe('user journeys', () => {
     await on(page).main.do.uploadGpx({ name: 'Dated Tour', gpx: GPX });
 
     // The GPX's <time> puts the tour on 1 May 2026.
-    await expect(on(page).main.locators.detail.date).toHaveText('1 May 2026');
+    await expect(on(page).detail.locators.date).toHaveText('1 May 2026');
 
-    await on(page).main.do.openEdit();
+    await on(page).detail.do.openEdit();
     await expect(on(page).modal.edit()).toBeVisible();
     await expect(on(page).modal.edit.locators.date).toHaveValue('2026-05-01');
     await on(page).modal.edit.do.setDate('2026-06-15');
     await on(page).modal.edit.do.submit();
 
     await expect(on(page).modal.edit()).toBeHidden();
-    await expect(on(page).main.locators.detail.date).toHaveText('15 Jun 2026');
+    await expect(on(page).detail.locators.date).toHaveText('15 Jun 2026');
   });
 
   buddyTest(
@@ -66,7 +66,7 @@ buddyTest.describe('user journeys', () => {
       await expect(on(page).main.locators.userMenu).toBeVisible();
       await on(page).main.do.uploadGpx({ name: 'Keep Me', gpx: GPX });
 
-      await on(page).main.do.openEdit();
+      await on(page).detail.do.openEdit();
       await expect(on(page).modal.edit()).toBeVisible();
       // '#edit-name' has the HTML `required` attribute, so a truly empty value
       // never reaches submitEdit()'s fetch — the browser blocks the submit
@@ -77,7 +77,7 @@ buddyTest.describe('user journeys', () => {
 
       await expect(on(page).modal.edit()).toBeVisible();
       await expect(on(page).modal.edit.locators.error).toBeVisible();
-      await expect(on(page).main.locators.detail.name).toHaveText('Keep Me');
+      await expect(on(page).detail.locators.name).toHaveText('Keep Me');
     },
   );
 

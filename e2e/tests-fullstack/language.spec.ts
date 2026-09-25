@@ -17,11 +17,11 @@ buddyTest.describe('language preference', () => {
 
       await on(page).main.do.openProfile();
       await expect(on(page).modal.profile()).toBeVisible();
-      await on(page).modal.profile.do.switchLanguage({ search: 'deu', pick: 'Deutsch' });
+      await on(page).modal.profile.do.switchLanguage({ search: 'deu', code: 'de' });
 
       // Selecting PATCHes /api/me and reloads; the UI comes back in German.
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
-      await expect(page.getByText('Meine Touren')).toBeVisible();
+      await expect(on(page).main.locators.sidebarTitle).toHaveText('Meine Touren');
 
       const [user] = await listUsers();
       expect(user.language).toBe('de');
@@ -33,12 +33,12 @@ buddyTest.describe('language preference', () => {
     async ({ on, page }) => {
       await page.goto('/');
       await on(page).main.do.openProfile();
-      await on(page).modal.profile.do.switchLanguage({ search: 'deu', pick: 'Deutsch' });
+      await on(page).modal.profile.do.switchLanguage({ search: 'deu', code: 'de' });
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
 
       // Simulate a different browser/device: no local override, but the
       // account still has the saved language.
-      await page.evaluate(() => localStorage.removeItem('bikebuddy-lang'));
+      await on(page).main.do.forgetLocalSettings();
       await page.reload();
 
       // Momentarily falls back to browser detection, then devSignIn()'s

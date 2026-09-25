@@ -35,12 +35,12 @@ buddyTest.describe('mobile map access', () => {
     await expect(on(page).main.locators.userMenu).toBeVisible();
 
     await expect(on(page).main.locators.sidebar).toBeVisible();
-    await expect(on(page).main.locators.map).toBeHidden();
+    await expect(on(page).map()).toBeHidden();
     await expect(on(page).main.locators.buttons.mobileMapFab).toBeVisible();
     // The map is never focused on a single tour in the background on mobile
     // (see closeDetailPanel's mobile branch), so there's nothing for this
     // button to reset — the FAB is the only way to the map.
-    await expect(on(page).main.locators.buttons.showAll).toBeHidden();
+    await expect(on(page).list.locators.buttons.showAll).toBeHidden();
   });
 
   buddyTest(
@@ -49,13 +49,13 @@ buddyTest.describe('mobile map access', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      await on(page).main.do.tapTour('Mobile Map Tour A');
-      await expect(on(page).main.locators.detail.name).toHaveText('Mobile Map Tour A');
+      await on(page).list.row('Mobile Map Tour A').do.tap();
+      await expect(on(page).detail.locators.name).toHaveText('Mobile Map Tour A');
 
-      await on(page).main.do.closeDetail();
+      await on(page).detail.do.close();
 
-      await expect(on(page).main.locators.detail.panel).toBeHidden();
-      await expect(on(page).main.locators.list.active).toHaveCount(0);
+      await expect(on(page).detail()).toBeHidden();
+      await expect(on(page).list.locators.current).toHaveCount(0);
     },
   );
 
@@ -65,13 +65,13 @@ buddyTest.describe('mobile map access', () => {
 
     await on(page).main.do.openMobileMap();
 
-    await expect(on(page).main.locators.map).toBeVisible();
+    await expect(on(page).map()).toBeVisible();
     await expect(on(page).main.locators.sidebar).toBeHidden();
 
     // Closing (the same expand/restore toggle) returns to the list.
     await on(page).main.do.toggleSidebar();
     await expect(on(page).main.locators.sidebar).toBeVisible();
-    await expect(on(page).main.locators.map).toBeHidden();
+    await expect(on(page).map()).toBeHidden();
   });
 
   buddyTest(
@@ -80,11 +80,11 @@ buddyTest.describe('mobile map access', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      await on(page).main.do.longPressTour('Mobile Map Tour A');
-      await expect(on(page).main.locators.selection.count).toHaveText('1 selected');
+      await on(page).list.row('Mobile Map Tour A').do.longPress();
+      await expect(on(page).list.locators.selection.count).toHaveText('1 selected');
 
       await on(page).main.do.openMobileMap();
-      await expect(on(page).main.locators.map).toBeVisible();
+      await expect(on(page).map()).toBeVisible();
     },
   );
 
@@ -94,19 +94,19 @@ buddyTest.describe('mobile map access', () => {
       await page.goto('/');
       await expect(on(page).main.locators.userMenu).toBeVisible();
 
-      await on(page).main.do.tapTour('Mobile Map Tour A');
-      await expect(on(page).main.locators.detail.name).toHaveText('Mobile Map Tour A');
-      await expect(on(page).main.locators.map).toBeVisible();
+      await on(page).list.row('Mobile Map Tour A').do.tap();
+      await expect(on(page).detail.locators.name).toHaveText('Mobile Map Tour A');
+      await expect(on(page).map()).toBeVisible();
 
       // Expand from the preview goes full-screen, hiding the detail panel...
       await on(page).main.do.toggleSidebar();
-      await expect(on(page).main.locators.map).toBeVisible();
-      await expect(on(page).main.locators.detail.panel).toBeHidden();
+      await expect(on(page).map()).toBeVisible();
+      await expect(on(page).detail()).toBeHidden();
 
       // ...and collapsing it returns the map to the still-open detail panel.
       await on(page).main.do.toggleSidebar();
-      await expect(on(page).main.locators.detail.panel).toBeVisible();
-      await expect(on(page).main.locators.map).toBeVisible();
+      await expect(on(page).detail()).toBeVisible();
+      await expect(on(page).map()).toBeVisible();
     },
   );
 });

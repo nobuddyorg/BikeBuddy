@@ -7,8 +7,10 @@ interface ProfileModal {
   do: {
     setName(name: string): Promise<void>;
     saveName(): Promise<void>;
-    switchLanguage(opts: { search: string; pick: string }): Promise<void>;
+    /** Filters the language menu by `search`, then picks the locale `code` (e.g. 'de'). */
+    switchLanguage(language: { search: string; code: string }): Promise<void>;
     exportData(): Promise<void>;
+    logout(): Promise<void>;
     deleteAccount(): Promise<void>;
     close(): Promise<void>;
   };
@@ -23,10 +25,11 @@ interface ProfileModal {
       button: Locator;
       menu: Locator;
       search: Locator;
-      options: Locator;
+      option(code: string): Locator;
     };
     buttons: {
       saveName: Locator;
+      logout: Locator;
       exportData: Locator;
       deleteAccount: Locator;
       close: Locator;
@@ -50,10 +53,11 @@ export function initProfileModal(page: Page): ProfileModal {
       button: page.locator('#btn-lang'),
       menu: page.locator('#lang-menu'),
       search: page.locator('#lang-search'),
-      options: page.locator('.lang-option'),
+      option: (code: string) => page.locator(`#lang-option-${code}`),
     },
     buttons: {
-      saveName: page.locator('#profile-name-form button[type="submit"]'),
+      saveName: page.locator('#btn-save-profile-name'),
+      logout: page.locator('#btn-logout'),
       exportData: page.locator('#btn-export-data'),
       deleteAccount: page.locator('#btn-delete-account'),
       close: page.locator('#btn-close-profile'),
@@ -66,12 +70,13 @@ export function initProfileModal(page: Page): ProfileModal {
   const interactions = {
     setName: async (name: string) => locators.nameInput.fill(name),
     saveName: async () => locators.buttons.saveName.click(),
-    switchLanguage: async ({ search, pick }: { search: string; pick: string }) => {
+    switchLanguage: async ({ search, code }: { search: string; code: string }) => {
       await locators.lang.button.click();
       await locators.lang.search.fill(search);
-      await locators.lang.options.filter({ hasText: pick }).click();
+      await locators.lang.option(code).click();
     },
     exportData: async () => locators.buttons.exportData.click(),
+    logout: async () => locators.buttons.logout.click(),
     deleteAccount: async () => {
       await locators.buttons.deleteAccount.click();
       await locators.deleteAccountModal.input.fill('DELETE');

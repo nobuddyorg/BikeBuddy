@@ -32,49 +32,16 @@ buddyTest.describe('tour list: sort + fuzzy search', () => {
     for (const t of TOURS)
       await on(page).main.do.uploadGpx({ name: t.name, gpx: gpx(t.name, t.lon2) });
 
-    const list = on(page).main.locators.list.container;
+    // One step each: the matching and ordering rules are unit-tested (frontend/test/tours.test.js).
+    await on(page).list.do.search('cstrn'); // a subsequence of "Coastal Run"
+    await expect(on(page).list.locators.names).toHaveText(['Coastal Run']);
 
-    // Fuzzy search: non-contiguous subsequence still matches.
-    await on(page).main.do.search('alp');
-    await expect(list).toContainText('Alpine Loop');
-    await expect(list).not.toContainText('Black Forest');
-    await expect(list).not.toContainText('Coastal Run');
-
-    await on(page).main.do.search('cstrn'); // subsequence of "Coastal Run"
-    // Search re-renders on a debounce, so poll rather than read a single snapshot.
-    await expect.poll(() => on(page).main.do.tourNames()).toEqual(['Coastal Run']);
-
-    await on(page).main.do.search('zzz'); // no match
-    await expect(list).toContainText('No tours match');
-
-    await on(page).main.do.search('');
-
-    // Sort by name.
-    await on(page).main.do.sortBy('name-asc');
-    expect(await on(page).main.do.tourNames()).toEqual([
-      'Alpine Loop',
-      'Black Forest',
-      'Coastal Run',
-    ]);
-    await on(page).main.do.sortBy('name-desc');
-    expect(await on(page).main.do.tourNames()).toEqual([
+    await on(page).list.do.search('');
+    await on(page).list.do.sortBy('length-desc');
+    await expect(on(page).list.locators.names).toHaveText([
       'Coastal Run',
       'Black Forest',
       'Alpine Loop',
-    ]);
-
-    // Sort by length.
-    await on(page).main.do.sortBy('length-desc');
-    expect(await on(page).main.do.tourNames()).toEqual([
-      'Coastal Run',
-      'Black Forest',
-      'Alpine Loop',
-    ]);
-    await on(page).main.do.sortBy('length-asc');
-    expect(await on(page).main.do.tourNames()).toEqual([
-      'Alpine Loop',
-      'Black Forest',
-      'Coastal Run',
     ]);
   });
 });

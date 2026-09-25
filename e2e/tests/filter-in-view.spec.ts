@@ -83,17 +83,17 @@ buddyTest.describe('filter tours in view', () => {
     'narrows the list to tours with an on-screen track, and restores it when toggled off',
     async ({ on, page }) => {
       await page.goto('/');
-      await expect(on(page).main.locators.list.container).toContainText('Tracked Loop');
-      await expect(on(page).main.locators.list.container).toContainText('Trackless Loop');
+      await expect(on(page).list.locators.container).toContainText('Tracked Loop');
+      await expect(on(page).list.locators.container).toContainText('Trackless Loop');
 
-      await expect(on(page).main.locators.filterInView.toggle).toBeVisible();
-      await on(page).main.do.filterInView(true);
+      await expect(on(page).list.locators.filterInView.toggle).toBeVisible();
+      await on(page).list.do.showOnlyToursInView();
 
-      await expect(on(page).main.locators.list.container).toContainText('Tracked Loop');
-      await expect(on(page).main.locators.list.container).not.toContainText('Trackless Loop');
+      await expect(on(page).list.locators.container).toContainText('Tracked Loop');
+      await expect(on(page).list.locators.container).not.toContainText('Trackless Loop');
 
-      await on(page).main.do.filterInView(false);
-      await expect(on(page).main.locators.list.container).toContainText('Trackless Loop');
+      await on(page).list.do.showToursOutOfView();
+      await expect(on(page).list.locators.container).toContainText('Trackless Loop');
     },
   );
 });

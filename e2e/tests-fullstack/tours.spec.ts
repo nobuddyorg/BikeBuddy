@@ -27,13 +27,13 @@ buddyTest('tour lifecycle: upload → list → detail → image → delete', asy
   const tourName = `CI E2E ${Date.now()}`;
 
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
 
-  await on(page).main.do.addImage(SAMPLE_JPG);
-  await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
+  await on(page).detail.do.addPhotos(SAMPLE_JPG);
+  await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
 
-  await on(page).main.do.deleteTour();
-  await expect(on(page).main.locators.list.container).not.toContainText(tourName);
+  await on(page).detail.do.deleteTour();
+  await expect(on(page).list.locators.container).not.toContainText(tourName);
 });
 
 // #338: re-download the originally uploaded file, via the signed blob URL from
@@ -44,10 +44,10 @@ buddyTest('download GPX from the detail panel', async ({ on, page }) => {
 
   const tourName = `CI E2E GPX Download ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
 
   const downloadPromise = page.waitForEvent('download');
-  await on(page).main.do.downloadGpx();
+  await on(page).detail.do.downloadGpx();
   const download = await downloadPromise;
   // The filename comes from the signed URL's Content-Disposition, which GetTour
   // sanitizes the same way (spaces → "_").
@@ -60,23 +60,23 @@ buddyTest('multi-image upload: per-file success and error handling', async ({ on
 
   const tourName = `CI E2E Multi ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
 
   // setInputFiles needs a uniform array shape, so the valid photos are passed
   // as payloads too.
-  await on(page).main.do.addImage([
+  await on(page).detail.do.addPhotos([
     { name: 'photo1.jpg', mimeType: 'image/jpeg', buffer: SAMPLE_JPG_BUFFER },
     { name: 'photo2.jpg', mimeType: 'image/jpeg', buffer: SAMPLE_JPG_BUFFER },
     { name: 'not-a-photo.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') },
   ]);
 
   // The invalid file never hits the network, so its tile has no retry.
-  await expect(on(page).main.locators.image.errorTiles).toHaveCount(1);
-  await expect(on(page).main.locators.image.retryButtons).toHaveCount(0);
+  await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(1);
+  await expect(on(page).detail.locators.photos.retryButtons).toHaveCount(0);
 
-  await expect(on(page).main.locators.image.thumbs).toHaveCount(2);
-  await expect(on(page).main.locators.image.pendingTiles).toHaveCount(0);
+  await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(2);
+  await expect(on(page).detail.locators.photos.pendingTiles).toHaveCount(0);
 
-  await on(page).main.do.dismissImageError();
-  await expect(on(page).main.locators.image.errorTiles).toHaveCount(0);
+  await on(page).detail.do.dismissPhotoError();
+  await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(0);
 });
