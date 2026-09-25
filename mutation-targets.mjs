@@ -34,6 +34,7 @@ export const FUNCTIONS_TARGETS = [
   'scripts/lib/cli.js',
   'scripts/lib/deletionJob.js',
   'scripts/lib/localCosmos.js',
+  'scripts/lib/mutationSummary.mjs',
   'scripts/lib/queryItems.js',
   'scripts/lib/thumbnailBackfill.js',
   'scripts/lib/tourStatsBackfill.js',
