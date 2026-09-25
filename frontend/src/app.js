@@ -1,4 +1,4 @@
-import * as i18n from './lib/i18n.js';
+import * as i18n from './ui/i18n.js';
 import { state } from './ui/state.js';
 import { map, refreshMapSize, moveMapIntoDetailPanel, restoreMapToAppLayout } from './ui/map.js';
 import {

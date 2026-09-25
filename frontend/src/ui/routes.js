@@ -50,7 +50,7 @@ export function renderRoutes(pointSets, padding, fit = true) {
 
 export async function renderAllRoutes(mapDataPromise, fit = true) {
   show(elMapLoading, true);
-  await ensureMapData(apiFetch, state.tours, mapDataPromise);
+  await ensureMapData({ apiFetch, tours: state.tours, now: Date.now(), mapDataPromise });
   show(elMapLoading, false);
   const pointSets = state.tours.map((t) => t.heatmapData || []);
   renderRoutes(pointSets, 40, fit);
@@ -70,7 +70,7 @@ export async function renderSelectedToursRoutes() {
   }
   const requested = [...state.selectedIds].sort().join(',');
   const tours = state.tours.filter((tour) => state.selectedIds.has(tour.id));
-  await ensureMapData(apiFetch, state.tours);
+  await ensureMapData({ apiFetch, tours: state.tours, now: Date.now() });
   if ([...state.selectedIds].sort().join(',') !== requested) return; // selection changed while loading
   const pointSets = tours.map((t) => t.heatmapData || []);
   renderRoutes(pointSets, 40);

@@ -1,11 +1,7 @@
-import * as i18n from '../lib/i18n.js';
-import {
-  WEIGHT_MIN,
-  WEIGHT_MAX,
-  OPACITY_MIN,
-  OPACITY_MAX,
-  saveLineStyle,
-} from '../lib/lineStyle.js';
+import { SUPPORTED_LOCALES } from '../lib/i18n.js';
+import * as i18n from './i18n.js';
+import { WEIGHT_MIN, WEIGHT_MAX, OPACITY_MIN, OPACITY_MAX } from '../lib/lineStyle.js';
+import { saveLineStyle } from './lineStyleStorage.js';
 import { state } from './state.js';
 import { redrawRoutes } from './routes.js';
 import { selectLanguage } from './profile.js';
@@ -52,7 +48,7 @@ export function setupLanguageSwitcher() {
     ]),
   );
 
-  for (const loc of i18n.SUPPORTED_LOCALES) {
+  for (const loc of SUPPORTED_LOCALES) {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';

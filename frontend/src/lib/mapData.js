@@ -8,8 +8,8 @@ import { isStale, markFetched } from './sasCache.js';
 // renders and no retry storm follows. mapDataPromise lets a caller hand in a
 // fetch already started in parallel with the tour list itself, instead of
 // paying its cold-start latency a second time.
-export async function ensureMapData(apiFetch, tours, mapDataPromise = null) {
-  const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour));
+export async function ensureMapData({ apiFetch, tours, now, mapDataPromise = null }) {
+  const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour, now));
   if (missing.length === 0) return;
 
   let byId = new Map();
@@ -27,6 +27,6 @@ export async function ensureMapData(apiFetch, tours, mapDataPromise = null) {
     // gallery loaded no longer does — the next detail fetch has to run again.
     tour.images = entry?.images || [];
     tour.detailLoaded = false;
-    markFetched(tour);
+    markFetched(tour, now);
   }
 }

@@ -1,7 +1,8 @@
-import * as i18n from '../lib/i18n.js';
+import * as i18n from './i18n.js';
 import { validateImageUpload, validateImageBatch, validateImageQuota } from '../lib/files.js';
 import { runWithConcurrency } from '../lib/concurrency.js';
-import { xhrUpload } from '../lib/upload.js';
+import { markStale } from '../lib/sasCache.js';
+import { xhrUpload } from './uploadRequest.js';
 import { state } from './state.js';
 import {
   show,
@@ -125,7 +126,7 @@ function renderErrorTile(fig, message, { retryable, retryAria, onRetry, onDismis
 async function retryTourImages() {
   const tour = state.tours.find((t) => t.id === state.selectedTourId);
   if (!tour) return null;
-  tour.fetchedAt = 0;
+  markStale(tour);
   await ensureDetail(tour);
   if (state.selectedTourId !== tour.id) return null; // user navigated away while refetching
   renderGallery(tour);

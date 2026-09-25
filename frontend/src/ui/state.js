@@ -1,4 +1,4 @@
-import { loadLineStyle } from '../lib/lineStyle.js';
+import { loadLineStyle } from './lineStyleStorage.js';
 
 export const state = {
   user: null,

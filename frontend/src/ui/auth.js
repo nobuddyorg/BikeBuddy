@@ -1,4 +1,4 @@
-import * as i18n from '../lib/i18n.js';
+import * as i18n from './i18n.js';
 import { state } from './state.js';
 import { show, elBtnLogin, elUserMenu, elBtnUpload, elBtnProfile } from './dom.js';
 import {

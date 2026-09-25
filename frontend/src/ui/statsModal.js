@@ -1,4 +1,4 @@
-import * as i18n from '../lib/i18n.js';
+import * as i18n from './i18n.js';
 import { formatDistance } from '../lib/format.js';
 import { computeTourStats } from '../lib/stats.js';
 import { state } from './state.js';
@@ -20,7 +20,7 @@ import {
 const t = i18n.t;
 
 function renderStats() {
-  const stats = computeTourStats(state.tours);
+  const stats = computeTourStats(state.tours, new Date());
   elStatsTotalDistance.textContent = formatDistance(stats.totalDistance);
   elStatsTotalCount.textContent = String(stats.totalCount);
   elStatsThisYear.textContent = formatDistance(stats.distanceThisYear);

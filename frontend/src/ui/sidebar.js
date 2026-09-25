@@ -1,4 +1,4 @@
-import * as i18n from '../lib/i18n.js';
+import * as i18n from './i18n.js';
 import { formatDate, formatDistance } from '../lib/format.js';
 import { visibleTours, toursInView, paginate, PAGE_SIZE, fuzzyMatchIndices } from '../lib/tours.js';
 import { isStale, markFetched } from '../lib/sasCache.js';
@@ -70,7 +70,7 @@ export async function loadTours() {
 // ensureMapData fills those in too, from the leaner /api/map payload. Expires
 // ahead of the signed URLs it holds, so a long-open tab refetches.
 export async function ensureDetail(tour) {
-  if (tour.detailLoaded && !isStale(tour)) return;
+  if (tour.detailLoaded && !isStale(tour, Date.now())) return;
   try {
     const res = await apiFetch(`/api/tours/${tour.id}`);
     if (res.ok) {
@@ -88,7 +88,7 @@ export async function ensureDetail(tour) {
   tour.heatmapData = tour.heatmapData || [];
   tour.images = tour.images || [];
   tour.detailLoaded = true;
-  markFetched(tour);
+  markFetched(tour, Date.now());
 }
 
 // textContent, never innerHTML: tour names are user-supplied.

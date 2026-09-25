@@ -3,6 +3,7 @@ import { ensureMapData } from '../src/lib/mapData.js';
 import { SAS_CACHE_TTL_MS, isStale } from '../src/lib/sasCache.js';
 
 const ok = (body) => ({ ok: true, json: async () => body });
+const NOW = Date.parse('2026-08-20T12:00:00Z');
 
 describe('ensureMapData', () => {
   it('fills every tour from a single request', async () => {
@@ -18,7 +19,7 @@ describe('ensureMapData', () => {
       ]),
     );
 
-    await ensureMapData(apiFetch, tours);
+    await ensureMapData({ apiFetch, tours, now: NOW });
 
     // The N+1 this replaced issued one GET /api/tours/{id} per tour.
     expect(apiFetch).toHaveBeenCalledTimes(1);
@@ -29,10 +30,10 @@ describe('ensureMapData', () => {
   });
 
   it('makes no request when every tour already has fresh data', async () => {
-    const tours = [{ id: 't1', heatmapData: [], images: [], fetchedAt: Date.now() }];
+    const tours = [{ id: 't1', heatmapData: [], images: [], fetchedAt: NOW }];
     const apiFetch = vi.fn();
 
-    await ensureMapData(apiFetch, tours);
+    await ensureMapData({ apiFetch, tours, now: NOW });
 
     expect(apiFetch).not.toHaveBeenCalled();
   });
@@ -42,7 +43,7 @@ describe('ensureMapData', () => {
       id: 't1',
       heatmapData: [[1, 2]],
       images: [{ id: 'i1', url: 'cached' }],
-      fetchedAt: Date.now(),
+      fetchedAt: NOW,
     };
     const tours = [loaded, { id: 't2' }];
     const apiFetch = vi.fn(async () =>
@@ -52,7 +53,7 @@ describe('ensureMapData', () => {
       ]),
     );
 
-    await ensureMapData(apiFetch, tours);
+    await ensureMapData({ apiFetch, tours, now: NOW });
 
     expect(loaded.heatmapData).toEqual([[1, 2]]);
     expect(loaded.images).toEqual([{ id: 'i1', url: 'cached' }]);
@@ -62,7 +63,7 @@ describe('ensureMapData', () => {
   it('settles tours missing from the response on empty data', async () => {
     const tours = [{ id: 'gone' }];
 
-    await ensureMapData(async () => ok([]), tours);
+    await ensureMapData({ apiFetch: async () => ok([]), tours, now: NOW });
 
     expect(tours[0]).toMatchObject({ id: 'gone', heatmapData: [], images: [] });
   });
@@ -70,7 +71,7 @@ describe('ensureMapData', () => {
   it('settles on empty data when the request fails', async () => {
     const tours = [{ id: 't1' }];
 
-    await ensureMapData(async () => ({ ok: false }), tours);
+    await ensureMapData({ apiFetch: async () => ({ ok: false }), tours, now: NOW });
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
   });
@@ -78,9 +79,10 @@ describe('ensureMapData', () => {
   it('settles on empty data when the network throws', async () => {
     const tours = [{ id: 't1' }];
 
-    await ensureMapData(async () => {
+    const apiFetch = async () => {
       throw new Error('offline');
-    }, tours);
+    };
+    await ensureMapData({ apiFetch, tours, now: NOW });
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
   });
@@ -93,25 +95,25 @@ describe('ensureMapData', () => {
       heatmapData: [[1, 2]],
       images: [{ id: 'i1', url: 'expired' }],
       detailLoaded: true,
-      fetchedAt: Date.now() - SAS_CACHE_TTL_MS,
+      fetchedAt: NOW - SAS_CACHE_TTL_MS,
     };
     const apiFetch = vi.fn(async () =>
       ok([{ id: 't1', heatmapData: [[5, 6]], images: [{ id: 'i1', url: 'fresh' }] }]),
     );
 
-    await ensureMapData(apiFetch, [stale]);
+    await ensureMapData({ apiFetch, tours: [stale], now: NOW });
 
     expect(stale.images).toEqual([{ id: 'i1', url: 'fresh' }]);
     expect(stale.heatmapData).toEqual([[5, 6]]);
     // Only pinnable photos come back here, so the full gallery has to be refetched.
     expect(stale.detailLoaded).toBe(false);
-    expect(isStale(stale)).toBe(false);
+    expect(isStale(stale, NOW)).toBe(false);
   });
 
   it('tolerates a response body that is not a list', async () => {
     const tours = [{ id: 't1' }];
 
-    await ensureMapData(async () => ok(null), tours);
+    await ensureMapData({ apiFetch: async () => ok(null), tours, now: NOW });
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
   });
@@ -123,7 +125,7 @@ describe('ensureMapData', () => {
     const apiFetch = vi.fn();
     const mapDataPromise = Promise.resolve(ok([{ id: 't1', heatmapData: [[1, 1]], images: [] }]));
 
-    await ensureMapData(apiFetch, tours, mapDataPromise);
+    await ensureMapData({ apiFetch, tours, now: NOW, mapDataPromise });
 
     expect(apiFetch).not.toHaveBeenCalled();
     expect(tours[0].heatmapData).toEqual([[1, 1]]);

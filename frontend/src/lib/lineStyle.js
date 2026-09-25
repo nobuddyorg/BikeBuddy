@@ -1,10 +1,6 @@
 // @ts-check
 
-// Dependency-free line-style preference. The pure helpers are unit-tested; the
-// localStorage reads/writes below are covered by e2e.
-
 export const DEFAULT_LINE_STYLE = { color: '#d97a36', weight: 3, opacity: 0.75 };
-const STORAGE_KEY = 'bikebuddy-line-style';
 
 export const WEIGHT_MIN = 1;
 export const WEIGHT_MAX = 16;
@@ -42,12 +38,4 @@ export function parseLineStyle(raw) {
     : DEFAULT_LINE_STYLE.opacity;
 
   return { color, weight, opacity };
-}
-
-export function loadLineStyle() {
-  return parseLineStyle(localStorage.getItem(STORAGE_KEY));
-}
-
-export function saveLineStyle(style) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(style));
 }

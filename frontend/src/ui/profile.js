@@ -1,4 +1,4 @@
-import * as i18n from '../lib/i18n.js';
+import * as i18n from './i18n.js';
 import { initials, formatDate } from '../lib/format.js';
 import { parseErrorMessage } from '../lib/upload.js';
 import { state } from './state.js';

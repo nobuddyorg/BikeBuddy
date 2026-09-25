@@ -47,7 +47,7 @@ describe('computeTourStats (properties)', () => {
     fc.assert(
       fc.property(tours, (list) => {
         fc.pre(list.length > 0);
-        const { longestTour } = computeTourStats(list);
+        const { longestTour } = computeTourStats(list, new Date('2026-06-01T00:00:00Z'));
         for (const t of list)
           expect(longestTour.distance || 0).toBeGreaterThanOrEqual(t.distance || 0);
       }),
