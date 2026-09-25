@@ -21,7 +21,13 @@ export function intlLocale() {
 }
 
 export function t(key, params) {
-  return translate({ messages, fallbackMessages, key, params, locale: intlLocale() });
+  return translate({
+    messages,
+    fallbackMessages,
+    key,
+    params,
+    locale: intlLocale(),
+  });
 }
 
 // The API sends an i18n key (functions/src/lib/http.js); anything else resolves to itself.
@@ -57,11 +63,13 @@ export async function init() {
     languages: navigator.languages?.length ? navigator.languages : [navigator.language],
   });
 
-  fallbackMessages = await loadMessagesOr({ code: DEFAULT_LOCALE, fallback: {} });
-  messages =
+  // Both files at once: a sequential second fetch would hold back sign-in and the first API call.
+  const english = loadMessagesOr({ code: DEFAULT_LOCALE, fallback: {} });
+  const chosen =
     currentLocale === DEFAULT_LOCALE
-      ? fallbackMessages
-      : await loadMessagesOr({ code: currentLocale, fallback: fallbackMessages });
+      ? english
+      : loadMessagesOr({ code: currentLocale, fallback: {} });
+  [fallbackMessages, messages] = await Promise.all([english, chosen]);
 
   document.documentElement.lang = currentLocale;
   applyI18n(document);

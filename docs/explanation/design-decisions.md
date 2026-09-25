@@ -116,16 +116,22 @@ to its share in one Douglas-Peucker pass that ranks every point by the largest
 tolerance that still keeps it, and keeps the top of that ranking (#546). The
 map draws polylines, so there is no gap rule: a straight 5 km stretch can be
 two points. A per-tour overview computed at upload would move this cost off
-the request path; it waits on where the track is stored (#615). The expensive part is that simplification, so a small LRU cache keys it on tour
-id and point count (`heatmapData` is set once at upload); the bound keeps a
-warm instance from growing. The frontend fetches `/api/map` in parallel with
-`/api/tours`, so a cold start is paid once.
+the request path; it waits on where the track is stored (#615). The expensive
+part is that simplification, so an LRU cache keys it on tour id and point count
+(`heatmapData` is set once at upload); it holds at most 1,000,000 points (about
+75 MB, measured), so a warm instance cannot grow past that (#578). The frontend
+fetches `/api/map` in parallel with `/api/tours`, so a cold start is paid once,
+and overlapping renders queue behind the load in flight instead of each
+fetching it again (#580).
 
 ## Frontend behaviour
 
 - One Leaflet map: on mobile it moves into the detail panel instead of a second
   instance being created. Closing the panel keeps the map where it is; only
   "Show all" refits. Photo pin markers persist across renders to avoid flicker.
+- Routes draw on one canvas (`preferCanvas`), not an SVG path per tour that is
+  re-projected on every zoom. Pin thumbnails load lazily, and pins are grouped
+  on a grid, so a zoom compares each pin only with its neighbours (#580).
 - Back closes the open panel or modal while the selection stays (#442, #443).
   Closing one with its button or Escape takes its history entry back too, so
   Back never lands on a closed layer, and a reload starts the depth over

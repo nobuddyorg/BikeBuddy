@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ensureMapData } from '../src/lib/mapData.js';
+import { ensureMapData, queueMapDataLoads } from '../src/lib/mapData.js';
 import { SAS_CACHE_TTL_MS, isStale } from '../src/lib/sasCache.js';
 
 const ok = (body) => ({ ok: true, json: async () => body });
@@ -238,5 +238,66 @@ describe('ensureMapData', () => {
 
     expect(apiFetch).not.toHaveBeenCalled();
     expect(tours[0].heatmapData).toEqual([[1, 1]]);
+  });
+});
+
+describe('queueMapDataLoads', () => {
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((settle) => {
+      resolve = settle;
+    });
+    return { promise, resolve };
+  };
+
+  it('lets overlapping loads share one request', async () => {
+    const ensure = queueMapDataLoads();
+    const response = deferred();
+    const apiFetch = vi.fn(() => response.promise);
+    const tours = [{ id: 't1' }];
+
+    const first = ensure({ apiFetch, tours, now: NOW });
+    const second = ensure({ apiFetch, tours, now: NOW });
+    response.resolve(ok([{ id: 't1', heatmapData: [[48, 11]], images: [] }]));
+    await Promise.all([first, second]);
+
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    expect(tours[0].heatmapData).toEqual([[48, 11]]);
+  });
+
+  it('fetches again for a tour the load before it did not cover', async () => {
+    const ensure = queueMapDataLoads();
+    const apiFetch = vi.fn(async () =>
+      ok([
+        { id: 't1', heatmapData: [[1, 1]], images: [] },
+        { id: 't2', heatmapData: [[2, 2]], images: [] },
+      ]),
+    );
+    const earlier = [{ id: 't1' }];
+    const later = [...earlier, { id: 't2' }];
+
+    await Promise.all([
+      ensure({ apiFetch, tours: earlier, now: NOW }),
+      ensure({ apiFetch, tours: later, now: NOW }),
+    ]);
+
+    expect(apiFetch).toHaveBeenCalledTimes(2);
+    expect(later[1].heatmapData).toEqual([[2, 2]]);
+  });
+
+  it('rejects only the failed load, and the next one retries', async () => {
+    const ensure = queueMapDataLoads();
+    const apiFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce(ok([{ id: 't1', heatmapData: [[1, 1]], images: [] }]));
+    const tours = [{ id: 't1' }];
+
+    const failed = ensure({ apiFetch, tours, now: NOW });
+    const retried = ensure({ apiFetch, tours, now: NOW });
+
+    await expect(failed).rejects.toThrow('GET /api/map answered 503');
+    await expect(retried).resolves.toBeUndefined();
+    expect(apiFetch).toHaveBeenCalledTimes(2);
   });
 });

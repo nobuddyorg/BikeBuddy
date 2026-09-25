@@ -40,3 +40,16 @@ export async function ensureMapData({ apiFetch, tours, now, pendingResponse }) {
     throw error;
   }
 }
+
+/**
+ * Overlapping renders share one /api/map: each call waits for the one before it, then fetches only
+ * what that one left missing (a tour added meanwhile, or everything after a failure).
+ */
+export function queueMapDataLoads() {
+  let previous = Promise.resolve();
+  return (options) => {
+    const current = previous.then(() => ensureMapData(options));
+    previous = current.catch(() => {});
+    return current;
+  };
+}

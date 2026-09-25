@@ -77,6 +77,28 @@ describe('i18n runtime', () => {
     expect(i18n.getLocale()).toBe('de');
   });
 
+  it('requests the chosen locale and the English fallback together', async () => {
+    stubBrowser({ languages: ['de'] });
+    const answered = fetch.getMockImplementation();
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    fetch.mockImplementation(async (url) => {
+      await gate;
+      return answered(url);
+    });
+    const i18n = await freshI18n();
+
+    const loading = i18n.init();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    release();
+    await loading;
+
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(['locales/en.json', 'locales/de.json']);
+    expect(i18n.t('greeting', { name: 'Ada' })).toBe('Hallo Ada');
+  });
+
   it('loads English once when English is picked', async () => {
     stubBrowser({ languages: ['en-US'] });
     const i18n = await freshI18n();
