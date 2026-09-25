@@ -26,11 +26,11 @@ export default {
   // module a target imports, so main runs with --force (gate.yml).
   incremental: true,
   incrementalFile: 'reports/stryker-incremental.json',
-  // Measured 96.46 %; raised as survivors are killed, never lowered.
+  // Measured 99.40 %; raised as survivors are killed, never lowered.
   thresholds: {
-    high: 97,
-    low: 95,
-    break: 95,
+    high: 99,
+    low: 98,
+    break: 98,
   },
   reporters,
   htmlReporter: {

@@ -17,11 +17,11 @@ export default {
   // PRs reuse main's results for unchanged code and tests; main runs with --force.
   incremental: true,
   incrementalFile: 'reports/stryker-incremental.json',
-  // Measured 84.76 % when introduced; raised as survivors are killed, never lowered.
+  // Measured 99.80 %; raised as survivors are killed, never lowered.
   thresholds: {
-    high: 95,
-    low: 85,
-    break: 83,
+    high: 99,
+    low: 98,
+    break: 98,
   },
   reporters,
   htmlReporter: {
