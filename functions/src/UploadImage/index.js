@@ -175,4 +175,4 @@ app.http('UploadImage', {
   handler: withFailureResponse((request) => uploadImage(request)),
 });
 
-module.exports = { uploadImage };
+module.exports = { uploadImage, MAX_TOUR_IMAGES };

@@ -32,6 +32,17 @@ function toTourResponse(tour) {
   };
 }
 
+// What the list and an edit answer: no track, so neither payload grows with the ride.
+function toTourSummaryResponse(tour) {
+  return {
+    id: tour.id,
+    name: tourName(tour.name),
+    description: tour.description,
+    distance: tour.distance,
+    createdAt: tour.createdAt,
+  };
+}
+
 /**
  * @param {{ tour: object, images: object[], gpxFileUrl?: string }} detail signed URLs only
  */
@@ -61,8 +72,8 @@ function gpxDownloadDisposition(name) {
 }
 
 module.exports = {
-  tourName,
   toTourResponse,
+  toTourSummaryResponse,
   toTourDetailResponse,
   toCreatedTourResponse,
   gpxDownloadDisposition,

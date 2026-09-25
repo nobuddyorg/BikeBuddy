@@ -7,7 +7,7 @@ const db = require('../lib/db');
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { ERROR_KEYS, error } = require('../lib/http');
-const { toTourResponse } = require('../lib/tourResponse');
+const { toTourSummaryResponse } = require('../lib/tourResponse');
 
 const EDITABLE_FIELDS = ['name', 'description', 'createdAt'];
 
@@ -38,14 +38,14 @@ async function editTour(
     (field) => ({ op: 'set', path: `/${field}`, value: parsed.data[field] }),
   );
   // Cosmos rejects an empty patch.
-  if (operations.length === 0) return { status: 200, jsonBody: toTourResponse(tour) };
+  if (operations.length === 0) return { status: 200, jsonBody: toTourSummaryResponse(tour) };
 
   const updated = await db.patchItem(toursContainer(), {
     id: tour.id,
     partitionKey: guard.user.userId,
     operations,
   });
-  return { status: 200, jsonBody: toTourResponse(updated) };
+  return { status: 200, jsonBody: toTourSummaryResponse(updated) };
 }
 
 app.http('EditTour', {
