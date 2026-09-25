@@ -83,9 +83,13 @@ function createFakeContainer({ partitionKeyPath, documents = [] }) {
     return {
       read: () =>
         perform('read', { id, partitionKey }, () => ({ resource: clone(stored.get(key)) })),
-      patch: (operations) =>
-        perform('patch', { id, partitionKey, operations }, () => {
+      patch: (operations, options) =>
+        perform('patch', { id, partitionKey, operations, options }, () => {
           const document = clone(existing());
+          const condition = options?.accessCondition;
+          if (condition && document._etag !== condition.condition) {
+            throw cosmosError(412, 'Precondition failed');
+          }
           operations.forEach((operation) => applyPatch(document, operation));
           return { resource: put(document) };
         }),

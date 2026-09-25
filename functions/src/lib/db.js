@@ -75,8 +75,10 @@ async function upsertItem(container, document) {
   return resource;
 }
 
-async function patchItem(container, { id, partitionKey, operations }) {
-  const { resource } = await container.item(id, partitionKey).patch(operations);
+// With an `etag`, rejects with a 412 when the stored item no longer carries it.
+async function patchItem(container, { id, partitionKey, operations, etag }) {
+  const options = etag ? { accessCondition: { type: 'IfMatch', condition: etag } } : {};
+  const { resource } = await container.item(id, partitionKey).patch(operations, options);
   return resource;
 }
 

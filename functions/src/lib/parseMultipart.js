@@ -5,6 +5,8 @@ const Busboy = require('busboy');
 const { Readable } = require('stream');
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// Boundaries and part headers around the file: a file at the limit must pass the shortcut.
+const MULTIPART_OVERHEAD_BYTES = 16 * 1024;
 
 function badRequest(message) {
   const error = /** @type {Error & { status?: number }} */ (new Error(message));
@@ -55,7 +57,9 @@ async function parseMultipart(request) {
 
   // A shortcut for honestly declared lengths only; the stream limit enforces.
   const contentLength = parseInt(headers['content-length'] ?? '', 10);
-  if (contentLength > MAX_FILE_BYTES) throw badRequest('File exceeds 10 MB limit');
+  if (contentLength > MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES) {
+    throw badRequest('File exceeds 10 MB limit');
+  }
 
   const parser = createParser(headers);
   // Readable.fromWeb(null) throws a bare TypeError, which would become a 500.
@@ -78,4 +82,4 @@ async function parseMultipart(request) {
   });
 }
 
-module.exports = { parseMultipart, MAX_FILE_BYTES };
+module.exports = { parseMultipart, MAX_FILE_BYTES, MULTIPART_OVERHEAD_BYTES };

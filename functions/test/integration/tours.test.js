@@ -1,8 +1,10 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const { UUID_PATTERN, ISO_TIMESTAMP_PATTERN } = require('./api');
+const { UUID_PATTERN, ISO_TIMESTAMP_PATTERN, SAMPLE_GPX } = require('./api');
 const { connectHarness } = require('./harness');
+const { plainJpeg } = require('../fixtures/jpegs');
+const { MAX_FILE_BYTES } = require('../../src/lib/parseMultipart');
 
 let rider;
 
@@ -101,6 +103,37 @@ describe('tours HTTP lifecycle', () => {
     expect((await response.json()).error).toBe('File exceeds 10 MB limit');
     expect(await rider.api.readJson('/tours')).toEqual(before);
   });
+
+  // fetch declares the whole multipart body, so more than the file's own 10 MB.
+  it('accepts a GPX file of exactly 10 MB with its real Content-Length', async () => {
+    const padding = MAX_FILE_BYTES - Buffer.byteLength(SAMPLE_GPX) - '<!---->'.length;
+    const gpx = `${SAMPLE_GPX}<!--${'x'.repeat(padding)}-->`;
+    expect(Buffer.byteLength(gpx)).toBe(MAX_FILE_BYTES);
+
+    const response = await rider.api.uploadTour({ name: `Ten megabytes ${randomUUID()}`, gpx });
+
+    expect(response.status).toBe(201);
+  });
+
+  it('never lets concurrent uploads take a tour past 20 photos', async () => {
+    const tourId = await rider.api.createTour({ name: `Photo cap ${randomUUID()}` });
+    const jpeg = await plainJpeg();
+    for (let photo = 0; photo < 18; photo++) await rider.api.addPhoto({ tourId, jpeg });
+
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () => rider.api.uploadImage({ tourId, jpeg })),
+    );
+
+    const statuses = responses.map((response) => response.status).sort();
+    expect(statuses).toEqual([201, 201, 400, 400, 400]);
+    const refusals = await Promise.all(
+      responses.filter((response) => response.status === 400).map((response) => response.json()),
+    );
+    expect(refusals).toEqual(
+      Array(3).fill({ error: 'This tour already has the maximum of 20 photos.' }),
+    );
+    expect((await rider.api.readJson(`/tours/${tourId}`)).images).toHaveLength(20);
+  }, 60_000);
 
   it('rejects an edit with a body that is not JSON with 400', async () => {
     const tourId = await rider.api.createTour({ name: `Edit ${randomUUID()}` });

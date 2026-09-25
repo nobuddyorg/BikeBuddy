@@ -55,22 +55,67 @@ async function storeVariants(container, { blobName, variants }) {
   );
 }
 
-// An atomic append, not a replace: concurrent uploads each keep their own entry.
-async function appendImageEntry(container, { tourId, userId, image }) {
-  const target = { id: tourId, partitionKey: userId };
+const TOUR_FULL_MESSAGE = `This tour already has the maximum of ${MAX_TOUR_IMAGES} photos.`;
+// Each 412 means another write landed first; a user's own edits cannot hold an upload forever.
+const MAX_APPEND_ATTEMPTS = 10;
+
+const appendOperation = (tour, image) =>
+  tour.images
+    ? { op: 'add', path: '/images/-', value: image }
+    : // A tour written before the images field existed.
+      { op: 'add', path: '/images', value: [image] };
+
+async function tryAppend(container, { current, tourId, userId, image }) {
+  if (!current) return 'gone';
+  if ((current.images?.length ?? 0) >= MAX_TOUR_IMAGES) return 'full';
   try {
     await db.patchItem(container, {
-      ...target,
-      operations: [{ op: 'add', path: '/images/-', value: image }],
+      id: tourId,
+      partitionKey: userId,
+      etag: current._etag,
+      operations: [appendOperation(current, image)],
     });
+    return 'appended';
   } catch (patchError) {
-    // A tour written before the images field existed: "add" creates the array.
-    if (patchError.code !== 400) throw patchError;
-    await db.patchItem(container, {
-      ...target,
-      operations: [{ op: 'add', path: '/images', value: [image] }],
-    });
+    if (patchError.code === 404) return 'gone';
+    if (patchError.code === 412) return 'conflict';
+    throw patchError;
   }
+}
+
+/**
+ * An atomic append guarded by the ETag of the tour it counted, so concurrent uploads cannot pass
+ * the cap together; on a conflict it reads the tour again and counts again.
+ *
+ * @returns {Promise<'appended' | 'full' | 'gone'>}
+ */
+async function appendImageEntry(container, { tour, userId, image }) {
+  const target = { tourId: tour.id, userId, image };
+  let current = tour;
+  for (let attempt = 1; ; attempt++) {
+    const outcome = await tryAppend(container, { ...target, current });
+    if (outcome !== 'conflict') return outcome;
+    if (attempt === MAX_APPEND_ATTEMPTS) {
+      throw new Error(`Precondition failed ${MAX_APPEND_ATTEMPTS} times appending to ${tour.id}`);
+    }
+    current = await db.readItem(container, { id: tour.id, partitionKey: userId });
+  }
+}
+
+const REFUSALS = {
+  full: () => error(400, TOUR_FULL_MESSAGE),
+  gone: () => error(404, 'Tour not found'),
+};
+
+// A refused append leaves blobs no entry points to, so it rolls them back like a failed one.
+async function recordImage(container, { tour, userId, image, rollback }) {
+  const outcome = await withRollback(
+    () => appendImageEntry(container, { tour, userId, image }),
+    rollback,
+  );
+  if (outcome === 'appended') return {};
+  await rollback();
+  return { response: REFUSALS[outcome]() };
 }
 
 async function uploadImage(
@@ -91,9 +136,7 @@ async function uploadImage(
   const { tour } = guard;
   const { userId } = guard.user;
 
-  if (tour.images?.length >= MAX_TOUR_IMAGES) {
-    return error(400, 'This tour already has the maximum of 20 photos.');
-  }
+  if (tour.images?.length >= MAX_TOUR_IMAGES) return error(400, TOUR_FULL_MESSAGE);
   const upload = await readImageUpload(request, parseFile);
   if (upload.response) return upload.response;
 
@@ -108,10 +151,13 @@ async function uploadImage(
   await storeVariants(container, { blobName, variants });
 
   const image = { id: imageId, blobName, ...(gps && { lat: gps.lat, lon: gps.lon }) };
-  await withRollback(
-    () => appendImageEntry(toursContainer(), { tourId: tour.id, userId, image }),
-    () => deleteVariants(container, blobName),
-  );
+  const recorded = await recordImage(toursContainer(), {
+    tour,
+    userId,
+    image,
+    rollback: () => deleteVariants(container, blobName),
+  });
+  if (recorded.response) return recorded.response;
 
   const requestTime = now();
   const signUrl = (name) => blobStorage.readSasUrl(container, { blobName: name, now: requestTime });

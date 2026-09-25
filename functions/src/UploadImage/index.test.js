@@ -196,16 +196,6 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(storedImages()).toEqual([]);
   });
 
-  it('rolls both blobs back when the fallback write for an old tour fails too', async () => {
-    const { tours, images, run } = setUp({ documents: [{ ...TOUR, images: undefined }] });
-    tours.failOn('patch', { error: cosmosError(400, 'not an array') });
-    tours.failOn('patch', { error: cosmosError(503, 'service unavailable') });
-
-    await expect(run()).rejects.toThrow('service unavailable');
-
-    expect(images.names()).toEqual([]);
-  });
-
   it('surfaces both errors when the entry write and the rollback fail', async () => {
     const { tours, images, run } = setUp();
     tours.failOn('patch', { error: cosmosError(503, 'cosmos down') });
@@ -248,6 +238,76 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(refused.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
     expect(parseFile).not.toHaveBeenCalled();
     expect(twenty.images.calls).toEqual([]);
+  });
+
+  // Two uploads can both read 19 photos; the conditional append lets only one become the 20th.
+  it('refuses the photo and rolls its blobs back when a concurrent upload filled the tour', async () => {
+    const entries = (count) =>
+      Array.from({ length: count }, (_, index) => ({ id: `image-${index}` }));
+    const { tours, images, run, storedImages } = setUp({
+      documents: [{ ...TOUR, images: entries(19) }],
+    });
+    tours.beforeNext('patch', () => tours.seed({ ...TOUR, images: entries(20) }));
+
+    const response = await run();
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
+    expect(images.names()).toEqual([]);
+    expect(storedImages()).toHaveLength(20);
+  });
+
+  it('appends only if the tour still carries the ETag it counted', async () => {
+    const { tours, run } = setUp();
+    const { _etag } = tours.stored(TOUR_ID, 'u1');
+
+    await run();
+
+    const patch = tours.calls.find((call) => call.operation === 'patch');
+    expect(patch.options).toEqual({ accessCondition: { type: 'IfMatch', condition: _etag } });
+  });
+
+  it('creates the array when a concurrent upload has not, and appends when it has', async () => {
+    const { tours, run, storedImages } = setUp({ documents: [{ ...TOUR, images: undefined }] });
+    const concurrent = { id: 'concurrent', blobName: `u1/${TOUR_ID}/concurrent.jpg` };
+    tours.beforeNext('patch', () => tours.seed({ ...TOUR, images: [concurrent] }));
+
+    expect((await run()).status).toBe(201);
+
+    expect(storedImages().map((entry) => entry.id)).toEqual(['concurrent', IMAGE_ID]);
+  });
+
+  it('answers 404 and rolls its blobs back when the tour is deleted during the upload', async () => {
+    const { tours, images, run } = setUp();
+    tours.beforeNext('patch', () => tours.item(TOUR_ID, 'u1').delete());
+
+    const response = await run();
+
+    expect(response.status).toBe(404);
+    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(images.names()).toEqual([]);
+  });
+
+  it('answers 404 when the tour is deleted between a conflict and the second count', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('patch', { error: cosmosError(412, 'Precondition failed') });
+    tours.beforeNext('read', () => {});
+    tours.beforeNext('read', () => tours.item(TOUR_ID, 'u1').delete());
+
+    const response = await run();
+
+    expect(response.status).toBe(404);
+    expect(images.names()).toEqual([]);
+  });
+
+  it('gives up after ten conflicting writes, rolling its blobs back', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('patch', { error: cosmosError(412, 'Precondition failed'), times: 10 });
+
+    await expect(run()).rejects.toThrow('Precondition failed');
+
+    expect(tours.calls.filter((call) => call.operation === 'patch')).toHaveLength(10);
+    expect(images.names()).toEqual([]);
   });
 
   it("returns 404 for another user's tour that exists, storing nothing", async () => {

@@ -1,6 +1,6 @@
 'use strict';
 
-const { parseMultipart, MAX_FILE_BYTES } = require('./parseMultipart');
+const { parseMultipart, MAX_FILE_BYTES, MULTIPART_OVERHEAD_BYTES } = require('./parseMultipart');
 
 const BOUNDARY = '----bikebuddytest';
 
@@ -56,7 +56,9 @@ describe('parseMultipart', () => {
   });
 
   it('rejects a declared Content-Length over the limit before reading the body', async () => {
-    const request = makeRequest(multipartBody('<gpx/>'), { contentLength: MAX_FILE_BYTES + 1 });
+    const request = makeRequest(multipartBody('<gpx/>'), {
+      contentLength: MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES + 1,
+    });
 
     await expect(parseMultipart(request)).rejects.toMatchObject({
       status: 400,
@@ -87,6 +89,25 @@ describe('parseMultipart', () => {
     const file = await parseMultipart(makeRequest(atLimit));
 
     expect(file.buffer.length).toBe(MAX_FILE_BYTES);
+  });
+
+  // A browser declares the whole body, so the file's own 10 MB plus the multipart framing.
+  it('accepts a file at the limit whose Content-Length counts the multipart framing', async () => {
+    const atLimit = multipartBody(Buffer.alloc(MAX_FILE_BYTES, 0x41));
+    const request = makeRequest(atLimit, { contentLength: atLimit.length });
+
+    const file = await parseMultipart(request);
+
+    expect(atLimit.length).toBeGreaterThan(MAX_FILE_BYTES);
+    expect(file.buffer.length).toBe(MAX_FILE_BYTES);
+  });
+
+  it('still reads the body when the declared length is at most the limit plus framing', async () => {
+    const request = makeRequest(multipartBody('<gpx/>'), {
+      contentLength: MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES,
+    });
+
+    expect((await parseMultipart(request)).buffer.toString()).toBe('<gpx/>');
   });
 
   it('rejects a malformed multipart request (no boundary)', async () => {

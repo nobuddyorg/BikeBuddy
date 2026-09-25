@@ -86,7 +86,11 @@ The order is chosen so a failure leaves something harmless:
   id first, so the intent survives a failure halfway through.
 - **Concurrent edits:** `EditTour` patches per field, because the realistic race
   is an edit overlapping a photo upload; `UploadImage` appends to `/images/-`
-  atomically so concurrent uploads each keep their entry; `DeleteImage` must
+  atomically so concurrent uploads each keep their entry, with `IfMatch` on the
+  tour it counted, so the 20-photo cap holds under concurrency: on a 412 it
+  reads the tour again and counts again (the vnext emulator cannot evaluate an
+  `ARRAY_LENGTH` patch condition, so the cap is an ETag, not a filter
+  predicate); `DeleteImage` must
   rewrite the array, so it uses `IfMatch` and retries on 412. `GetMe` writes the
   claims only into empty fields, with `IfMatch`, and turns a first-login 409
   into a re-read.
