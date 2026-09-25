@@ -114,7 +114,7 @@ and what catches it today. **Covered**: a test fails if the risk comes back.
 | #549  | No per-user quotas or rate limiting                                                  | Design + cost guards               | Partly  | Per-request cost is bounded by the two guards; per-user volume is not                                                                                                                                                                                                                                                          |
 | #544  | Service worker serves stale JS/CSS                                                   | Unit                               | Covered | `frontend/test/sw.test.js` runs `sw.js` in a fake worker scope: modules come from the network and refresh the cache, the cache answers only offline, and the precache bypasses the HTTP cache                                                                                                                                  |
 | #559  | Undo-able deletes are lost when the tab closes                                       | DOM-layer unit + E2E               | Not     | No test closes the page during the grace period; Undo itself is covered: `tours.spec.ts` (full stack) clicks it, runs a fake clock past the grace period and finds no DELETE sent and the tour still stored                                                                                                                    |
-| #574  | Contract duplication and DTO drift                                                   | Contract check                     | Partly  | `frontendContract.test.js` holds the photo cap, the 10 MB limit, every name/description `maxlength`, the languages and every API error key to the frontend; static E2E mocks and `.zap/openapi.yaml` are still hand-written                                                                                                    |
+| #574  | Contract duplication and DTO drift                                                   | Contract check                     | Partly  | `frontendContract.test.js` holds the photo cap, the 10 MB limit, every name/description `maxlength`, the languages and every API error key to the frontend; `endpoints.test.js` holds `.zap/openapi.yaml` to the registered GET routes; the static E2E mocks are still hand-written                                            |
 | #556  | Account keys instead of managed identity                                             | Design, not a test                 | Not     | Revisit the playbook's §0 when it lands                                                                                                                                                                                                                                                                                        |
 
 ## Known gaps
@@ -128,7 +128,9 @@ Measured against the playbook. Each has an issue unless marked **no issue**
 - **No post-deploy smoke test** (#563).
 - **Contract** (#574): the static suite's mocks are centralised in
   `e2e/fixtures/api-mocks.ts` in the handlers' projected shapes, but nothing
-  checks them or `.zap/openapi.yaml` against the handlers.
+  checks them against the handlers. `.zap/openapi.yaml` is checked:
+  `endpoints.test.js` fails while it lists anything but the registered GET
+  routes.
 - **Direct DB seeding** (**no issue**, deliberate): `query-cost.test.js` seeds
   150 tours straight into Cosmos under a throwaway user, to measure the
   adapter. Every other test seeds through the API.

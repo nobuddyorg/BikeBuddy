@@ -1,7 +1,8 @@
 # The read-only surface of the Functions API, for the passive API pass of
 # gate.yml's zap job. Only GET operations: ZAP's import requests every listed
 # operation, and the writes (upload, PATCH, DELETE incl. /api/account) are not
-# for a passive scan. Keep in step with functions/src/*/index.js (#574).
+# for a passive scan. functions/test/unit/endpoints.test.js fails while this
+# lists anything but the registered GET routes (#574).
 openapi: 3.0.3
 info:
   title: BikeBuddy API (read-only surface)
