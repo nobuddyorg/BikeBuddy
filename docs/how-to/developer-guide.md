@@ -337,6 +337,11 @@ used by the pre-commit hook and CI's `iac` job:
   exceptions".
 - CI uploads both SARIF files to code scanning (categories `iac`,
   `iac-tflint`) and puts both reports in the job summary.
+- **What no scanner checks**: Trivy has no check for the Flex Consumption
+  Function App, so `tofu test` (the `tofu-test` hook, mock providers) pins
+  it instead. `infrastructure/tests/transport.tftest.hcl` fails when the app
+  loses `https_only` or TLS 1.2, or when either CORS list gains a
+  non-HTTPS origin.
 
 ## Coverage
 

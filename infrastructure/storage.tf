@@ -21,7 +21,7 @@ resource "azurerm_storage_account" "main" {
 
     # Allow the browser to fetch images directly from blob SAS URLs.
     cors_rule {
-      allowed_origins    = ["https://nobuddy.org", "https://nobuddyorg.github.io", "http://localhost:4280"]
+      allowed_origins    = ["https://nobuddy.org", "https://nobuddyorg.github.io"]
       allowed_methods    = ["GET", "HEAD"]
       allowed_headers    = ["*"]
       exposed_headers    = ["*"]
