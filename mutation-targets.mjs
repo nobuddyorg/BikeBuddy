@@ -2,9 +2,11 @@
 // `mutate`) and a 100 % per-file coverage floor (each package's
 // vitest.config.js), so the two lists cannot drift. Paths are relative to the
 // package. Off the list on purpose: the Cosmos/Blob adapters and the multipart
-// stream parser (exercised by the integration suite, not unit tests) and the
-// DOM layer frontend/src/ui/ (exercised by Playwright). Why the list is
-// explicit: docs/explanation/design-decisions.md, "Mutation scope".
+// stream parser (exercised by the integration suite, not unit tests), the
+// load-test instrumentation lib/profiling.js and its switch LoadProfiling/
+// (never loaded in production; checked by the load run's report), and the DOM
+// layer frontend/src/ui/ (exercised by Playwright). Why the list is explicit:
+// docs/explanation/design-decisions.md, "Mutation scope".
 
 export const FUNCTIONS_TARGETS = [
   'src/DeleteAccount/index.js',
@@ -20,14 +22,17 @@ export const FUNCTIONS_TARGETS = [
   'src/UpdateProfile/index.js',
   'src/UploadImage/index.js',
   'src/UploadTour/index.js',
+  'src/lib/blobNames.js',
   'src/lib/extractGps.js',
+  'src/lib/fileSignatures.js',
   'src/lib/heatmapCache.js',
   'src/lib/http.js',
+  'src/lib/mapBudget.js',
   'src/lib/ownedTour.js',
   'src/lib/parseGpx.js',
   'src/lib/resizeImage.js',
   'src/lib/simplify.js',
-  'src/lib/thumbBlobName.js',
+  'src/lib/tourImages.js',
   'src/lib/tourResponse.js',
   'src/lib/validation.js',
   'src/middleware/authMiddleware.js',
@@ -51,7 +56,12 @@ export const FRONTEND_TARGETS = [
 
 // Every file on a list is fully covered; a gap is closed with a test or by
 // extracting the logic, never by lowering this (CLAUDE.md, hard rules).
-export const PER_FILE_FLOOR = { statements: 100, branches: 100, functions: 100, lines: 100 };
+export const PER_FILE_FLOOR = {
+  statements: 100,
+  branches: 100,
+  functions: 100,
+  lines: 100,
+};
 
 /** Vitest `coverage.thresholds` entries: one per target file. */
 export function perFileThresholds(targets) {

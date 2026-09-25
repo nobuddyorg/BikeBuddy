@@ -2,7 +2,7 @@
 'use strict';
 
 const { BlobServiceClient, BlobSASPermissions, newPipeline } = require('@azure/storage-blob');
-const { enabled: profilingEnabled, blobPolicyFactory } = require('./profiling');
+const profiling = require('./profiling');
 
 const SAS_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -24,7 +24,7 @@ function readSasUrl(blockBlobClient, { contentDisposition } = {}) {
 // the same account and credential, on a pipeline with one extra policy.
 function withProfiling(client) {
   const pipeline = newPipeline(client.credential);
-  pipeline.factories.push(blobPolicyFactory());
+  pipeline.factories.push(profiling.blobPolicyFactory((line) => console.log(line)));
   return new BlobServiceClient(client.url, pipeline);
 }
 
@@ -32,7 +32,7 @@ let blobServiceClient;
 function getClient() {
   if (!blobServiceClient) {
     const client = BlobServiceClient.fromConnectionString(process.env.BLOB_CONNECTION_STRING ?? '');
-    blobServiceClient = profilingEnabled() ? withProfiling(client) : client;
+    blobServiceClient = profiling.isEnabled(process.env) ? withProfiling(client) : client;
   }
   return blobServiceClient;
 }

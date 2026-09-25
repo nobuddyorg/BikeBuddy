@@ -17,8 +17,7 @@ function multipartBody(content, { filename = 'tour.gpx', mimeType = 'application
   ]);
 }
 
-// A v4 HttpRequest is only touched for .headers.entries() and .body (a web
-// ReadableStream), so a fake with those two is enough.
+// The parser only touches .headers.entries() and .body (a web ReadableStream).
 function makeRequest(
   body,
   {
@@ -38,8 +37,8 @@ function makeRequest(
         ? null
         : new ReadableStream({
             start(controller) {
-              for (let i = 0; i < body.length; i += chunkSize) {
-                controller.enqueue(new Uint8Array(body.subarray(i, i + chunkSize)));
+              for (let offset = 0; offset < body.length; offset += chunkSize) {
+                controller.enqueue(new Uint8Array(body.subarray(offset, offset + chunkSize)));
               }
               controller.close();
             },
@@ -57,20 +56,16 @@ describe('parseMultipart', () => {
   });
 
   it('rejects a declared Content-Length over the limit before reading the body', async () => {
-    // A body that would otherwise parse fine — only the header is oversized, so
-    // this proves the pre-check fires rather than the streaming limit.
-    const req = makeRequest(multipartBody('<gpx/>'), { contentLength: MAX_FILE_BYTES + 1 });
+    const request = makeRequest(multipartBody('<gpx/>'), { contentLength: MAX_FILE_BYTES + 1 });
 
-    await expect(parseMultipart(req)).rejects.toMatchObject({
+    await expect(parseMultipart(request)).rejects.toMatchObject({
       status: 400,
       message: 'File exceeds 10 MB limit',
     });
-    expect(req.body.locked).toBe(false);
+    expect(request.body.locked).toBe(false);
   });
 
   it('rejects an oversized upload that declares no Content-Length', async () => {
-    // The chunked case the old Content-Length pre-check could not catch: no
-    // length header at all, so only the streaming limit can stop it.
     const oversized = multipartBody(Buffer.alloc(MAX_FILE_BYTES + 1024, 0x41));
 
     await expect(parseMultipart(makeRequest(oversized))).rejects.toMatchObject({
@@ -80,7 +75,6 @@ describe('parseMultipart', () => {
   });
 
   it('rejects an oversized upload that under-declares its Content-Length', async () => {
-    // Content-Length is attacker-controlled; a low value must not buy a pass.
     const oversized = multipartBody(Buffer.alloc(MAX_FILE_BYTES + 1024, 0x41));
 
     await expect(
@@ -96,12 +90,20 @@ describe('parseMultipart', () => {
   });
 
   it('rejects a malformed multipart request (no boundary)', async () => {
-    const req = makeRequest(multipartBody('<gpx/>'), { contentType: 'multipart/form-data' });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const request = makeRequest(multipartBody('<gpx/>'), {
+        contentType: 'multipart/form-data',
+      });
 
-    await expect(parseMultipart(req)).rejects.toMatchObject({
-      status: 400,
-      message: 'Invalid multipart request',
-    });
+      await expect(parseMultipart(request)).rejects.toMatchObject({
+        status: 400,
+        message: 'Invalid multipart request',
+      });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Boundary not found'));
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('rejects when there is no file field', async () => {
@@ -121,26 +123,23 @@ describe('parseMultipart', () => {
   });
 
   it('rejects when the body stream errors mid-transfer', async () => {
-    const req = makeRequest(multipartBody('<gpx/>'));
-    req.body = new ReadableStream({
+    const request = makeRequest(multipartBody('<gpx/>'));
+    request.body = new ReadableStream({
       start(controller) {
         controller.enqueue(new Uint8Array(Buffer.from(`--${BOUNDARY}\r\n`)));
         controller.error(new Error('connection reset'));
       },
     });
 
-    // The transport failed, not the server — a 500 here would blame BikeBuddy
-    // for a connection the client dropped.
-    await expect(parseMultipart(req)).rejects.toMatchObject({
+    // The client dropped the connection; a 500 would blame the server.
+    await expect(parseMultipart(request)).rejects.toMatchObject({
       status: 400,
       message: 'Invalid multipart request',
     });
   });
 
-  // A connection dropped mid-upload: busboy surfaces it on the file stream
-  // once a file part has started, and on itself when it has not. Both must
-  // settle the promise — an unsettled one leaves the request hanging — and
-  // both are broken request syntax, so 400 rather than 500.
+  // busboy reports a dropped connection on the file stream once a part has
+  // started and on itself before; both must settle the promise as a 400.
   it('rejects a request that ends mid-file as a client error', async () => {
     const truncated = Buffer.from(
       `--${BOUNDARY}\r\n` +
@@ -165,8 +164,6 @@ describe('parseMultipart', () => {
     });
   });
 
-  // busboy's own wording is English-only and moves with the library, so it is
-  // logged for diagnosis instead of being handed to the uploader.
   it('logs the underlying parser error without returning it', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const truncated = Buffer.from(

@@ -2,7 +2,7 @@
 'use strict';
 
 const { CosmosClient } = require('@azure/cosmos');
-const { enabled: profilingEnabled, cosmosPlugin } = require('./profiling');
+const profiling = require('./profiling');
 
 let cosmosClient;
 function getClient() {
@@ -12,8 +12,16 @@ function getClient() {
     cosmosClient = new CosmosClient(
       /** @type {import('@azure/cosmos').CosmosClientOptions} */ ({
         connectionString: process.env.COSMOS_CONNECTION_STRING ?? '',
-        ...(profilingEnabled() && {
-          plugins: [{ on: 'request', plugin: cosmosPlugin() }],
+        ...(profiling.isEnabled(process.env) && {
+          plugins: [
+            {
+              on: 'request',
+              plugin: profiling.cosmosPlugin({
+                write: (line) => console.log(line),
+                now: () => performance.now(),
+              }),
+            },
+          ],
         }),
       }),
     );

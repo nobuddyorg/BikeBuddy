@@ -4,7 +4,7 @@ const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { imagesContainer, gpxContainer, readSasUrl } = require('../lib/blobStorage');
-const { thumbBlobName } = require('../lib/thumbBlobName');
+const { thumbnailBlobName } = require('../lib/blobNames');
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { toTourResponse } = require('../lib/tourResponse');
 
@@ -28,7 +28,7 @@ async function getTour(
       tour.images.map(async (img) => {
         const [url, thumbUrl] = await Promise.all([
           readSasUrl(container.getBlockBlobClient(img.blobName)),
-          readSasUrl(container.getBlockBlobClient(thumbBlobName(img.blobName))),
+          readSasUrl(container.getBlockBlobClient(thumbnailBlobName(img.blobName))),
         ]);
         return {
           id: img.id,

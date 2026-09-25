@@ -4,21 +4,17 @@
 const sharp = require('sharp');
 const exifReader = require('exif-reader');
 
-// EXIF stores [degrees, minutes, seconds] plus a hemisphere ref, but some
-// decoders pre-convert to a signed decimal.
-function toDecimal(value, ref) {
-  let dec;
-  if (Array.isArray(value)) {
-    const [d = 0, m = 0, s = 0] = value.map(Number);
-    dec = d + m / 60 + s / 3600;
-  } else if (typeof value === 'number') {
-    dec = value;
-  } else {
-    return null;
-  }
-  if (!Number.isFinite(dec)) return null;
-  if (ref === 'S' || ref === 'W') dec = -Math.abs(dec);
-  return dec;
+// EXIF stores [degrees, minutes, seconds] plus a hemisphere reference, but some
+// decoders hand over a signed decimal instead.
+function toDecimal(value, hemisphere) {
+  const decimal = Array.isArray(value) ? degreesMinutesSeconds(value) : value;
+  if (!Number.isFinite(decimal)) return null;
+  return hemisphere === 'S' || hemisphere === 'W' ? -Math.abs(decimal) : decimal;
+}
+
+function degreesMinutesSeconds(parts) {
+  const [degrees = 0, minutes = 0, seconds = 0] = parts.map(Number);
+  return degrees + minutes / 60 + seconds / 3600;
 }
 
 function gpsFromExifTags(tags) {
@@ -31,15 +27,20 @@ function gpsFromExifTags(tags) {
   return { lat, lon };
 }
 
-// Must run on the ORIGINAL upload: resizing re-encodes and drops EXIF.
+// Must read the original upload: the resize re-encodes and drops EXIF.
 async function extractGps(buffer) {
+  const { exif } = await sharp(buffer).metadata();
+  if (!exif) return null;
+  let tags;
   try {
-    const { exif } = await sharp(buffer).metadata();
-    if (!exif) return null;
-    return gpsFromExifTags(exifReader(exif));
-  } catch {
+    tags = exifReader(exif);
+  } catch (error) {
+    const { name, message } = /** @type {Error} */ (error);
+    // A camera's malformed EXIF block only costs the photo its map pin.
+    console.warn(`upload: unreadable EXIF (${name}: ${message})`);
     return null;
   }
+  return gpsFromExifTags(tags);
 }
 
 module.exports = { extractGps, gpsFromExifTags, toDecimal };

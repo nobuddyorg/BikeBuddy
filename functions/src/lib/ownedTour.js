@@ -3,7 +3,7 @@
 
 const { unauthorized, error } = require('./http');
 const { readItem } = require('./db');
-const { uuidParamError } = require('./validation');
+const { invalidIdParams } = require('./validation');
 
 // Shared preamble for tour-scoped endpoints. Reading from the caller's partition
 // is what enforces ownership: another user's tour simply isn't found. Returns
@@ -13,8 +13,8 @@ async function loadOwnedTour(request, auth, toursContainer, extraParams = {}) {
   if (!user) return { response: unauthorized() };
 
   const { tourId } = request.params;
-  const paramError = uuidParamError({ tourId, ...extraParams });
-  if (paramError) return { response: paramError };
+  const [invalidParam] = invalidIdParams({ tourId, ...extraParams });
+  if (invalidParam) return { response: error(400, `Invalid ${invalidParam}`) };
 
   const tour = await readItem(toursContainer(), tourId, user.userId);
   if (!tour) return { response: error(404, 'Tour not found') };

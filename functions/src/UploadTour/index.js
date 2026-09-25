@@ -7,16 +7,9 @@ const { toursContainer } = require('../lib/db');
 const { gpxContainer } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
 const { parseGpx } = require('../lib/parseGpx');
+const { looksLikeXml } = require('../lib/fileSignatures');
 const { tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
-
-// "<?xml" or "<gpx", optionally behind a UTF-8 BOM.
-function isXmlMagic(buffer) {
-  const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
-  const start = buffer.slice(0, 3).equals(BOM) ? buffer.slice(3) : buffer;
-  const header = start.slice(0, 5).toString('ascii');
-  return header.startsWith('<?xml') || header.startsWith('<gpx');
-}
 
 // POST /api/tours/upload — parse a GPX upload, store it, create the tour.
 async function uploadTour(
@@ -43,7 +36,7 @@ async function uploadTour(
     return error(err.status ?? 500, err.message);
   }
 
-  if (!isXmlMagic(file.buffer)) {
+  if (!looksLikeXml(file.buffer)) {
     return error(400, 'File does not appear to be a valid GPX/XML file');
   }
 

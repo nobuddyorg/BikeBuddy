@@ -6,30 +6,15 @@ const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer } = require('../lib/db');
 const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
 const { parseMultipart } = require('../lib/parseMultipart');
-const { resizeImage, resizeThumbnail } = require('../lib/resizeImage');
-const { thumbBlobName } = require('../lib/thumbBlobName');
+const { resizeVariants } = require('../lib/resizeImage');
+const { isJpegOrPng } = require('../lib/fileSignatures');
+const { thumbnailBlobName } = require('../lib/blobNames');
 const { extractGps } = require('../lib/extractGps');
 const { isImageContentType } = require('../lib/validation');
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { error } = require('../lib/http');
 
 const MAX_TOUR_IMAGES = 20;
-
-// JPEG = FF D8 FF, PNG = 89 50 4E 47.
-function isJpegOrPng(buffer) {
-  if (buffer.length < 4) return false;
-  const jpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  const png = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
-  return jpeg || png;
-}
-
-// The default `resize` dependency: both sizes, generated from the original
-// buffer independently (not chained) so each keeps its own quality/rotation
-// pass rather than compounding a second lossy re-encode onto the first.
-async function resizeVariants(buffer) {
-  const [full, thumbnail] = await Promise.all([resizeImage(buffer), resizeThumbnail(buffer)]);
-  return { full, thumbnail };
-}
 
 // POST /api/tours/{tourId}/images — store a resized JPEG (plus a thumbnail
 // variant) and append it to the tour.
@@ -73,7 +58,7 @@ async function uploadImage(
   const blobName = `${userId}/${tourId}/${imageId}.jpg`;
   const container = await getImagesContainer();
   const blockBlob = container.getBlockBlobClient(blobName);
-  const thumbBlockBlob = container.getBlockBlobClient(thumbBlobName(blobName));
+  const thumbBlockBlob = container.getBlockBlobClient(thumbnailBlobName(blobName));
   await Promise.all([
     blockBlob.uploadData(full, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } }),
     thumbBlockBlob.uploadData(thumbnail, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } }),
@@ -113,4 +98,4 @@ app.http('UploadImage', {
   handler: (request) => uploadImage(request),
 });
 
-module.exports = { uploadImage, isJpegOrPng };
+module.exports = { uploadImage };

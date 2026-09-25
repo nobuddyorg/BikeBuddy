@@ -3,7 +3,7 @@
 const { app } = require('@azure/functions');
 const { authenticate } = require('../middleware/authMiddleware');
 const { toursContainer, readItem } = require('../lib/db');
-const { tourMetaSchema, tourMetaError, uuidParamError } = require('../lib/validation');
+const { tourMetaSchema, tourMetaError, invalidIdParams } = require('../lib/validation');
 const { unauthorized, error } = require('../lib/http');
 const { toTourResponse } = require('../lib/tourResponse');
 
@@ -21,8 +21,7 @@ async function editTour(request, auth = authenticate, getContainer = toursContai
   if (!user) return unauthorized();
 
   const tourId = request.params.tourId;
-  const badParam = uuidParamError({ tourId });
-  if (badParam) return badParam;
+  if (invalidIdParams({ tourId }).length > 0) return error(400, 'Invalid tourId');
 
   let body = {};
   try {

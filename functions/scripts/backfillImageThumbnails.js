@@ -13,7 +13,7 @@
 const { CosmosClient } = require('@azure/cosmos');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { resizeThumbnail } = require('../src/lib/resizeImage');
-const { thumbBlobName } = require('../src/lib/thumbBlobName');
+const { thumbnailBlobName: thumbBlobName } = require('../src/lib/blobNames');
 
 const connectionString = process.env.COSMOS_CONNECTION_STRING;
 const databaseId = process.env.COSMOS_DATABASE || 'bikebuddy';

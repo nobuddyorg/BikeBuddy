@@ -1,7 +1,7 @@
 'use strict';
 
 const sharp = require('sharp');
-const { uploadImage, isJpegOrPng } = require('./index');
+const { uploadImage } = require('./index');
 
 const TID = '11111111-1111-4111-8111-111111111111';
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
@@ -34,30 +34,8 @@ const makeParseFile = (buffer, mimeType = 'image/jpeg') =>
 // Stands in for resizeVariants: real sharp processing on these fake,
 // magic-bytes-only buffers would reject them as unreadable images.
 const noResize = (buf) => Promise.resolve({ full: buf, thumbnail: buf });
+const noGps = async () => null;
 const reqWith = (tourId) => ({ params: { tourId } });
-
-describe('isJpegOrPng (magic-byte validation)', () => {
-  it('accepts valid 4-byte JPEG and PNG signatures', () => {
-    expect(isJpegOrPng(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe(true);
-    expect(isJpegOrPng(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toBe(true);
-  });
-
-  it('rejects a buffer shorter than 4 bytes', () => {
-    expect(isJpegOrPng(Buffer.from([0xff, 0xd8, 0xff]))).toBe(false);
-  });
-
-  it.each([
-    ['JPEG byte 0', [0x00, 0xd8, 0xff, 0xe0]],
-    ['JPEG byte 1', [0xff, 0x00, 0xff, 0xe0]],
-    ['JPEG byte 2', [0xff, 0xd8, 0x00, 0xe0]],
-    ['PNG byte 0', [0x00, 0x50, 0x4e, 0x47]],
-    ['PNG byte 1', [0x89, 0x00, 0x4e, 0x47]],
-    ['PNG byte 2', [0x89, 0x50, 0x00, 0x47]],
-    ['PNG byte 3', [0x89, 0x50, 0x4e, 0x00]],
-  ])('rejects when %s is wrong', (_label, bytes) => {
-    expect(isJpegOrPng(Buffer.from(bytes))).toBe(false);
-  });
-});
 
 describe('POST /api/tours/{tourId}/images', () => {
   it('resizes, stores, appends to tour.images and returns 201 + SAS url', async () => {
@@ -70,6 +48,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(JPEG),
       noResize,
+      noGps,
     );
 
     expect(res.status).toBe(201);
@@ -106,6 +85,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(JPEG),
       resize,
+      noGps,
     );
 
     expect(images.blockBlob.uploadData).toHaveBeenCalledWith(full, {
@@ -244,6 +224,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(PNG),
       noResize,
+      noGps,
     );
     expect(res.status).toBe(201);
   });
@@ -258,6 +239,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(NOT_IMAGE),
       noResize,
+      noGps,
     );
     expect(res.status).toBe(400);
     expect(res.jsonBody.error).toBe('Only JPEG or PNG images are accepted');
@@ -275,6 +257,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(JPEG, 'text/plain'),
       noResize,
+      noGps,
     );
     expect(res.status).toBe(400);
     expect(images.getBlockBlobClient).not.toHaveBeenCalled();
@@ -290,6 +273,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(JPEG),
       noResize,
+      noGps,
     );
     expect(res.status).toBe(400);
     expect(tours.item).not.toHaveBeenCalled();
@@ -305,6 +289,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(JPEG),
       noResize,
+      noGps,
     );
     expect(res.status).toBe(404);
     expect(res.jsonBody.error).toBe('Tour not found');
@@ -323,6 +308,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(JPEG),
       noResize,
+      noGps,
     );
     expect(res.status).toBe(201);
     expect(tours.patch).toHaveBeenCalledTimes(2);
@@ -350,6 +336,7 @@ describe('POST /api/tours/{tourId}/images', () => {
         () => images.container,
         makeParseFile(JPEG),
         noResize,
+        noGps,
       ),
     ).rejects.toThrow('service unavailable');
     expect(tours.patch).toHaveBeenCalledTimes(1);
@@ -367,6 +354,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       parseFile,
       noResize,
+      noGps,
     );
     expect(res.status).toBe(400);
     expect(res.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
@@ -389,6 +377,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       parseFile,
       noResize,
+      noGps,
     );
     expect(res.status).toBe(400);
     expect(res.jsonBody.error).toBe('Bad multipart body');
@@ -405,6 +394,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       parseFile,
       noResize,
+      noGps,
     );
     expect(res.status).toBe(500);
   });
@@ -420,6 +410,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       () => images.container,
       makeParseFile(JPEG),
       noResize,
+      noGps,
     );
     expect(res.status).toBe(401);
     expect(tours.item).not.toHaveBeenCalled();
