@@ -52,7 +52,7 @@
     "mutation-testing-metrics": "^3.9.0",
     "prettier": "^3.9.8",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^5.0.1"
   },
   "overrides": {
     "qs": "^6.16.0"
