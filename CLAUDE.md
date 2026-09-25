@@ -70,17 +70,20 @@ design-decisions.md and the linked issues, not here.
 - The only `/* v8 ignore */` is the one-line `handler:` wrapper in each
   `app.http()` registration; no others, no `// Stryker disable`. No `.skip`,
   ESLint, TypeScript or `nosemgrep` suppression without understanding the
-  failure first; the reason goes on the same line. No test gaming.
+  failure first; the reason goes on the same line. No test gaming
+  (developer-guide.md, "Coverage" and "Mutation testing").
 - Never commit to `main`, skip hooks (`--no-verify`), force-push over others'
-  commits, or rewrite history on a branch you don't own.
+  commits, or rewrite history on a branch you don't own (CONTRIBUTING.md).
 - Never modify `.github/workflows/**`, repository secrets, branch protection,
-  or `.pre-commit-config.yaml`'s security hooks unless the user explicitly asks.
+  or `.pre-commit-config.yaml`'s security hooks unless the user explicitly asks;
+  the workflows hold the production credentials (#561, #563).
 - Never run `npm audit fix --force` or regenerate a lockfile from scratch; use
   targeted `overrides` ("Dependency updates and npm audit").
 - Never write real credentials anywhere (Cosmos or Storage keys,
   `ARM_CLIENT_SECRET`, `TF_BACKEND_ACCESS_KEY`, Graph credentials, access
   tokens), not in code, docs, commits or chat, not even as an example. The
-  Cosmos **emulator** key and Azurite's account key are public.
+  Cosmos **emulator** key and Azurite's account key are public
+  (developer-guide.md, "Secret scanning").
 
 ## Data and authorization changes
 
