@@ -137,7 +137,7 @@ Look again when `@lhci/cli` or `lighthouse` bumps `puppeteer-core`.
 ## SAST rule packs
 
 OpenGrep runs `--config auto` and `--config p/security-audit` together.
-`auto` is what CollectionBuddy runs: the community rules for every language in
+`auto` selects the community rules for every language in
 the tree (JavaScript, TypeScript, HCL, Bash, HTML, JSON), including the
 taint rules that catch `eval(req.body)`-style injections at error severity.
 `p/security-audit` is the narrower audit pack the pre-commit hook ran before;
