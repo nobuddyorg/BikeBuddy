@@ -12,11 +12,6 @@ function metersPerDegree(latitude) {
   };
 }
 
-function distanceMeters(from, to) {
-  const scale = metersPerDegree(from[0]);
-  return Math.hypot((to[1] - from[1]) * scale.longitude, (to[0] - from[0]) * scale.latitude);
-}
-
 function perpendicularDistanceMeters(point, { start, end }) {
   const scale = metersPerDegree(start[0]);
   const pointX = (point[1] - start[1]) * scale.longitude;
@@ -34,11 +29,11 @@ function perpendicularDistanceMeters(point, { start, end }) {
   return Math.hypot(pointX - projection * segmentX, pointY - projection * segmentY);
 }
 
-function farthestFromChord(points) {
-  const chord = { start: points[0], end: points[points.length - 1] };
+function farthestFromChord(points, { start, end }) {
+  const chord = { start: points[start], end: points[end] };
   let maximumDistance = 0;
-  let index = 0;
-  for (let candidate = 1; candidate < points.length - 1; candidate++) {
+  let index = start + 1;
+  for (let candidate = start + 1; candidate < end; candidate++) {
     const distance = perpendicularDistanceMeters(points[candidate], chord);
     if (distance > maximumDistance) {
       maximumDistance = distance;
@@ -48,45 +43,42 @@ function farthestFromChord(points) {
   return { index, distance: maximumDistance };
 }
 
-// A heat layer draws dots, not lines: maxGapMeters splits chords that would leave a gap.
-function douglasPeucker(points, { epsilonMeters, maxGapMeters = Infinity }) {
-  if (points.length < 3) return points;
-
-  const first = points[0];
-  const last = points[points.length - 1];
-  const farthest = farthestFromChord(points);
-  const needsSplit = farthest.distance > epsilonMeters;
-  if (!needsSplit && distanceMeters(first, last) <= maxGapMeters) return [first, last];
-
-  const splitIndex = needsSplit ? farthest.index : Math.floor(points.length / 2);
-  const options = { epsilonMeters, maxGapMeters };
-  const left = douglasPeucker(points.slice(0, splitIndex + 1), options);
-  const right = douglasPeucker(points.slice(splitIndex), options);
-  return left.slice(0, -1).concat(right);
-}
-
-const MAX_EPSILON_METERS = 1000;
-
-// maxGapMeters wins over the budget: a long straight track can end above targetCount.
-function simplifyToTarget(points, { targetCount, maxGapMeters = Infinity, maxIterations = 12 }) {
-  if (targetCount < 2 || points.length <= targetCount) return points;
-
-  let lowerEpsilon = 0;
-  let upperEpsilon = MAX_EPSILON_METERS;
-  let best = douglasPeucker(points, { epsilonMeters: upperEpsilon, maxGapMeters });
-
-  for (let iteration = 0; iteration < maxIterations; iteration++) {
-    const epsilonMeters = (lowerEpsilon + upperEpsilon) / 2;
-    const simplified = douglasPeucker(points, { epsilonMeters, maxGapMeters });
-    if (simplified.length > targetCount) {
-      lowerEpsilon = epsilonMeters;
-    } else {
-      best = simplified;
-      upperEpsilon = epsilonMeters;
-    }
+/**
+ * Douglas-Peucker in one pass: each point's rank is the largest tolerance at which the algorithm
+ * still keeps it, capped by the rank of the split that exposed it, so a kept point's ancestors are
+ * kept too. The endpoints rank Infinity.
+ */
+function douglasPeuckerRanks(points) {
+  const ranks = new Float64Array(points.length);
+  ranks[0] = Infinity;
+  ranks[points.length - 1] = Infinity;
+  const pending = [{ start: 0, end: points.length - 1, cap: Infinity }];
+  while (pending.length > 0) {
+    const { start, end, cap } = /** @type {{ start: number, end: number, cap: number }} */ (
+      pending.pop()
+    );
+    if (end - start < 2) continue;
+    const farthest = farthestFromChord(points, { start, end });
+    const rank = Math.min(farthest.distance, cap);
+    ranks[farthest.index] = rank;
+    pending.push(
+      { start, end: farthest.index, cap: rank },
+      { start: farthest.index, end, cap: rank },
+    );
   }
-
-  return best;
+  return ranks;
 }
 
-module.exports = { douglasPeucker, simplifyToTarget, distanceMeters, perpendicularDistanceMeters };
+// Exactly targetCount points: the ones Douglas-Peucker keeps longest as its tolerance grows.
+function simplifyToTarget(points, { targetCount }) {
+  if (targetCount < 2 || points.length <= targetCount) return points;
+  const ranks = douglasPeuckerRanks(points);
+  const keptIndices = points
+    .map((_, index) => index)
+    .sort((left, right) => ranks[right] - ranks[left] || left - right)
+    .slice(0, targetCount)
+    .sort((left, right) => left - right);
+  return keptIndices.map((index) => points[index]);
+}
+
+module.exports = { simplifyToTarget, perpendicularDistanceMeters };

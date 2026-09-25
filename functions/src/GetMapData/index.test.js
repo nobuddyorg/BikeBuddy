@@ -3,7 +3,6 @@
 const { getMapData } = require('./index');
 const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
 const { createHeatmapCache } = require('../lib/heatmapCache');
-const { distanceMeters } = require('../lib/simplify');
 const { fakeToursContainer } = require('../../test/fakes/cosmosContainer');
 const { fakeImagesContainer } = require('../../test/fakes/blobContainer');
 const {
@@ -143,41 +142,30 @@ describe('GET /api/map', () => {
     expect(imagesContainer).not.toHaveBeenCalled();
   });
 
-  it('simplifies tracks when the combined point count blows the budget, without gaps between kept points', async () => {
+  it('simplifies tracks when the combined point count blows the budget', async () => {
     const straightLine = (offset, count) =>
       Array.from({ length: count }, (_, index) => [48.0 + offset, 11.0 + index * 0.0001]);
     const bigTours = [
       { id: 'big1', userId: 'u1', heatmapData: straightLine(0, 300) },
       { id: 'big2', userId: 'u1', heatmapData: straightLine(1, 300) },
     ];
-    const { run } = setUp({
-      documents: bigTours,
-      budget: { totalPointBudget: 200, maxGapMeters: 50 },
-    });
+    const { run } = setUp({ documents: bigTours, budget: { totalPointBudget: 200 } });
 
     const [first, second] = (await run()).jsonBody;
 
-    expect(first.heatmapData.length + second.heatmapData.length).toBeLessThanOrEqual(200);
+    expect(first.heatmapData.length + second.heatmapData.length).toBe(200);
     expect(first.heatmapData[0]).toEqual(bigTours[0].heatmapData[0]);
     expect(first.heatmapData.at(-1)).toEqual(bigTours[0].heatmapData.at(-1));
-    for (const { heatmapData } of [first, second]) {
-      for (let index = 1; index < heatmapData.length; index++) {
-        expect(distanceMeters(heatmapData[index - 1], heatmapData[index])).toBeLessThanOrEqual(50);
-      }
-    }
   });
 
-  it('holds a map above 100,000 points to that budget, 50 m apart at most, by default', async () => {
+  it('holds a map above 100,000 points to that budget by default', async () => {
     const longTrack = Array.from({ length: 100_001 }, (_, index) => [48.0, 11.0 + index * 0.00001]);
     const { run } = setUp({ documents: [{ id: 'long', userId: 'u1', heatmapData: longTrack }] });
 
     const [{ heatmapData }] = (await run()).jsonBody;
 
-    expect(heatmapData.length).toBeLessThanOrEqual(100_000);
-    for (let index = 1; index < heatmapData.length; index++) {
-      expect(distanceMeters(heatmapData[index - 1], heatmapData[index])).toBeLessThanOrEqual(50);
-    }
-  }, 120_000); // Stryker's per-test coverage count makes 100,001 points take up to ~70 s in its dry run
+    expect(heatmapData).toHaveLength(100_000);
+  }, 120_000); // Stryker's per-test coverage count makes 100,001 points slow in its dry run
 
   it('serves a repeat load of an unchanged tour set from the cache', async () => {
     const { run } = setUp({ heatmapCache: createHeatmapCache() });

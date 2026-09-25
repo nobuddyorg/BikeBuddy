@@ -212,7 +212,7 @@ emulator and the Functions host) asserts the shape of the hot paths:
 - `functions/test/integration/query-cost.test.js`: the tour-list query is
   single-partition (the caller's partition key on every page, never a
   cross-partition fan-out) and pages in bounded requests.
-- `functions/test/integration/map-budget.test.js`: 120,000 raw points on ~20 km
-  tracks come back simplified within `GET /api/map`'s point budget and a bounded
-  response size. Longer tracks still exceed the budget (#546); the guard's
-  track length goes up when that is fixed.
+- `functions/test/integration/map-budget.test.js`: 120,000 raw points on
+  100 km tracks, 50 m apart, come back within `GET /api/map`'s hard point
+  budget and a bounded response size. `mapBudget.test.js` holds 200 rides of
+  100 km (1,000,000 points) to the budget in bounded time.

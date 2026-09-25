@@ -102,9 +102,14 @@ probe of the backing services.
 
 ## Map endpoint
 
-`GET /api/map` returns every tour's points within a point budget
-(`functions/src/lib/mapBudget.js`), computed per tour with Douglas-Peucker.
-The expensive part is that simplification, so a small LRU cache keys it on tour
+`GET /api/map` returns every tour's points within a hard budget of 100,000
+(`functions/src/lib/mapBudget.js`): each track keeps a floor of up to 20
+points, and the rest of the budget is shared by point count. Each track is cut
+to its share in one Douglas-Peucker pass that ranks every point by the largest
+tolerance that still keeps it, and keeps the top of that ranking (#546). The
+map draws polylines, so there is no gap rule: a straight 5 km stretch can be
+two points. A per-tour overview computed at upload would move this cost off
+the request path; it waits on where the track is stored (#615). The expensive part is that simplification, so a small LRU cache keys it on tour
 id and point count (`heatmapData` is set once at upload); the bound keeps a
 warm instance from growing. The frontend fetches `/api/map` in parallel with
 `/api/tours`, so a cold start is paid once.
