@@ -24,8 +24,8 @@
     "mutation:summary": "node scripts/mutation-summary.mjs --title 'Mutation testing (functions)' --artifact mutation-report-functions"
   },
   "dependencies": {
-    "@azure/cosmos": "^4.10.0",
-    "@azure/functions": "^4.16.2",
+    "@azure/cosmos": "^4.10.1",
+    "@azure/functions": "^4.16.5",
     "@azure/storage-blob": "^12.33.0",
     "busboy": "^1.6.0",
     "exif-reader": "^2.0.3",
@@ -33,7 +33,7 @@
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^4.1.0",
     "sharp": "^0.35.4",
-    "zod": "^4.6.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
