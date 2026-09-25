@@ -161,15 +161,11 @@ describe('applyI18n', () => {
     i18n = await freshI18n();
   });
 
-  const makeEl = (attrs) => ({
-    attrs,
-    dataset: {
-      i18n: attrs['data-i18n'],
-      i18nHtml: attrs['data-i18n-html'],
-    },
+  const makeElement = (attributes) => ({
+    attributes,
     applied: {},
     getAttribute(name) {
-      return this.attrs[name];
+      return this.attributes[name];
     },
     setAttribute(name, value) {
       this.applied[name] = value;
@@ -179,29 +175,30 @@ describe('applyI18n', () => {
   const makeRoot = (elements) => ({
     querySelectorAll(selector) {
       const name = selector.slice(1, -1);
-      return elements.filter((el) => name in el.attrs);
+      return elements.filter((element) => name in element.attributes);
     },
   });
 
   it('translates every supported attribute', () => {
-    const elements = i18n.I18N_ATTRS.map((attr) =>
-      makeEl({ [`data-i18n-${attr}`]: `key.${attr}` }),
+    const elements = i18n.I18N_ATTRIBUTES.map((attribute) =>
+      makeElement({ [`data-i18n-${attribute}`]: `key.${attribute}` }),
     );
 
     i18n.applyI18n(makeRoot(elements));
 
-    elements.forEach((el, i) => {
-      expect(el.applied[i18n.I18N_ATTRS[i]]).toBe(`key.${i18n.I18N_ATTRS[i]}`);
+    elements.forEach((element, index) => {
+      const attribute = i18n.I18N_ATTRIBUTES[index];
+      expect(element.applied[attribute]).toBe(`key.${attribute}`);
     });
   });
 
   it('covers the multi-word attribute name', () => {
-    expect(i18n.I18N_ATTRS).toContain('aria-label');
+    expect(i18n.I18N_ATTRIBUTES).toContain('aria-label');
   });
 
   it('writes text and markup content to their own sinks', () => {
-    const text = makeEl({ 'data-i18n': 'nav.upload' });
-    const html = makeEl({ 'data-i18n-html': 'help.a2' });
+    const text = makeElement({ 'data-i18n': 'nav.upload' });
+    const html = makeElement({ 'data-i18n-html': 'help.a2' });
 
     i18n.applyI18n(makeRoot([text, html]));
 

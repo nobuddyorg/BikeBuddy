@@ -8,14 +8,15 @@ import { isStale, markFetched } from './sasCache.js';
 // renders and no retry storm follows. mapDataPromise lets a caller hand in a
 // fetch already started in parallel with the tour list itself, instead of
 // paying its cold-start latency a second time.
-export async function ensureMapData({ apiFetch, tours, now, mapDataPromise = null }) {
+export async function ensureMapData({ apiFetch, tours, now, mapDataPromise }) {
   const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour, now));
   if (missing.length === 0) return;
 
   let byId = new Map();
   try {
-    const res = await (mapDataPromise || apiFetch('/api/map'));
-    if (res.ok) byId = new Map(((await res.json()) || []).map((entry) => [entry.id, entry]));
+    const response = await (mapDataPromise || apiFetch('/api/map'));
+    if (response.ok)
+      byId = new Map(((await response.json()) || []).map((entry) => [entry.id, entry]));
   } catch {
     // network unavailable — fall through to empty data
   }

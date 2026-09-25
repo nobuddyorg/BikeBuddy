@@ -114,9 +114,9 @@
     </header>
 
     <!-- One main landmark for the whole app: on mobile the map is off-screen, so it cannot be the main. -->
-    <main class="app-layout">
+    <main id="app-layout" class="app-layout">
       <!-- Sidebar -->
-      <section class="sidebar" aria-labelledby="sidebar-title">
+      <section id="sidebar" class="sidebar" aria-labelledby="sidebar-title">
         <div class="sidebar-header">
           <div class="sidebar-header-title">
             <h2 id="sidebar-title" data-i18n="sidebar.myTours">My Tours</h2>
@@ -285,7 +285,7 @@
       </section>
 
       <!-- Map -->
-      <div class="map-container">
+      <div id="map-container" class="map-container">
         <div id="map"></div>
         <div class="map-top-controls">
           <label
@@ -782,7 +782,7 @@
           </button>
         </div>
       </div>
-      <div class="lightbox-navbar">
+      <div id="lightbox-navbar" class="lightbox-navbar">
         <button
           id="btn-lightbox-prev"
           type="button"

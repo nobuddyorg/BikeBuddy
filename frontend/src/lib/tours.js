@@ -38,7 +38,7 @@ function sorters(locale) {
 }
 
 // Subsequence match: every character of the query appears in order. The
-// indices point into `text`; an empty query matches with none.
+// indices point into `text`; an empty query or a miss has none.
 export function fuzzyMatchIndices(query, text) {
   const needle = query.trim().toLowerCase();
   const haystack = (text || '').toLowerCase();
@@ -46,7 +46,8 @@ export function fuzzyMatchIndices(query, text) {
   for (let position = 0; position < haystack.length && indices.length < needle.length; position++) {
     if (haystack[position] === needle[indices.length]) indices.push(position);
   }
-  return { matched: indices.length === needle.length, indices };
+  const matched = indices.length === needle.length;
+  return { matched, indices: matched ? indices : [] };
 }
 
 function contiguousScore({ haystack, needle, start }) {

@@ -33,10 +33,12 @@ describe('fuzzyMatchIndices', () => {
     expect(fuzzyMatchIndices('atr', 'Alps Tour')).toEqual({ matched: true, indices: [0, 5, 8] });
   });
 
-  it('reports no match when the query does not fully match', () => {
-    expect(fuzzyMatchIndices('xyz', 'Alps Tour').matched).toBe(false);
-    expect(fuzzyMatchIndices('rua', 'Alps Tour').matched).toBe(false);
-    expect(fuzzyMatchIndices('tours', 'Alps Tour').matched).toBe(false);
+  it('reports no match, and nothing to highlight, when the query does not fully match', () => {
+    const miss = { matched: false, indices: [] };
+    expect(fuzzyMatchIndices('xyz', 'Alps Tour')).toEqual(miss);
+    expect(fuzzyMatchIndices('rua', 'Alps Tour')).toEqual(miss);
+    // A partial match (the "tour" of "tours") still highlights nothing.
+    expect(fuzzyMatchIndices('tours', 'Alps Tour')).toEqual(miss);
   });
 
   it('matches an empty or whitespace query with no indices', () => {
@@ -105,8 +107,7 @@ describe('visibleTours', () => {
   });
 
   it('filters by the fuzzy search before sorting', () => {
-    const res = visibleTours({ tours, sort: 'name-asc', search: 'beach', locale: 'en-GB' });
-    expect(res.map((t) => t.id)).toEqual(['b']);
+    expect(visibleIds({ tours, sort: 'name-asc', search: 'beach' })).toEqual(['b']);
   });
 
   it('ranks a contiguous name match above a scattered one', () => {

@@ -3,72 +3,93 @@ import { planImageUploads, validateImageBatch } from '../lib/files.js';
 import { runWithConcurrency } from '../lib/concurrency.js';
 import { xhrUpload } from './uploadRequest.js';
 import { state } from './state.js';
-import { show, elImageGrid, elImageError } from './dom.js';
+import { showElement, hideElement, imageGrid, imageError } from './dom.js';
 import { getAccessToken, API_BASE } from './api.js';
 import { renderPins } from './pins.js';
-import { createImageTile, renderErrorTile } from './gallery.js';
+import { createImageTile, renderErrorTile, renderRetryableErrorTile } from './gallery.js';
 
 const t = i18n.t;
 
+const UPLOAD_CONCURRENCY = 3;
+
 // One in-flight upload: pending (progress ring) → error (retry/dismiss) or done
 // (swapped for the markup createImageTile produces).
-function createPendingImageTile(file) {
-  const fig = document.createElement('figure');
-  fig.className = 'image-tile image-tile-pending';
-  fig.dataset.testid = 'image-tile-pending';
-
+function createPendingImageTile({ file, onRetry }) {
+  const tile = document.createElement('figure');
   const ring = document.createElement('div');
   ring.className = 'image-progress-ring';
-  ring.style.setProperty('--progress', '0');
+  const fileName = document.createElement('p');
+  fileName.className = 'image-tile-filename';
+  fileName.textContent = file.name;
 
-  const name = document.createElement('p');
-  name.className = 'image-tile-filename';
-  name.textContent = file.name;
-
-  fig.append(ring, name);
-
-  const tile = {
-    el: fig,
-    onRetry: null,
-    setProgress(percent) {
-      ring.style.setProperty('--progress', String(percent));
-    },
-    reset() {
-      fig.className = 'image-tile image-tile-pending';
-      fig.dataset.testid = 'image-tile-pending';
-      fig.innerHTML = '';
-      ring.style.setProperty('--progress', '0');
-      fig.append(ring, name);
-    },
-    setError(message, retryable) {
-      renderErrorTile(fig, message, {
-        retryable,
-        retryAria: t('detail.retryPhotoAria'),
-        onRetry: () => tile.onRetry && tile.onRetry(),
-        onDismiss: () => fig.remove(),
-      });
-    },
-    setDone(image) {
-      fig.replaceWith(createImageTile(image));
-    },
+  const showPending = () => {
+    tile.className = 'image-tile image-tile-pending';
+    tile.dataset.testid = 'image-tile-pending';
+    ring.style.setProperty('--progress', '0');
+    tile.replaceChildren(ring, fileName);
   };
-  return tile;
+  showPending();
+
+  return {
+    element: tile,
+    showPending,
+    setProgress: (percent) => ring.style.setProperty('--progress', String(percent)),
+    setError: (message) => renderErrorTile({ tile, message }),
+    setRetryableError: (message) =>
+      renderRetryableErrorTile({ tile, message, retryLabel: t('detail.retryPhotoAria'), onRetry }),
+    setDone: (image) => tile.replaceWith(createImageTile(image)),
+  };
 }
 
 function showImageError(message) {
-  elImageError.textContent = message;
-  show(elImageError, true);
+  imageError.textContent = message;
+  showElement(imageError);
 }
 
-// One request per file against the single-image endpoint, 3 in flight at once.
+async function uploadOne({ job, tour, token }) {
+  job.tile.showPending();
+  try {
+    const image = await xhrUpload({
+      url: `${API_BASE}/api/tours/${tour.id}/images`,
+      file: job.file,
+      token,
+      onProgress: job.tile.setProgress,
+    });
+    tour.images = [...(tour.images || []), image];
+    job.tile.setDone(image);
+    renderPins(); // a newly uploaded geotagged photo may add a marker
+  } catch (error) {
+    job.tile.setRetryableError(i18n.tApi(error.message));
+  }
+}
+
+// A tile per file; the ones that fail the checks show why and are not sent.
+function queueUploads({ files, tour, token }) {
+  const jobs = [];
+  for (const { file, problems } of planImageUploads({
+    files,
+    existingCount: tour.images?.length || 0,
+  })) {
+    const job = { file };
+    job.tile = createPendingImageTile({ file, onRetry: () => uploadOne({ job, tour, token }) });
+    imageGrid.appendChild(job.tile.element);
+    const [problem] = problems;
+    if (problem) job.tile.setError(t(problem.key, problem.params));
+    else jobs.push(job);
+  }
+  return jobs;
+}
+
+// One request per file against the single-image endpoint, a few in flight at once.
 export async function uploadImages(files) {
-  show(elImageError, false);
+  hideElement(imageError);
   const tourId = state.selectedTourId;
   if (!tourId || files.length === 0) return;
   // The panel shows the tour's name before its detail (and gallery) has loaded;
   // tiles added before that render would be wiped by it.
   await state.detailLoading;
-  if (state.selectedTourId !== tourId) return;
+  const tour = state.tours.find((candidate) => candidate.id === tourId);
+  if (state.selectedTourId !== tourId || !tour) return;
 
   const [batchProblem] = validateImageBatch(files);
   if (batchProblem) {
@@ -77,36 +98,10 @@ export async function uploadImages(files) {
   }
 
   const token = await getAccessToken();
-  const tour = state.tours.find((t) => t.id === tourId);
-  const plan = planImageUploads({ files, existingCount: tour?.images?.length || 0 });
-  const jobs = [];
-  for (const { file, problems } of plan) {
-    const tile = createPendingImageTile(file);
-    elImageGrid.appendChild(tile.el);
-    const [problem] = problems;
-    if (problem) tile.setError(t(problem.key, problem.params), false);
-    else jobs.push({ file, tile });
-  }
-
-  const uploadOne = async (job) => {
-    job.tile.reset();
-    try {
-      const image = await xhrUpload(
-        `${API_BASE}/api/tours/${tourId}/images`,
-        job.file,
-        token,
-        job.tile.setProgress,
-      );
-      if (tour) tour.images = [...(tour.images || []), image];
-      job.tile.setDone(image);
-      renderPins(); // a newly uploaded geotagged photo may add a marker
-    } catch (err) {
-      job.tile.setError(i18n.tApi(err.message), true);
-    }
-  };
-  jobs.forEach((job) => {
-    job.tile.onRetry = () => uploadOne(job);
+  const jobs = queueUploads({ files, tour, token });
+  await runWithConcurrency({
+    items: jobs,
+    limit: UPLOAD_CONCURRENCY,
+    worker: (job) => uploadOne({ job, tour, token }),
   });
-
-  await runWithConcurrency(jobs, 3, uploadOne);
 }

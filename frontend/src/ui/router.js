@@ -5,7 +5,7 @@ import { parseAppUrl, buildAppUrl } from '../lib/url.js';
 // how many layers (detail panel, a modal, the lightbox) it needs to close to
 // reach the depth the browser just navigated back to.
 const layerStack = [];
-let pendingTourId = null;
+let pendingTourId = '';
 
 function currentUrl() {
   return buildAppUrl(
@@ -31,9 +31,9 @@ export function readInitialUrl() {
 }
 
 export function consumeDeepLinkTourId() {
-  const id = pendingTourId;
-  pendingTourId = null;
-  return id;
+  const tourId = pendingTourId;
+  pendingTourId = '';
+  return tourId;
 }
 
 // Re-syncs the URL with current state without adding a history entry — for

@@ -1,7 +1,7 @@
 import { imagesOfTour, indexOfImage } from '../lib/images.js';
 import * as i18n from './i18n.js';
 import { state } from './state.js';
-import { show, elImageGrid, elImageError, elImageDropzone } from './dom.js';
+import { hideElement, imageGrid, imageError, imageDropzone } from './dom.js';
 import { openLightbox } from './lightbox.js';
 import { deleteGalleryPhoto } from './photoRemoval.js';
 import { refreshSelectedTourImages } from './tourData.js';
@@ -9,97 +9,116 @@ import { refreshSelectedTourImages } from './tourData.js';
 const t = i18n.t;
 
 export function resetImageSection() {
-  elImageGrid.innerHTML = '';
-  show(elImageError, false);
-  elImageDropzone.classList.remove('dragover');
+  imageGrid.innerHTML = '';
+  hideElement(imageError);
+  imageDropzone.classList.remove('dragover');
+}
+
+function createIconButton({ className, testId, label, glyph, onClick }) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = className;
+  if (testId) button.dataset.testid = testId;
+  button.setAttribute('aria-label', label);
+  button.textContent = glyph;
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function openInLightbox(image) {
+  const tour = state.tours.find((candidate) => candidate.id === state.selectedTourId);
+  const images = tour ? imagesOfTour(tour) : [];
+  openLightbox(images, indexOfImage(images, image.id));
+}
+
+// thumbUrl is always a signed URL even for photos that predate #466's
+// real-thumbnail work and have no thumb blob yet — SAS signing doesn't
+// check blob existence, so it 404s rather than coming back empty. Fall
+// back to the full image once before treating it as a real load failure
+// (a SAS URL expiring in the background per sasCache.js is the other
+// reason this fires).
+function handleThumbnailErrors({ thumbnail, tile, image }) {
+  let triedFullImage = !image.thumbUrl;
+  thumbnail.addEventListener('error', () => {
+    if (!triedFullImage) {
+      triedFullImage = true;
+      thumbnail.src = image.url;
+      return;
+    }
+    renderRetryableErrorTile({
+      tile,
+      message: t('detail.photoLoadError'),
+      retryLabel: t('detail.retryLoadAria'),
+      onRetry: retryTourImages,
+    });
+  });
 }
 
 export function createImageTile(image) {
-  const fig = document.createElement('figure');
-  fig.className = 'image-tile';
+  const tile = document.createElement('figure');
+  tile.className = 'image-tile';
 
-  const img = document.createElement('img');
-  img.className = 'image-thumb';
-  img.src = image.thumbUrl || image.url;
-  img.alt = t('lightbox.imgAlt');
-  img.loading = 'lazy';
+  const thumbnail = document.createElement('img');
+  thumbnail.className = 'image-thumb';
+  thumbnail.src = image.thumbUrl || image.url;
+  thumbnail.alt = t('lightbox.imgAlt');
+  thumbnail.loading = 'lazy';
   // Skeleton shimmer (style.css) until the photo has actually loaded.
-  img.addEventListener('load', () => img.classList.add('is-loaded'));
-  img.addEventListener('click', () => {
-    const tour = state.tours.find((candidate) => candidate.id === state.selectedTourId);
-    const images = tour ? imagesOfTour(tour) : [];
-    openLightbox(images, indexOfImage(images, image.id));
-  });
-  // thumbUrl is always a signed URL even for photos that predate #466's
-  // real-thumbnail work and have no thumb blob yet — SAS signing doesn't
-  // check blob existence, so it 404s rather than coming back empty. Fall
-  // back to the full image once before treating it as a real load failure
-  // (a SAS URL expiring in the background per sasCache.js is the other
-  // reason this fires).
-  let triedFullImage = !image.thumbUrl;
-  img.addEventListener('error', () => {
-    if (!triedFullImage) {
-      triedFullImage = true;
-      img.src = image.url;
-      return;
-    }
-    renderErrorTile(fig, t('detail.photoLoadError'), {
-      retryable: true,
-      retryAria: t('detail.retryLoadAria'),
-      onRetry: () => retryTourImages(),
-      onDismiss: () => fig.remove(),
-    });
+  thumbnail.addEventListener('load', () => thumbnail.classList.add('is-loaded'));
+  thumbnail.addEventListener('click', () => openInLightbox(image));
+  handleThumbnailErrors({ thumbnail, tile, image });
+
+  const deleteButton = createIconButton({
+    className: 'image-delete',
+    label: t('detail.deletePhotoAria'),
+    glyph: '✕',
+    onClick: (event) => {
+      event.stopPropagation();
+      deleteGalleryPhoto(image, tile);
+    },
   });
 
-  const del = document.createElement('button');
-  del.type = 'button';
-  del.className = 'image-delete';
-  del.setAttribute('aria-label', t('detail.deletePhotoAria'));
-  del.textContent = '✕';
-  del.addEventListener('click', (e) => {
-    e.stopPropagation();
-    deleteGalleryPhoto(image, fig);
-  });
-
-  fig.append(img, del);
-  return fig;
+  tile.append(thumbnail, deleteButton);
+  return tile;
 }
 
 // Shared by the upload-pending tile and the broken-thumbnail state above -
-// same error/retry/dismiss layout, different message and retry action.
-export function renderErrorTile(fig, message, { retryable, retryAria, onRetry, onDismiss }) {
-  fig.className = 'image-tile image-tile-error';
-  fig.dataset.testid = 'image-tile-error';
-  fig.innerHTML = '';
+// same error/dismiss layout, different message and retry action.
+export function renderErrorTile({ tile, message }) {
+  tile.className = 'image-tile image-tile-error';
+  tile.dataset.testid = 'image-tile-error';
+  tile.innerHTML = '';
 
-  const msg = document.createElement('p');
-  msg.className = 'image-tile-error-message';
-  msg.textContent = message;
+  const messageElement = document.createElement('p');
+  messageElement.className = 'image-tile-error-message';
+  messageElement.textContent = message;
 
   const actions = document.createElement('div');
   actions.className = 'image-tile-actions';
+  actions.append(
+    createIconButton({
+      className: 'image-tile-dismiss',
+      testId: 'image-tile-dismiss',
+      label: t('detail.dismissPhotoAria'),
+      glyph: '✕',
+      onClick: () => tile.remove(),
+    }),
+  );
 
-  if (retryable) {
-    const retry = document.createElement('button');
-    retry.type = 'button';
-    retry.className = 'image-tile-retry';
-    retry.dataset.testid = 'image-tile-retry';
-    retry.setAttribute('aria-label', retryAria);
-    retry.textContent = '↻';
-    retry.addEventListener('click', onRetry);
-    actions.append(retry);
-  }
+  tile.append(messageElement, actions);
+}
 
-  const dismiss = document.createElement('button');
-  dismiss.type = 'button';
-  dismiss.className = 'image-tile-dismiss';
-  dismiss.dataset.testid = 'image-tile-dismiss';
-  dismiss.setAttribute('aria-label', t('detail.dismissPhotoAria'));
-  dismiss.textContent = '✕';
-  dismiss.addEventListener('click', onDismiss);
-  actions.append(dismiss);
-
-  fig.append(msg, actions);
+export function renderRetryableErrorTile({ tile, message, retryLabel, onRetry }) {
+  renderErrorTile({ tile, message });
+  tile.querySelector('.image-tile-actions').prepend(
+    createIconButton({
+      className: 'image-tile-retry',
+      testId: 'image-tile-retry',
+      label: retryLabel,
+      glyph: '↻',
+      onClick: onRetry,
+    }),
+  );
 }
 
 // Re-renders every tile, since one expired SAS URL means they all are.
@@ -109,6 +128,6 @@ async function retryTourImages() {
 }
 
 export function renderGallery(tour) {
-  elImageGrid.innerHTML = '';
-  (tour.images || []).forEach((image) => elImageGrid.appendChild(createImageTile(image)));
+  imageGrid.innerHTML = '';
+  (tour.images || []).forEach((image) => imageGrid.appendChild(createImageTile(image)));
 }

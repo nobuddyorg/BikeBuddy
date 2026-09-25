@@ -18,7 +18,7 @@ export function resolveAuthConfig(config) {
 }
 
 export function userFromAccount(account) {
-  return { id: account.homeAccountId, email: account.username || null };
+  return { id: account.homeAccountId, email: account.username || '' };
 }
 
 // Right after sign-up the ID token may carry the address only as

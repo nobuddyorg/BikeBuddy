@@ -127,7 +127,8 @@ describe('translate', () => {
 
 describe('locale files', () => {
   const en = load('en');
-  const others = SUPPORTED_LOCALES.map((l) => l.code).filter((c) => c !== 'en');
+  const codes = SUPPORTED_LOCALES.map((locale) => locale.code);
+  const others = codes.filter((code) => code !== 'en');
 
   it.each(others)('%s has exactly the same keys as en', (code) => {
     expect(Object.keys(load(code)).sort()).toEqual(Object.keys(en).sort());
@@ -136,7 +137,7 @@ describe('locale files', () => {
   it('every locale has non-empty string values', () => {
     for (const { code } of SUPPORTED_LOCALES) {
       const values = Object.values(load(code));
-      expect(values.every((v) => typeof v === 'string' && v.length > 0)).toBe(true);
+      expect(values.every((value) => typeof value === 'string' && value.length > 0)).toBe(true);
     }
   });
 
@@ -149,22 +150,19 @@ describe('locale files', () => {
     'errors.tourInvalid',
   ];
 
-  it.each(SUPPORTED_LOCALES.map((l) => l.code))('%s translates every API error key', (code) => {
+  it.each(codes)('%s translates every API error key', (code) => {
     const messages = load(code);
     for (const key of API_ERROR_KEYS) expect(messages[key]).toBeTruthy();
   });
 
   // translate falls back to `other` for any category a locale file leaves out,
   // so every plural key must at least have that form.
-  it.each(SUPPORTED_LOCALES.map((l) => l.code))(
-    '%s gives every plural key an `other` form',
-    (code) => {
-      const keys = Object.keys(load(code));
-      const pluralBases = keys.filter((key) => key.endsWith('.one')).map((key) => key.slice(0, -4));
-      expect(pluralBases.length).toBeGreaterThan(0);
-      for (const base of pluralBases) expect(keys).toContain(`${base}.other`);
-    },
-  );
+  it.each(codes)('%s gives every plural key an `other` form', (code) => {
+    const keys = Object.keys(load(code));
+    const pluralBases = keys.filter((key) => key.endsWith('.one')).map((key) => key.slice(0, -4));
+    expect(pluralBases.length).toBeGreaterThan(0);
+    for (const base of pluralBases) expect(keys).toContain(`${base}.other`);
+  });
 
   it('isSupported reflects SUPPORTED_LOCALES', () => {
     expect(isSupported('en')).toBe(true);

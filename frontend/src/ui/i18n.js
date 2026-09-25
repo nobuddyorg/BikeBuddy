@@ -29,9 +29,9 @@ export function tApi(message) {
 }
 
 async function loadMessages(code) {
-  const res = await fetch(`locales/${code}.json`);
-  if (!res.ok) throw new Error(`Failed to load locale ${code}: ${res.status}`);
-  return res.json();
+  const response = await fetch(`locales/${code}.json`);
+  if (!response.ok) throw new Error(`Failed to load locale ${code}: ${response.status}`);
+  return response.json();
 }
 
 // English is always loaded too, as the per-key fallback.
@@ -75,23 +75,21 @@ export function setLanguage(code) {
 
 // Read via getAttribute rather than dataset, so each name is written once here
 // instead of also in its camelCase spelling.
-export const I18N_ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
+export const I18N_ATTRIBUTES = ['placeholder', 'aria-label', 'title', 'alt'];
 
 // The two content sinks stay written out rather than joining the table above:
 // folding them in would bury which of the two interprets markup.
 export function applyI18n(root = document) {
-  /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-i18n]')).forEach((el) => {
-    el.textContent = t(el.dataset.i18n);
+  root.querySelectorAll('[data-i18n]').forEach((element) => {
+    element.textContent = t(element.getAttribute('data-i18n'));
   });
-  /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-i18n-html]')).forEach(
-    (el) => {
-      el.innerHTML = t(el.dataset.i18nHtml); // nosemgrep: insecure-document-method, insecure-innerhtml -- the markup sink by design: data-i18n-html keys resolve to repo-owned locale strings, never user input
-    },
-  );
-  for (const attr of I18N_ATTRS) {
-    const dataAttr = `data-i18n-${attr}`;
-    root.querySelectorAll(`[${dataAttr}]`).forEach((el) => {
-      el.setAttribute(attr, t(el.getAttribute(dataAttr)));
+  root.querySelectorAll('[data-i18n-html]').forEach((element) => {
+    element.innerHTML = t(element.getAttribute('data-i18n-html')); // nosemgrep: insecure-document-method, insecure-innerhtml -- the markup sink by design: data-i18n-html keys resolve to repo-owned locale strings, never user input
+  });
+  for (const attribute of I18N_ATTRIBUTES) {
+    const source = `data-i18n-${attribute}`;
+    root.querySelectorAll(`[${source}]`).forEach((element) => {
+      element.setAttribute(attribute, t(element.getAttribute(source)));
     });
   }
 }

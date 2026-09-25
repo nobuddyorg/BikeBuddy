@@ -2,7 +2,14 @@ import { ensureMapData } from '../lib/mapData.js';
 import { hasNoPoints, routePointSets, selectionKey } from '../lib/routes.js';
 import { state } from './state.js';
 import { map } from './map.js';
-import { show, elMapEmpty, elMapLoadError, elMapLoading } from './dom.js';
+import {
+  showElement,
+  hideElement,
+  setVisible,
+  mapEmptyOverlay,
+  mapLoadErrorOverlay,
+  mapLoadingOverlay,
+} from './dom.js';
 import { apiFetch } from './api.js';
 import { renderPins } from './pins.js';
 
@@ -51,21 +58,21 @@ export function renderRoutes(pointSets, paddingPx) {
 }
 
 async function loadAllPointSets(pendingMapResponse) {
-  show(elMapLoading, true);
+  showElement(mapLoadingOverlay);
   await ensureMapData({
     apiFetch,
     tours: state.tours,
     now: Date.now(),
     mapDataPromise: pendingMapResponse,
   });
-  show(elMapLoading, false);
+  hideElement(mapLoadingOverlay);
   return routePointSets(state.tours);
 }
 
 function showAllToursOverlays(pointSets) {
   const empty = hasNoPoints(pointSets);
-  show(elMapLoadError, empty && state.toursLoadFailed);
-  show(elMapEmpty, empty && !state.toursLoadFailed);
+  setVisible(mapLoadErrorOverlay, empty && state.toursLoadFailed);
+  setVisible(mapEmptyOverlay, empty && !state.toursLoadFailed);
   renderPins();
 }
 
@@ -97,6 +104,6 @@ export async function renderSelectedToursRoutes() {
   if (selectionKey(state.selectedIds) !== requested) return;
   const pointSets = routePointSets(state.tours.filter((tour) => state.selectedIds.has(tour.id)));
   renderRoutes(pointSets, ALL_TOURS_PADDING_PX);
-  show(elMapEmpty, hasNoPoints(pointSets));
+  setVisible(mapEmptyOverlay, hasNoPoints(pointSets));
   renderPins();
 }

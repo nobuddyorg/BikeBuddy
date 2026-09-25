@@ -6,7 +6,7 @@ export const state = {
   tours: [],
   selectedTourId: null,
   // Settles once the selected tour's detail has loaded and its gallery is drawn
-  // (tour-detail.js selectTour); a photo upload waits for it, or that render
+  // (tourPanel.js selectTour); a photo upload waits for it, or that render
   // would wipe the upload's tiles.
   detailLoading: Promise.resolve(),
   routeLayer: null,

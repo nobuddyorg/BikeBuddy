@@ -2,14 +2,14 @@
 
 // A rejecting worker is swallowed so one bad item can't halt the batch; callers
 // that care report failures through `worker` itself.
-export async function runWithConcurrency(items, limit, worker) {
+export async function runWithConcurrency({ items, limit, worker }) {
   let next = 0;
 
   async function runNext() {
-    const i = next++;
-    if (i >= items.length) return;
+    const index = next++;
+    if (index >= items.length) return;
     try {
-      await worker(items[i], i);
+      await worker(items[index], index);
     } catch {
       // See above: one item's failure must not stop the pool.
     }

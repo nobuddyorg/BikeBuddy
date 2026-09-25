@@ -24,10 +24,11 @@ export async function createAuthClient() {
   return msalClient;
 }
 
+// Empty when there is no token to send: dev auth, or nobody signed in.
 export async function getAccessToken() {
-  if (AUTH_CONFIG.useDevAuth) return null;
-  const account = msalClient.getAllAccounts()[0];
-  if (!account) return null;
+  if (AUTH_CONFIG.useDevAuth) return '';
+  const [account] = msalClient.getAllAccounts();
+  if (!account) return '';
   try {
     return (await msalClient.acquireTokenSilent({ ...LOGIN_REQUEST, account })).accessToken;
   } catch {

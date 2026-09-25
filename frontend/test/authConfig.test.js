@@ -43,7 +43,7 @@ describe('userFromAccount', () => {
       id: 'h1',
       email: 'ada@example.com',
     });
-    expect(userFromAccount({ homeAccountId: 'h1' })).toEqual({ id: 'h1', email: null });
+    expect(userFromAccount({ homeAccountId: 'h1' })).toEqual({ id: 'h1', email: '' });
   });
 });
 

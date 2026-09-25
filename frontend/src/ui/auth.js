@@ -1,15 +1,20 @@
 import * as i18n from './i18n.js';
 import { state } from './state.js';
-import { show, elBtnLogin, elUserMenu, elBtnUpload, elBtnProfile } from './dom.js';
 import {
-  elPinToggle,
-  elDetailPanel,
-  elEditModal,
-  elUploadModal,
-  elProfileModal,
-  elHelpModal,
-  elDeleteAccountModal,
-  elStatsModal,
+  hideElement,
+  setVisible,
+  signInButton,
+  userMenu,
+  uploadButton,
+  profileButton,
+  pinToggle,
+  detailPanel,
+  editModal,
+  uploadModal,
+  profileModal,
+  helpModal,
+  deleteAccountModal,
+  statsModal,
 } from './dom.js';
 import { initials } from '../lib/format.js';
 import { clearRouteLayer } from './routes.js';
@@ -44,8 +49,8 @@ function syncLanguageFromUser(user) {
 
 async function devSignIn() {
   try {
-    const res = await fetch(`${API_BASE}/api/me`);
-    state.user = res.ok ? await res.json() : SYNTHETIC_USER;
+    const response = await fetch(`${API_BASE}/api/me`);
+    state.user = response.ok ? await response.json() : SYNTHETIC_USER;
   } catch {
     state.user = SYNTHETIC_USER;
   }
@@ -65,13 +70,9 @@ export async function initAuth() {
     return;
   }
   msalClient = await createAuthClient();
-
-  const account = msalClient.getAllAccounts()[0];
-  if (account) {
-    setUserFromAccount(account);
-  } else {
-    renderNavAuth();
-  }
+  const [account] = msalClient.getAllAccounts();
+  if (account) setUserFromAccount(account);
+  else renderNavAuth();
 }
 
 function setUserFromAccount(account) {
@@ -107,16 +108,11 @@ export async function signOut() {
   state.selectedTourId = null;
   clearRouteLayer();
   clearPins();
-  show(elPinToggle, false);
-  show(elDetailPanel, false);
-  [
-    elEditModal,
-    elUploadModal,
-    elProfileModal,
-    elHelpModal,
-    elDeleteAccountModal,
-    elStatsModal,
-  ].forEach((m) => show(m, false));
+  hideElement(pinToggle);
+  hideElement(detailPanel);
+  [editModal, uploadModal, profileModal, helpModal, deleteAccountModal, statsModal].forEach(
+    hideElement,
+  );
   renderSidebar();
   renderNavAuth();
 }
@@ -140,9 +136,9 @@ function renderSignedIn() {
 // user doc is merged in once loaded.
 export async function refreshUser() {
   try {
-    const res = await apiFetch('/api/me');
-    if (!res.ok) return;
-    state.user = { ...state.user, ...(await res.json()) };
+    const response = await apiFetch('/api/me');
+    if (!response.ok) return;
+    state.user = { ...state.user, ...(await response.json()) };
     renderNavAuth();
     syncLanguageFromUser(state.user);
   } catch {
@@ -152,14 +148,15 @@ export async function refreshUser() {
 
 export function renderNavAuth() {
   const signedIn = !!state.user;
-  show(elBtnLogin, !signedIn);
-  show(elUserMenu, signedIn);
-  elBtnUpload.disabled = !signedIn;
-  if (signedIn) elBtnUpload.removeAttribute('title');
-  else elBtnUpload.title = t('nav.uploadDisabledTitle');
-  if (signedIn) {
-    elBtnProfile.textContent = initials(state.user.name || state.user.email);
-    elBtnProfile.classList.add('btn-avatar');
-    elBtnProfile.title = state.user.name || state.user.email || t('common.account');
+  setVisible(signInButton, !signedIn);
+  setVisible(userMenu, signedIn);
+  uploadButton.disabled = !signedIn;
+  if (!signedIn) {
+    uploadButton.title = t('nav.uploadDisabledTitle');
+    return;
   }
+  uploadButton.removeAttribute('title');
+  profileButton.textContent = initials(state.user.name || state.user.email);
+  profileButton.classList.add('btn-avatar');
+  profileButton.title = state.user.name || state.user.email || t('common.account');
 }

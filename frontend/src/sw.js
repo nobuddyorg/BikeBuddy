@@ -7,7 +7,7 @@
 // Bump this on any change to the precached shell (added/removed file, or
 // content change the browser wouldn't otherwise know to refetch) — it's the
 // only thing that invalidates a previously installed cache.
-const CACHE_NAME = 'bikebuddy-shell-v12';
+const CACHE_NAME = 'bikebuddy-shell-v13';
 
 const PRECACHE_URLS = [
   './',
@@ -51,6 +51,7 @@ const PRECACHE_URLS = [
   'lib/url.js',
   'ui/api.js',
   'ui/auth.js',
+  'ui/clickGuard.js',
   'ui/confirm.js',
   'ui/dom.js',
   'ui/events.js',
@@ -64,6 +65,7 @@ const PRECACHE_URLS = [
   'ui/modal.js',
   'ui/photoRemoval.js',
   'ui/pins.js',
+  'ui/popover.js',
   'ui/profile.js',
   'ui/router.js',
   'ui/routes.js',
@@ -72,11 +74,13 @@ const PRECACHE_URLS = [
   'ui/state.js',
   'ui/statsModal.js',
   'ui/toast.js',
-  'ui/tour-detail.js',
   'ui/tourData.js',
   'ui/tourGestures.js',
   'ui/tourList.js',
-  'ui/upload-modal.js',
+  'ui/tourPanel.js',
+  'ui/tourRemoval.js',
+  'ui/undoableAction.js',
+  'ui/uploadModal.js',
   'ui/uploadRequest.js',
   'locales/de.json',
   'locales/en.json',

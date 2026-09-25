@@ -2,16 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { xhrUpload } from '../src/ui/uploadRequest.js';
 import { runWithConcurrency } from '../src/lib/concurrency.js';
 
-// Minimal XMLHttpRequest stand-in. `fire` drives whichever terminal event the
-// test is exercising; nothing happens until it is called.
-function makeXhr({ status = 201, responseText = '{}', event = 'load' } = {}) {
+// Minimal XMLHttpRequest stand-in that delivers the terminal event under test.
+function makeRequest({ status = 201, responseText = '{}', event = 'load' } = {}) {
   const calls = { headers: {}, sent: false };
-  class FakeXhr {
+  class FakeRequest {
     constructor() {
       this.upload = {};
       this.status = status;
       this.responseText = responseText;
-      FakeXhr.instance = this;
+      FakeRequest.instance = this;
     }
     open(method, url) {
       calls.method = method;
@@ -26,42 +25,49 @@ function makeXhr({ status = 201, responseText = '{}', event = 'load' } = {}) {
       queueMicrotask(() => this[`on${event}`]?.());
     }
   }
-  return { FakeXhr, calls };
+  return { FakeRequest, calls };
 }
 
-const file = () => new File(['<gpx/>'], 'tour.gpx', { type: 'application/gpx+xml' });
-const noop = () => {};
+const upload = ({ RequestConstructor, token = '', onProgress = () => {} }) =>
+  xhrUpload({
+    url: '/api/x',
+    file: new File(['<gpx/>'], 'tour.gpx', { type: 'application/gpx+xml' }),
+    token,
+    onProgress,
+    RequestConstructor,
+  });
 
 describe('xhrUpload', () => {
   it('resolves with the parsed body on 201', async () => {
-    const { FakeXhr, calls } = makeXhr({ responseText: '{"id":"img-1"}' });
+    const { FakeRequest, calls } = makeRequest({ responseText: '{"id":"img-1"}' });
 
-    await expect(xhrUpload('/api/x', file(), 'tok', noop, FakeXhr)).resolves.toEqual({
+    await expect(upload({ RequestConstructor: FakeRequest, token: 'tok' })).resolves.toEqual({
       id: 'img-1',
     });
     expect(calls.method).toBe('POST');
+    expect(calls.url).toBe('/api/x');
     expect(calls.headers.Authorization).toBe('Bearer tok');
   });
 
   it('omits the Authorization header when there is no token', async () => {
-    const { FakeXhr, calls } = makeXhr();
+    const { FakeRequest, calls } = makeRequest();
 
-    await xhrUpload('/api/x', file(), null, noop, FakeXhr);
+    await upload({ RequestConstructor: FakeRequest });
     expect(calls.headers.Authorization).toBeUndefined();
   });
 
   it('rejects with the server message on a non-201', async () => {
-    const { FakeXhr } = makeXhr({ status: 400, responseText: '{"error":"Too big"}' });
+    const { FakeRequest } = makeRequest({ status: 400, responseText: '{"error":"Too big"}' });
 
-    await expect(xhrUpload('/api/x', file(), null, noop, FakeXhr)).rejects.toThrow('Too big');
+    await expect(upload({ RequestConstructor: FakeRequest })).rejects.toThrow('Too big');
   });
 
   // The bug: JSON.parse threw inside xhr.onload, which escapes to the global
   // error handler rather than rejecting, so the promise never settled.
   it('rejects rather than hanging when a 201 body is not valid JSON', async () => {
-    const { FakeXhr } = makeXhr({ status: 201, responseText: '<html>proxy</html>' });
+    const { FakeRequest } = makeRequest({ status: 201, responseText: '<html>proxy</html>' });
 
-    await expect(xhrUpload('/api/x', file(), null, noop, FakeXhr)).rejects.toThrow(
+    await expect(upload({ RequestConstructor: FakeRequest })).rejects.toThrow(
       'errors.uploadUnreadable',
     );
   });
@@ -71,18 +77,21 @@ describe('xhrUpload', () => {
     ['abort', 'errors.uploadCancelled'],
     ['timeout', 'errors.uploadTimeout'],
   ])('settles on %s', async (event, message) => {
-    const { FakeXhr } = makeXhr({ event });
+    const { FakeRequest } = makeRequest({ event });
 
-    await expect(xhrUpload('/api/x', file(), null, noop, FakeXhr)).rejects.toThrow(message);
+    await expect(upload({ RequestConstructor: FakeRequest })).rejects.toThrow(message);
   });
 
   it('reports progress as a rounded percentage', async () => {
-    const { FakeXhr } = makeXhr();
+    const { FakeRequest } = makeRequest();
     const seen = [];
-    const pending = xhrUpload('/api/x', file(), null, (p) => seen.push(p), FakeXhr);
+    const pending = upload({
+      RequestConstructor: FakeRequest,
+      onProgress: (percent) => seen.push(percent),
+    });
 
-    FakeXhr.instance.upload.onprogress({ lengthComputable: true, loaded: 1, total: 3 });
-    FakeXhr.instance.upload.onprogress({ lengthComputable: false, loaded: 2, total: 3 });
+    FakeRequest.instance.upload.onprogress({ lengthComputable: true, loaded: 1, total: 3 });
+    FakeRequest.instance.upload.onprogress({ lengthComputable: false, loaded: 2, total: 3 });
     await pending;
 
     expect(seen).toEqual([33]);
@@ -91,17 +100,21 @@ describe('xhrUpload', () => {
   // The consequence that made the hang severe: an unsettled promise holds its
   // slot in the pool forever, so enough of them deadlock all remaining uploads.
   it('does not stall the concurrency pool when responses are unparsable', async () => {
-    const { FakeXhr } = makeXhr({ status: 201, responseText: 'not json' });
-    const outcomes = [];
+    const { FakeRequest } = makeRequest({ status: 201, responseText: 'not json' });
+    const failures = [];
 
-    await runWithConcurrency([1, 2, 3, 4, 5], 3, async (n) => {
-      try {
-        await xhrUpload('/api/x', file(), null, noop, FakeXhr);
-      } catch {
-        outcomes.push(n);
-      }
+    await runWithConcurrency({
+      items: [1, 2, 3, 4, 5],
+      limit: 3,
+      worker: async (item) => {
+        try {
+          await upload({ RequestConstructor: FakeRequest });
+        } catch {
+          failures.push(item);
+        }
+      },
     });
 
-    expect(outcomes).toHaveLength(5);
+    expect(failures).toHaveLength(5);
   });
 });

@@ -3,46 +3,47 @@ import { formatCount, formatDate, formatDistance } from '../lib/format.js';
 import { tourListView, fuzzyMatchIndices, matchRuns } from '../lib/tours.js';
 import { state } from './state.js';
 import { mapBoundsPlain, isMobileLayout } from './map.js';
-import { deleteTourById, selectTour, closeDetailPanel } from './tour-detail.js';
+import { selectTour, closeDetailPanel } from './tourPanel.js';
+import { deleteTourById } from './tourRemoval.js';
 import { toggleTourSelection, enterSingleSelect } from './selectMode.js';
 import { bindLongPress, bindTourSwipe } from './tourGestures.js';
 import {
-  show,
-  elTourList,
-  elTourCount,
-  elTourPager,
-  elTourPagerLabel,
-  elTourPagerPrev,
-  elTourPagerNext,
+  hideElement,
+  setVisible,
+  tourList,
+  tourCountBadge,
+  tourPager,
+  tourPagerLabel,
+  tourPagerPreviousButton,
+  tourPagerNextButton,
 } from './dom.js';
 
 const t = i18n.t;
 
 // textContent, never innerHTML: tour names are user-supplied.
-function textDiv(className, text) {
+function createTextDiv(className, text) {
   const div = document.createElement('div');
   div.className = className;
   div.textContent = text;
   return div;
 }
 
-// Wraps runs of matched indices in <mark>, via createElement/textContent only —
+// Wraps the search's matched runs in <mark>, via createElement/textContent only —
 // tour names are user-supplied.
-function highlightedNameNode(name, indices) {
-  name = name || '';
-  const div = document.createElement('div');
-  div.className = 'tour-item-name';
-  div.title = name; // full, unmarked name — a hover tooltip for the ellipsis-truncated row (#445)
-  for (const run of matchRuns(name, indices)) {
+function createNameElement(name, matchedIndices) {
+  const nameElement = document.createElement('div');
+  nameElement.className = 'tour-item-name';
+  nameElement.title = name; // full, unmarked name — a hover tooltip for the ellipsis-truncated row (#445)
+  for (const run of matchRuns(name, matchedIndices)) {
     if (run.matched) {
       const mark = document.createElement('mark');
       mark.textContent = run.text;
-      div.appendChild(mark);
+      nameElement.appendChild(mark);
     } else {
-      div.appendChild(document.createTextNode(run.text));
+      nameElement.appendChild(document.createTextNode(run.text));
     }
   }
-  return div;
+  return nameElement;
 }
 
 // Glyphs rather than emoji: these sit on coloured backgrounds and had to read
@@ -52,24 +53,50 @@ const TRASH_ICON_SVG =
   '<path fill="#000" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>' +
   '</svg>';
 
-function createTourItem(tour) {
-  const li = document.createElement('li');
-  li.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
+function createDeleteBackground() {
+  const background = document.createElement('div');
+  background.className = 'tour-item-delete-bg';
+  background.setAttribute('aria-hidden', 'true');
+  background.innerHTML = TRASH_ICON_SVG;
+  return background;
+}
 
-  const deleteBg = document.createElement('div');
-  deleteBg.className = 'tour-item-delete-bg';
-  deleteBg.setAttribute('aria-hidden', 'true');
-  deleteBg.innerHTML = TRASH_ICON_SVG;
+function createCheckbox(tour) {
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'tour-item-checkbox';
+  checkbox.checked = state.selectedIds.has(tour.id);
+  checkbox.setAttribute('aria-hidden', 'true');
+  setVisible(checkbox, state.selectMode);
+  return checkbox;
+}
 
-  const content = document.createElement('div');
-  content.className = 'tour-item-content';
-  content.tabIndex = 0;
+function createDetails(tour) {
+  const locale = i18n.intlLocale();
+  const name = tour.name || '';
+  const details = document.createElement('div');
+  details.className = 'tour-item-details';
+  details.append(
+    createNameElement(name, fuzzyMatchIndices(state.search, name).indices),
+    createTextDiv(
+      'tour-item-meta',
+      t('sidebar.tourItemMeta', {
+        date: formatDate(tour.createdAt, locale),
+        distance: formatDistance(tour.distance, locale),
+      }),
+    ),
+  );
+  return details;
+}
+
+function describeRow(content, tour) {
+  const locale = i18n.intlLocale();
   content.setAttribute(
     'aria-label',
     t('sidebar.tourItemAria', {
       name: tour.name || '',
-      date: formatDate(tour.createdAt, i18n.intlLocale()),
-      distance: formatDistance(tour.distance, i18n.intlLocale()),
+      date: formatDate(tour.createdAt, locale),
+      distance: formatDistance(tour.distance, locale),
     }),
   );
   if (state.selectMode) {
@@ -79,38 +106,21 @@ function createTourItem(tour) {
     content.setAttribute('role', 'button');
   }
   if (tour.id === state.selectedTourId) content.setAttribute('aria-current', 'true');
+}
 
-  const checkbox = document.createElement('input');
-  checkbox.type = 'checkbox';
-  checkbox.className = 'tour-item-checkbox';
-  checkbox.checked = state.selectedIds.has(tour.id);
-  checkbox.setAttribute('aria-hidden', 'true');
-  show(checkbox, state.selectMode);
+function activateRow(tourId) {
+  if (state.selectMode) toggleTourSelection(tourId);
+  else if (state.selectedTourId === tourId) closeDetailPanel();
+  else selectTour(tourId);
+}
 
-  const details = document.createElement('div');
-  details.className = 'tour-item-details';
-  details.append(
-    highlightedNameNode(tour.name, fuzzyMatchIndices(state.search, tour.name).indices),
-    textDiv(
-      'tour-item-meta',
-      t('sidebar.tourItemMeta', {
-        date: formatDate(tour.createdAt, i18n.intlLocale()),
-        distance: formatDistance(tour.distance, i18n.intlLocale()),
-      }),
-    ),
-  );
-
-  content.append(checkbox, details);
-  content.addEventListener('click', () => {
-    if (state.selectMode) toggleTourSelection(tour.id);
-    else if (state.selectedTourId === tour.id) closeDetailPanel();
-    else selectTour(tour.id);
-  });
-  content.addEventListener('keydown', (e) => {
+function bindRowInteractions(content, tour) {
+  content.addEventListener('click', () => activateRow(tour.id));
+  content.addEventListener('keydown', (event) => {
     // Space also scrolls the list by default; only suppress that once this
     // row is actually the one handling the key.
-    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
-    e.preventDefault();
+    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+    event.preventDefault();
     content.click();
   });
   bindLongPress(content, () => {
@@ -119,21 +129,33 @@ function createTourItem(tour) {
     return true;
   });
   bindTourSwipe(content, () => deleteTourById(tour.id));
+}
 
-  li.append(deleteBg, content);
-  return li;
+function createTourItem(tour) {
+  const item = document.createElement('li');
+  item.className = 'tour-item' + (tour.id === state.selectedTourId ? ' active' : '');
+
+  const content = document.createElement('div');
+  content.className = 'tour-item-content';
+  content.tabIndex = 0;
+  describeRow(content, tour);
+  content.append(createCheckbox(tour), createDetails(tour));
+  bindRowInteractions(content, tour);
+
+  item.append(createDeleteBackground(), content);
+  return item;
 }
 
 // The list, its count and the pager: the part of renderSidebar that depends on
 // the sort, search and "in view" filter.
 export function renderTourList({ signedIn, loading, hasTours }) {
-  elTourList.innerHTML = '';
+  tourList.innerHTML = '';
   if (!hasTours) {
-    elTourCount.textContent = formatCount(
+    tourCountBadge.textContent = formatCount(
       signedIn && !loading ? state.tours.length : 0,
       i18n.intlLocale(),
     );
-    show(elTourPager, false);
+    hideElement(tourPager);
     return;
   }
 
@@ -150,21 +172,21 @@ export function renderTourList({ signedIn, loading, hasTours }) {
     page: state.page,
     inViewBounds: inViewActive ? mapBoundsPlain() : undefined,
   });
-  elTourCount.textContent = view.filtered
+  tourCountBadge.textContent = view.filtered
     ? t('sidebar.filteredCount', { count: view.visibleCount, total: view.totalCount })
     : formatCount(view.totalCount, i18n.intlLocale());
   if (view.visibleCount === 0) {
-    elTourList.appendChild(textDiv('tour-empty', t('tours.noMatch')));
-    show(elTourPager, false);
+    tourList.appendChild(createTextDiv('tour-empty', t('tours.noMatch')));
+    hideElement(tourPager);
     return;
   }
 
   const { items, page, totalPages } = view;
   state.page = page;
-  items.forEach((tour) => elTourList.appendChild(createTourItem(tour)));
+  items.forEach((tour) => tourList.appendChild(createTourItem(tour)));
 
-  show(elTourPager, totalPages > 1);
-  elTourPagerLabel.textContent = t('sidebar.pagerLabel', { page, totalPages });
-  elTourPagerPrev.disabled = page <= 1;
-  elTourPagerNext.disabled = page >= totalPages;
+  setVisible(tourPager, totalPages > 1);
+  tourPagerLabel.textContent = t('sidebar.pagerLabel', { page, totalPages });
+  tourPagerPreviousButton.disabled = page <= 1;
+  tourPagerNextButton.disabled = page >= totalPages;
 }

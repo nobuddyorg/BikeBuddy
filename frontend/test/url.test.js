@@ -10,14 +10,14 @@ describe('parseAppUrl', () => {
     expect(parseAppUrl('', '#/tour/a%20b')).toMatchObject({ tourId: 'a b' });
   });
 
-  it('returns null tourId for an unrelated or empty hash', () => {
-    expect(parseAppUrl('', '')).toMatchObject({ tourId: null });
-    expect(parseAppUrl('', '#something-else')).toMatchObject({ tourId: null });
+  it('returns an empty tourId for an unrelated or empty hash', () => {
+    expect(parseAppUrl('', '')).toMatchObject({ tourId: '' });
+    expect(parseAppUrl('', '#something-else')).toMatchObject({ tourId: '' });
   });
 
   it('reads sort, q and inView from the query string', () => {
     expect(parseAppUrl('?sort=name-asc&q=alps&inView=1', '')).toEqual({
-      tourId: null,
+      tourId: '',
       sort: 'name-asc',
       search: 'alps',
       inView: true,
@@ -33,7 +33,7 @@ describe('parseAppUrl', () => {
     expect(parseAppUrl('?sort=date-asc', '#/tour/xyz')).toEqual({
       tourId: 'xyz',
       sort: 'date-asc',
-      search: null,
+      search: '',
       inView: false,
     });
   });
@@ -43,18 +43,18 @@ describe('buildAppUrl', () => {
   const path = '/index.html';
 
   it('produces a bare path when everything is default/empty', () => {
-    expect(buildAppUrl({ tourId: null, sort: 'date-desc', search: '', inView: false }, path)).toBe(
+    expect(buildAppUrl({ tourId: '', sort: 'date-desc', search: '', inView: false }, path)).toBe(
       path,
     );
   });
 
   it('omits sort when it is the default', () => {
-    const url = buildAppUrl({ tourId: null, sort: 'date-desc', search: 'x', inView: false }, path);
+    const url = buildAppUrl({ tourId: '', sort: 'date-desc', search: 'x', inView: false }, path);
     expect(url).not.toContain('sort=');
   });
 
   it('includes a non-default sort, q and inView as query params', () => {
-    const url = buildAppUrl({ tourId: null, sort: 'name-asc', search: 'alps', inView: true }, path);
+    const url = buildAppUrl({ tourId: '', sort: 'name-asc', search: 'alps', inView: true }, path);
     expect(url).toBe(`${path}?sort=name-asc&q=alps&inView=1`);
   });
 

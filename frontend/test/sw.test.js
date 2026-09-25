@@ -24,7 +24,7 @@ function listFiles(dir, exts) {
   });
 }
 
-const relPath = (full) =>
+const relativePath = (full) =>
   full
     .slice(srcDir.length + 1)
     .split('\\')
@@ -35,12 +35,12 @@ describe('service worker precache list', () => {
     const jsFiles = [
       ...listFiles(join(srcDir, 'lib'), ['.js']),
       ...listFiles(join(srcDir, 'ui'), ['.js']),
-    ].map(relPath);
+    ].map(relativePath);
     for (const file of jsFiles) expect(PRECACHE_URLS).toContain(file);
   });
 
   it('includes every locale file', () => {
-    const localeFiles = listFiles(join(srcDir, 'locales'), ['.json']).map(relPath);
+    const localeFiles = listFiles(join(srcDir, 'locales'), ['.json']).map(relativePath);
     for (const file of localeFiles) expect(PRECACHE_URLS).toContain(file);
   });
 

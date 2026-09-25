@@ -1,7 +1,6 @@
 import { SUPPORTED_LOCALES, filterLocales } from '../lib/i18n.js';
 import { SORT_OPTIONS } from '../lib/tours.js';
 import { centeredLeft } from '../lib/layout.js';
-import * as i18n from './i18n.js';
 import {
   WEIGHT_MIN,
   WEIGHT_MAX,
@@ -11,28 +10,38 @@ import {
   percentToOpacity,
 } from '../lib/lineStyle.js';
 import { formatPercent } from '../lib/format.js';
+import * as i18n from './i18n.js';
 import { saveLineStyle } from './lineStyleStorage.js';
 import { state } from './state.js';
 import { redrawRoutes } from './routes.js';
 import { selectLanguage } from './profile.js';
+import { wirePopover } from './popover.js';
 import {
-  $,
-  show,
-  elTourSort,
-  elSortMenu,
-  elBtnSortMenu,
-  elSortMenuList,
-  elLineStyleWrap,
-  elBtnLineStyle,
-  elLineStyleMenu,
-  elLineStyleColor,
-  elLineStyleWidth,
-  elLineStyleWidthValue,
-  elLineStyleOpacity,
-  elLineStyleOpacityValue,
+  setVisible,
+  tourSortSelect,
+  sortMenu,
+  sortMenuButton,
+  sortMenuList,
+  lineStyleControl,
+  lineStyleButton,
+  lineStyleMenu,
+  lineStyleColorInput,
+  lineStyleWidthInput,
+  lineStyleWidthValue,
+  lineStyleOpacityInput,
+  lineStyleOpacityValue,
+  languageButton,
+  languageMenu,
+  languageSearchInput,
+  languageList,
+  languageSwitcher,
 } from './dom.js';
 
 const t = i18n.t;
+
+// Popovers keep this far from the viewport edge and this far below their trigger.
+const MENU_EDGE_MARGIN_PX = 16;
+const MENU_OFFSET_PX = 6;
 
 // One <span> per [className, text] pair; textContent, so no string is parsed as markup.
 function spans(parts) {
@@ -44,197 +53,159 @@ function spans(parts) {
   });
 }
 
+function createLanguageOption(locale) {
+  const item = document.createElement('li');
+  const option = document.createElement('button');
+  option.type = 'button';
+  option.className = 'lang-option';
+  option.setAttribute('role', 'option');
+  option.dataset.code = locale.code;
+  option.setAttribute('aria-selected', String(locale.code === i18n.getLocale()));
+  option.append(
+    ...spans([
+      ['lang-flag', locale.flag],
+      ['', locale.label],
+      ['lang-code', locale.short],
+    ]),
+  );
+  option.addEventListener('click', () => selectLanguage(locale.code));
+  item.appendChild(option);
+  return item;
+}
+
+function showMatchingLanguages() {
+  const matching = new Set(filterLocales(languageSearchInput.value).map((locale) => locale.code));
+  languageList.querySelectorAll('.lang-option').forEach((option) => {
+    setVisible(option.parentElement, matching.has(option.dataset.code));
+  });
+}
+
+// .lang-menu is `position: fixed`, so it can't be anchored in CSS. Centred
+// on the modal card rather than the narrow switcher, or it hangs off one edge.
+function positionLanguageMenu() {
+  const buttonRect = languageButton.getBoundingClientRect();
+  const modalRect = languageButton.closest('.modal').getBoundingClientRect();
+  const left = centeredLeft({
+    containerLeft: modalRect.left,
+    containerWidth: modalRect.width,
+    elementWidth: languageMenu.offsetWidth,
+    minimumLeft: MENU_EDGE_MARGIN_PX,
+  });
+  languageMenu.style.top = `${buttonRect.bottom + MENU_OFFSET_PX}px`;
+  languageMenu.style.left = `${left}px`;
+}
+
 export function setupLanguageSwitcher() {
-  const elBtnLang = $('btn-lang');
-  const elLangMenu = $('lang-menu');
-  const elLangSearch = $('lang-search');
-  const elLangList = $('lang-list');
   const meta = i18n.getLocaleMeta();
   // Full name, not the short code: there is room for it here.
-  elBtnLang.replaceChildren(
+  languageButton.replaceChildren(
     ...spans([
       ['lang-flag', meta.flag],
       ['lang-name', meta.label],
     ]),
   );
+  languageList.append(...SUPPORTED_LOCALES.map(createLanguageOption));
 
-  for (const loc of SUPPORTED_LOCALES) {
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'lang-option';
-    btn.setAttribute('role', 'option');
-    btn.dataset.code = loc.code;
-    btn.setAttribute('aria-selected', String(loc.code === i18n.getLocale()));
-    btn.append(
-      ...spans([
-        ['lang-flag', loc.flag],
-        ['', loc.label],
-        ['lang-code', loc.short],
-      ]),
-    );
-    btn.addEventListener('click', () => selectLanguage(loc.code));
-    li.appendChild(btn);
-    elLangList.appendChild(li);
-  }
-
-  const closeMenu = () => {
-    show(elLangMenu, false);
-    elBtnLang.setAttribute('aria-expanded', 'false');
-  };
-  const openMenu = () => {
-    const btnRect = elBtnLang.getBoundingClientRect();
-    show(elLangMenu, true);
-    elBtnLang.setAttribute('aria-expanded', 'true');
-    elLangSearch.value = '';
-    elLangList.querySelectorAll('li').forEach((li) => show(li, true));
-    // .lang-menu is `position: fixed`, so it can't be anchored in CSS. Centred
-    // on the modal card rather than the narrow switcher, or it hangs off one
-    // edge (setupSortMenu does the same below).
-    const modalRect = elBtnLang.closest('.modal').getBoundingClientRect();
-    const left = centeredLeft({
-      containerLeft: modalRect.left,
-      containerWidth: modalRect.width,
-      elementWidth: elLangMenu.offsetWidth,
-      minimumLeft: 16,
-    });
-    elLangMenu.style.top = `${btnRect.bottom + 6}px`;
-    elLangMenu.style.left = `${left}px`;
-    elLangSearch.focus();
-  };
-
-  elBtnLang.addEventListener('click', () => {
-    if (elLangMenu.classList.contains('hidden')) openMenu();
-    else closeMenu();
+  wirePopover({
+    trigger: languageButton,
+    panel: languageMenu,
+    container: languageSwitcher,
+    onOpen: () => {
+      languageSearchInput.value = '';
+      showMatchingLanguages();
+      positionLanguageMenu();
+      languageSearchInput.focus();
+    },
   });
-  elLangSearch.addEventListener('input', () => {
-    const matching = new Set(filterLocales(elLangSearch.value).map((locale) => locale.code));
-    elLangList.querySelectorAll('.lang-option').forEach((opt) => {
-      show(opt.parentElement, matching.has(opt.dataset.code));
-    });
-  });
-  document.addEventListener('click', (e) => {
-    if (!$('lang-switcher').contains(e.target)) closeMenu();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !elLangMenu.classList.contains('hidden')) closeMenu();
-  });
+  languageSearchInput.addEventListener('input', showMatchingLanguages);
 }
 
-// The native <select> (desktop) lists the same options as the mobile menu
-// below; its labels are translated by applyI18n like the static markup.
+// The desktop <select> lists the same options as the mobile menu below; its
+// labels are translated by applyI18n like the static markup.
 export function populateSortSelect() {
   for (const { key, labelKey } of SORT_OPTIONS) {
     const option = document.createElement('option');
     option.value = key;
     option.dataset.i18n = labelKey;
-    elTourSort.appendChild(option);
+    tourSortSelect.appendChild(option);
   }
 }
 
-// Mobile's replacement for the native <select>. Selecting an option writes
-// elTourSort.value and dispatches its change event, so the sorting logic
-// stays in one place.
+// `position: fixed` to escape the sidebar's clipping, so the offset has to
+// come from the button's actual viewport rect.
+function positionSortMenu() {
+  sortMenuList.querySelectorAll('.sort-menu-option').forEach((option) => {
+    option.setAttribute('aria-selected', String(option.dataset.value === state.sort));
+  });
+  const rect = sortMenuButton.getBoundingClientRect();
+  sortMenuList.style.top = `${rect.bottom + MENU_OFFSET_PX}px`;
+  sortMenuList.style.right = `${window.innerWidth - rect.right}px`;
+}
+
+// Mobile's replacement for the native <select>. Choosing an option writes the
+// select's value and dispatches its change event, so the sorting logic stays
+// in one place.
 export function setupSortMenu() {
-  for (const opt of SORT_OPTIONS) {
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'sort-menu-option';
-    btn.setAttribute('role', 'option');
-    btn.dataset.value = opt.key;
-    btn.textContent = t(opt.labelKey);
-    btn.addEventListener('click', () => {
-      elTourSort.value = opt.key;
-      elTourSort.dispatchEvent(new Event('change'));
-      closeMenu();
+  const { close } = wirePopover({
+    trigger: sortMenuButton,
+    panel: sortMenuList,
+    container: sortMenu,
+    onOpen: positionSortMenu,
+  });
+  for (const { key, labelKey } of SORT_OPTIONS) {
+    const item = document.createElement('li');
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'sort-menu-option';
+    option.setAttribute('role', 'option');
+    option.dataset.value = key;
+    option.textContent = t(labelKey);
+    option.addEventListener('click', () => {
+      tourSortSelect.value = key;
+      tourSortSelect.dispatchEvent(new Event('change'));
+      close();
     });
-    li.appendChild(btn);
-    elSortMenuList.appendChild(li);
+    item.appendChild(option);
+    sortMenuList.appendChild(item);
   }
+}
 
-  const closeMenu = () => {
-    show(elSortMenuList, false);
-    elBtnSortMenu.setAttribute('aria-expanded', 'false');
-  };
-  const openMenu = () => {
-    elSortMenuList.querySelectorAll('.sort-menu-option').forEach((opt) => {
-      opt.setAttribute('aria-selected', String(opt.dataset.value === state.sort));
-    });
-    // `position: fixed` to escape the sidebar's clipping, so the offset has to
-    // come from the button's actual viewport rect.
-    const rect = elBtnSortMenu.getBoundingClientRect();
-    elSortMenuList.style.top = `${rect.bottom + 6}px`;
-    elSortMenuList.style.right = `${window.innerWidth - rect.right}px`;
-    show(elSortMenuList, true);
-    elBtnSortMenu.setAttribute('aria-expanded', 'true');
-  };
+function showLineStyle() {
+  lineStyleColorInput.value = state.lineStyle.color;
+  lineStyleWidthInput.value = String(state.lineStyle.weight);
+  lineStyleWidthValue.textContent = `${state.lineStyle.weight}px`;
+  lineStyleOpacityInput.value = String(opacityToPercent(state.lineStyle.opacity));
+  lineStyleOpacityValue.textContent = formatPercent(state.lineStyle.opacity, i18n.intlLocale());
+}
 
-  elBtnSortMenu.addEventListener('click', () => {
-    if (elSortMenuList.classList.contains('hidden')) openMenu();
-    else closeMenu();
-  });
-  document.addEventListener('click', (e) => {
-    if (!elSortMenu.contains(e.target)) closeMenu();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !elSortMenuList.classList.contains('hidden')) closeMenu();
-  });
+function updateLineStyle(patch) {
+  state.lineStyle = { ...state.lineStyle, ...patch };
+  showLineStyle();
+  redrawRoutes();
 }
 
 export function setupLineStyleMenu() {
-  elLineStyleWidth.min = String(WEIGHT_MIN);
-  elLineStyleWidth.max = String(WEIGHT_MAX);
-  elLineStyleOpacity.min = String(opacityToPercent(OPACITY_MIN));
-  elLineStyleOpacity.max = String(opacityToPercent(OPACITY_MAX));
+  lineStyleWidthInput.min = String(WEIGHT_MIN);
+  lineStyleWidthInput.max = String(WEIGHT_MAX);
+  lineStyleOpacityInput.min = String(opacityToPercent(OPACITY_MIN));
+  lineStyleOpacityInput.max = String(opacityToPercent(OPACITY_MAX));
+  showLineStyle();
+  wirePopover({ trigger: lineStyleButton, panel: lineStyleMenu, container: lineStyleControl });
 
-  const applyControls = () => {
-    elLineStyleColor.value = state.lineStyle.color;
-    elLineStyleWidth.value = String(state.lineStyle.weight);
-    elLineStyleWidthValue.textContent = `${state.lineStyle.weight}px`;
-    elLineStyleOpacity.value = String(opacityToPercent(state.lineStyle.opacity));
-    elLineStyleOpacityValue.textContent = formatPercent(state.lineStyle.opacity, i18n.intlLocale());
-  };
-  applyControls();
-
-  const closeMenu = () => {
-    show(elLineStyleMenu, false);
-    elBtnLineStyle.setAttribute('aria-expanded', 'false');
-  };
-  const openMenu = () => {
-    show(elLineStyleMenu, true);
-    elBtnLineStyle.setAttribute('aria-expanded', 'true');
-  };
-
-  elBtnLineStyle.addEventListener('click', () => {
-    if (elLineStyleMenu.classList.contains('hidden')) openMenu();
-    else closeMenu();
-  });
-  document.addEventListener('click', (e) => {
-    if (!elLineStyleWrap.contains(e.target)) closeMenu();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !elLineStyleMenu.classList.contains('hidden')) closeMenu();
-  });
-
-  const updateStyle = (patch) => {
-    state.lineStyle = { ...state.lineStyle, ...patch };
-    applyControls();
-    redrawRoutes();
-  };
   // localStorage is only written once the user settles on a value, not on
   // every 'input' tick of a drag — the live preview above is cheap, a
   // synchronous disk write per tick isn't.
-  const commitStyle = () => saveLineStyle(state.lineStyle);
-
-  elLineStyleColor.addEventListener('input', () => updateStyle({ color: elLineStyleColor.value }));
-  elLineStyleColor.addEventListener('change', commitStyle);
-  elLineStyleWidth.addEventListener('input', () =>
-    updateStyle({ weight: Number(elLineStyleWidth.value) }),
-  );
-  elLineStyleWidth.addEventListener('change', commitStyle);
-  elLineStyleOpacity.addEventListener('input', () =>
-    updateStyle({ opacity: percentToOpacity(Number(elLineStyleOpacity.value)) }),
-  );
-  elLineStyleOpacity.addEventListener('change', commitStyle);
+  const commitLineStyle = () => saveLineStyle(state.lineStyle);
+  const controls = [
+    [lineStyleColorInput, () => ({ color: lineStyleColorInput.value })],
+    [lineStyleWidthInput, () => ({ weight: Number(lineStyleWidthInput.value) })],
+    [
+      lineStyleOpacityInput,
+      () => ({ opacity: percentToOpacity(Number(lineStyleOpacityInput.value)) }),
+    ],
+  ];
+  for (const [input, readPatch] of controls) {
+    input.addEventListener('input', () => updateLineStyle(readPatch()));
+    input.addEventListener('change', commitLineStyle);
+  }
 }

@@ -26,19 +26,19 @@ describe('computeTourStats (properties)', () => {
   it('totals are the sums of their parts', () => {
     fc.assert(
       fc.property(tours, (list) => {
-        const s = computeTourStats(list, new Date('2026-06-01T00:00:00Z'));
-        const sum = list.reduce((acc, t) => acc + (t.distance || 0), 0);
-        expect(s.totalCount).toBe(list.length);
-        expect(s.totalDistance).toBeCloseTo(sum, 6);
-        const perYearDistance = s.perYear.reduce((acc, y) => acc + y.distance, 0);
-        const perYearCount = s.perYear.reduce((acc, y) => acc + y.count, 0);
-        const dated = list.filter((t) => t.createdAt);
+        const stats = computeTourStats(list, new Date('2026-06-01T00:00:00Z'));
+        const distanceOf = (entries) =>
+          entries.reduce((sum, entry) => sum + (entry.distance || 0), 0);
+        expect(stats.totalCount).toBe(list.length);
+        expect(stats.totalDistance).toBeCloseTo(distanceOf(list), 6);
+        const perYearDistance = distanceOf(stats.perYear);
+        const perYearCount = stats.perYear.reduce((sum, year) => sum + year.count, 0);
+        const dated = list.filter((tour) => tour.createdAt);
         expect(perYearCount).toBe(dated.length);
-        expect(perYearDistance).toBeCloseTo(
-          dated.reduce((acc, t) => acc + (t.distance || 0), 0),
-          6,
+        expect(perYearDistance).toBeCloseTo(distanceOf(dated), 6);
+        expect(stats.distanceThisYear + stats.distanceLastYear).toBeLessThanOrEqual(
+          perYearDistance + 1e-6,
         );
-        expect(s.distanceThisYear + s.distanceLastYear).toBeLessThanOrEqual(perYearDistance + 1e-6);
       }),
     );
   });
@@ -48,8 +48,8 @@ describe('computeTourStats (properties)', () => {
       fc.property(tours, (list) => {
         fc.pre(list.length > 0);
         const { longestTour } = computeTourStats(list, new Date('2026-06-01T00:00:00Z'));
-        for (const t of list)
-          expect(longestTour.distance || 0).toBeGreaterThanOrEqual(t.distance || 0);
+        for (const tour of list)
+          expect(longestTour.distance || 0).toBeGreaterThanOrEqual(tour.distance || 0);
       }),
     );
   });
@@ -62,9 +62,9 @@ describe('format (properties)', () => {
         const text = formatDuration(seconds, 'en-GB');
         const match = /^(?:(\d+)h )?(\d+)m$/.exec(text);
         expect(match).not.toBeNull();
-        const [, h = '0', m] = match;
-        expect(Number(m)).toBeLessThan(60);
-        expect(Number(h) * 60 + Number(m)).toBe(Math.round(seconds / 60));
+        const [, hours = '0', minutes] = match;
+        expect(Number(minutes)).toBeLessThan(60);
+        expect(Number(hours) * 60 + Number(minutes)).toBe(Math.round(seconds / 60));
       }),
     );
   });
@@ -82,18 +82,18 @@ describe('format (properties)', () => {
 
 describe('URL state (properties)', () => {
   const state = fc.record({
-    tourId: fc.option(fc.string({ minLength: 1 }), { nil: null }),
-    sort: fc.constantFrom(null, 'date-asc', 'name-asc', 'name-desc', 'length-desc', 'length-asc'),
-    search: fc.option(fc.string({ minLength: 1 }), { nil: null }),
+    tourId: fc.option(fc.string({ minLength: 1 }), { nil: '' }),
+    sort: fc.constantFrom('', 'date-asc', 'name-asc', 'name-desc', 'length-desc', 'length-asc'),
+    search: fc.option(fc.string({ minLength: 1 }), { nil: '' }),
     inView: fc.boolean(),
   });
 
   it('buildAppUrl -> parseAppUrl round-trips every state', () => {
     fc.assert(
-      fc.property(state, (s) => {
-        const url = new URL(buildAppUrl(s, '/BikeBuddy/'), 'https://nobuddy.org');
+      fc.property(state, (urlState) => {
+        const url = new URL(buildAppUrl(urlState, '/BikeBuddy/'), 'https://nobuddy.org');
         expect(url.pathname).toBe('/BikeBuddy/');
-        expect(parseAppUrl(url.search, url.hash)).toEqual(s);
+        expect(parseAppUrl(url.search, url.hash)).toEqual(urlState);
       }),
     );
   });
@@ -128,9 +128,9 @@ describe('tour list (properties)', () => {
           const first = paginate({ items, page: 1, pageSize: size });
           const seen = [];
           for (let page = 1; page <= first.totalPages; page++) {
-            const p = paginate({ items, page, pageSize: size });
-            expect(p.items.length).toBeLessThanOrEqual(size);
-            seen.push(...p.items);
+            const pageItems = paginate({ items, page, pageSize: size }).items;
+            expect(pageItems.length).toBeLessThanOrEqual(size);
+            seen.push(...pageItems);
           }
           expect(seen).toEqual(items);
         },

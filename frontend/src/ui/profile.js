@@ -7,18 +7,19 @@ import { refreshUser, renderNavAuth, signOut } from './auth.js';
 import { toast } from './toast.js';
 import { openModal, closeModal } from './modal.js';
 import {
-  show,
-  elProfileModal,
-  elProfileAvatar,
-  elProfileTitle,
-  elProfileNameInput,
-  elProfileNameError,
-  elProfileEmail,
-  elProfileSince,
-  elDeleteAccountModal,
-  elDeleteAccountHint,
-  elDeleteAccountInput,
-  elBtnDeleteAccountConfirm,
+  showElement,
+  hideElement,
+  profileModal,
+  profileAvatar,
+  profileTitle,
+  profileNameInput,
+  profileNameError,
+  profileEmail,
+  profileMemberSince,
+  deleteAccountModal,
+  deleteAccountHint,
+  deleteAccountInput,
+  deleteAccountConfirmButton,
 } from './dom.js';
 
 const t = i18n.t;
@@ -28,19 +29,19 @@ const t = i18n.t;
 const DELETE_ACCOUNT_PHRASE = 'DELETE';
 
 function renderProfile() {
-  elProfileTitle.textContent = state.user.name || t('profile.yourAccount');
-  elProfileAvatar.textContent = initials(state.user.name || state.user.email);
-  elProfileEmail.textContent = state.user.email || '—';
-  elProfileSince.textContent = state.user.createdAt
+  profileTitle.textContent = state.user.name || t('profile.yourAccount');
+  profileAvatar.textContent = initials(state.user.name || state.user.email);
+  profileEmail.textContent = state.user.email || '—';
+  profileMemberSince.textContent = state.user.createdAt
     ? formatDate(state.user.createdAt, i18n.intlLocale())
     : '—';
-  elProfileNameInput.value = state.user.name || '';
+  profileNameInput.value = state.user.name || '';
 }
 
 export async function openProfile() {
   if (!state.user) return;
   renderProfile();
-  openModal(elProfileModal);
+  openModal(profileModal);
 
   // Join date lives on the user doc, which the login session may not have.
   if (!state.user.createdAt) {
@@ -50,33 +51,33 @@ export async function openProfile() {
 }
 
 export function closeProfile() {
-  closeModal(elProfileModal);
+  closeModal(profileModal);
 }
 
-export async function saveProfileName(e) {
-  e.preventDefault();
-  const name = elProfileNameInput.value.trim();
-  show(elProfileNameError, false);
+export async function saveProfileName(event) {
+  event.preventDefault();
+  const name = profileNameInput.value.trim();
+  hideElement(profileNameError);
   try {
-    const res = await apiFetch('/api/me', {
+    const response = await apiFetch('/api/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     });
-    if (!res.ok) {
-      elProfileNameError.textContent = i18n.tApi(
-        parseErrorMessage(await res.text(), t('errors.saveName')),
+    if (!response.ok) {
+      profileNameError.textContent = i18n.tApi(
+        parseErrorMessage(await response.text(), t('errors.saveName')),
       );
-      show(elProfileNameError, true);
+      showElement(profileNameError);
       return;
     }
-    state.user = { ...state.user, ...(await res.json()) };
+    state.user = { ...state.user, ...(await response.json()) };
     renderProfile();
     renderNavAuth();
-    toast(t('toast.nameUpdated'), 'success');
+    toast(t('toast.nameUpdated'), { type: 'success' });
   } catch {
-    elProfileNameError.textContent = t('errors.network');
-    show(elProfileNameError, true);
+    profileNameError.textContent = t('errors.network');
+    showElement(profileNameError);
   }
 }
 
@@ -84,66 +85,68 @@ export async function saveProfileName(e) {
 // anything after it never runs.
 export async function selectLanguage(code) {
   try {
-    const res = await apiFetch('/api/me', {
+    const response = await apiFetch('/api/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ language: code }),
     });
-    if (!res.ok) {
-      toast(i18n.tApi(parseErrorMessage(await res.text(), t('errors.saveLanguage'))), 'error');
+    if (!response.ok) {
+      toast(i18n.tApi(parseErrorMessage(await response.text(), t('errors.saveLanguage'))), {
+        type: 'error',
+      });
       return;
     }
     i18n.setLanguage(code);
   } catch {
-    toast(t('errors.network'), 'error');
+    toast(t('errors.network'), { type: 'error' });
   }
 }
 
 // GDPR data export.
 export async function downloadMyData() {
   try {
-    const res = await apiFetch('/api/me/export');
-    if (!res.ok) throw new Error('export failed');
-    const url = URL.createObjectURL(await res.blob());
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'bikebuddy-export.json';
-    a.click();
+    const response = await apiFetch('/api/me/export');
+    if (!response.ok) throw new Error('export failed');
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'bikebuddy-export.json';
+    link.click();
     URL.revokeObjectURL(url);
-    toast(t('toast.exportDone'), 'success');
+    toast(t('toast.exportDone'), { type: 'success' });
   } catch {
-    toast(t('toast.exportError'), 'error');
+    toast(t('toast.exportError'), { type: 'error' });
   }
 }
 
 export function openDeleteAccountModal() {
-  elDeleteAccountInput.value = '';
-  elDeleteAccountHint.textContent = t('confirm.deleteAccountPhraseHint', {
+  deleteAccountInput.value = '';
+  deleteAccountHint.textContent = t('confirm.deleteAccountPhraseHint', {
     phrase: DELETE_ACCOUNT_PHRASE,
   });
-  elBtnDeleteAccountConfirm.disabled = true;
-  openModal(elDeleteAccountModal);
+  deleteAccountConfirmButton.disabled = true;
+  openModal(deleteAccountModal);
 }
 
 export function closeDeleteAccountModal() {
-  closeModal(elDeleteAccountModal);
+  closeModal(deleteAccountModal);
 }
 
 export function updateDeleteAccountConfirmState() {
-  elBtnDeleteAccountConfirm.disabled = elDeleteAccountInput.value !== DELETE_ACCOUNT_PHRASE;
+  deleteAccountConfirmButton.disabled = deleteAccountInput.value !== DELETE_ACCOUNT_PHRASE;
 }
 
 // GDPR erasure. Only reachable once the typed-phrase check in the modal has
 // enabled the button, so no further confirmation happens here.
 export async function deleteMyAccount() {
   try {
-    const res = await apiFetch('/api/account', { method: 'DELETE' });
-    if (!res.ok) throw new Error('delete failed');
+    const response = await apiFetch('/api/account', { method: 'DELETE' });
+    if (!response.ok) throw new Error('delete failed');
     closeDeleteAccountModal();
     closeProfile();
-    toast(t('toast.accountDeleted'), 'success');
+    toast(t('toast.accountDeleted'), { type: 'success' });
     await signOut();
   } catch {
-    toast(t('toast.accountDeleteError'), 'error');
+    toast(t('toast.accountDeleteError'), { type: 'error' });
   }
 }
