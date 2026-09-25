@@ -51,7 +51,7 @@
     "knip": "^6.38.0",
     "mutation-testing-metrics": "^3.9.0",
     "prettier": "^3.9.8",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.9"
   },
   "overrides": {
