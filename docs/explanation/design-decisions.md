@@ -322,7 +322,6 @@ line:
 | AZU-0058 no geo-redundant replication                             | LRS keeps the cost target; soft delete and versioning cover deletes and overwrites, not region loss          | —         |
 | AZU-0060 no customer-managed key                                  | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
 | AZU-0061 no infrastructure encryption                             | fixed at account creation, not retrofitted                                                                   | —         |
-| TFLint `…_missing_prevent_destroy` on the `images` container      | unused and empty; photos live in the unmanaged `tour-images` container                                       | #568      |
 | TFLint `…_missing_prevent_destroy` on the `deployments` container | holds only the Functions package, which every deploy re-uploads                                              | —         |
 
 The tools are installed from GitHub releases by version and SHA-256 (in

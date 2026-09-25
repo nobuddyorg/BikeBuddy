@@ -36,8 +36,11 @@ A new scanner exception goes in `.trivyignore.yaml` with its reason and in
 ## Destroy guards
 
 The resource group, the Cosmos account, its database and its `users`, `tours`
-and `deletions` containers, the storage account and its `gpx-files` container
-carry `lifecycle { prevent_destroy = true }` (#543). A change that would
+and `deletions` containers, the storage account and its `gpx-files` and
+`tour-images` containers carry `lifecycle { prevent_destroy = true }` (#543).
+The app created `tour-images` before OpenTofu managed it, so
+`./buddy.sh infrastructure provision` imports it into state once, before its
+apply (#568). A change that would
 replace or delete one fails at plan time instead of deleting user data. The
 guards are never removed; a change that needs one gone is redesigned, or raised
 with the maintainer first.
