@@ -40,6 +40,7 @@ export const FUNCTIONS_TARGETS = [
   'scripts/lib/thumbnailBackfill.js',
   'scripts/lib/tourStatsBackfill.js',
   'test/integration/emulatorGuard.js',
+  'test/integration/tokens.js',
 ];
 
 export const FRONTEND_TARGETS = [
