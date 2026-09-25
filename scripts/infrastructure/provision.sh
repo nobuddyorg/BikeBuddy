@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 # Description: Provision/update Azure resources (tofu init + apply)
-# Empty Entra vars = no-auth mode. Auth: az login + ARM_ACCESS_KEY locally; the
-# ARM_* env vars from secrets in CI.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

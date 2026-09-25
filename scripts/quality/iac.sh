@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # Description: Lint and scan the OpenTofu code (TFLint + Trivy config, pinned versions)
-# Installs pinned, checksum-verified TFLint and Trivy into ~/.cache/bikebuddy-tools
-# on first run. Exceptions live in .tflint.hcl and .trivyignore.yaml, each with
-# its reason. With --report <dir>, also writes SARIF and text reports there (CI).
+# --report <directory> also writes SARIF and text reports there (CI).
 set -euo pipefail
 
 TFLINT_VERSION="0.64.0"
@@ -11,7 +9,7 @@ TRIVY_VERSION="0.74.0"
 TRIVY_SHA256="2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-TOOLS="${XDG_CACHE_HOME:-$HOME/.cache}/bikebuddy-tools"
+TOOLS_DIRECTORY="${XDG_CACHE_HOME:-$HOME/.cache}/bikebuddy-tools"
 REPORT=""
 if [ "${1:-}" = "--report" ]; then REPORT="$(mkdir -p "$2" && cd "$2" && pwd)"; fi
 
@@ -25,27 +23,27 @@ download() {
 }
 
 install_tflint() {
-  local dir="$TOOLS/tflint-$TFLINT_VERSION"
-  if [ ! -x "$dir/tflint" ]; then
+  local tool_directory="$TOOLS_DIRECTORY/tflint-$TFLINT_VERSION"
+  if [ ! -x "$tool_directory/tflint" ]; then
     echo "==> Installing TFLint $TFLINT_VERSION"
-    mkdir -p "$dir"
+    mkdir -p "$tool_directory"
     download "https://github.com/terraform-linters/tflint/releases/download/v$TFLINT_VERSION/tflint_linux_amd64.zip" \
-      "$TFLINT_SHA256" "$dir/tflint.zip"
-    python3 -m zipfile -e "$dir/tflint.zip" "$dir" && chmod +x "$dir/tflint" && rm "$dir/tflint.zip"
+      "$TFLINT_SHA256" "$tool_directory/tflint.zip"
+    python3 -m zipfile -e "$tool_directory/tflint.zip" "$tool_directory" && chmod +x "$tool_directory/tflint" && rm "$tool_directory/tflint.zip"
   fi
-  TFLINT="$dir/tflint"
+  TFLINT="$tool_directory/tflint"
 }
 
 install_trivy() {
-  local dir="$TOOLS/trivy-$TRIVY_VERSION"
-  if [ ! -x "$dir/trivy" ]; then
+  local tool_directory="$TOOLS_DIRECTORY/trivy-$TRIVY_VERSION"
+  if [ ! -x "$tool_directory/trivy" ]; then
     echo "==> Installing Trivy $TRIVY_VERSION"
-    mkdir -p "$dir"
+    mkdir -p "$tool_directory"
     download "https://github.com/aquasecurity/trivy/releases/download/v$TRIVY_VERSION/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
-      "$TRIVY_SHA256" "$dir/trivy.tar.gz"
-    tar -xzf "$dir/trivy.tar.gz" -C "$dir" trivy && rm "$dir/trivy.tar.gz"
+      "$TRIVY_SHA256" "$tool_directory/trivy.tar.gz"
+    tar -xzf "$tool_directory/trivy.tar.gz" -C "$tool_directory" trivy && rm "$tool_directory/trivy.tar.gz"
   fi
-  TRIVY="$dir/trivy"
+  TRIVY="$tool_directory/trivy"
 }
 
 install_tflint
