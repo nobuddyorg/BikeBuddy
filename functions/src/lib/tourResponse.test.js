@@ -119,24 +119,59 @@ describe('toCreatedTourResponse', () => {
 
 describe('gpxDownloadDisposition', () => {
   it('names the download after the tour', () => {
-    expect(gpxDownloadDisposition('Alps')).toBe('attachment; filename="Alps.gpx"');
+    expect(gpxDownloadDisposition('Alps')).toBe(
+      'attachment; filename="Alps.gpx"; filename*=UTF-8\'\'Alps.gpx',
+    );
   });
 
-  it('collapses each run of disallowed filename characters to one underscore', () => {
-    expect(gpxDownloadDisposition('My  Alps!!')).toBe('attachment; filename="My_Alps_.gpx"');
+  it('keeps ordinary spaces and punctuation in the filename', () => {
+    expect(gpxDownloadDisposition('My  Alps!!')).toBe(
+      'attachment; filename="My  Alps!!.gpx"; filename*=UTF-8\'\'My%20%20Alps!!.gpx',
+    );
   });
 
   it('keeps letters, digits, dashes and underscores', () => {
-    expect(gpxDownloadDisposition('Tour-2026_b')).toBe('attachment; filename="Tour-2026_b.gpx"');
+    expect(gpxDownloadDisposition('Tour-2026_b')).toBe(
+      'attachment; filename="Tour-2026_b.gpx"; filename*=UTF-8\'\'Tour-2026_b.gpx',
+    );
+  });
+
+  it('adds an RFC 5987 UTF-8 filename alongside an ASCII fallback', () => {
+    expect(gpxDownloadDisposition('Départ')).toBe(
+      'attachment; filename="D_part.gpx"; filename*=UTF-8\'\'D%C3%A9part.gpx',
+    );
+    expect(gpxDownloadDisposition('東京')).toBe(
+      'attachment; filename="__.gpx"; filename*=UTF-8\'\'%E6%9D%B1%E4%BA%AC.gpx',
+    );
+  });
+
+  it('percent-encodes RFC 5987 parameter characters in the UTF-8 filename', () => {
+    expect(gpxDownloadDisposition("O'Reilly (draft)*")).toBe(
+      "attachment; filename=\"O'Reilly (draft)*.gpx\"; filename*=UTF-8''O%27Reilly%20%28draft%29%2A.gpx",
+    );
+  });
+
+  it('removes path separators, quotes and control characters before constructing the header', () => {
+    expect(gpxDownloadDisposition('north/south\\east"\r\n\x7F')).toBe(
+      'attachment; filename="north_south_east____.gpx"; filename*=UTF-8\'\'north_south_east____.gpx',
+    );
   });
 
   it('falls back to "tour" for a tour without a name', () => {
-    expect(gpxDownloadDisposition(undefined)).toBe('attachment; filename="tour.gpx"');
-    expect(gpxDownloadDisposition('')).toBe('attachment; filename="tour.gpx"');
-    expect(gpxDownloadDisposition({ '#text': 'x' })).toBe('attachment; filename="tour.gpx"');
+    expect(gpxDownloadDisposition(undefined)).toBe(
+      'attachment; filename="tour.gpx"; filename*=UTF-8\'\'tour.gpx',
+    );
+    expect(gpxDownloadDisposition('')).toBe(
+      'attachment; filename="tour.gpx"; filename*=UTF-8\'\'tour.gpx',
+    );
+    expect(gpxDownloadDisposition({ '#text': 'x' })).toBe(
+      'attachment; filename="tour.gpx"; filename*=UTF-8\'\'tour.gpx',
+    );
   });
 
   it('names the download after a numeric name stored before #548', () => {
-    expect(gpxDownloadDisposition(20240512)).toBe('attachment; filename="20240512.gpx"');
+    expect(gpxDownloadDisposition(20240512)).toBe(
+      'attachment; filename="20240512.gpx"; filename*=UTF-8\'\'20240512.gpx',
+    );
   });
 });

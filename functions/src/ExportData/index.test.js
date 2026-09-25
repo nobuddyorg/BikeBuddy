@@ -88,7 +88,7 @@ describe('GET /api/me/export', () => {
       sp: 'r',
       sr: 'b',
       se: IN_ONE_HOUR,
-      rscd: 'attachment; filename="Alps.gpx"',
+      rscd: 'attachment; filename="Alps.gpx"; filename*=UTF-8\'\'Alps.gpx',
     });
     expect(signedUrlParts(tour.images[0].url)).toStrictEqual({
       path: '/tour-images/u1/t1/i1.jpg',

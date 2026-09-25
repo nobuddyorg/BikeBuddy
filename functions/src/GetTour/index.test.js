@@ -107,8 +107,18 @@ describe('GET /api/tours/{tourId}', () => {
       permissions: 'r',
       resource: 'b',
       expiresOn: ONE_HOUR_LATER,
-      contentDisposition: 'attachment; filename="Alps.gpx"',
+      contentDisposition: 'attachment; filename="Alps.gpx"; filename*=UTF-8\'\'Alps.gpx',
     });
+  });
+
+  it('signs a UTF-8 GPX filename without losing the tour name', async () => {
+    const { run } = setUp({ documents: [{ ...TOUR, name: 'Départ' }] });
+
+    const { gpxFileUrl } = (await run(TOUR_ID)).jsonBody;
+
+    expect(signedUrlParts(gpxFileUrl).contentDisposition).toBe(
+      'attachment; filename="D_part.gpx"; filename*=UTF-8\'\'D%C3%A9part.gpx',
+    );
   });
 
   it('signs the GPX of the token user even when the stored document names another', async () => {

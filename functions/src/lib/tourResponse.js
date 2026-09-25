@@ -47,9 +47,30 @@ const toCreatedTourResponse = (tour) => ({
   createdAt: tour.createdAt,
 });
 
+function safeDownloadName(name) {
+  return [...tourName(name, 'tour')]
+    .map((character) => {
+      const codePoint = /** @type {number} */ (character.codePointAt(0));
+      return character === '/' ||
+        character === '\\' ||
+        character === '"' ||
+        codePoint < 0x20 ||
+        codePoint === 0x7f
+        ? '_'
+        : character;
+    })
+    .join('');
+}
+
 function gpxDownloadDisposition(name) {
-  const filename = `${tourName(name, 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
-  return `attachment; filename="${filename}"`;
+  const safeName = safeDownloadName(name);
+  const filename = `${safeName}.gpx`;
+  const asciiFallback = filename.replace(/[^\x20-\x7E]/g, '_');
+  const utf8Filename = encodeURIComponent(filename).replace(
+    /['()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8Filename}`;
 }
 
 module.exports = {
