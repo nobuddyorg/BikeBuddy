@@ -7,7 +7,7 @@ const MESSAGES = {
     greeting: 'Hello {name}',
     onlyEnglish: 'Fallback',
     'errors.x': 'Bad input',
-    'help.x': 'Click <strong>Go</strong> &amp; <img src=x onerror=alert(1)>',
+    'help.x': 'Click <strong>Go</strong> &amp; <img src=x onerror=alert(1)> <code>.gpx</code>',
   },
   de: { greeting: 'Hallo {name}' },
 };
@@ -226,7 +226,8 @@ describe('applyI18n', () => {
     expect(html.children).toEqual([
       { text: 'Click ' },
       { tag: 'strong', textContent: 'Go' },
-      { text: ' & <img src=x onerror=alert(1)>' },
+      { text: ' & <img src=x onerror=alert(1)> ' },
+      { tag: 'code', textContent: '.gpx' },
     ]);
   });
 });

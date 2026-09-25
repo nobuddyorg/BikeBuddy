@@ -83,7 +83,7 @@ export const I18N_ATTRIBUTES = ['placeholder', 'aria-label', 'title', 'alt'];
 
 function markupNode({ kind, text }) {
   if (kind === 'text') return document.createTextNode(text);
-  const element = document.createElement(kind);
+  const element = document.createElement(kind === 'code' ? 'code' : 'strong');
   element.textContent = text;
   return element;
 }
