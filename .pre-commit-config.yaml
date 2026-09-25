@@ -93,10 +93,10 @@ repos:
     hooks:
       - id: prettier
         name: Prettier
-        entry: bash -c "cd functions && npx prettier --check 'src/**/*.js' 'test/**/*.js'"
+        entry: bash -c "cd functions && npx prettier --check 'src/**/*.js' 'test/**/*.js' 'scripts/**/*.{js,mjs}'"
         language: system
         pass_filenames: false
-        files: ^functions/(src|test)/
+        files: ^functions/(src|test|scripts)/
         stages: [pre-commit]
 
   # Prettier check (e2e/ TypeScript) — reuses functions' prettier; fix with: cd e2e && npm run format
