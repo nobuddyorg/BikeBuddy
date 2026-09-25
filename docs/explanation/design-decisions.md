@@ -61,8 +61,38 @@ Why out-of-band: deleting a directory user needs a tenant-wide
 `User.ReadWrite.All` Graph credential. Keeping that **only in CI** (never in the
 internet-facing Functions app) means a compromise of the web app can't delete
 arbitrary users. GDPR allows the identity removal to complete shortly after (the
-app data — the bulk of personal data — is already gone). The job only ever
-deletes ids the API queued, and is idempotent.
+app data — the bulk of personal data — is already gone).
+
+What the job accepts (`functions/scripts/lib/deletionJob.js`, unit-tested with
+fakes; a change to it is security-relevant):
+
+- Only queued ids shaped like a GUID reach Graph, URL-encoded. Anything else
+  (`../groups/…`, `a/b`) stays queued and fails the run for a human to look at.
+- A Graph 204 or 404 removes the queue entry, so a re-run is idempotent; a 5xx,
+  429 or network error keeps it for the next run and fails this one. One
+  failing id never stops the others.
+- Logs carry counts and masked ids (`…abcd`), never a full object id (#570
+  tracks purging Entra's soft-deleted users and #538 the data it cannot reach).
+- `--dry-run` lists what a real run would do without Graph credentials; manual
+  runs of `process-deletions.yml` default to it (input `dry_run`), the daily
+  cron runs for real, and runs never overlap.
+
+By hand, `./buddy.sh maintenance delete-users --dry-run` shows the queue; it
+reads the production Cosmos key through `az`, so it is for an operator with a
+reason, never a routine local command.
+
+## Backfills
+
+A document-shape change ships a backfill with a dry run (CLAUDE.md, "Data and
+authorization changes"). The existing ones, `functions/scripts/backfillTourStats.js`
+(elevation and moving-time stats) and `backfillImageThumbnails.js` (thumbnail
+blobs; the blob name is derived from the image's, so no document changes), are
+**dry by default**: they read in pages, report what they would change and what
+would fail, and write only with `--apply`. They are idempotent, fail the exit
+code on any failed item, and need `COSMOS_CONNECTION_STRING`, `COSMOS_DATABASE`
+and `BLOB_CONNECTION_STRING`. There is no schema version yet (#577): the stats
+backfill finds old documents by the missing `elevationGain` field, which
+`null` (no elevation in the GPX) distinguishes from "not migrated".
 
 ## OpenTofu, reproducibly
 
