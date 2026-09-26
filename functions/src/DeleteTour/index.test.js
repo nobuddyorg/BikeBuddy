@@ -4,6 +4,7 @@ const { deleteTour } = require('./index');
 const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
 const { fakeImagesContainer, fakeGpxContainer } = require('../../test/fakes/blobContainer');
 const { signedInAs, signedOut } = require('../../test/fakes/collaborators');
+const { withFailureResponse } = require('../lib/failureResponse');
 
 const TOUR_ID = '11111111-1111-4111-8111-111111111111';
 const SIBLING_ID = '22222222-2222-4222-8222-222222222222';
@@ -64,6 +65,21 @@ describe('DELETE /api/tours/{tourId}', () => {
     expect(tours.stored(TOUR_ID, 'u1')).toBeUndefined();
     expect(gpx.names()).toEqual([...SURVIVING_BLOBS.gpx].sort());
     expect(images.names()).toEqual([...SURVIVING_BLOBS.images].sort());
+  });
+
+  // Document first: a throttled delete leaves the tour whole, blobs included, for a retry.
+  it('keeps the tour and its blobs and answers 503 when Cosmos throttles the delete', async () => {
+    const { tours, gpx, images, run } = setUp();
+    tours.failOn('delete', { error: cosmosError(429, 'Request rate is large') });
+    const context = { invocationId: 'invocation-1', error: vi.fn() };
+
+    const response = await withFailureResponse(() => run(TOUR_ID))({}, context);
+
+    expect(response.status).toBe(503);
+    expect(response.jsonBody).toStrictEqual({ error: 'errors.busy', invocationId: 'invocation-1' });
+    expect(tours.stored(TOUR_ID, 'u1')).toMatchObject({ name: 'Alps' });
+    expect(gpx.names()).toContain(TOUR_BLOBS.gpx[0]);
+    expect(images.names()).toEqual(expect.arrayContaining(TOUR_BLOBS.images));
   });
 
   it("leaves the caller's other tours and every other user's data alone", async () => {

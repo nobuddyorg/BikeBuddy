@@ -1,12 +1,13 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
 const { unauthorized } = require('../lib/http');
 const { createHeatmapCache } = require('../lib/heatmapCache');
-const { budgetHeatmapData, TOTAL_POINT_BUDGET, MAX_GAP_METERS } = require('../lib/mapBudget');
+const { budgetTracks, TOTAL_POINT_BUDGET } = require('../lib/mapBudget');
 const { geotaggedImages, toSignedImage } = require('../lib/tourImages');
 const system = require('../lib/system');
 
@@ -22,7 +23,7 @@ async function getMapData(
     imagesContainer = blobStorage.imagesContainer,
     now = system.currentTime,
     heatmapCache = defaultHeatmapCache,
-    budget = { totalPointBudget: TOTAL_POINT_BUDGET, maxGapMeters: MAX_GAP_METERS },
+    budget = { totalPointBudget: TOTAL_POINT_BUDGET },
   } = {},
 ) {
   const user = await authenticate(request);
@@ -33,7 +34,7 @@ async function getMapData(
   const heatmapDataByTour = heatmapCache.getOrCompute({
     userId,
     tours,
-    compute: () => budgetHeatmapData(tours, budget),
+    compute: () => budgetTracks(tours, budget),
   });
   const signUrl = blobStorage.readUrlSigner({ container: imagesContainer, now: now() });
 
@@ -56,7 +57,7 @@ app.http('GetMapData', {
   authLevel: 'anonymous',
   route: 'map',
   /* v8 ignore next */
-  handler: (request) => getMapData(request),
+  handler: withFailureResponse((request) => getMapData(request)),
 });
 
 module.exports = { getMapData };

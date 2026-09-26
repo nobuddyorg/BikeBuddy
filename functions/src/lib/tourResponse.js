@@ -32,6 +32,17 @@ function toTourResponse(tour) {
   };
 }
 
+// What the list and an edit answer: no track, so neither payload grows with the ride.
+function toTourSummaryResponse(tour) {
+  return {
+    id: tour.id,
+    name: tourName(tour.name),
+    description: tour.description,
+    distance: tour.distance,
+    createdAt: tour.createdAt,
+  };
+}
+
 /**
  * @param {{ tour: object, images: object[], gpxFileUrl?: string }} detail signed URLs only
  */
@@ -47,14 +58,22 @@ const toCreatedTourResponse = (tour) => ({
   createdAt: tour.createdAt,
 });
 
+const withoutAccents = (text) => text.normalize('NFKD').replace(/\p{M}+/gu, '');
+
+// RFC 6266: an ASCII `filename` for old clients, and `filename*` keeps any other letter.
 function gpxDownloadDisposition(name) {
-  const filename = `${tourName(name, 'tour').replace(/[^a-z0-9-_]+/gi, '_')}.gpx`;
-  return `attachment; filename="${filename}"`;
+  const unicodeBase = tourName(name, 'tour').replace(/[^\p{L}\p{N}_-]+/gu, '_');
+  const transliterated = withoutAccents(unicodeBase).replace(/[^a-z0-9_-]+/gi, '_');
+  const asciiBase = /[a-z0-9]/i.test(transliterated) ? transliterated : 'tour';
+  const disposition = `attachment; filename="${asciiBase}.gpx"`;
+  if (asciiBase === unicodeBase) return disposition;
+  const encodedFilename = encodeURIComponent(`${unicodeBase}.gpx`);
+  return `${disposition}; filename*=UTF-8''${encodedFilename}`;
 }
 
 module.exports = {
-  tourName,
   toTourResponse,
+  toTourSummaryResponse,
   toTourDetailResponse,
   toCreatedTourResponse,
   gpxDownloadDisposition,

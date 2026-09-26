@@ -11,13 +11,13 @@ testing is manual and local by default").
 One [k6](https://grafana.com/docs/k6/) script per journey in [`load/`](../../load),
 each spelling out as HTTP what the frontend sends:
 
-| Flow     | Scenarios                       | Endpoints                                                                             |
-| -------- | ------------------------------- | ------------------------------------------------------------------------------------- |
-| `smoke`  | every scenario below, 1 VU once | all of them: proves the scripts and the target work                                   |
-| `browse` | `list`, `detail`, `map`         | `GET /api/tours`, `GET /api/tours/{id}`, `GET /api/map`                               |
-| `upload` | `upload_tour`, `upload_image`   | `POST /api/tours/upload` (2,000- and 10,000-point GPX), `POST /api/tours/{id}/images` |
-| `edit`   | `edit`                          | `PATCH /api/tours/{id}` (rename, date), `DELETE /api/tours/{id}`                      |
-| `export` | `export`                        | `GET /api/me/export` for the seeded account                                           |
+| Flow     | Scenarios                       | Endpoints                                                                                                  |
+| -------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `smoke`  | every scenario below, 1 VU once | all of them: proves the scripts and the target work                                                        |
+| `browse` | `list`, `detail`, `map`         | `GET /api/tours`, `GET /api/tours/{id}`, `GET /api/map`                                                    |
+| `upload` | `upload_tour`, `upload_image`   | `POST /api/tours/upload` (2,000-, 10,000- and 100,000-point GPX, 80/15/5 %), `POST /api/tours/{id}/images` |
+| `edit`   | `edit`                          | `PATCH /api/tours/{id}` (rename, date), `DELETE /api/tours/{id}`                                           |
+| `export` | `export`                        | `GET /api/me/export` for the seeded account                                                                |
 
 | Profile  | Users        | Seed                                       | Meant for                          |
 | -------- | ------------ | ------------------------------------------ | ---------------------------------- |
@@ -132,6 +132,12 @@ installed. The vnext Cosmos emulator reports nominal request charges (1 per
 read, about 3 per query page), so RU columns are only meaningful as counts
 locally; operation counts per request are exact.
 
+The report has no query-metrics section on purpose. Asked for them
+(`populateQueryMetrics`, `populateIndexMetrics`), the vnext emulator answers
+zero retrieved and output documents and empty index metrics even for a
+seeded partition (measured September 2026), so locally the section would
+always read zero, and hosted runs get no backend report.
+
 ## Run the optimization loop
 
 1. **Baseline**: `./buddy.sh test load <flow> --profile normal --save-as baseline`
@@ -179,8 +185,27 @@ the band), p95 −19.0 % and p99 −18.3 % (within it); `list` and `detail` −8
 −16 %, within the band. The count query still made three round trips, at
 2.9 s each.
 
-**Decision: reverted.** Only p50 cleared the band, and the change added a
-second query path to the handler.
+**Delta table**: the same loop rerun later on the #608 branch (September 2026:
+coordinates stored to five decimals, #576), with the candidate re-created,
+`node load/compare.mjs load-results/baseline load-results/candidate browse`,
+trimmed to the rows that matter here:
+
+| Scenario / handler | Metric            | Baseline | Candidate | Change | Verdict      |
+| ------------------ | ----------------- | -------- | --------- | ------ | ------------ |
+| map                | p50 ms            | 11258    | 9126      | −18.9% | within noise |
+| map                | p95 ms            | 12063    | 10139     | −16.0% | within noise |
+| map                | p99 ms            | 12423    | 10247     | −17.5% | within noise |
+| list               | p95 ms            | 4564     | 4308      | −5.6%  | within noise |
+| detail             | p95 ms            | 3844     | 3782      | −1.6%  | within noise |
+| GetMapData         | server p95 ms     | 12010    | 10106     | −15.9% | within noise |
+| GetMapData         | RU per request    | 4        | 4.08      | +2.0%  | within noise |
+| (worker)           | event-loop p99 ms | 47.3     | 13.6      | −71.2% | ✅ better    |
+
+**Decision: reverted.** Only the first measurement's p50 cleared the band, the
+rerun cleared none, and the change added a second query path to the handler. The one clear gain, the
+worker's event-loop p99, comes from no longer parsing every track on a warm
+cache; moving the track out of the tour document (#615) gets it without a
+second query path.
 
 **What the numbers pointed to instead.** A direct measurement on the idle
 emulator, 200 tours in one partition (every 20th with 5,000 points, the rest
@@ -211,8 +236,12 @@ emulator and the Functions host) asserts the shape of the hot paths:
 
 - `functions/test/integration/query-cost.test.js`: the tour-list query is
   single-partition (the caller's partition key on every page, never a
-  cross-partition fan-out) and pages in bounded requests.
-- `functions/test/integration/map-budget.test.js`: 120,000 raw points on ~20 km
-  tracks come back simplified within `GET /api/map`'s point budget and a bounded
-  response size. Longer tracks still exceed the budget (#546); the guard's
-  track length goes up when that is fixed.
+  cross-partition fan-out) and pages in bounded requests. The map, the export
+  and an account purge run in-process on a recording Cosmos client, and every
+  request that reads or deletes documents names the caller's partition; the
+  detail view is one point read, never a query. Index use is not asserted: the
+  emulator reports no index metrics.
+- `functions/test/integration/map-budget.test.js`: 120,000 raw points on
+  100 km tracks, 50 m apart, come back within `GET /api/map`'s hard point
+  budget and a bounded response size. `mapBudget.test.js` holds 200 rides of
+  100 km (1,000,000 points) to the budget in bounded time.

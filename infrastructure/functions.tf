@@ -12,6 +12,7 @@ resource "azurerm_function_app_flex_consumption" "main" {
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   service_plan_id     = azurerm_service_plan.main.id
+  https_only          = true
   tags                = local.tags
 
   # Flex deploys the app package from a blob container (not WEBSITE_RUN_FROM_PACKAGE).
@@ -47,13 +48,14 @@ resource "azurerm_function_app_flex_consumption" "main" {
   }
 
   site_config {
+    minimum_tls_version = "1.2"
+    # HTTPS only: local development runs its own Functions host, never against production.
     cors {
       allowed_origins = [
         # Custom domain the GitHub Pages site is served from (https://nobuddy.org/BikeBuddy/).
         "https://nobuddy.org",
         # Default github.io host, kept as a fallback if the custom domain is removed.
         "https://nobuddyorg.github.io",
-        "http://localhost:4280",
       ]
     }
   }

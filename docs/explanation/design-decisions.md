@@ -71,6 +71,13 @@ short-lived **SAS URLs** rather than public containers.
 - Blob names are built from the token's user id and the ids in the route, never
   read back from a stored `blobName`, so a document can never point a request at
   another user's blob.
+- A SAS URL expires at the end of the hour after the one it was signed in, so
+  it works for one to two hours and every URL signed within the same clock hour
+  is identical. Photos never reuse a name, so they are stored with
+  `Cache-Control: private, max-age=3600, immutable`, and a map reload or a
+  detail refetch within the hour is served from the browser cache instead of
+  Blob Storage (#578). The frontend refetches signed URLs after 45 minutes,
+  inside the shortest lifetime.
 
 ## Write ordering and concurrency
 
@@ -86,7 +93,11 @@ The order is chosen so a failure leaves something harmless:
   id first, so the intent survives a failure halfway through.
 - **Concurrent edits:** `EditTour` patches per field, because the realistic race
   is an edit overlapping a photo upload; `UploadImage` appends to `/images/-`
-  atomically so concurrent uploads each keep their entry; `DeleteImage` must
+  atomically so concurrent uploads each keep their entry, with `IfMatch` on the
+  tour it counted, so the 20-photo cap holds under concurrency: on a 412 it
+  reads the tour again and counts again (the vnext emulator cannot evaluate an
+  `ARRAY_LENGTH` patch condition, so the cap is an ETag, not a filter
+  predicate); `DeleteImage` must
   rewrite the array, so it uses `IfMatch` and retries on 412. `GetMe` writes the
   claims only into empty fields, with `IfMatch`, and turns a first-login 409
   into a re-read.
@@ -98,19 +109,38 @@ probe of the backing services.
 
 ## Map endpoint
 
-`GET /api/map` returns every tour's points within a point budget
-(`functions/src/lib/mapBudget.js`), computed per tour with Douglas-Peucker.
-The expensive part is that simplification, so a small LRU cache keys it on tour
-id and point count (`heatmapData` is set once at upload); the bound keeps a
-warm instance from growing. The frontend fetches `/api/map` in parallel with
-`/api/tours`, so a cold start is paid once.
+`GET /api/map` returns every tour's points within a hard budget of 100,000
+(`functions/src/lib/mapBudget.js`): each track keeps a floor of up to 20
+points, and the rest of the budget is shared by point count. Each track is cut
+to its share in one Douglas-Peucker pass that ranks every point by the largest
+tolerance that still keeps it, and keeps the top of that ranking (#546). The
+map draws polylines, so there is no gap rule: a straight 5 km stretch can be
+two points. A per-tour overview computed at upload would move this cost off
+the request path; it waits on where the track is stored (#615). The expensive
+part is that simplification, so an LRU cache keys it on tour id and point count
+(`heatmapData` is set once at upload); it holds at most 1,000,000 points (about
+75 MB, measured), so a warm instance cannot grow past that (#578). The frontend
+fetches `/api/map` in parallel with `/api/tours`, so a cold start is paid once,
+and overlapping renders queue behind the load in flight instead of each
+fetching it again (#580).
 
 ## Frontend behaviour
 
 - One Leaflet map: on mobile it moves into the detail panel instead of a second
   instance being created. Closing the panel keeps the map where it is; only
   "Show all" refits. Photo pin markers persist across renders to avoid flicker.
+- Routes draw on one canvas (`preferCanvas`), not an SVG path per tour that is
+  re-projected on every zoom. Pin thumbnails load lazily, and pins are grouped
+  on a grid, so a zoom compares each pin only with its neighbours (#580).
 - Back closes the open panel or modal while the selection stays (#442, #443).
+  Closing one with its button or Escape takes its history entry back too, so
+  Back never lands on a closed layer, and a reload starts the depth over
+  (#586).
+- Open dialogs form a stack: Escape, the focus trap and returning focus act on
+  the one on top (profile → delete account, lightbox → confirm). A menu that
+  uses Escape to close marks the key handled, so its dialog stays open.
+- A malformed `#/tour/` link opens no tour, and blocked storage costs only the
+  saved line style and language, never startup.
 - Deletes are undoable: the DELETE is deferred behind an undo toast (#559 tracks
   that closing the tab during that window loses the delete).
 - iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
@@ -130,9 +160,17 @@ warm instance from growing. The frontend fetches `/api/map` in parallel with
 ## Account deletion (GDPR), out-of-band
 
 `DELETE /api/account` purges all app data immediately (tours, blobs, user doc)
-and **queues** the user's Entra directory object id in a `deletions` container.
-A **scheduled GitHub Action** (`process-deletions.yml`) then deletes those users
-from the External ID tenant via Graph.
+and **queues** the user's Entra directory object id, with the app user id (the
+token's `sub`) it belongs to, in a `deletions` container. A **scheduled GitHub
+Action** (`process-deletions.yml`) then purges that app user's data again and
+deletes the user from the External ID tenant via Graph.
+
+Until the job runs, the identity still signs in. So that nothing can be created
+that no process would ever delete (#538), `GetMe`, `UpdateProfile` and
+`UploadTour` answer **410** (`errors.accountDeleted`) to a caller whose object
+id is queued, and the frontend signs that session out. The job's second purge
+(`lib/accountPurge.js`, the same code the API runs) catches what the API's first
+one missed: a partial failure, or a write from another device in between.
 
 Why out-of-band: deleting a directory user needs a tenant-wide
 `User.ReadWrite.All` Graph credential. Keeping that **only in CI** (never in the
@@ -150,18 +188,23 @@ fakes; a change to it is security-relevant):
 
 - Only queued ids shaped like a GUID reach Graph, URL-encoded. Anything else
   (`../groups/…`, `a/b`) stays queued and fails the run for a human to look at.
+- A queued `userId` is purged before the Graph call; the identity is deleted and
+  the entry removed only when the purge succeeded. A `userId` that is not a
+  token subject (empty, or with a `/`) is refused, since it would widen the
+  blob prefix. Entries queued before #538 carry no `userId`; their data was
+  purged when they were queued.
 - A Graph 204 or 404 removes the queue entry, so a re-run is idempotent; a 5xx,
   429 or network error keeps it for the next run and fails this one. One
   failing id never stops the others.
 - Logs carry counts and masked ids (`…abcd`), never a full object id (#570
-  tracks purging Entra's soft-deleted users and #538 the data it cannot reach).
+  tracks purging Entra's soft-deleted users).
 - `--dry-run` lists what a real run would do without Graph credentials; manual
   runs of `process-deletions.yml` default to it (input `dry_run`), the daily
   cron runs for real, and runs never overlap.
 
 By hand, `./buddy.sh maintenance delete-users --dry-run` shows the queue; it
-reads the production Cosmos key through `az`, so it is for an operator with a
-reason, never a routine local command.
+reads the production Cosmos key and Storage connection string through `az`, so
+it is for an operator with a reason, never a routine local command.
 
 ## Backfills
 
@@ -172,9 +215,30 @@ blobs; the blob name is derived from the image's, so no document changes), are
 **dry by default**: they read in pages, report what they would change and what
 would fail, and write only with `--apply`. They are idempotent, fail the exit
 code on any failed item, and need `COSMOS_CONNECTION_STRING`, `COSMOS_DATABASE`
-and `BLOB_CONNECTION_STRING`. There is no schema version yet (#577): the stats
-backfill finds old documents by the missing `elevationGain` field, which
-`null` (no elevation in the GPX) distinguishes from "not migrated".
+and `BLOB_CONNECTION_STRING`. The stats backfill recomputes every tour's
+distance and stats from its GPX (`functions/src/lib/tourStats.js`, the mapping
+`UploadTour` stores) and sets only the fields that differ: it fills a tour from
+before the stats, and corrects the distance, moving time and average speed of a
+tour from before #552, which counted the gap between two segments as riding. A
+tour that already matches its GPX is not written.
+
+New documents carry `schemaVersion` (#577,
+`functions/src/lib/schemaVersion.js`); one without it predates versioning.
+`backfillSchemaVersion.js` marks a tour as version 1 once it has its stats (adding the `images` array a tour from
+before photos lacks) and counts the tours still waiting for the stats backfill.
+Once its dry run reports nothing left to mark or wait for, the shims for old
+shapes can go: the `images`-less branch in `UploadImage` and the `?? null`
+stats in `toTourResponse`.
+
+Runbook, from a machine with `az login` to the subscription:
+
+1. Note the time: Cosmos keeps 7 days of point-in-time restore
+   ([infrastructure.md](../how-to/infrastructure.md)).
+2. `./buddy.sh maintenance backfill tour-stats`, read the dry run, then again
+   with `--apply`.
+3. The same for `thumbnails`, then `schema-version`.
+4. Put the dry-run and apply summaries in the PR or issue that needed the
+   backfill: that is the record that it ran.
 
 ## OpenTofu, reproducibly
 
@@ -254,6 +318,22 @@ https with an integrity hash (lockfile-lint, pre-commit).
 Never `npm audit fix --force` (it jumps majors) and never a from-scratch
 lockfile regeneration (it moves every transitive dependency at once).
 
+What Dependabot does not see is pinned by hand, so every run uses the same
+build until someone bumps it on purpose (#566):
+
+- **OpenTofu providers**: `infrastructure/.terraform.lock.hcl` is committed,
+  with hashes for linux and macOS on amd64 and arm64. To bump:
+  `tofu init -upgrade -backend=false`, then
+  `tofu providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_amd64 -platform=darwin_arm64`.
+- **Emulator images**: the Cosmos emulator and Azurite run by digest (a
+  multi-arch index) in `scripts/development/start-{cosmos,azurite}.sh` and
+  `setup.sh`. To bump: pull the tag, then copy the digest that
+  `docker image inspect --format '{{json .RepoDigests}}'` prints.
+- **Scanners**: OpenGrep, TFLint and Trivy download a pinned release and check
+  its sha256 before running (`scripts/quality/opengrep.sh`, `iac.sh`).
+- **Function package**: `functions/.funcignore` keeps tests, scripts and tool
+  configs out of what `func azure functionapp publish` uploads.
+
 Current overrides: `functions/` and `frontend/` pin `qs` to `^6.16.0`,
 because Stryker's `typed-rest-client` pins a vulnerable `qs` exactly
 (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g). `e2e/` pins `tmp` to `0.2.7` and
@@ -264,6 +344,12 @@ fixed release) under `@lhci/cli` → `lighthouse` → `puppeteer-core` →
 `@puppeteer/browsers`. It unpacks downloaded browser archives, and Lighthouse CI
 never downloads one here: it runs the Chromium Playwright installs
 (`CHROME_PATH`), on a CI runner or a developer machine, never in production.
+The fix exists one major up: `@puppeteer/browsers` 3 unpacks without
+`extract-zip`, but only `puppeteer-core` 25 depends on it, and `lighthouse`
+12.6.1 (pinned by `@lhci/cli` 0.15.1) takes `puppeteer-core` `^24`, whose last
+release still pins 2.13.2 (checked September 2026). An override would force a
+major under Lighthouse; look again when `@lhci/cli` moves to a Lighthouse on
+`puppeteer-core` 25 (#564).
 Look again when `@lhci/cli` or `lighthouse` bumps `puppeteer-core`.
 
 Pinned tools outside a lockfile: Azure Functions Core Tools is installed as
@@ -302,7 +388,6 @@ line:
 | AZU-0058 no geo-redundant replication                             | LRS keeps the cost target; soft delete and versioning cover deletes and overwrites, not region loss          | —         |
 | AZU-0060 no customer-managed key                                  | see "Encryption at rest": Key Vault is above the cost target                                                 | —         |
 | AZU-0061 no infrastructure encryption                             | fixed at account creation, not retrofitted                                                                   | —         |
-| TFLint `…_missing_prevent_destroy` on the `images` container      | unused and empty; photos live in the unmanaged `tour-images` container                                       | #568      |
 | TFLint `…_missing_prevent_destroy` on the `deployments` container | holds only the Functions package, which every deploy re-uploads                                              | —         |
 
 The tools are installed from GitHub releases by version and SHA-256 (in
@@ -372,6 +457,15 @@ out-of-order timestamps are a property too: the duration is never negative.
 - An unreadable `<time>` no longer rejects the file: the date falls back to the
   earliest valid point time (#575). The magic-byte check skips leading
   whitespace and XML comments.
+- Parsing runs on a worker thread (`lib/parseGpxOffThread.js`, #576): a 10 MB
+  file takes about a second of CPU (crafted ones up to five), and on the
+  request thread that stalled every other request on the instance. At most two
+  parse at once, since each holds the whole XML tree, and a worker gets 512 MB
+  of heap; a file that needs more is refused as an invalid GPX file. GPX keeps
+  the 10 MB limit, because a long ride with heart-rate extensions needs it.
+- Stored coordinates keep five decimals, about a metre, which halves the
+  track's share of every map and detail payload. Tours stored before keep full
+  precision; they read the same, so there is no backfill.
 
 ## Why load testing is manual and local by default
 

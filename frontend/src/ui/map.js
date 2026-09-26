@@ -4,7 +4,8 @@ const L = window.L;
 
 const INITIAL_VIEW = { center: [48.5, 10.5], zoom: 6 };
 
-export const map = L.map('map', INITIAL_VIEW);
+// One canvas for every route: SVG keeps a DOM path per tour and re-projects each on every zoom.
+export const map = L.map('map', { ...INITIAL_VIEW, preferCanvas: true });
 
 // iOS Safari pinch-zooms through gesture events that ignore touch-action; keep it off the page.
 const leafletContainer = map.getContainer();

@@ -35,6 +35,7 @@ function tokenMinter(signing, { now = Date.now } = {}) {
     iss: signing.issuer,
     iat: nowSeconds(),
     exp: nowSeconds() + LIFETIME_SECONDS,
+    scp: 'access_as_user',
     ...claims,
   });
   const sign = (payload, { privateKeyPem = signing.privateKeyPem, keyId = signing.keyId } = {}) =>
@@ -47,6 +48,7 @@ function tokenMinter(signing, { now = Date.now } = {}) {
   function rejectedTokensFor({ userId }) {
     const valid = claimsFor({ userId });
     const header = { typ: 'JWT', kid: signing.keyId };
+    const unscoped = { ...valid, scp: undefined };
     return {
       expired: sign({ ...valid, iat: valid.iat - LIFETIME_SECONDS, exp: valid.iat - SKEW_SECONDS }),
       'not valid yet': sign({ ...valid, nbf: valid.iat + SKEW_SECONDS }),
@@ -59,6 +61,9 @@ function tokenMinter(signing, { now = Date.now } = {}) {
         payload: valid,
         privateKeyPem: signing.privateKeyPem,
       }),
+      'no scope': sign(unscoped),
+      'ID token for the same client': sign({ ...unscoped, nonce: 'integration-nonce' }),
+      'another scope': sign({ ...valid, scp: 'User.Read' }),
     };
   }
 

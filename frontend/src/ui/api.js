@@ -1,4 +1,6 @@
 import { resolveAuthConfig } from '../lib/authConfig.js';
+import { createAuthedFetch, createTokenSource } from '../lib/session.js';
+import { announce, SESSION_EXPIRED } from './events.js';
 
 const msal = window.msal;
 
@@ -24,17 +26,28 @@ export async function createAuthClient() {
   return msalClient;
 }
 
-export async function getAccessToken() {
-  if (AUTH_CONFIG.useDevAuth) return '';
+async function acquireSilently({ forceRefresh }) {
+  if (AUTH_CONFIG.useDevAuth || !msalClient) return '';
   const [account] = msalClient.getAllAccounts();
   if (!account) return '';
-  try {
-    return (await msalClient.acquireTokenSilent({ ...LOGIN_REQUEST, account })).accessToken;
-  } catch (error) {
-    if (!(error instanceof msal.InteractionRequiredAuthError)) throw error;
-    return (await msalClient.acquireTokenPopup({ ...LOGIN_REQUEST, account })).accessToken;
-  }
+  const result = await msalClient.acquireTokenSilent({ ...LOGIN_REQUEST, account, forceRefresh });
+  return result.accessToken;
 }
+
+const endSession = () => announce(SESSION_EXPIRED);
+const tokens = createTokenSource({
+  acquireSilently,
+  needsInteraction: (error) => error instanceof msal.InteractionRequiredAuthError,
+  onSessionExpired: endSession,
+});
+const authedFetch = createAuthedFetch({
+  tokens,
+  fetch: (url, options) => fetch(url, options),
+  onSessionExpired: endSession,
+});
+
+// Throws SessionExpiredError when only a sign-in would give one; each upload attempt asks anew.
+export const getAccessToken = tokens.token;
 
 // No response at all (offline, a blocked token popup) is its own outcome, not an exception.
 export async function apiRequest(path, options = {}) {
@@ -46,9 +59,6 @@ export async function apiRequest(path, options = {}) {
   }
 }
 
-export async function apiFetch(path, options = {}) {
-  const token = await getAccessToken();
-  const headers = { ...(options.headers || {}) };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return fetch(API_BASE + path, { ...options, headers });
+export function apiFetch(path, options = {}) {
+  return authedFetch(API_BASE + path, options);
 }

@@ -42,6 +42,7 @@ fullstackTest('opens and closes the lightbox for a photo', async ({ on, page }) 
   await on(page).detail.do.openPhoto(0);
   await expect(on(page).modal.lightbox()).toBeVisible();
   await expect(on(page).modal.lightbox.locators.image).toHaveAttribute('src', /.+/);
+  await on(page).a11y.check('lightbox');
 
   await on(page).modal.lightbox.do.close();
   await expect(on(page).modal.lightbox()).toBeHidden();

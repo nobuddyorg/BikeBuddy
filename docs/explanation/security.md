@@ -17,7 +17,8 @@ cross-user data access, file-upload handling, and SAS URL exposure.
 ## Posture
 
 - Secrets live in GitHub Actions secrets, never in the repo.
-- The API validates JWTs (issuer, audience, RS256) and scopes Cosmos queries to
+- The API validates JWTs (issuer, audience, RS256, and the `access_as_user`
+  scope, so an ID token for the same client is refused) and scopes Cosmos queries to
   the caller's partition. Two local-only settings change that, and both fail
   closed: `SKIP_AUTH` is refused once Entra is configured, and
   `ENTRA_OIDC_METADATA_URL` (the integration suite's local test issuer) is
@@ -26,9 +27,8 @@ cross-user data access, file-upload handling, and SAS URL exposure.
 - Every endpoint is tested with real signed tokens for two users: the owner
   succeeds, another user gets the same 404 as a nonexistent id, and every
   rejected credential (none, malformed, expired, not yet valid, wrong audience
-  or issuer, foreign key, `alg: none`, HS256) gets 401 with nothing written
-  (`functions/test/integration/`). An ID token presented as an access token is
-  still accepted (#569).
+  or issuer, foreign key, `alg: none`, HS256, no or another scope, an ID token)
+  gets 401 with nothing written (`functions/test/integration/`).
 - Uploads are validated by magic bytes and resized server-side; images are served
   via short-lived SAS URLs, not public containers.
 

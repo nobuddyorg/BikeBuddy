@@ -1,6 +1,6 @@
 'use strict';
 
-const { parseMultipart, MAX_FILE_BYTES } = require('./parseMultipart');
+const { parseMultipart, MAX_FILE_BYTES, MULTIPART_OVERHEAD_BYTES } = require('./parseMultipart');
 
 const BOUNDARY = '----bikebuddytest';
 
@@ -56,11 +56,13 @@ describe('parseMultipart', () => {
   });
 
   it('rejects a declared Content-Length over the limit before reading the body', async () => {
-    const request = makeRequest(multipartBody('<gpx/>'), { contentLength: MAX_FILE_BYTES + 1 });
+    const request = makeRequest(multipartBody('<gpx/>'), {
+      contentLength: MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES + 1,
+    });
 
     await expect(parseMultipart(request)).rejects.toMatchObject({
       status: 400,
-      message: 'File exceeds 10 MB limit',
+      message: 'errors.fileSize',
     });
     expect(request.body.locked).toBe(false);
   });
@@ -70,7 +72,7 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(oversized))).rejects.toMatchObject({
       status: 400,
-      message: 'File exceeds 10 MB limit',
+      message: 'errors.fileSize',
     });
   });
 
@@ -79,7 +81,7 @@ describe('parseMultipart', () => {
 
     await expect(
       parseMultipart(makeRequest(oversized, { contentLength: 10 })),
-    ).rejects.toMatchObject({ status: 400, message: 'File exceeds 10 MB limit' });
+    ).rejects.toMatchObject({ status: 400, message: 'errors.fileSize' });
   });
 
   it('accepts a file exactly at the limit', async () => {
@@ -87,6 +89,25 @@ describe('parseMultipart', () => {
     const file = await parseMultipart(makeRequest(atLimit));
 
     expect(file.buffer.length).toBe(MAX_FILE_BYTES);
+  });
+
+  // A browser declares the whole body, so the file's own 10 MB plus the multipart framing.
+  it('accepts a file at the limit whose Content-Length counts the multipart framing', async () => {
+    const atLimit = multipartBody(Buffer.alloc(MAX_FILE_BYTES, 0x41));
+    const request = makeRequest(atLimit, { contentLength: atLimit.length });
+
+    const file = await parseMultipart(request);
+
+    expect(atLimit.length).toBeGreaterThan(MAX_FILE_BYTES);
+    expect(file.buffer.length).toBe(MAX_FILE_BYTES);
+  });
+
+  it('still reads the body when the declared length is at most the limit plus framing', async () => {
+    const request = makeRequest(multipartBody('<gpx/>'), {
+      contentLength: MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES,
+    });
+
+    expect((await parseMultipart(request)).buffer.toString()).toBe('<gpx/>');
   });
 
   it('rejects a malformed multipart request (no boundary)', async () => {
@@ -98,7 +119,7 @@ describe('parseMultipart', () => {
 
       await expect(parseMultipart(request)).rejects.toMatchObject({
         status: 400,
-        message: 'Invalid multipart request',
+        message: 'errors.invalidUpload',
       });
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('Boundary not found'));
     } finally {
@@ -111,14 +132,14 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(noFile))).rejects.toMatchObject({
       status: 400,
-      message: 'No file field found in request',
+      message: 'errors.noFile',
     });
   });
 
   it('rejects a request with no body at all', async () => {
     await expect(parseMultipart(makeRequest(null))).rejects.toMatchObject({
       status: 400,
-      message: 'No file field found in request',
+      message: 'errors.noFile',
     });
   });
 
@@ -134,12 +155,13 @@ describe('parseMultipart', () => {
     // The client dropped the connection; a 500 would blame the server.
     await expect(parseMultipart(request)).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
   });
 
-  // A dropped connection surfaces on the file stream or on busboy; both must settle as a 400.
-  it('rejects a request that ends mid-file as a client error', async () => {
+  // A dropped connection errors the file stream and busboy with one error, logged once.
+  it('rejects a request that ends mid-file as a client error, logging it once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const truncated = Buffer.from(
       `--${BOUNDARY}\r\n` +
         `Content-Disposition: form-data; name="file"; filename="tour.gpx"\r\n` +
@@ -148,8 +170,10 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it('rejects a request that ends inside the part headers as a client error', async () => {
@@ -159,7 +183,7 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
   });
 

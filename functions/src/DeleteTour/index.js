@@ -1,6 +1,7 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -45,7 +46,7 @@ app.http('DeleteTour', {
   authLevel: 'anonymous',
   route: 'tours/{tourId}',
   /* v8 ignore next */
-  handler: (request) => deleteTour(request),
+  handler: withFailureResponse((request) => deleteTour(request)),
 });
 
 module.exports = { deleteTour };

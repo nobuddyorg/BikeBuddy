@@ -3,8 +3,11 @@
 
 const Busboy = require('busboy');
 const { Readable } = require('stream');
+const { ERROR_KEYS } = require('./http');
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// Boundaries and part headers around the file: a file at the limit must pass the shortcut.
+const MULTIPART_OVERHEAD_BYTES = 16 * 1024;
 
 function badRequest(message) {
   const error = /** @type {Error & { status?: number }} */ (new Error(message));
@@ -15,7 +18,7 @@ function badRequest(message) {
 // busboy's wording is logged, not returned: it says nothing an uploader can act on.
 function malformedRequest(error) {
   console.warn(`upload: malformed multipart (${error.name}: ${error.message})`);
-  return badRequest('Invalid multipart request');
+  return badRequest(ERROR_KEYS.invalidUpload);
 }
 
 function createParser(headers) {
@@ -35,13 +38,14 @@ function collectFirstFile(parser, { resolve, reject }) {
   parser.on('file', (_fieldName, fileStream, { filename, mimeType }) => {
     const chunks = [];
     // The stream is truncated from here on, so the partial buffer is unusable.
-    fileStream.on('limit', () => reject(badRequest('File exceeds 10 MB limit')));
+    fileStream.on('limit', () => reject(badRequest(ERROR_KEYS.fileSize)));
     fileStream.on('data', (chunk) => chunks.push(chunk));
     fileStream.on('end', () => resolve({ filename, mimeType, buffer: Buffer.concat(chunks) }));
-    fileStream.on('error', (error) => reject(malformedRequest(error)));
+    // busboy destroys the file with the parser's own error, which the parser's handler reports.
+    fileStream.on('error', () => {});
   });
   parser.on('error', (error) => reject(malformedRequest(error)));
-  parser.on('finish', () => reject(badRequest('No file field found in request')));
+  parser.on('finish', () => reject(badRequest(ERROR_KEYS.noFile)));
 }
 
 /**
@@ -54,28 +58,24 @@ async function parseMultipart(request) {
   const headers = Object.fromEntries(request.headers.entries());
 
   // A shortcut for honestly declared lengths only; the stream limit enforces.
-  const contentLength = parseInt(headers['content-length'] ?? '', 10);
-  if (contentLength > MAX_FILE_BYTES) throw badRequest('File exceeds 10 MB limit');
+  const contentLength = Number(headers['content-length']);
+  if (contentLength > MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES) {
+    throw badRequest(ERROR_KEYS.fileSize);
+  }
 
   const parser = createParser(headers);
   // Readable.fromWeb(null) throws a bare TypeError, which would become a 500.
   const webBody = request.body;
-  if (!webBody) throw badRequest('No file field found in request');
+  if (!webBody) throw badRequest(ERROR_KEYS.noFile);
 
+  // A promise settles once, so whichever of file, finish or error comes first decides.
   return new Promise((resolve, reject) => {
-    let settled = false;
-    const once = (settle) => (value) => {
-      if (settled) return;
-      settled = true;
-      settle(value);
-    };
-    const rejectOnce = once(reject);
-    collectFirstFile(parser, { resolve: once(resolve), reject: rejectOnce });
+    collectFirstFile(parser, { resolve, reject });
 
     const body = Readable.fromWeb(webBody);
-    body.on('error', (error) => rejectOnce(malformedRequest(error)));
+    body.on('error', (error) => reject(malformedRequest(error)));
     body.pipe(parser);
   });
 }
 
-module.exports = { parseMultipart, MAX_FILE_BYTES };
+module.exports = { parseMultipart, MAX_FILE_BYTES, MULTIPART_OVERHEAD_BYTES };

@@ -75,8 +75,10 @@ async function upsertItem(container, document) {
   return resource;
 }
 
-async function patchItem(container, { id, partitionKey, operations }) {
-  const { resource } = await container.item(id, partitionKey).patch(operations);
+// With an `etag`, rejects with a 412 when the stored item no longer carries it.
+async function patchItem(container, { id, partitionKey, operations, etag }) {
+  const options = etag ? { accessCondition: { type: 'IfMatch', condition: etag } } : {};
+  const { resource } = await container.item(id, partitionKey).patch(operations, options);
   return resource;
 }
 
@@ -105,7 +107,7 @@ const database = () => getClient().database(process.env.COSMOS_DATABASE);
 module.exports = {
   usersContainer: () => database().container('users'),
   toursContainer: () => database().container('tours'),
-  // Drained by the scheduled deletion job, never read by the public API.
+  // Queued and checked (pendingDeletion.js) by the API, drained by the scheduled deletion job.
   deletionsContainer: () => database().container('deletions'),
   readItem,
   queryUserItems,

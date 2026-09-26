@@ -1,13 +1,15 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const { z } = require('zod');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
+const { refusePendingDeletion } = require('../lib/pendingDeletion');
 const system = require('../lib/system');
 const { nameSchema, languageSchema } = require('../lib/validation');
 const { profileFromClaims, newUserDocument, toUserResponse } = require('../lib/userProfile');
-const { unauthorized, error } = require('../lib/http');
+const { ERROR_KEYS, unauthorized, error } = require('../lib/http');
 
 // A brand-new account has no name yet, so a language must be savable alone.
 const profileSchema = z
@@ -15,7 +17,6 @@ const profileSchema = z
   .refine((data) => data.name !== undefined || data.language !== undefined, {
     message: 'A name or a language is required.',
   });
-const INVALID_PROFILE = 'A name (1–200 characters) or a supported language is required.';
 
 // Malformed JSON reads as an empty body, which the schema then refuses.
 async function readJsonBody(request) {
@@ -32,15 +33,18 @@ async function updateProfile(
   request,
   {
     authenticate = authMiddleware.authenticate,
+    deletionsContainer = db.deletionsContainer,
     usersContainer = db.usersContainer,
     now = system.currentTime,
   } = {},
 ) {
   const user = await authenticate(request);
   if (!user) return unauthorized();
+  const refused = await refusePendingDeletion(user, deletionsContainer);
+  if (refused) return refused;
 
   const parsed = profileSchema.safeParse(await readJsonBody(request));
-  if (!parsed.success) return error(400, INVALID_PROFILE);
+  if (!parsed.success) return error(400, ERROR_KEYS.profileInvalid);
 
   const { userId } = user;
   const container = usersContainer();
@@ -61,7 +65,7 @@ app.http('UpdateProfile', {
   authLevel: 'anonymous',
   route: 'me',
   /* v8 ignore next */
-  handler: (request) => updateProfile(request),
+  handler: withFailureResponse((request) => updateProfile(request)),
 });
 
 module.exports = { updateProfile };

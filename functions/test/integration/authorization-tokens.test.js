@@ -22,6 +22,9 @@ const TOKEN_FLAWS = [
   'signed by another key',
   'alg none',
   'HS256 keyed with the public key',
+  'no scope',
+  'ID token for the same client',
+  'another scope',
 ];
 const WRITES = AUTHENTICATED_ENDPOINTS.filter(({ method }) => method !== 'GET');
 
@@ -71,7 +74,7 @@ describe.each(CREDENTIALS)('with %s', (_title, credential) => {
     const response = await endpoint.send(callerWith(credential), target);
 
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    expect(await response.json()).toEqual({ error: 'errors.unauthorized' });
   });
 
   test.each(named(WRITES))('%s changes nothing of the owner', async (_name, endpoint) => {

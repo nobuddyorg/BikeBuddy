@@ -5,6 +5,10 @@ const { XMLParser } = require('fast-xml-parser');
 
 const MAX_POINTS = 5000;
 const EARTH_RADIUS_KM = 6371;
+// Five decimals is about a metre: finer than any consumer GPS, and half the digits of a raw float.
+const COORDINATE_DECIMALS = 5;
+
+const roundCoordinate = (degrees) => Number(degrees.toFixed(COORDINATE_DECIMALS));
 
 class InvalidGpxError extends Error {
   /**
@@ -62,7 +66,10 @@ function downsample(points) {
   for (let index = 0; index < points.length; index += step) kept.push(points[index]);
   const last = points[points.length - 1];
   if (kept[kept.length - 1] !== last) kept.push(last);
-  return kept.map(({ latitude, longitude }) => [latitude, longitude]);
+  return kept.map(({ latitude, longitude }) => [
+    roundCoordinate(latitude),
+    roundCoordinate(longitude),
+  ]);
 }
 
 // Rule of thumb for consumer GPS altimeters: smaller deltas are noise.

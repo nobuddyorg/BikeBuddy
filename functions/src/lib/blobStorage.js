@@ -3,12 +3,21 @@
 
 const { BlobServiceClient, BlobSASPermissions, newPipeline } = require('@azure/storage-blob');
 const profiling = require('./profiling');
-const { onceUntilFailure } = require('./settle');
+const { onceUntilFailure, settleAllLimited } = require('./settle');
 
-const SAS_TTL_MS = 60 * 60 * 1000;
+const SAS_WINDOW_MS = 60 * 60 * 1000;
+const DELETE_CONCURRENCY = 16;
+// For a blob never rewritten under its name (photos): a browser may keep it while its URL works.
+const IMMUTABLE_CACHE_CONTROL = 'private, max-age=3600, immutable';
 
-/** When a URL signed at `now` stops working. @param {Date} now */
-const sasExpiresOn = (now) => new Date(now.getTime() + SAS_TTL_MS);
+/**
+ * When a URL signed at `now` stops working: the end of the hour after the current one. Every URL
+ * signed within an hour is the same, so the browser's cache serves it, and each lives 1-2 hours.
+ *
+ * @param {Date} now
+ */
+const sasExpiresOn = (now) =>
+  new Date(Math.floor(now.getTime() / SAS_WINDOW_MS) * SAS_WINDOW_MS + 2 * SAS_WINDOW_MS);
 
 /** @typedef {import('@azure/storage-blob').ContainerClient} ContainerClient */
 
@@ -47,12 +56,14 @@ function blobUrl(container, blobName) {
 
 /**
  * @param {ContainerClient} container
- * @param {{ blobName: string, data: Buffer, contentType: string }} blob
+ * @param {{ blobName: string, data: Buffer, contentType: string, cacheControl?: string }} blob
  */
-async function uploadBlob(container, { blobName, data, contentType }) {
-  await container
-    .getBlockBlobClient(blobName)
-    .uploadData(data, { blobHTTPHeaders: { blobContentType: contentType } });
+async function uploadBlob(container, { blobName, data, contentType, cacheControl }) {
+  const blobHTTPHeaders = {
+    blobContentType: contentType,
+    ...(cacheControl && { blobCacheControl: cacheControl }),
+  };
+  await container.getBlockBlobClient(blobName).uploadData(data, { blobHTTPHeaders });
 }
 
 /** @param {ContainerClient} container */
@@ -64,7 +75,10 @@ async function deleteBlobIfExists(container, blobName) {
 async function deleteBlobsByPrefix(container, prefix) {
   const names = [];
   for await (const blob of container.listBlobsFlat({ prefix })) names.push(blob.name);
-  await Promise.all(names.map((name) => deleteBlobIfExists(container, name)));
+  await settleAllLimited(
+    names.map((name) => () => deleteBlobIfExists(container, name)),
+    { limit: DELETE_CONCURRENCY, failureMessage: `Some blobs under ${prefix} were not deleted` },
+  );
 }
 
 // Same account and credential, on a pipeline with one extra request policy.
@@ -93,6 +107,7 @@ function containerOnce(name) {
 }
 
 module.exports = {
+  IMMUTABLE_CACHE_CONTROL,
   gpxContainer: containerOnce('gpx-files'),
   imagesContainer: containerOnce('tour-images'),
   sasExpiresOn,

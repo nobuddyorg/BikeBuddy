@@ -23,6 +23,9 @@ import { renderSidebar, loadTours } from './sidebar.js';
 import { userFromAccount, userFromAuthResult } from '../lib/authConfig.js';
 import { API_BASE, AUTH_CONFIG, LOGIN_REQUEST, apiRequest, createAuthClient } from './api.js';
 import { toast } from './toast.js';
+import { whenAnnounced, SESSION_EXPIRED } from './events.js';
+
+const ACCOUNT_DELETED = 410;
 
 const t = i18n.t;
 
@@ -51,6 +54,7 @@ function syncLanguageFromUser(user) {
 async function devSignIn() {
   try {
     const response = await fetch(`${API_BASE}/api/me`);
+    if (response.status === ACCOUNT_DELETED) return signOutDeletedAccount();
     state.user = response.ok ? await response.json() : SYNTHETIC_USER;
   } catch {
     // Dev mode only: no backend to reach (the frontend alone, or opened from file://).
@@ -63,9 +67,18 @@ async function devSignIn() {
   await loading;
 }
 
+// Dev auth only. Storage can be blocked; the dev session then starts signed in.
+function isDevSignedOut() {
+  try {
+    return Boolean(localStorage.getItem(DEV_SIGNED_OUT_KEY));
+  } catch {
+    return false;
+  }
+}
+
 export async function initAuth() {
   if (AUTH_CONFIG.useDevAuth) {
-    if (localStorage.getItem(DEV_SIGNED_OUT_KEY)) {
+    if (isDevSignedOut()) {
       renderNavAuth();
       return;
     }
@@ -114,8 +127,18 @@ async function endProviderSession() {
   }
 }
 
+// The account is being deleted: its identity is gone within a day, so the session ends now.
+async function signOutDeletedAccount() {
+  toast(t('errors.accountDeleted'), { type: 'error' });
+  await signOut();
+}
+
 export async function signOut() {
   await endProviderSession();
+  clearSignedInState();
+}
+
+function clearSignedInState() {
   state.user = null;
   state.tours = [];
   state.selectedTourId = null;
@@ -130,6 +153,18 @@ export async function signOut() {
   renderNavAuth();
 }
 
+// The popup opens from the toast's button: outside a click the browser would block it.
+function askToSignInAgain() {
+  if (!state.user) return;
+  clearSignedInState();
+  toast(t('errors.unauthorized'), {
+    type: 'error',
+    action: { label: t('nav.signIn'), onClick: signIn },
+  });
+}
+
+whenAnnounced(SESSION_EXPIRED, askToSignInAgain);
+
 // Renders before awaiting, so the Sign In prompt never lingers behind the tours request.
 async function renderSignedIn() {
   state.loadingTours = true;
@@ -142,6 +177,7 @@ async function renderSignedIn() {
 export async function refreshUser() {
   const { response, networkError } = await apiRequest('/api/me');
   if (networkError) return;
+  if (response.status === ACCOUNT_DELETED) return signOutDeletedAccount();
   if (!response.ok) {
     console.warn(`GET /api/me answered ${response.status}`);
     return;

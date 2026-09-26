@@ -21,7 +21,8 @@ const TOUR = {
   gpxFileUrl: 'https://fake.blob/gpx-files/u1/t1.gpx',
   images: [{ id: 'i1', blobName: 'u1/t1/i1.jpg', lat: 48.1, lon: 11.5 }],
 };
-const IN_ONE_HOUR = new Date(NOW.getTime() + 60 * 60 * 1000).toISOString();
+// The SAS window's end: the close of the hour after the one NOW falls in.
+const LINKS_EXPIRE_AT = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString();
 const signedUrlParts = (url) => {
   const parsed = new URL(url);
   return { path: parsed.pathname, ...Object.fromEntries(parsed.searchParams) };
@@ -63,7 +64,7 @@ describe('GET /api/me/export', () => {
     );
     expect(response.jsonBody).toStrictEqual({
       exportedAt: NOW.toISOString(),
-      linksExpireAt: IN_ONE_HOUR,
+      linksExpireAt: LINKS_EXPIRE_AT,
       user: PROFILE,
       tours: [
         {
@@ -87,14 +88,14 @@ describe('GET /api/me/export', () => {
       path: '/gpx-files/u1/t1.gpx',
       sp: 'r',
       sr: 'b',
-      se: IN_ONE_HOUR,
+      se: LINKS_EXPIRE_AT,
       rscd: 'attachment; filename="Alps.gpx"',
     });
     expect(signedUrlParts(tour.images[0].url)).toStrictEqual({
       path: '/tour-images/u1/t1/i1.jpg',
       sp: 'r',
       sr: 'b',
-      se: IN_ONE_HOUR,
+      se: LINKS_EXPIRE_AT,
     });
   });
 

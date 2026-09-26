@@ -1,10 +1,11 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const { unauthorized } = require('../lib/http');
-const { tourName } = require('../lib/tourResponse');
+const { toTourSummaryResponse } = require('../lib/tourResponse');
 
 // The list projection: heatmapData stays out of list responses.
 const LIST_QUERY =
@@ -22,7 +23,7 @@ async function getTours(
     userId: user.userId,
     query: LIST_QUERY,
   });
-  return { status: 200, jsonBody: tours.map((tour) => ({ ...tour, name: tourName(tour.name) })) };
+  return { status: 200, jsonBody: tours.map(toTourSummaryResponse) };
 }
 
 app.http('GetTours', {
@@ -30,7 +31,7 @@ app.http('GetTours', {
   authLevel: 'anonymous',
   route: 'tours',
   /* v8 ignore next */
-  handler: (request) => getTours(request),
+  handler: withFailureResponse((request) => getTours(request)),
 });
 
 module.exports = { getTours };

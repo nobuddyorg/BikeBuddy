@@ -1,6 +1,6 @@
 'use strict';
 
-const { settleAll, withRollback, onceUntilFailure } = require('./settle');
+const { settleAll, settleAllLimited, withRollback, onceUntilFailure } = require('./settle');
 
 describe('settleAll', () => {
   it('resolves every value in order when all tasks succeed', async () => {
@@ -26,6 +26,75 @@ describe('settleAll', () => {
     expect(error).toBeInstanceOf(AggregateError);
     expect(error.message).toBe('some deletes failed');
     expect(error.errors).toEqual([first, second]);
+  });
+});
+
+describe('settleAllLimited', () => {
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((settle) => {
+      resolve = settle;
+    });
+    return { promise, resolve };
+  };
+
+  it('resolves every value in task order, however they finish', async () => {
+    const slow = deferred();
+    const running = settleAllLimited([() => slow.promise, async () => 2, async () => 3], {
+      limit: 2,
+      failureMessage: 'failed',
+    });
+    slow.resolve(1);
+
+    await expect(running).resolves.toEqual([1, 2, 3]);
+  });
+
+  it('never runs more than the limit at once, and starts the next as one finishes', async () => {
+    const gates = [deferred(), deferred(), deferred()];
+    const started = [];
+    const tasks = gates.map((gate, index) => () => {
+      started.push(index);
+      return gate.promise;
+    });
+
+    const running = settleAllLimited(tasks, { limit: 2, failureMessage: 'failed' });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(started).toEqual([0, 1]);
+
+    gates[0].resolve('a');
+    await vi.waitFor(() => expect(started).toEqual([0, 1, 2]));
+    gates[1].resolve('b');
+    gates[2].resolve('c');
+    await expect(running).resolves.toEqual(['a', 'b', 'c']);
+  });
+
+  it('runs every task after a failure, then reports each failure, a thrown one included', async () => {
+    const first = new Error('first');
+    const second = new Error('second');
+    const ran = vi.fn(async () => 'ok');
+
+    const error = await settleAllLimited(
+      [
+        async () => {
+          throw first;
+        },
+        () => {
+          throw second;
+        },
+        ran,
+      ],
+      { limit: 1, failureMessage: 'some deletes failed' },
+    ).catch((failure) => failure);
+
+    expect(ran).toHaveBeenCalledTimes(1);
+    expect(error).toBeInstanceOf(AggregateError);
+    expect(error.message).toBe('some deletes failed');
+    expect(error.errors).toEqual([first, second]);
+  });
+
+  it('resolves an empty list without running anything', async () => {
+    await expect(settleAllLimited([], { limit: 4, failureMessage: 'failed' })).resolves.toEqual([]);
   });
 });
 

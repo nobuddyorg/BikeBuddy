@@ -4,17 +4,27 @@ const { updateProfile } = require('./index');
 const { fakeUsersContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
 const { signedInAs, signedOut, fixedClock, NOW } = require('../../test/fakes/collaborators');
 
-const INVALID = 'A name (1–200 characters) or a supported language is required.';
+const INVALID = 'errors.profileInvalid';
 const STORED = { id: 'u1', name: null, email: 'ada@example.com', createdAt: 'x' };
 const OTHER_USER = { id: 'u2', name: 'Grace', email: 'grace@example.com', createdAt: 'y' };
 
 function setUp({
   profiles = [STORED, OTHER_USER],
   authenticate = signedInAs('u1', { userEmail: 'ada@example.com' }),
+  queued = [],
 } = {}) {
   const users = fakeUsersContainer(profiles);
+  const deletions = fakeUsersContainer(queued);
   const run = (json) =>
-    updateProfile({ json }, { authenticate, usersContainer: () => users, now: fixedClock });
+    updateProfile(
+      { json },
+      {
+        authenticate,
+        usersContainer: () => users,
+        deletionsContainer: () => deletions,
+        now: fixedClock,
+      },
+    );
   const withBody = (body) => async () => body;
   const writes = () => users.calls.filter((call) => call.operation !== 'read');
   return { users, run, withBody, writes };
@@ -137,5 +147,18 @@ describe('PATCH /api/me', () => {
 
     expect(response.status).toBe(401);
     expect(users.calls).toEqual([]);
+  });
+
+  it('answers 410 and writes nothing while the account deletion is queued', async () => {
+    const { run, withBody, writes } = setUp({
+      profiles: [],
+      authenticate: signedInAs('u1', { userOid: 'oid-1' }),
+      queued: [{ id: 'oid-1', userId: 'u1' }],
+    });
+
+    const response = await run(withBody({ name: 'Ada' }));
+
+    expect(response).toEqual({ status: 410, jsonBody: { error: 'errors.accountDeleted' } });
+    expect(writes()).toEqual([]);
   });
 });

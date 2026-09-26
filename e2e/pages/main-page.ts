@@ -11,11 +11,15 @@ interface MainPage {
     openUpload(): Promise<void>;
     openProfile(): Promise<void>;
     openHelp(): Promise<void>;
+    /** Through whichever stats button the layout shows (header or tour list). */
+    openStats(): Promise<void>;
     logout(): Promise<void>;
     toggleSidebar(): Promise<void>;
     openMobileMap(): Promise<void>;
     /** Clears what this browser remembers (language, sign-out), as a second device would lack it. */
     forgetLocalSettings(): Promise<void>;
+    /** Clicks Undo on the newest toast that offers it. */
+    undo(): Promise<void>;
     /** Uploads through the modal; returns once the new tour is open. */
     uploadGpx(upload: { name: string; gpx: string }): Promise<void>;
   };
@@ -23,6 +27,10 @@ interface MainPage {
   locators: {
     userMenu: Locator;
     authPrompt: Locator;
+    /** Error toasts (role=alert) currently shown. */
+    alerts: Locator;
+    /** Action buttons (Undo) on the toasts currently shown. */
+    toastActions: Locator;
     sidebar: Locator;
     sidebarTitle: Locator;
     buttons: {
@@ -30,6 +38,7 @@ interface MainPage {
       upload: Locator;
       profile: Locator;
       help: Locator;
+      stats: Locator;
       mapExpand: Locator;
       mobileMapFab: Locator;
     };
@@ -41,6 +50,8 @@ export function initMainPage(page: Page): MainPage {
   const locators = {
     userMenu: page.locator('#user-menu'),
     authPrompt: page.locator('#auth-prompt'),
+    alerts: page.locator('#toasts').getByRole('alert'),
+    toastActions: page.locator('#toasts').getByTestId('toast-action'),
     sidebar: page.locator('#sidebar'),
     sidebarTitle: page.locator('#sidebar-title'),
     buttons: {
@@ -48,6 +59,7 @@ export function initMainPage(page: Page): MainPage {
       upload: page.locator('#btn-upload'),
       profile: page.locator('#btn-profile'),
       help: page.locator('#btn-help'),
+      stats: page.locator('#btn-stats-header, #btn-stats').filter({ visible: true }).first(),
       mapExpand: page.locator('#btn-map-expand'),
       mobileMapFab: page.locator('#btn-mobile-map-fab'),
     },
@@ -57,6 +69,7 @@ export function initMainPage(page: Page): MainPage {
     openUpload: async () => locators.buttons.upload.click(),
     openProfile: async () => locators.buttons.profile.click(),
     openHelp: async () => locators.buttons.help.click(),
+    openStats: async () => locators.buttons.stats.click(),
     // Sign Out lives inside the profile modal.
     logout: async () => {
       await locators.buttons.profile.click();
@@ -65,6 +78,7 @@ export function initMainPage(page: Page): MainPage {
     toggleSidebar: async () => locators.buttons.mapExpand.click(),
     openMobileMap: async () => locators.buttons.mobileMapFab.click(),
     forgetLocalSettings: async () => page.evaluate(() => localStorage.clear()),
+    undo: async () => locators.toastActions.last().click(),
     uploadGpx: async ({ name, gpx }: { name: string; gpx: string }) => {
       await locators.buttons.upload.click();
       const upload = initUploadModal(page);

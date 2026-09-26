@@ -10,7 +10,38 @@
  * @returns {Promise<T[]>}
  */
 async function settleAll(tasks, failureMessage) {
-  const results = await Promise.allSettled(tasks);
+  return valuesOrThrow(await Promise.allSettled(tasks), failureMessage);
+}
+
+/**
+ * Like settleAll for tasks not yet started: at most `limit` run at once, so a purge of thousands
+ * of blobs or documents never opens thousands of requests together.
+ *
+ * @template T
+ * @param {(() => Promise<T>)[]} tasks
+ * @param {{ limit: number, failureMessage: string }} options
+ * @returns {Promise<T[]>}
+ */
+async function settleAllLimited(tasks, { limit, failureMessage }) {
+  const queue = tasks.map((task, index) => ({ task, index }));
+  /** @type {PromiseSettledResult<T>[]} */
+  const results = [];
+  const drain = async () => {
+    for (let next = queue.shift(); next; next = queue.shift()) {
+      [results[next.index]] = await Promise.allSettled([Promise.resolve().then(next.task)]);
+    }
+  };
+  await Promise.all(Array.from({ length: limit }, drain));
+  return valuesOrThrow(results, failureMessage);
+}
+
+/**
+ * @template T
+ * @param {PromiseSettledResult<T>[]} results
+ * @param {string} failureMessage
+ * @returns {T[]}
+ */
+function valuesOrThrow(results, failureMessage) {
   const failures = results.flatMap((result) =>
     result.status === 'rejected' ? [result.reason] : [],
   );
@@ -65,4 +96,4 @@ function onceUntilFailure(create) {
   };
 }
 
-module.exports = { settleAll, withRollback, onceUntilFailure };
+module.exports = { settleAll, settleAllLimited, withRollback, onceUntilFailure };

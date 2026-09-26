@@ -1,5 +1,6 @@
 import { DEFAULT_LOCALE, isSupported, localeMeta, pickLocale, translate } from '../lib/i18n.js';
 import { markupRuns } from '../lib/markup.js';
+import { apiErrorParams } from '../lib/apiErrors.js';
 
 const STORAGE_KEY = 'bikebuddy-lang';
 
@@ -20,12 +21,18 @@ export function intlLocale() {
 }
 
 export function t(key, params) {
-  return translate({ messages, fallbackMessages, key, params, locale: intlLocale() });
+  return translate({
+    messages,
+    fallbackMessages,
+    key,
+    params,
+    locale: intlLocale(),
+  });
 }
 
-// The API sends an i18n key or an English sentence; a sentence resolves to itself.
+// The API sends an i18n key (functions/src/lib/http.js); anything else resolves to itself.
 export function tApi(message) {
-  return t(message);
+  return t(message, apiErrorParams(message));
 }
 
 async function loadMessages(code) {
@@ -56,11 +63,13 @@ export async function init() {
     languages: navigator.languages?.length ? navigator.languages : [navigator.language],
   });
 
-  fallbackMessages = await loadMessagesOr({ code: DEFAULT_LOCALE, fallback: {} });
-  messages =
+  // Both files at once: a sequential second fetch would hold back sign-in and the first API call.
+  const english = loadMessagesOr({ code: DEFAULT_LOCALE, fallback: {} });
+  const chosen =
     currentLocale === DEFAULT_LOCALE
-      ? fallbackMessages
-      : await loadMessagesOr({ code: currentLocale, fallback: fallbackMessages });
+      ? english
+      : loadMessagesOr({ code: currentLocale, fallback: {} });
+  [fallbackMessages, messages] = await Promise.all([english, chosen]);
 
   document.documentElement.lang = currentLocale;
   applyI18n(document);

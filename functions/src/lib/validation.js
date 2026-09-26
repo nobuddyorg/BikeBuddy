@@ -2,13 +2,18 @@
 'use strict';
 
 const { z } = require('zod');
-const { error } = require('./http');
+const { ERROR_KEYS, error } = require('./http');
 
 const stripHtml = (text) => text.replace(/[<>]/g, '').trim();
 
-// Length limits apply to the stripped text.
-const nameSchema = z.string().transform(stripHtml).pipe(z.string().min(1).max(200));
-const descriptionSchema = z.string().transform(stripHtml).pipe(z.string().max(2000));
+// Length limits apply to the stripped text; the form fields' maxlength must match them.
+const NAME_MAX_LENGTH = 200;
+const DESCRIPTION_MAX_LENGTH = 2000;
+const nameSchema = z.string().transform(stripHtml).pipe(z.string().min(1).max(NAME_MAX_LENGTH));
+const descriptionSchema = z
+  .string()
+  .transform(stripHtml)
+  .pipe(z.string().max(DESCRIPTION_MAX_LENGTH));
 
 // createdAt is editable but never accepted on upload.
 const tourMetaSchema = z.object({
@@ -19,14 +24,14 @@ const tourMetaSchema = z.object({
 
 // The frontend shows these through i18n (frontend/src/locales/), never Zod's English.
 const TOUR_META_ERROR_KEYS = {
-  name: 'errors.tourName',
-  description: 'errors.tourDescription',
-  createdAt: 'errors.tourDate',
+  name: ERROR_KEYS.tourName,
+  description: ERROR_KEYS.tourDescription,
+  createdAt: ERROR_KEYS.tourDate,
 };
 
 function tourMetaError(zodError) {
   const [field] = zodError.issues[0].path;
-  return error(400, TOUR_META_ERROR_KEYS[field] ?? 'errors.tourInvalid');
+  return error(400, TOUR_META_ERROR_KEYS[field] ?? ERROR_KEYS.tourInvalid);
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,6 +52,8 @@ const isImageContentType = (contentType) =>
   contentType === 'image/jpeg' || contentType === 'image/png';
 
 module.exports = {
+  NAME_MAX_LENGTH,
+  DESCRIPTION_MAX_LENGTH,
   stripHtml,
   nameSchema,
   tourMetaSchema,

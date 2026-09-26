@@ -25,6 +25,7 @@ import {
 import {
   showElement,
   hideElement,
+  isHidden,
   mapEmptyOverlay,
   mobileMapButton,
   detailPanel,
@@ -42,7 +43,7 @@ import {
   editError,
 } from './dom.js';
 import { openModal, closeModal } from './modal.js';
-import { pushLayer, syncUrl } from './router.js';
+import { pushLayer, releaseLayer, syncUrl } from './router.js';
 
 const t = i18n.t;
 
@@ -63,11 +64,13 @@ export async function selectTour(tourId) {
   const tour = state.tours.find((candidate) => candidate.id === tourId);
   if (!tour) return;
 
+  const panelWasOpen = !isHidden(detailPanel);
   state.selectedTourId = tourId;
   announce(TOURS_CHANGED);
   renderDetailPanel(tour);
   // Pushed after the URL shows the tour, so Back closes the panel and keeps the selection.
-  pushLayer(closeDetailPanel);
+  // Switching tours in an open panel reuses its entry, so one Back always closes it.
+  if (!panelWasOpen) pushLayer(closeDetailPanel);
   state.detailLoading = focusTourOnMap(tour).then((stillSelected) => {
     if (!stillSelected) return;
     renderDetailMeta(tour); // these metrics arrive only with the detail
@@ -79,6 +82,7 @@ export async function selectTour(tourId) {
 // Only "Show all tours" (desktop) or reopening the map (mobile) singles out a tour again.
 export function closeDetailPanel() {
   hideElement(detailPanel);
+  releaseLayer(closeDetailPanel);
   const wasMobile = isMobileLayout();
   if (wasMobile) restoreMapToAppLayout();
   state.selectedTourId = null;

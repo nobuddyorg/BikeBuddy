@@ -20,6 +20,9 @@ const shownPhotos = () =>
 // L.divIcon's element form: img.src is a property write, never parsed markup.
 function photoPinIcon({ thumbUrl, url }) {
   const image = document.createElement('img');
+  // Off-screen pins wait until they are panned into view; decoding never blocks a zoom frame.
+  image.loading = 'lazy';
+  image.decoding = 'async';
   image.src = thumbUrl || url;
   image.alt = t('lightbox.imgAlt');
   // Photos older than thumbnails have a signed thumbUrl to a missing blob.

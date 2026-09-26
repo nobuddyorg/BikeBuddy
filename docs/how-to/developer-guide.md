@@ -91,7 +91,8 @@ it:
 
 ```bash
 ./buddy.sh quality check           # hooks, unit, frontend, static e2e: no services needed
-./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
+./buddy.sh development start-cosmos && node functions/scripts/init-cosmos.js
+SKIP_AUTH=true ./buddy.sh development start-backend
 ./buddy.sh quality check --stack   # the above, then integration, full-stack e2e, Lighthouse, ZAP
 ```
 
@@ -125,10 +126,16 @@ Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
 2. MSAL returns an **access token** (JWT) whose audience (`aud`) is the app's
    client id. MSAL caches the session in `localStorage` (survives refresh and
    tab close; moving it off the shared origin is #562).
-3. The frontend sends it as `Authorization: Bearer <token>` on every API call.
+3. The frontend sends it as `Authorization: Bearer <token>` on every API call
+   (`frontend/src/lib/session.js`). Tokens are only ever renewed silently, one
+   request at a time: a popup outside a click is blocked. A 401 gets one retry
+   with a freshly acquired token; a second 401, or a renewal that needs the
+   user, ends the session, and a toast offers **Sign In**, which opens the popup
+   from that click (#557). Each photo-upload attempt asks for its own token.
 4. `functions/src/middleware/authMiddleware.js` validates it: it reads the
    issuer + JWKS URI from the tenant's OIDC discovery document, verifies the
-   RS256 signature, and checks `aud == ENTRA_CLIENT_ID` and the issuer.
+   RS256 signature, and checks `aud == ENTRA_CLIENT_ID`, the issuer and that
+   `scp` names `access_as_user` (an ID token for the same client has no `scp`).
 5. On the first authenticated call, `GET /api/me` provisions the user's Cosmos doc.
 
 **Local no-auth mode:** set `SKIP_AUTH=true` (backend) + `devMode: true`
@@ -175,6 +182,24 @@ with `targetRules` and matched by content, with a one-line reason. Never
 `--no-verify`, never a path-wide exclusion. **A real secret** that reached a
 commit is compromised: rotate it first (Azure portal / `az`), then remove it.
 
+## Supply chain (lockfile-lint)
+
+The `lockfile-lint` hook checks each `package-lock.json` (`functions/`,
+`frontend/`, `e2e/`): every package resolves from the npm registry over https,
+carries an integrity hash, and its resolved URL names the package it claims to
+be. A lockfile pointing at a git URL, a tarball, another registry or plain
+http fails.
+
+```bash
+prek run lockfile-lint --all-files
+```
+
+When it fails, replace the offending dependency with a registry release, or
+let `npm install <package>@<version>` rewrite its entry. Never hand-edit the
+lockfile or regenerate it from scratch. Which updates Dependabot may merge on
+its own, and how `npm audit` findings are handled, is the design decision
+[Dependency updates and npm audit](../explanation/design-decisions.md#dependency-updates-and-npm-audit).
+
 ## Workflow linting
 
 Two pre-commit hooks check `.github/workflows/` and `.github/actions/`:
@@ -196,7 +221,7 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
 `opengrep` job in `gate.yml` and as a pre-commit hook, both through one script:
 
 ```bash
-./buddy.sh quality opengrep   # installs the pinned version on first run
+./buddy.sh quality opengrep   # installs the pinned, checksum-verified release binary on first run
 ```
 
 - **Rule packs**: `--config auto` (the community rules for the languages
@@ -336,6 +361,11 @@ used by the pre-commit hook and CI's `iac` job:
   exceptions".
 - CI uploads both SARIF files to code scanning (categories `iac`,
   `iac-tflint`) and puts both reports in the job summary.
+- **What no scanner checks**: Trivy has no check for the Flex Consumption
+  Function App, so `tofu test` (the `tofu-test` hook, mock providers) pins
+  it instead. `infrastructure/tests/transport.tftest.hcl` fails when the app
+  loses `https_only` or TLS 1.2, or when either CORS list gains a
+  non-HTTPS origin.
 
 ## Coverage
 

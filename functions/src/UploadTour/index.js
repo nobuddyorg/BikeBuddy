@@ -1,18 +1,23 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
+const { refusePendingDeletion } = require('../lib/pendingDeletion');
 const blobStorage = require('../lib/blobStorage');
 const system = require('../lib/system');
 const { parseMultipart } = require('../lib/parseMultipart');
-const { parseGpx, InvalidGpxError, NoTrackPointsError } = require('../lib/parseGpx');
+const { InvalidGpxError, NoTrackPointsError } = require('../lib/parseGpx');
+const { parseGpxOffThread } = require('../lib/parseGpxOffThread');
 const { looksLikeXml } = require('../lib/fileSignatures');
 const { gpxBlobName } = require('../lib/blobNames');
 const { withRollback } = require('../lib/settle');
 const { nameSchema, tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { toCreatedTourResponse } = require('../lib/tourResponse');
-const { unauthorized, error } = require('../lib/http');
+const { ERROR_KEYS, unauthorized, error } = require('../lib/http');
+const { TOUR_SCHEMA_VERSION } = require('../lib/schemaVersion');
+const { storedTrackStats } = require('../lib/tourStats');
 
 async function readGpxUpload(request, { parseFile, parseTrack }) {
   let file;
@@ -23,15 +28,15 @@ async function readGpxUpload(request, { parseFile, parseTrack }) {
     return { response: error(400, parseError.message) };
   }
   if (!looksLikeXml(file.buffer)) {
-    return { response: error(400, 'File does not appear to be a valid GPX/XML file') };
+    return { response: error(400, ERROR_KEYS.gpxInvalid) };
   }
   try {
-    return { file, track: parseTrack(file.buffer) };
+    return { file, track: await parseTrack(file.buffer) };
   } catch (gpxError) {
     if (gpxError instanceof NoTrackPointsError)
-      return { response: error(400, 'errors.gpxNoTrack') };
+      return { response: error(400, ERROR_KEYS.gpxNoTrack) };
     if (!(gpxError instanceof InvalidGpxError)) throw gpxError;
-    return { response: error(400, 'Could not parse GPX file') };
+    return { response: error(400, ERROR_KEYS.gpxInvalid) };
   }
 }
 
@@ -45,20 +50,14 @@ function newTourDocument({ tourId, userId, metadata, track, gpxFileUrl, uploaded
   return {
     id: tourId,
     userId,
+    schemaVersion: TOUR_SCHEMA_VERSION,
     name: metadata.name ?? trackName(track.name),
     description: metadata.description ?? '',
     gpxFileUrl,
     heatmapData: track.heatmapData,
     images: [],
-    distance: track.distanceKm,
     createdAt: track.date ?? uploadedAt.toISOString(),
-    elevationGain: track.elevationGain,
-    elevationLoss: track.elevationLoss,
-    minElevation: track.minElevation,
-    maxElevation: track.maxElevation,
-    durationSeconds: track.durationSeconds,
-    movingSeconds: track.movingSeconds,
-    avgSpeed: track.avgSpeed,
+    ...storedTrackStats(track),
   };
 }
 
@@ -67,16 +66,19 @@ async function uploadTour(
   request,
   {
     authenticate = authMiddleware.authenticate,
+    deletionsContainer = db.deletionsContainer,
     toursContainer = db.toursContainer,
     gpxContainer = blobStorage.gpxContainer,
     parseFile = parseMultipart,
-    parseTrack = parseGpx,
+    parseTrack = parseGpxOffThread,
     newId = system.newId,
     now = system.currentTime,
   } = {},
 ) {
   const user = await authenticate(request);
   if (!user) return unauthorized();
+  const refused = await refusePendingDeletion(user, deletionsContainer);
+  if (refused) return refused;
   const { userId } = user;
 
   const metadata = tourMetaSchema.safeParse({
@@ -118,7 +120,7 @@ app.http('UploadTour', {
   authLevel: 'anonymous',
   route: 'tours/upload',
   /* v8 ignore next */
-  handler: (request) => uploadTour(request),
+  handler: withFailureResponse((request) => uploadTour(request)),
 });
 
 module.exports = { uploadTour };

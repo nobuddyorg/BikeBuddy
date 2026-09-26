@@ -1,8 +1,13 @@
 'use strict';
 
 const { uploadTour } = require('./index');
-const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const {
+  fakeToursContainer,
+  fakeUsersContainer,
+  cosmosError,
+} = require('../../test/fakes/cosmosContainer');
 const { fakeGpxContainer } = require('../../test/fakes/blobContainer');
+const { withFailureResponse } = require('../lib/failureResponse');
 const {
   signedInAs,
   signedOut,
@@ -33,14 +38,16 @@ const fileOf = (content) => async () => ({
 });
 const clientError = (message) => Object.assign(new Error(message), { status: 400 });
 
-function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX) } = {}) {
+function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queued = [] } = {}) {
   const tours = fakeToursContainer();
   const gpx = fakeGpxContainer();
+  const deletions = fakeUsersContainer(queued);
   const run = (query = {}) =>
     uploadTour(
       { query: new URLSearchParams(query) },
       {
         authenticate,
+        deletionsContainer: () => deletions,
         toursContainer: () => tours,
         gpxContainer: async () => gpx,
         parseFile,
@@ -72,6 +79,7 @@ describe('POST /api/tours/upload', () => {
     expect(storedTour()).toMatchObject({
       id: TOUR_ID,
       userId: 'u1',
+      schemaVersion: 1,
       name: 'Test Tour',
       description: '',
       images: [],
@@ -213,12 +221,12 @@ describe('POST /api/tours/upload', () => {
     [
       'a file without XML magic bytes',
       { parseFile: fileOf('not xml at all') },
-      'File does not appear to be a valid GPX/XML file',
+      'errors.gpxInvalid',
     ],
     [
       'XML that is not GPX',
       { parseFile: fileOf('<?xml version="1.0"?><notgpx/>') },
-      'Could not parse GPX file',
+      'errors.gpxInvalid',
     ],
     [
       'a GPX file without a single track or route point',
@@ -229,10 +237,10 @@ describe('POST /api/tours/upload', () => {
       'an upload the parser refuses',
       {
         parseFile: async () => {
-          throw clientError('No file field found in request');
+          throw clientError('errors.noFile');
         },
       },
-      'No file field found in request',
+      'errors.noFile',
     ],
   ])('returns 400 for %s, storing nothing', async (_label, { query, parseFile }, message) => {
     const { tours, gpx, run } = setUp({ parseFile });
@@ -242,6 +250,49 @@ describe('POST /api/tours/upload', () => {
     expect(response.status).toBe(400);
     expect(response.jsonBody.error).toBe(message);
     expect([...tours.calls, ...gpx.calls]).toEqual([]);
+  });
+
+  it('rolls its GPX blob back and answers 503 when Cosmos throttles the create', async () => {
+    const { tours, gpx, run } = setUp();
+    tours.failOn('create', { error: cosmosError(429, 'Request rate is large') });
+    const context = { invocationId: 'invocation-1', error: vi.fn() };
+
+    const response = await withFailureResponse(() => run())({}, context);
+
+    expect(response.status).toBe(503);
+    expect(response.jsonBody).toStrictEqual({ error: 'errors.busy', invocationId: 'invocation-1' });
+    expect(gpx.names()).toEqual([]);
+    expect(tours.all()).toEqual([]);
+  });
+
+  it('answers 410 and stores nothing while the account deletion is queued', async () => {
+    const { tours, gpx, run } = setUp({
+      authenticate: signedInAs('u1', { userOid: 'oid-1' }),
+      queued: [{ id: 'oid-1', userId: 'u1' }],
+    });
+
+    const response = await run();
+
+    expect(response).toEqual({ status: 410, jsonBody: { error: 'errors.accountDeleted' } });
+    expect([...tours.calls, ...gpx.calls]).toEqual([]);
+  });
+
+  it('refuses a file without XML magic bytes before parsing it', async () => {
+    const parseTrack = vi.fn();
+
+    const response = await uploadTour(
+      { query: new URLSearchParams() },
+      {
+        authenticate: signedInAs('u1'),
+        toursContainer: () => fakeToursContainer(),
+        gpxContainer: async () => fakeGpxContainer(),
+        parseFile: fileOf('not xml at all'),
+        parseTrack,
+      },
+    );
+
+    expect(response.jsonBody).toEqual({ error: 'errors.gpxInvalid' });
+    expect(parseTrack).not.toHaveBeenCalled();
   });
 
   it('rethrows a GPX parser failure that is not an invalid file', async () => {

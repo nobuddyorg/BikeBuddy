@@ -1,4 +1,4 @@
-import { ensureMapData } from '../lib/mapData.js';
+import { queueMapDataLoads } from '../lib/mapData.js';
 import { hasNoPoints, routePointSets, selectionKey } from '../lib/routes.js';
 import { state } from './state.js';
 import { map } from './map.js';
@@ -17,6 +17,8 @@ const L = window.L;
 
 const ALL_TOURS_PADDING_PX = 40;
 export const SINGLE_TOUR_PADDING_PX = 60;
+
+const ensureMapData = queueMapDataLoads();
 
 export function clearRouteLayer() {
   if (state.routeLayer) {

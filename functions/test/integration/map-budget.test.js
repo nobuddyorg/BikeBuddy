@@ -1,13 +1,13 @@
 'use strict';
 
-// Deterministic guard (load-testing.md): ~20 km tracks only, longer ones exceed it (#546).
+// Deterministic guard (load-testing.md): 100 km tracks, 50 m apart, which a gap rule could not merge (#546).
 const { connectHarness } = require('./harness');
 
 const TOURS = 60;
 const POINTS_PER_TOUR = 2000;
-const TRACK_METERS = 20_000;
-// GetMapData's TOTAL_POINT_BUDGET plus the slack its 50 m gap rule may add back.
-const MAX_POINTS = 110_000;
+const TRACK_METERS = 100_000;
+// GetMapData's TOTAL_POINT_BUDGET, a hard cap.
+const MAX_POINTS = 100_000;
 const MAX_BYTES = 4 * 1024 * 1024;
 
 function gpx(index) {

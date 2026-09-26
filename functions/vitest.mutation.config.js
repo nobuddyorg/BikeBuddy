@@ -10,6 +10,14 @@ export default defineConfig({
     environment: 'node',
     pool: 'forks',
     include: ['src/**/*.test.js', 'test/unit/**/*.test.js', 'scripts/**/*.test.{js,mjs}'],
+    exclude: [
+      // Instrumented code is many times slower, so a timing bound would measure Stryker, not the code.
+      '**/*.performance.test.js',
+      // They read files outside this package, which the sandbox copy lacks; the unit job runs them.
+      'test/unit/frontendContract.test.js',
+      'test/unit/zapApiSurface.test.js',
+      '**/node_modules/**',
+    ],
     setupFiles: ['test/fast-check.setup.js'],
     // Vitest adds its `github-actions` reporter under GITHUB_ACTIONS; a killed
     // mutant is an expected failure, not an annotation.

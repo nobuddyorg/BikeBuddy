@@ -1,12 +1,13 @@
 'use strict';
 
 const { app } = require('../lib/functionsApp');
+const { withFailureResponse } = require('../lib/failureResponse');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { tourMetaSchema, tourMetaError } = require('../lib/validation');
-const { error } = require('../lib/http');
-const { toTourResponse } = require('../lib/tourResponse');
+const { ERROR_KEYS, error } = require('../lib/http');
+const { toTourSummaryResponse } = require('../lib/tourResponse');
 
 const EDITABLE_FIELDS = ['name', 'description', 'createdAt'];
 
@@ -15,7 +16,7 @@ async function readJsonBody(request) {
     return { body: await request.json() };
   } catch (parseError) {
     if (!(parseError instanceof SyntaxError)) throw parseError;
-    return { response: error(400, 'errors.tourInvalid') };
+    return { response: error(400, ERROR_KEYS.tourInvalid) };
   }
 }
 
@@ -37,14 +38,14 @@ async function editTour(
     (field) => ({ op: 'set', path: `/${field}`, value: parsed.data[field] }),
   );
   // Cosmos rejects an empty patch.
-  if (operations.length === 0) return { status: 200, jsonBody: toTourResponse(tour) };
+  if (operations.length === 0) return { status: 200, jsonBody: toTourSummaryResponse(tour) };
 
   const updated = await db.patchItem(toursContainer(), {
     id: tour.id,
     partitionKey: guard.user.userId,
     operations,
   });
-  return { status: 200, jsonBody: toTourResponse(updated) };
+  return { status: 200, jsonBody: toTourSummaryResponse(updated) };
 }
 
 app.http('EditTour', {
@@ -52,7 +53,7 @@ app.http('EditTour', {
   authLevel: 'anonymous',
   route: 'tours/{tourId}',
   /* v8 ignore next */
-  handler: (request) => editTour(request),
+  handler: withFailureResponse((request) => editTour(request)),
 });
 
 module.exports = { editTour };

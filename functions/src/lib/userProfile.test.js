@@ -79,7 +79,13 @@ describe('newUserDocument', () => {
         profile: { name: 'Ada', email: null },
         createdAt: new Date('2026-03-01T12:00:00.000Z'),
       }),
-    ).toEqual({ id: 'u1', name: 'Ada', email: null, createdAt: '2026-03-01T12:00:00.000Z' });
+    ).toEqual({
+      id: 'u1',
+      schemaVersion: 1,
+      name: 'Ada',
+      email: null,
+      createdAt: '2026-03-01T12:00:00.000Z',
+    });
   });
 });
 

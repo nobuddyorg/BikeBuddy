@@ -2,7 +2,8 @@
 
 const { getTours } = require('./index');
 const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
-const { fakeToursContainer } = require('../../test/fakes/cosmosContainer');
+const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const { withFailureResponse } = require('../lib/failureResponse');
 const { signedInAs, signedOut } = require('../../test/fakes/collaborators');
 
 const tour = (overrides) => ({
@@ -73,7 +74,22 @@ describe('GET /api/tours', () => {
 
     const response = await run();
 
-    expect(response).toEqual({ status: 401, jsonBody: { error: 'Unauthorized' } });
+    expect(response).toEqual({ status: 401, jsonBody: { error: 'errors.unauthorized' } });
     expect(tours.calls).toEqual([]);
+  });
+
+  // Cosmos Serverless throttles with 429; the SDK retries, and this is what is left after.
+  it('answers 503 with Retry-After and no internals when Cosmos still throttles', async () => {
+    const { tours, run } = setUp();
+    tours.failOn('query', { error: cosmosError(429, 'Request rate is large. RU charge: 42') });
+    const context = { invocationId: 'invocation-1', error: vi.fn() };
+
+    const response = await withFailureResponse(() => run())({}, context);
+
+    expect(response).toStrictEqual({
+      status: 503,
+      headers: { 'Retry-After': '5' },
+      jsonBody: { error: 'errors.busy', invocationId: 'invocation-1' },
+    });
   });
 });

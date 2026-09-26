@@ -63,4 +63,25 @@ staticTest.describe('selecting tours drives the map', () => {
     await expect(on(page).list.locators.selection.bar).toBeHidden();
     await expect(on(page).map.locators.empty).toBeHidden();
   });
+
+  staticTest('a selection made while the map loads waits for that load', async ({ on, page }) => {
+    const mapRequests: string[] = [];
+    let releaseMap = () => {};
+    const mapHeld = new Promise<void>((resolve) => (releaseMap = resolve));
+    await page.route('**/api/map', async (route) => {
+      mapRequests.push(route.request().url());
+      await mapHeld;
+      await route.fallback();
+    });
+
+    await page.goto('/');
+    await expect(on(page).list.locators.count).toHaveText('2');
+    await on(page).list.do.enterSelectMode();
+    await on(page).list.row('MapSelect Tour With Data').do.click();
+    await expect(on(page).list.locators.selection.count).toHaveText('1 selected');
+    releaseMap();
+
+    await expect(on(page).map.locators.empty).toBeHidden();
+    expect(mapRequests).toHaveLength(1);
+  });
 });

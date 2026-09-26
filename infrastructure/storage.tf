@@ -21,7 +21,7 @@ resource "azurerm_storage_account" "main" {
 
     # Allow the browser to fetch images directly from blob SAS URLs.
     cors_rule {
-      allowed_origins    = ["https://nobuddy.org", "https://nobuddyorg.github.io", "http://localhost:4280"]
+      allowed_origins    = ["https://nobuddy.org", "https://nobuddyorg.github.io"]
       allowed_methods    = ["GET", "HEAD"]
       allowed_headers    = ["*"]
       exposed_headers    = ["*"]
@@ -62,11 +62,20 @@ resource "azurerm_storage_container" "gpx_files" {
   }
 }
 
-# tflint-ignore: azurerm_resources_missing_prevent_destroy # unused and empty; photos live in the unmanaged tour-images container
-resource "azurerm_storage_container" "images" {
-  name                  = "images"
+# Every photo and thumbnail (blobStorage.js); the app created it first, provision.sh imports it once.
+resource "azurerm_storage_container" "tour_images" {
+  name                  = "tour-images"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# The never-used "images" container leaves state without being destroyed; delete it by hand once empty.
+removed {
+  from = azurerm_storage_container.images
 }
 
 # Flex Consumption's deployment package container (functions.tf, storage_container_endpoint).
