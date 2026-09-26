@@ -3,6 +3,7 @@ import { sidebarViewState } from '../lib/sidebarView.js';
 import { state } from './state.js';
 import { apiFetch } from './api.js';
 import { renderAllRoutes } from './routes.js';
+import { isMobileLayout } from './map.js';
 import { selectTour } from './tourPanel.js';
 import { renderTourList } from './tourList.js';
 import { consumeDeepLinkTourId, syncUrl } from './router.js';
@@ -56,6 +57,13 @@ async function openDeepLinkedTour() {
 }
 
 export async function loadTours() {
+  // The phone layout shows the list first and the map only from its button, which loads /map (#580).
+  if (isMobileLayout()) {
+    await fetchTours();
+    renderSidebar();
+    await openDeepLinkedTour();
+    return;
+  }
   // Started with /api/v1/tours: a cold backend then pays its start-up latency once.
   const pendingMapResponse = apiFetch('/api/v1/map');
   // Marked handled: ensureMapData awaits it only while a tour still lacks map data.

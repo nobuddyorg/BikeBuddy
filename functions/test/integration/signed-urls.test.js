@@ -97,4 +97,22 @@ describe('signed blob URLs', () => {
     expect(deleted.status).toBe(204);
     for (const url of urls) expect(await statusOf(url)).toBe(404);
   }, 60_000);
+
+  it('stops reading a deleted photo and its thumbnail, and only those (#567)', async () => {
+    const tour = await createTourWithPhoto(rider);
+    await rider.api.addPhoto({ tourId: tour.id, jpeg });
+    const [doomed, kept] = (await rider.api.readJson(`/tours/${tour.id}`)).images;
+
+    const deleted = await rider.api.request(`/tours/${tour.id}/images/${doomed.id}`, {
+      method: 'DELETE',
+    });
+
+    expect(deleted.status).toBe(204);
+    expect(await statusOf(doomed.url)).toBe(404);
+    expect(await statusOf(doomed.thumbUrl)).toBe(404);
+    expect(await statusOf(kept.url)).toBe(200);
+    expect(await statusOf(kept.thumbUrl)).toBe(200);
+    const remaining = (await rider.api.readJson(`/tours/${tour.id}`)).images;
+    expect(remaining.map((image) => image.id)).toEqual([kept.id]);
+  }, 60_000);
 });

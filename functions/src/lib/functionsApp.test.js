@@ -3,6 +3,7 @@
 const { app } = require('@azure/functions');
 // Loaded once outside any test, so Stryker counts their load-time mutants as static (ignoreStatic).
 require('./failureResponse');
+require('./compression');
 
 function freshFunctionsApp() {
   delete require.cache[require.resolve('./functionsApp')];
@@ -73,7 +74,10 @@ describe('apiRoute', () => {
       },
     });
 
-    const response = await handler({}, { invocationId: 'inv-1', error: () => {} });
+    const response = await handler(
+      { headers: new Headers() },
+      { invocationId: 'inv-1', error: () => {} },
+    );
 
     expect(response).toEqual({
       status: 500,
@@ -84,10 +88,19 @@ describe('apiRoute', () => {
   it('hands the request and context through', async () => {
     const handle = vi.fn(async () => ({ status: 204 }));
     const [{ handler }] = register({ route: 'things', handler: handle });
-    const request = { url: 'x' };
+    const request = { url: 'x', headers: new Headers() };
     const context = { invocationId: 'inv-2' };
 
     expect(await handler(request, context)).toEqual({ status: 204 });
     expect(handle).toHaveBeenCalledWith(request, context);
+  });
+
+  it('compresses a large JSON response for a client that accepts it (#578)', async () => {
+    const jsonBody = { points: Array(5000).fill([48.1, 11.5]) };
+    const [{ handler }] = register({ route: 'things', handler: async () => ({ jsonBody }) });
+
+    const response = await handler({ headers: new Headers({ 'Accept-Encoding': 'br' }) }, {});
+
+    expect(response.headers['Content-Encoding']).toBe('br');
   });
 });

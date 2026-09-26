@@ -132,10 +132,29 @@ two points. A per-tour overview computed at upload would move this cost off
 the request path. The expensive part is that simplification, so an LRU cache
 keys it on tour id and `pointCount` (a track is set once at upload): a warm map
 reads the small tour documents and no track at all. It holds at most 1,000,000 points (about
-75 MB, measured), so a warm instance cannot grow past that (#578). The frontend
+75 MB, measured), so a warm instance cannot grow past that; a read refreshes an entry, so the
+least recently used rider goes first (#578). The frontend
 fetches `/api/v1/map` in parallel with `/api/v1/tours`, so a cold start is paid once,
 and overlapping renders queue behind the load in flight instead of each
 fetching it again (#580).
+
+## Response size and cold start (#578)
+
+- **Compression.** `apiRoute` compresses any JSON response of 32 KB or more for a client that
+  accepts it: brotli at quality 4, else gzip at level 1, with `Vary: Accept-Encoding`
+  (`functions/src/lib/compression.js`). On a 1.9 MB `/map` body those settings took about 60 ms
+  and 25 ms, off the event loop, against 80 to 90 ms for the defaults. Smaller bodies go out
+  as they are: the saving would be a few kilobytes.
+- **The export stays one response.** It is built in memory, not streamed. The upload limits
+  bound it: at most 1,000 tours of at most 5,000 stored points each. That worst case measured
+  about 410 MB of heap and 107 MB of JSON, inside the Function App's 2,048 MB. It runs once per
+  request for one's own data, so streaming it would add moving parts to a GDPR endpoint for no
+  everyday gain.
+- **Ownership reads stay.** `EditTour`, `DeleteTour` and `DeleteImage` read the tour before they
+  write, because every tour-scoped handler loads the tour through `loadOwnedTour` (security.md,
+  "Posture"). Since the track moved out (#615) that read is a small document.
+- **sharp loads on first use.** Every function shares one worker, and `sharp` was 42 of its
+  434 ms of `require` at cold start, paid by every function but only used by uploads.
 
 ## Upload limits (#549)
 
@@ -187,6 +206,19 @@ which the number of tours per rider bounds.
 - Routes draw on one canvas (`preferCanvas`), not an SVG path per tour that is
   re-projected on every zoom. Pin thumbnails load lazily, and pins are grouped
   on a grid, so a zoom compares each pin only with its neighbours (#580).
+- A render keeps the lines of the tracks it drew before and only adds or
+  removes the rest: each track's segments are kept per points array, which a
+  refetch replaces. The in-view list drops a tour wholly outside the view by
+  its extent, without scanning its points. Pins are placed only for photos in
+  and just around the view, re-placed on a debounced `moveend` (#580).
+- The phone layout opens on the list with the map hidden, so it loads
+  `/api/v1/map` only when the map is opened, or when the page grows into the
+  desktop layout (#580).
+- The language is saved in the browser and applied before anything loads. A
+  saved account language that differs reloads the page once on a new device;
+  checking it before `/api/v1/tours` would delay every sign-in for that one
+  case. Changing the language reloads. Photos upload at full size: shrinking
+  them in the browser would drop the EXIF GPS the pins need (#580).
 - Back closes the open panel or modal while the selection stays (#442, #443).
   Closing one with its button or Escape takes its history entry back too, so
   Back never lands on a closed layer, and a reload starts the depth over
@@ -513,8 +545,9 @@ repointed tag cannot move.
 Mutation testing runs on an explicit list of modules (`mutation-targets.mjs`),
 not on a glob: the pure logic whose behaviour unit tests can pin down, the
 Function handlers (called directly with fake requests) and `frontend/src/lib/`.
-Off the list: the Cosmos/Blob adapters and the multipart stream parser, which
-the integration suite exercises against the emulators; the system clock and id
+Off the list: the Cosmos/Blob adapters, which the integration suite exercises
+against the emulators (the multipart parser is on it, unit-tested with a real
+busboy stream); the system clock and id
 source `functions/src/lib/system.js` (nothing to mutate but the platform calls);
 the load-test instrumentation `lib/profiling.js` and its switch `LoadProfiling/`
 (never enabled in production; the load run's report checks them); the thin

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   fuzzyMatchIndices,
@@ -278,6 +278,107 @@ describe('toursInView', () => {
   it('treats a tour with no heatmapData yet as out of view', () => {
     const t = { id: 'a' };
     expect(toursInView([t], BOUNDS)).toEqual([]);
+  });
+
+  it('treats a tour with an empty track as out of view', () => {
+    expect(toursInView([{ id: 'a', heatmapData: [] }], BOUNDS)).toEqual([]);
+  });
+
+  // The filter runs on every map move (#580): a tour wholly outside is dropped from its extent.
+  const unscanned = (points) =>
+    Object.assign([...points], {
+      some() {
+        throw new Error('scanned every point');
+      },
+    });
+
+  it('drops a tour wholly past any one edge without scanning its points', () => {
+    const tracks = [
+      [
+        [30, 10],
+        [39, 10],
+      ],
+      [
+        [51, 10],
+        [60, 10],
+      ],
+      [
+        [45, 0],
+        [45, 4],
+      ],
+      [
+        [45, 16],
+        [45, 20],
+      ],
+    ];
+    const tours = tracks.map((points, index) => ({
+      id: `${index}`,
+      heatmapData: unscanned(points),
+    }));
+    expect(toursInView(tours, BOUNDS)).toEqual([]);
+  });
+
+  it('keeps a tour that only touches the bounds from outside', () => {
+    const at = (points) => ({
+      id: JSON.stringify(points),
+      heatmapData: points,
+    });
+    const touching = [
+      at([
+        [30, 10],
+        [40, 10],
+      ]),
+      at([
+        [50, 10],
+        [60, 10],
+      ]),
+      at([
+        [45, 0],
+        [45, 5],
+      ]),
+      at([
+        [45, 15],
+        [45, 20],
+      ]),
+    ];
+    expect(toursInView(touching, BOUNDS)).toEqual(touching);
+  });
+
+  it('drops a tour that spans the bounds with every point just outside one edge', () => {
+    const at = (points) => ({ id: JSON.stringify(points), heatmapData: points });
+    const straddling = [
+      at([
+        [39.9, 10],
+        [50.1, 10],
+      ]),
+      at([
+        [45, 4.9],
+        [45, 15.1],
+      ]),
+      at([
+        [39.9, 4],
+        [50.1, 16],
+      ]),
+    ];
+    expect(toursInView(straddling, BOUNDS)).toEqual([]);
+  });
+
+  it("measures a track's extent once, and a replaced track again", () => {
+    const measured = (points) => {
+      const track = [...points];
+      track.reduce = vi.fn(Array.prototype.reduce);
+      return track;
+    };
+    const t = { id: 'a', heatmapData: measured([[42, 6]]) };
+    const first = t.heatmapData;
+
+    toursInView([t], BOUNDS);
+    toursInView([t], BOUNDS);
+    expect(first.reduce).toHaveBeenCalledTimes(1);
+
+    t.heatmapData = measured([[0, 0]]);
+    expect(toursInView([t], BOUNDS)).toEqual([]);
+    expect(t.heatmapData.reduce).toHaveBeenCalledTimes(1);
   });
 });
 

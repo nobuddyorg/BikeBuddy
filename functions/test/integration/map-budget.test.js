@@ -50,4 +50,19 @@ describe('GET /api/map budget', () => {
     // Every seeded tour is still on the map, however much it was simplified.
     expect(tours.map((tour) => tour.id).sort()).toEqual([...created].sort());
   });
+
+  // Through the real host: it must pass the worker's encoding on untouched (#578).
+  it.each([
+    ['br', 'br'],
+    ['gzip', 'gzip'],
+    ['identity', null],
+  ])('answers Accept-Encoding %s with Content-Encoding %s', async (accepted, coding) => {
+    const response = await rider.api.request('/map', { headers: { 'Accept-Encoding': accepted } });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-encoding')).toBe(coding);
+    expect(response.headers.get('vary')).toMatch(/accept-encoding/i);
+    // fetch decodes the body, so it reads as the same map either way.
+    expect((await response.json()).map((tour) => tour.id).sort()).toEqual([...created].sort());
+  });
 });

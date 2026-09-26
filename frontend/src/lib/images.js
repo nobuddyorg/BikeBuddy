@@ -33,6 +33,13 @@ export function withImageRestored(images, image) {
 const hasLocation = (image) => typeof image.lat === 'number' && typeof image.lon === 'number';
 
 // The selected tour's photos only, or every tour's on the full map.
+// Inclusive edges, like the in-view list (lib/tours.js).
+export function photosWithin(photos, { south, west, north, east }) {
+  return photos.filter(
+    ({ lat, lon }) => lat >= south && lat <= north && lon >= west && lon <= east,
+  );
+}
+
 export function geotaggedImages({ tours, selectedTourId }) {
   const shown = selectedTourId ? tours.filter((tour) => tour.id === selectedTourId) : tours;
   return shown.flatMap((tour) => imagesOfTour(tour).filter(hasLocation));

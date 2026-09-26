@@ -27,7 +27,9 @@ Every route lives under `/api/v1/` (#579). The paths from before, without
 `v1/` (`POST /api/tours/upload` for the upload), stay registered for pages
 loaded before the move, with the very same handler (`apiRoute` in
 `lib/functionsApp.js`; `test/unit/endpoints.test.js` holds each alias to it).
-They are deprecated: the frontend calls only `/api/v1/`.
+They are deprecated: the frontend calls only `/api/v1/`. `apiRoute` also
+answers an unexpected failure with JSON and compresses JSON of 32 KB or more
+for a client that accepts brotli or gzip (#578).
 
 | Route                                     | Function                                                              |
 | ----------------------------------------- | --------------------------------------------------------------------- |

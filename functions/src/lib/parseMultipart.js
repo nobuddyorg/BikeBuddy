@@ -113,4 +113,4 @@ async function parseMultipart(request, { fieldNames } = {}) {
   });
 }
 
-module.exports = { parseMultipart, MAX_FILE_BYTES, MULTIPART_OVERHEAD_BYTES };
+module.exports = { parseMultipart, MAX_FILE_BYTES };

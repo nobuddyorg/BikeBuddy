@@ -141,6 +141,26 @@ describe('createHeatmapCache', () => {
     expect(compute).toHaveBeenCalledTimes(4);
   });
 
+  it('keeps the entry read most recently, evicting the least recently used (#578)', async () => {
+    const cache = createHeatmapCache({ maxPoints: 4 });
+    const compute = vi.fn(tracksOf);
+    const at = async (userId) => {
+      const tours = toursWith('a', 2);
+      await cache.getOrCompute({ userId, tours, compute: () => compute(tours) });
+    };
+
+    await at('u1');
+    await at('u2');
+    await at('u1');
+    await at('u3');
+    await at('u1');
+
+    // u1 was read after u2, so u3's arrival evicted u2 and u1 was still cached.
+    expect(compute).toHaveBeenCalledTimes(3);
+    await at('u2');
+    expect(compute).toHaveBeenCalledTimes(4);
+  });
+
   it('never keeps a result larger than maxPoints', async () => {
     const cache = createHeatmapCache({ maxPoints: 2 });
     const compute = vi.fn(tracksOf);
@@ -164,9 +184,14 @@ describe('createHeatmapCache', () => {
     await at('u1', 500000);
     await at('u2', 500000);
     await at('u1', 500000);
+    await at('u2', 500000);
+    // A million points fit: both stayed.
+    expect(compute).toHaveBeenCalledTimes(2);
+
     await at('u3', 1);
     await at('u1', 500000);
 
+    // One more point evicted u1, the least recently used.
     expect(compute).toHaveBeenCalledTimes(4);
   });
 });

@@ -1,5 +1,10 @@
-import { expect, fullstackTest } from './fullstack-test';
+import { AFTER_UNDO_WINDOW, expect, fullstackTest } from './fullstack-test';
 import { PHOTOS } from './seed';
+import { devUserBlobNames } from './store';
+
+// A photo is stored as its full image and its thumbnail (functions/src/UploadImage).
+const storedPhotoBlobs = async () =>
+  (await devUserBlobNames()).filter((name) => name.startsWith('tour-images/'));
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -23,8 +28,12 @@ fullstackTest(
     await on(page).detail.do.addPhotos(PHOTOS.untagged);
     await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(2);
 
+    await expect.poll(storedPhotoBlobs).toHaveLength(4);
+
     await on(page).detail.do.deletePhoto(0);
     await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
+    // The deleted photo's blobs are gone, the other photo's stay (#567).
+    await expect.poll(storedPhotoBlobs, AFTER_UNDO_WINDOW).toHaveLength(2);
   },
 );
 
