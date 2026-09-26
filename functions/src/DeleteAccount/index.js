@@ -1,65 +1,52 @@
 'use strict';
 
-const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const {
-  usersContainer,
-  toursContainer,
-  deletionsContainer,
-  readItem,
-  queryUserItems,
-} = require('../lib/db');
-const { gpxContainer, imagesContainer } = require('../lib/blobStorage');
+const { apiRoute } = require('../lib/functionsApp');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const blobStorage = require('../lib/blobStorage');
+const system = require('../lib/system');
+const { purgeAccountData } = require('../lib/accountPurge');
 const { unauthorized } = require('../lib/http');
 
-async function deleteBlobsByPrefix(container, prefix) {
-  const names = [];
-  for await (const blob of container.listBlobsFlat({ prefix })) {
-    names.push(blob.name);
-  }
-  await Promise.all(names.map((name) => container.deleteBlob(name)));
-}
-
-// DELETE /api/account — tours, blobs and the user doc go now; the Entra identity
-// is queued for out-of-band deletion, because the public API must never hold the
-// privileged "delete any user" Graph credential (GDPR).
 async function deleteAccount(
   request,
-  auth = authenticate,
-  getUsers = usersContainer,
-  getTours = toursContainer,
-  getGpx = gpxContainer,
-  getImages = imagesContainer,
-  getDeletions = deletionsContainer,
+  {
+    authenticate = authMiddleware.authenticate,
+    usersContainer = db.usersContainer,
+    toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
+    deletionsContainer = db.deletionsContainer,
+    gpxContainer = blobStorage.gpxContainer,
+    imagesContainer = blobStorage.imagesContainer,
+    now = system.currentTime,
+  } = {},
 ) {
-  const user = await auth(request);
+  const user = await authenticate(request);
   if (!user) return unauthorized();
   const { userId, userOid } = user;
 
-  // Queued first, so the intent survives a later step failing. Only real Entra
-  // users have an oid.
+  // Queued first to survive a later failure; the job purges userId again before the identity goes.
   if (userOid) {
-    await getDeletions().items.upsert({ id: userOid, requestedAt: new Date().toISOString() });
+    await db.upsertItem(deletionsContainer(), {
+      id: userOid,
+      userId,
+      requestedAt: now().toISOString(),
+    });
   }
-
-  const toursC = getTours();
-  const tours = await queryUserItems(toursC, userId, 'SELECT c.id FROM c WHERE c.userId = @userId');
-  await Promise.all(tours.map((tour) => toursC.item(tour.id, userId).delete()));
-
-  // Blobs are namespaced under `${userId}/` in both containers.
-  const prefix = `${userId}/`;
-  await deleteBlobsByPrefix(await getGpx(), prefix);
-  await deleteBlobsByPrefix(await getImages(), prefix);
-
-  const userDoc = await readItem(getUsers(), userId, userId);
-  if (userDoc) await getUsers().item(userId, userId).delete();
+  await purgeAccountData({
+    userId,
+    toursContainer,
+    tracksContainer,
+    usersContainer,
+    gpxContainer,
+    imagesContainer,
+  });
 
   return { status: 204 };
 }
 
-app.http('DeleteAccount', {
+apiRoute('DeleteAccount', {
   methods: ['delete'],
-  authLevel: 'anonymous',
   route: 'account',
   /* v8 ignore next */
   handler: (request) => deleteAccount(request),

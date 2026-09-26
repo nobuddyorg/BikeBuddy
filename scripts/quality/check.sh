@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Description: Run the Definition of done (CLAUDE.md) in order; --stack adds the suites that need the local stack
-# Stops at the first red gate. --stack expects `development start-cosmos` and `start-backend` (SKIP_AUTH=true).
+# Stops at the first red gate. --stack expects `development start-cosmos`, `node functions/scripts/init-cosmos.js`
+# and `start-backend` (SKIP_AUTH=true) for the e2e, Lighthouse and ZAP steps.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"

@@ -2,23 +2,32 @@
 
 const { parseMultipart, MAX_FILE_BYTES } = require('./parseMultipart');
 
+// The published limits, as literals: a change to either one is a decision, not a refactor (#567).
+const DECLARED_LENGTH_LIMIT = 10 * 1024 * 1024 + 16 * 1024;
+
 const BOUNDARY = '----bikebuddytest';
 
-// Minimal multipart/form-data body with a single file part.
-function multipartBody(content, { filename = 'tour.gpx', mimeType = 'application/gpx+xml' } = {}) {
+const fieldPart = ([name, value]) =>
+  `--${BOUNDARY}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+
+// Minimal multipart/form-data body with a single file part, text fields before and after it.
+function multipartBody(
+  content,
+  { filename = 'tour.gpx', mimeType = 'application/gpx+xml', before = [], after = [] } = {},
+) {
   return Buffer.concat([
+    Buffer.from(before.map(fieldPart).join('')),
     Buffer.from(
       `--${BOUNDARY}\r\n` +
         `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
         `Content-Type: ${mimeType}\r\n\r\n`,
     ),
     Buffer.isBuffer(content) ? content : Buffer.from(content),
-    Buffer.from(`\r\n--${BOUNDARY}--\r\n`),
+    Buffer.from(`\r\n${after.map(fieldPart).join('')}--${BOUNDARY}--\r\n`),
   ]);
 }
 
-// A v4 HttpRequest is only touched for .headers.entries() and .body (a web
-// ReadableStream), so a fake with those two is enough.
+// The parser only touches .headers.entries() and .body (a web ReadableStream).
 function makeRequest(
   body,
   {
@@ -38,8 +47,8 @@ function makeRequest(
         ? null
         : new ReadableStream({
             start(controller) {
-              for (let i = 0; i < body.length; i += chunkSize) {
-                controller.enqueue(new Uint8Array(body.subarray(i, i + chunkSize)));
+              for (let offset = 0; offset < body.length; offset += chunkSize) {
+                controller.enqueue(new Uint8Array(body.subarray(offset, offset + chunkSize)));
               }
               controller.close();
             },
@@ -54,38 +63,36 @@ describe('parseMultipart', () => {
     expect(file.filename).toBe('tour.gpx');
     expect(file.mimeType).toBe('application/gpx+xml');
     expect(file.buffer.toString()).toBe('<gpx/>');
+    expect(file.fields).toEqual({});
   });
 
   it('rejects a declared Content-Length over the limit before reading the body', async () => {
-    // A body that would otherwise parse fine — only the header is oversized, so
-    // this proves the pre-check fires rather than the streaming limit.
-    const req = makeRequest(multipartBody('<gpx/>'), { contentLength: MAX_FILE_BYTES + 1 });
-
-    await expect(parseMultipart(req)).rejects.toMatchObject({
-      status: 400,
-      message: 'File exceeds 10 MB limit',
+    const request = makeRequest(multipartBody('<gpx/>'), {
+      contentLength: DECLARED_LENGTH_LIMIT + 1,
     });
-    expect(req.body.locked).toBe(false);
+
+    await expect(parseMultipart(request)).rejects.toMatchObject({
+      status: 400,
+      message: 'errors.fileSize',
+    });
+    expect(request.body.locked).toBe(false);
   });
 
   it('rejects an oversized upload that declares no Content-Length', async () => {
-    // The chunked case the old Content-Length pre-check could not catch: no
-    // length header at all, so only the streaming limit can stop it.
     const oversized = multipartBody(Buffer.alloc(MAX_FILE_BYTES + 1024, 0x41));
 
     await expect(parseMultipart(makeRequest(oversized))).rejects.toMatchObject({
       status: 400,
-      message: 'File exceeds 10 MB limit',
+      message: 'errors.fileSize',
     });
   });
 
   it('rejects an oversized upload that under-declares its Content-Length', async () => {
-    // Content-Length is attacker-controlled; a low value must not buy a pass.
     const oversized = multipartBody(Buffer.alloc(MAX_FILE_BYTES + 1024, 0x41));
 
     await expect(
       parseMultipart(makeRequest(oversized, { contentLength: 10 })),
-    ).rejects.toMatchObject({ status: 400, message: 'File exceeds 10 MB limit' });
+    ).rejects.toMatchObject({ status: 400, message: 'errors.fileSize' });
   });
 
   it('accepts a file exactly at the limit', async () => {
@@ -95,13 +102,40 @@ describe('parseMultipart', () => {
     expect(file.buffer.length).toBe(MAX_FILE_BYTES);
   });
 
-  it('rejects a malformed multipart request (no boundary)', async () => {
-    const req = makeRequest(multipartBody('<gpx/>'), { contentType: 'multipart/form-data' });
+  // A browser declares the whole body, so the file's own 10 MB plus the multipart framing.
+  it('accepts a file at the limit whose Content-Length counts the multipart framing', async () => {
+    const atLimit = multipartBody(Buffer.alloc(MAX_FILE_BYTES, 0x41));
+    const request = makeRequest(atLimit, { contentLength: atLimit.length });
 
-    await expect(parseMultipart(req)).rejects.toMatchObject({
-      status: 400,
-      message: 'Invalid multipart request',
+    const file = await parseMultipart(request);
+
+    expect(atLimit.length).toBeGreaterThan(MAX_FILE_BYTES);
+    expect(file.buffer.length).toBe(MAX_FILE_BYTES);
+  });
+
+  it('still reads the body when the declared length is at most the limit plus framing', async () => {
+    const request = makeRequest(multipartBody('<gpx/>'), {
+      contentLength: DECLARED_LENGTH_LIMIT,
     });
+
+    expect((await parseMultipart(request)).buffer.toString()).toBe('<gpx/>');
+  });
+
+  it('rejects a malformed multipart request (no boundary)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const request = makeRequest(multipartBody('<gpx/>'), {
+        contentType: 'multipart/form-data',
+      });
+
+      await expect(parseMultipart(request)).rejects.toMatchObject({
+        status: 400,
+        message: 'errors.invalidUpload',
+      });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Boundary not found'));
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('rejects when there is no file field', async () => {
@@ -109,39 +143,36 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(noFile))).rejects.toMatchObject({
       status: 400,
-      message: 'No file field found in request',
+      message: 'errors.noFile',
     });
   });
 
   it('rejects a request with no body at all', async () => {
     await expect(parseMultipart(makeRequest(null))).rejects.toMatchObject({
       status: 400,
-      message: 'No file field found in request',
+      message: 'errors.noFile',
     });
   });
 
   it('rejects when the body stream errors mid-transfer', async () => {
-    const req = makeRequest(multipartBody('<gpx/>'));
-    req.body = new ReadableStream({
+    const request = makeRequest(multipartBody('<gpx/>'));
+    request.body = new ReadableStream({
       start(controller) {
         controller.enqueue(new Uint8Array(Buffer.from(`--${BOUNDARY}\r\n`)));
         controller.error(new Error('connection reset'));
       },
     });
 
-    // The transport failed, not the server — a 500 here would blame BikeBuddy
-    // for a connection the client dropped.
-    await expect(parseMultipart(req)).rejects.toMatchObject({
+    // The client dropped the connection; a 500 would blame the server.
+    await expect(parseMultipart(request)).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
   });
 
-  // A connection dropped mid-upload: busboy surfaces it on the file stream
-  // once a file part has started, and on itself when it has not. Both must
-  // settle the promise — an unsettled one leaves the request hanging — and
-  // both are broken request syntax, so 400 rather than 500.
-  it('rejects a request that ends mid-file as a client error', async () => {
+  // A dropped connection errors the file stream and busboy with one error, logged once.
+  it('rejects a request that ends mid-file as a client error, logging it once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const truncated = Buffer.from(
       `--${BOUNDARY}\r\n` +
         `Content-Disposition: form-data; name="file"; filename="tour.gpx"\r\n` +
@@ -150,8 +181,10 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it('rejects a request that ends inside the part headers as a client error', async () => {
@@ -161,12 +194,10 @@ describe('parseMultipart', () => {
 
     await expect(parseMultipart(makeRequest(truncated))).rejects.toMatchObject({
       status: 400,
-      message: 'Invalid multipart request',
+      message: 'errors.invalidUpload',
     });
   });
 
-  // busboy's own wording is English-only and moves with the library, so it is
-  // logged for diagnosis instead of being handed to the uploader.
   it('logs the underlying parser error without returning it', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const truncated = Buffer.from(
@@ -184,5 +215,69 @@ describe('parseMultipart', () => {
     const file = await parseMultipart(makeRequest(multipartBody(content), { chunkSize: 64 }));
 
     expect(file.buffer.toString()).toBe(content);
+  });
+
+  describe('text fields (#579)', () => {
+    const TOUR_FIELDS = { fieldNames: ['name', 'description'] };
+    const parseWith = (body, options = TOUR_FIELDS) => parseMultipart(makeRequest(body), options);
+
+    it('collects the named fields, before and after the file', async () => {
+      const body = multipartBody('<gpx/>', {
+        before: [['name', 'Alps <b>& more</b>']],
+        after: [['description', 'Über den Pass']],
+      });
+
+      const upload = await parseWith(body);
+
+      expect(upload.fields).toEqual({ name: 'Alps <b>& more</b>', description: 'Über den Pass' });
+      expect(upload.buffer.toString()).toBe('<gpx/>');
+    });
+
+    it('accepts a value of the full field size', async () => {
+      const value = 'a'.repeat(8 * 1024);
+
+      const upload = await parseWith(multipartBody('<gpx/>', { before: [['description', value]] }));
+
+      expect(upload.fields.description).toBe(value);
+    });
+
+    it.each([
+      ['a field it was not given', { before: [['userId', 'u2']] }],
+      ['a field twice', { before: [['name', 'a']], after: [['name', 'b']] }],
+      ['a value past the field size', { before: [['description', 'a'.repeat(8 * 1024 + 1)]] }],
+      [
+        'more fields than it names',
+        {
+          before: [
+            ['name', 'a'],
+            ['description', 'b'],
+            ['name', 'c'],
+          ],
+        },
+      ],
+    ])('refuses %s as invalidUpload', async (_label, parts) => {
+      await expect(parseWith(multipartBody('<gpx/>', parts))).rejects.toMatchObject({
+        status: 400,
+        message: 'errors.invalidUpload',
+      });
+    });
+
+    it('refuses any field when it names none', async () => {
+      const body = multipartBody('<jpeg/>', { before: [['name', 'a']] });
+
+      await expect(parseWith(body, {})).rejects.toMatchObject({
+        status: 400,
+        message: 'errors.invalidUpload',
+      });
+    });
+
+    it('still refuses a body with fields but no file as noFile', async () => {
+      const body = Buffer.from(`${fieldPart(['name', 'a'])}--${BOUNDARY}--\r\n`);
+
+      await expect(parseWith(body)).rejects.toMatchObject({
+        status: 400,
+        message: 'errors.noFile',
+      });
+    });
   });
 });

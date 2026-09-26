@@ -1,77 +1,38 @@
-import { buddyTest, expect } from '../pages/buddy-test';
+import { expect, mockPhoto, mockTour, staticTest } from '../fixtures/api-mocks';
 
-// Regression guard for #239: the mobile full-screen tour detail must not be the
-// only place pins live — the "Photo pins" toggle sits on the map and has to stay
-// visible and tappable on the mobile map view, reached via the FAB now that the
-// map is off-screen by default on the mobile list home screen. The full-stack
-// photo-pins spec only runs at desktop width, so this stubs the API and drives
-// a phone viewport.
+// The full-stack photo-pins spec runs at desktop width only; the toggle must work on a phone too.
 
-const TID = '22222222-2222-4222-8222-222222222222';
-// 1x1 transparent PNG — the marker only needs a valid <img> src, not a real blob.
-const PX =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
-
-const geotaggedTour = {
-  id: TID,
-  userId: 'local-dev-user',
-  name: 'Geotagged Tour',
-  description: '',
-  distance: 5,
-  createdAt: '2026-07-01T00:00:00.000Z',
-  heatmapData: [
-    [48.1, 11.5],
-    [48.2, 11.6],
-  ],
-  // Two photos at the same spot → fanned into two markers.
-  images: [
-    { id: '33333333-3333-4333-8333-333333333333', url: PX, lat: 48.1, lon: 11.5 },
-    { id: '44444444-4444-4444-8444-444444444444', url: PX, lat: 48.1, lon: 11.5 },
-  ],
-};
-
-const json = (body: unknown) => ({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify(body),
+staticTest.use({
+  viewport: { width: 390, height: 844 },
+  mockAccount: {
+    tours: [
+      mockTour({
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Geotagged Tour',
+        heatmapData: [
+          [48.1, 11.5],
+          [48.2, 11.6],
+        ],
+        // Two photos at the same spot → fanned into two markers.
+        images: [
+          mockPhoto({ id: '33333333-3333-4333-8333-333333333333', lat: 48.1, lon: 11.5 }),
+          mockPhoto({ id: '44444444-4444-4444-8444-444444444444', lat: 48.1, lon: 11.5 }),
+        ],
+      }),
+    ],
+  },
 });
 
-buddyTest.describe('photo pins (mobile)', () => {
-  buddyTest.use({ viewport: { width: 390, height: 844 } });
+staticTest('toggle is visible and reveals pins on the mobile map view', async ({ on, page }) => {
+  await page.goto('/');
+  await expect(on(page).main.locators.userMenu).toBeVisible();
+  await expect(on(page).list.locators.names).toHaveText(['Geotagged Tour']);
 
-  buddyTest.beforeEach(async ({ page }) => {
-    // GET /api/tours omits heatmapData/images (see GetTours); GET /api/map is
-    // what brings the track and the geotagged images in for the map view.
-    const { id, name, description, distance, createdAt, heatmapData, images } = geotaggedTour;
-    const listItem = { id, name, description, distance, createdAt };
-    const mapEntry = { id, heatmapData, images };
-    await page.route('**/api/me', (route) =>
-      route.fulfill(
-        json({
-          id: 'local-dev-user',
-          name: 'Dev',
-          email: 'dev@localhost',
-          createdAt: '2026-01-01',
-        }),
-      ),
-    );
-    await page.route('**/api/map', (route) => route.fulfill(json([mapEntry])));
-    await page.route('**/api/tours/*', (route) => route.fulfill(json(geotaggedTour)));
-    await page.route('**/api/tours', (route) => route.fulfill(json([listItem])));
-  });
+  await on(page).main.do.openMobileMap();
 
-  buddyTest('toggle is visible and reveals pins on the mobile map view', async ({ on, page }) => {
-    await page.goto('/');
-    await expect(on(page).main.locators.userMenu).toBeVisible();
-    await expect(on(page).main.locators.list.container).toContainText('Geotagged Tour');
-
-    await on(page).main.do.openMobileMap();
-
-    // The toggle appears once geotagged images are loaded, and must be tappable
-    // (not covered) on the phone-width map view.
-    await expect(on(page).main.locators.pins.toggle).toBeVisible();
-    await on(page).main.do.showPins(true);
-    await expect(on(page).main.locators.pins.markers).toHaveCount(2);
-    await on(page).a11y.check('mobile map with photo pins');
-  });
+  // Must be tappable, not covered, on the phone-width map view.
+  await expect(on(page).map.locators.pins.toggle).toBeVisible();
+  await on(page).map.do.showPins();
+  await expect(on(page).map.locators.pins.markers).toHaveCount(2);
+  await on(page).a11y.check('mobile map with photo pins');
 });

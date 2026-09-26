@@ -1,110 +1,137 @@
 // @ts-check
-'use strict';
 
-// Pure tour-list logic: sorting, fuzzy search, paging.
+export const PAGE_SIZE = 10;
 
-const tourTime = (t) => new Date(t.createdAt).getTime() || 0;
+// In the order the sort controls list them; labelKey is the i18n key.
+export const SORT_OPTIONS = [
+  { key: 'date-desc', labelKey: 'sort.dateDesc' },
+  { key: 'date-asc', labelKey: 'sort.dateAsc' },
+  { key: 'name-asc', labelKey: 'sort.nameAsc' },
+  { key: 'name-desc', labelKey: 'sort.nameDesc' },
+  { key: 'length-desc', labelKey: 'sort.lengthDesc' },
+  { key: 'length-asc', labelKey: 'sort.lengthAsc' },
+];
+export const DEFAULT_SORT = 'date-desc';
 
-const SORTERS = {
-  'date-desc': (a, b) => tourTime(b) - tourTime(a),
-  'date-asc': (a, b) => tourTime(a) - tourTime(b),
-  'name-asc': (a, b) => (a.name || '').localeCompare(b.name || ''),
-  'name-desc': (a, b) => (b.name || '').localeCompare(a.name || ''),
-  'length-desc': (a, b) => (b.distance || 0) - (a.distance || 0),
-  'length-asc': (a, b) => (a.distance || 0) - (b.distance || 0),
-};
+// An exact name beats a prefix, a word start, a substring, then any scattered subsequence.
+const EXACT_SCORE = 1000;
+const PREFIX_SCORE = 900;
+const WORD_START_SCORE = 800;
+const SUBSTRING_SCORE = 600;
+const SUBSEQUENCE_CEILING = 400;
+// Pushes a description hit below every name hit, however weak.
+const DESCRIPTION_PENALTY = 1000;
 
-// Subsequence match: every char of the query appears in order. Returns the
-// matched indices into `text`, or null when it doesn't fully match.
+const tourTime = (tour) => new Date(tour.createdAt).getTime() || 0;
+
+function sorters(locale) {
+  const collator = new Intl.Collator(locale);
+  return {
+    'date-desc': (a, b) => tourTime(b) - tourTime(a),
+    'date-asc': (a, b) => tourTime(a) - tourTime(b),
+    'name-asc': (a, b) => collator.compare(a.name || '', b.name || ''),
+    'name-desc': (a, b) => collator.compare(b.name || '', a.name || ''),
+    'length-desc': (a, b) => (b.distance || 0) - (a.distance || 0),
+    'length-asc': (a, b) => (a.distance || 0) - (b.distance || 0),
+  };
+}
+
+// Every query character in order; a miss or an empty query highlights nothing.
 export function fuzzyMatchIndices(query, text) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const t = (text || '').toLowerCase();
+  const needle = query.trim().toLowerCase();
+  const haystack = (text || '').toLowerCase();
   const indices = [];
-  let i = 0;
-  for (let pos = 0; pos < t.length && i < q.length; pos++) {
-    if (t[pos] === q[i]) {
-      indices.push(pos);
-      i++;
-    }
+  for (let position = 0; position < haystack.length; position++) {
+    if (haystack[position] === needle[indices.length]) indices.push(position);
   }
-  return i === q.length ? indices : null;
+  const matched = indices.length === needle.length;
+  return { matched, indices: matched ? indices : [] };
 }
 
-export function fuzzyMatch(query, text) {
-  return fuzzyMatchIndices(query, text) !== null;
+function contiguousScore({ haystack, needle, start }) {
+  if (haystack === needle) return EXACT_SCORE;
+  if (start === 0) return PREFIX_SCORE;
+  if (haystack[start - 1] === ' ' || haystack[start - 1] === '-') return WORD_START_SCORE;
+  return SUBSTRING_SCORE;
 }
 
-// Higher is better; null means no match. Ranks an exact/prefix/word-boundary
-// substring above a merely contiguous one, and any contiguous run above a
-// scattered subsequence — a tighter scatter still beats a sprawling one — so
-// short queries (which match almost everything as a scattered subsequence)
-// still float the real hits to the top.
+// Any contiguous run outranks a scatter, and a tight scatter outranks a sprawling one.
 export function matchScore(query, text) {
-  const q = query.trim().toLowerCase();
-  if (!q) return 0;
-  const t = (text || '').toLowerCase();
-  const idx = t.indexOf(q);
-  if (idx !== -1) {
-    if (idx === 0 && t.length === q.length) return 1000;
-    if (idx === 0) return 900;
-    if (t[idx - 1] === ' ' || t[idx - 1] === '-') return 800;
-    return 600;
-  }
-  // q is non-empty here, so a match has at least one index.
-  const indices = fuzzyMatchIndices(q, t);
-  if (!indices) return null;
+  const needle = query.trim().toLowerCase();
+  if (!needle) return { matched: true, score: 0 };
+  const haystack = text.toLowerCase();
+  const start = haystack.indexOf(needle);
+  if (start !== -1) return { matched: true, score: contiguousScore({ haystack, needle, start }) };
+  const { matched, indices } = fuzzyMatchIndices(needle, haystack);
+  if (!matched) return { matched: false, score: 0 };
   const span = indices[indices.length - 1] - indices[0] + 1;
-  return Math.max(1, 400 - span);
+  return { matched: true, score: Math.max(1, SUBSEQUENCE_CEILING - span) };
 }
 
-// Ranks by relevance when searching name and description; falls back to the
-// chosen sort (as tiebreaker, and outright when the box is empty).
-export function visibleTours(tours, sort, search) {
-  const sorter = SORTERS[sort] || SORTERS['date-desc'];
-  const q = (search || '').trim();
-  if (!q) return [...tours].sort(sorter);
+function relevance({ tour, query }) {
+  const byName = matchScore(query, tour.name || '');
+  if (byName.matched) return [{ tour, score: byName.score }];
+  const byDescription = matchScore(query, tour.description || '');
+  if (!byDescription.matched) return [];
+  return [{ tour, score: byDescription.score - DESCRIPTION_PENALTY }];
+}
+
+// Relevance first; the chosen sort breaks ties, and is the only order without a query.
+export function visibleTours({ tours, sort, search, locale }) {
+  const byKey = sorters(locale);
+  const sorter = byKey[sort] || byKey[DEFAULT_SORT];
+  // Without a query every tour matches neutrally, so the chosen sort alone decides.
   return tours
-    .map((tour) => {
-      const nameScore = matchScore(q, tour.name || '');
-      if (nameScore !== null) return { tour, score: nameScore };
-      const descScore = matchScore(q, tour.description || '');
-      // Pushed below every name match, however weak, since a hit buried in
-      // the description is a weaker signal than any hit in the name.
-      return descScore !== null ? { tour, score: descScore - 1000 } : null;
-    })
-    .filter(Boolean)
+    .flatMap((tour) => relevance({ tour, query: search || '' }))
     .sort((a, b) => b.score - a.score || sorter(a.tour, b.tour))
     .map(({ tour }) => tour);
 }
 
-// "In view" means partially on screen, not fully contained. Takes a plain
-// {south, west, north, east} rather than a Leaflet LatLngBounds so this stays
-// framework-free. A tour whose heatmapData isn't loaded yet counts as out.
+// Per points array: a refetch assigns a new array, so an extent can never go stale.
+const extents = new WeakMap();
+
+function extentOf(points) {
+  if (!extents.has(points)) {
+    extents.set(
+      points,
+      points.reduce(
+        (extent, [lat, lon]) => ({
+          south: Math.min(extent.south, lat),
+          north: Math.max(extent.north, lat),
+          west: Math.min(extent.west, lon),
+          east: Math.max(extent.east, lon),
+        }),
+        { south: Infinity, north: -Infinity, west: Infinity, east: -Infinity },
+      ),
+    );
+  }
+  return extents.get(points);
+}
+
+// A tour wholly outside is dropped by its extent, unscanned; any other stops at its first point in view.
+const extentOutside = (bounds, extent) =>
+  extent.north < bounds.south ||
+  extent.south > bounds.north ||
+  extent.east < bounds.west ||
+  extent.west > bounds.east;
+
+const isInside =
+  ({ south, west, north, east }) =>
+  ([lat, lon]) =>
+    lat >= south && lat <= north && lon >= west && lon <= east;
+
+// Partially on screen counts as in view; a tour without loaded heatmapData does not.
 export function toursInView(tours, bounds) {
-  if (!bounds) return tours;
-  const { south, west, north, east } = bounds;
-  return tours.filter((t) =>
-    (t.heatmapData || []).some(
-      ([lat, lon]) => lat >= south && lat <= north && lon >= west && lon <= east,
-    ),
-  );
+  return tours.filter((tour) => {
+    const points = tour.heatmapData;
+    if (!points?.length) return false;
+    if (extentOutside(bounds, extentOf(points))) return false;
+    return points.some(isInside(bounds));
+  });
 }
 
-// Keeps the original time-of-day, so correcting a tour's date doesn't clobber
-// the time it was recorded at.
-export function withUpdatedDate(originalIso, dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const combined = new Date(originalIso);
-  combined.setUTCFullYear(y, m - 1, d);
-  return combined.toISOString();
-}
-
-export const PAGE_SIZE = 10;
-
-// Clamps `page` into range, so a stale page number left over from a larger
-// result set never produces an empty slice.
-export function paginate(items, page, pageSize) {
+// A stale page number from a larger result set lands on the last page, not an empty one.
+export function paginate({ items, page, pageSize }) {
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const clamped = Math.min(Math.max(1, page), totalPages);
   const start = (clamped - 1) * pageSize;
@@ -114,3 +141,109 @@ export function paginate(items, page, pageSize) {
     totalPages,
   };
 }
+
+export function tourListView({ tours, sort, search, locale, page, inViewBounds }) {
+  const scoped = inViewBounds ? toursInView(tours, inViewBounds) : tours;
+  const visible = visibleTours({ tours: scoped, sort, search, locale });
+  return {
+    ...paginate({ items: visible, page, pageSize: PAGE_SIZE }),
+    visibleCount: visible.length,
+    totalCount: tours.length,
+    filtered: Boolean(inViewBounds) || search.trim() !== '',
+  };
+}
+
+export function matchRuns(text, indices) {
+  const matched = new Set(indices);
+  const runs = [];
+  for (let index = 0; index < text.length; index++) {
+    const isMatched = matched.has(index);
+    const lastRun = runs[runs.length - 1];
+    if (lastRun?.matched === isMatched) lastRun.text += text[index];
+    else runs.push({ text: text[index], matched: isMatched });
+  }
+  return runs;
+}
+
+// The calendar date and time of day an instant shows in timeZone (undefined: the browser's own).
+function wallClock(instant, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(instant);
+  return Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+}
+
+function offsetMs(instantMs, timeZone) {
+  const shown = wallClock(new Date(instantMs), timeZone);
+  const shownAsUtc = Date.UTC(
+    Number(shown.year),
+    Number(shown.month) - 1,
+    Number(shown.day),
+    Number(shown.hour),
+    Number(shown.minute),
+    Number(shown.second),
+  );
+  return shownAsUtc - Math.floor(instantMs / 1000) * 1000;
+}
+
+// The date as the detail view shows it; keeps the local time of day the ride was recorded at.
+export function withUpdatedDate(originalIso, date, timeZone) {
+  const original = new Date(originalIso);
+  const time = wallClock(original, timeZone);
+  const [year, month, day] = date.split('-').map(Number);
+  const target = Date.UTC(
+    year,
+    month - 1,
+    day,
+    Number(time.hour),
+    Number(time.minute),
+    Number(time.second),
+    original.getUTCMilliseconds(),
+  );
+  // A second pass settles a daylight-saving change between the guess and the answer; when the
+  // two disagree the time falls in the spring-forward gap, and the guess moves it forward.
+  const guess = target - offsetMs(target, timeZone);
+  const settled = target - offsetMs(guess, timeZone);
+  const inGap = offsetMs(settled, timeZone) !== offsetMs(guess, timeZone);
+  return new Date(inGap ? guess : settled).toISOString();
+}
+
+// The local calendar date, as an <input type="date"> value.
+export function toDateInputValue(iso, timeZone) {
+  if (!iso) return '';
+  const { year, month, day } = wallClock(new Date(iso), timeZone);
+  return `${year}-${month}-${day}`;
+}
+
+export function buildTourPatch({ name, description, date, createdAt }) {
+  return {
+    name: name.trim(),
+    description: description.trim(),
+    createdAt: withUpdatedDate(createdAt, date),
+  };
+}
+
+export function removeToursById(tours, ids) {
+  return tours.filter((tour) => !ids.includes(tour.id));
+}
+
+export function deletionFailureMessage({ succeededCount, totalCount }) {
+  if (succeededCount === 0) return { key: 'toast.tourDeleteError', params: {} };
+  return {
+    key: 'toast.toursDeletedPartial',
+    params: { deleted: succeededCount, count: totalCount },
+  };
+}
+
+// The key a pending tour delete is filed under (ui/undoableAction.js), to hide it from a refetch.
+export const tourKey = (tourId) => `tour:${tourId}`;
+
+// A DELETE that finds nothing left to delete (another tab, a repeated request) still succeeded.
+export const isDeleted = (response) => response.ok || response.status === 404;

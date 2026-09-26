@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Single entry point: ./buddy.sh <group> <command> [options]
-# Groups/commands are scripts/<group>/<command>.sh; --help is generated from
-# each script's `# Description:` line.
+# --help lists each scripts/<group>/<command>.sh by its `# Description:` line.
 set -euo pipefail
 
 cd "$(dirname "$0")" || exit 1
@@ -25,23 +23,23 @@ print_help() {
 
     commands=()
     descriptions=()
-    max_len=0
+    max_length=0
 
     for script_path in "$group_dir"*.sh; do
       [ -e "$script_path" ] || continue
-      local cmd=${script_path##*/}; cmd=${cmd%.sh}
-      local desc; desc=$(description_of "$script_path")
-      [ -z "$desc" ] && continue
-      commands+=("$cmd")
-      descriptions+=("$desc")
-      ((${#cmd} > max_len)) && max_len=${#cmd}
+      local command_name=${script_path##*/}; command_name=${command_name%.sh}
+      local description; description=$(description_of "$script_path")
+      [ -z "$description" ] && continue
+      commands+=("$command_name")
+      descriptions+=("$description")
+      ((${#command_name} > max_length)) && max_length=${#command_name}
     done
 
     [ ${#commands[@]} -eq 0 ] && continue
 
     echo -e "\n$group_name:"
-    for idx in "${!commands[@]}"; do
-      printf "  %-*s  - %s\n" "$max_len" "${commands[$idx]}" "${descriptions[$idx]}"
+    for index in "${!commands[@]}"; do
+      printf "  %-*s  - %s\n" "$max_length" "${commands[$index]}" "${descriptions[$index]}"
     done
   done
 

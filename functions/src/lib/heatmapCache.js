@@ -1,34 +1,44 @@
 // @ts-check
 'use strict';
 
-const DEFAULT_MAX_ENTRIES = 500;
+// About 75 MB of [lat, lon] arrays (measured): ten riders at the full map budget.
+const DEFAULT_MAX_POINTS = 1000000;
 
-// A tour's heatmapData is set once at upload and never edited (EditTour only
-// touches name/description/createdAt), so id+length is a cheap, safe stand-in
-// for "this tour's points haven't changed" without hashing the points
-// themselves.
+// Id and point count stand in for "unchanged": a track is never edited after upload.
 function signatureFor(tours) {
-  return tours.map((tour) => `${tour.id}:${tour.heatmapData?.length || 0}`).join('|');
+  return tours.map((tour) => `${tour.id}:${tour.pointCount}`).join('|');
 }
 
-// Per-user memo of the last budgeted/simplified heatmap response. Recomputing
-// Douglas-Peucker simplification is the expensive part of a /map request; a
-// user's tour set changes far less often than they load the map, so caching
-// it here turns a repeat load into a signature comparison instead of a
-// re-simplify. Bounded to maxEntries with simple LRU-ish eviction so a
-// long-lived warm instance serving many distinct users doesn't grow forever.
-function createHeatmapCache(maxEntries = DEFAULT_MAX_ENTRIES) {
-  const cache = new Map();
+/** @param {unknown[][]} tracks */
+const pointCountOf = (tracks) => tracks.reduce((sum, track) => sum + track.length, 0);
 
-  function getOrCompute(userId, tours, compute) {
+// Per-user memo of the budgeted map, so a warm map reads no track; past maxPoints in total the
+// least recently used entries are evicted.
+function createHeatmapCache({ maxPoints = DEFAULT_MAX_POINTS } = {}) {
+  const entries = new Map();
+  let cachedPoints = 0;
+
+  function evict(userId) {
+    cachedPoints -= entries.get(userId)?.points ?? 0;
+    entries.delete(userId);
+  }
+
+  async function getOrCompute({ userId, tours, compute }) {
     const signature = signatureFor(tours);
-    const cached = cache.get(userId);
-    if (cached && cached.signature === signature) return cached.result;
+    const cached = entries.get(userId);
+    if (cached && cached.signature === signature) {
+      // Re-inserted, so the Map's insertion order is the order of use.
+      entries.delete(userId);
+      entries.set(userId, cached);
+      return cached.result;
+    }
 
-    const result = compute();
-    cache.delete(userId);
-    cache.set(userId, { signature, result });
-    if (cache.size > maxEntries) cache.delete(cache.keys().next().value);
+    const result = await compute();
+    const points = pointCountOf(result);
+    evict(userId);
+    entries.set(userId, { signature, result, points });
+    cachedPoints += points;
+    while (cachedPoints > maxPoints) evict(entries.keys().next().value);
     return result;
   }
 

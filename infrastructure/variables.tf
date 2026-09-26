@@ -4,8 +4,7 @@ variable "location" {
   default     = "northeurope"
 }
 
-# Microsoft Entra External ID (#8). Empty defaults keep the API in SKIP_AUTH mode
-# until the external tenant is created and these are supplied (via CI variables).
+# Microsoft Entra External ID; deploy.yml passes the repository variables. The Function App refuses empty ones.
 variable "entra_tenant_subdomain" {
   description = "External ID tenant subdomain, e.g. \"bikebuddy\" for bikebuddy.ciamlogin.com."
   type        = string
@@ -24,8 +23,6 @@ variable "entra_client_id" {
   default     = ""
 }
 
-# Cost guard rail (#3): monthly budget alert. Keeps spend bounded to the
-# free/serverless tiers (target < €5/month).
 variable "budget_amount" {
   description = "Monthly budget amount in the subscription's billing currency."
   type        = number
@@ -33,9 +30,14 @@ variable "budget_amount" {
 }
 
 variable "budget_contact_email" {
-  description = "Email that receives budget threshold alerts. The subscription owner by default."
+  description = "Email that receives budget threshold alerts."
   type        = string
   default     = "nobuddyorgcloud@outlook.com"
+
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.budget_contact_email))
+    error_message = "budget_contact_email must be an email address."
+  }
 }
 
 variable "budget_start_date" {

@@ -1,14 +1,7 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
-
-// Runs against the real backend (Functions + Cosmos emulator + Azurite) behind
-// the SWA proxy. devMode + SKIP_AUTH provide the local dev user.
-
-const here = dirname(fileURLToPath(import.meta.url));
-const SAMPLE_JPG = resolve(here, '../fixtures/sample.jpg');
-const SAMPLE_JPG_BUFFER = readFileSync(SAMPLE_JPG);
+import { AFTER_UNDO_WINDOW, expect, fullstackTest } from './fullstack-test';
+import { PHOTOS } from './seed';
+import { DEV_USER_ID, devUserBlobNames, devUserTours, devUserTracks } from './store';
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -20,63 +13,177 @@ const GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-buddyTest('tour lifecycle: upload → list → detail → image → delete', async ({ on, page }) => {
+fullstackTest('tour lifecycle: upload → list → detail → photo → delete', async ({ on, page }) => {
   await page.goto('/');
-  await expect(on(page).main.locators.userMenu).toBeVisible(); // real /api/me login
+  await expect(on(page).main.locators.userMenu).toBeVisible(); // real /api/v1/me login
 
-  const tourName = `CI E2E ${Date.now()}`;
-
+  const tourName = 'CI E2E Tour';
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
 
-  await on(page).main.do.addImage(SAMPLE_JPG);
-  await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
+  await on(page).detail.do.addPhotos(PHOTOS.untagged);
+  await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
 
-  await on(page).main.do.deleteTour();
-  await expect(on(page).main.locators.list.container).not.toContainText(tourName);
+  const [tour] = await devUserTours();
+  // The points live in the tour's track item, not in the tour (#615).
+  expect(tour).not.toHaveProperty('heatmapData');
+  expect((await devUserTracks()).map((track) => [track.id, track.heatmapData.length])).toEqual([
+    [tour.id, 3],
+  ]);
+  const blobs = await devUserBlobNames();
+  expect(blobs).toContain(`gpx-files/${DEV_USER_ID}/${tour.id}.gpx`);
+  // The photo and its thumbnail.
+  expect(
+    blobs.filter((name) => name.startsWith(`tour-images/${DEV_USER_ID}/${tour.id}/`)),
+  ).toHaveLength(2);
+
+  await on(page).detail.do.deleteTour();
+  await expect(on(page).list.row(tourName)()).toHaveCount(0);
+
+  await expect.poll(devUserTours, AFTER_UNDO_WINDOW).toEqual([]);
+  await expect.poll(devUserTracks, AFTER_UNDO_WINDOW).toEqual([]);
+  await expect.poll(devUserBlobNames, AFTER_UNDO_WINDOW).toEqual([]);
 });
 
-// #338: re-download the originally uploaded file, via the signed blob URL from
-// GET /api/tours/{id}.
-buddyTest('download GPX from the detail panel', async ({ on, page }) => {
+fullstackTest(
+  'Undo keeps a deleted tour: no delete request, still stored',
+  async ({ on, page }) => {
+    // A fake clock, so the test runs past the Undo window without waiting it out.
+    await page.clock.install();
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    const tourName = 'CI E2E Undo Tour';
+    await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+    const deleteRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'DELETE') deleteRequests.push(request.url());
+    });
+
+    await on(page).detail.do.deleteTour();
+    await expect(on(page).list.row(tourName)()).toHaveCount(0);
+    await on(page).main.do.undo();
+    await expect(on(page).list.row(tourName)()).toHaveCount(1);
+    await page.clock.runFor(10_000);
+    // A reload lists what the API holds, so a delete fired by the timer would have gone out first.
+    await page.reload();
+
+    await expect(on(page).list.row(tourName)()).toHaveCount(1);
+    expect(deleteRequests).toEqual([]);
+    expect((await devUserTours()).map((tour) => tour.name)).toEqual([tourName]);
+  },
+);
+
+fullstackTest(
+  'a list reloaded within the Undo window leaves the deleted tour out',
+  async ({ on, page }) => {
+    await page.clock.install();
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    await on(page).main.do.uploadGpx({ name: 'CI E2E Deleted', gpx: GPX });
+    await on(page).detail.do.deleteTour();
+    await expect(on(page).list.row('CI E2E Deleted')()).toHaveCount(0);
+
+    // Uploading reloads the list while the server still holds the deleted tour (#559).
+    await on(page).main.do.uploadGpx({ name: 'CI E2E Kept', gpx: GPX });
+
+    await expect(on(page).list.row('CI E2E Kept')()).toHaveCount(1);
+    await expect(on(page).list.row('CI E2E Deleted')()).toHaveCount(0);
+    await page.clock.runFor(10_000);
+    await expect
+      .poll(async () => (await devUserTours()).map((tour) => tour.name))
+      .toEqual(['CI E2E Kept']);
+  },
+);
+
+// Both travel as form fields of the upload (#579) and are stored as typed (#574).
+fullstackTest(
+  'an upload keeps the typed name and description, markup and all',
+  async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    const name = 'Pass <b>& back</b>';
+    const description = 'Steep, "really" <i>steep</i>';
+
+    await on(page).main.locators.buttons.upload.click();
+    await on(page).modal.upload.do.setName(name);
+    await on(page).modal.upload.do.setDescription(description);
+    await on(page).modal.upload.do.pickFile({
+      name: 'ride.gpx',
+      mimeType: 'application/gpx+xml',
+      buffer: Buffer.from(GPX),
+    });
+    await on(page).modal.upload.do.submit();
+
+    await expect(on(page).detail.locators.name).toHaveText(name);
+    await expect(on(page).detail.locators.description).toHaveText(description);
+    expect(await devUserTours()).toEqual([expect.objectContaining({ name, description })]);
+  },
+);
+
+fullstackTest.describe('a GPX file without track points', () => {
+  // The refused upload's 400 is the expected answer, which the browser logs as a console error.
+  fullstackTest.use({
+    allowedConsoleErrors: { matching: [/status of 400 .*\/api\/v1\/tours/] },
+  });
+
+  fullstackTest('is refused, storing nothing', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+
+    await on(page).main.locators.buttons.upload.click();
+    await on(page).modal.upload.do.setName('Waypoints only');
+    await on(page).modal.upload.do.pickFile({
+      name: 'waypoints.gpx',
+      mimeType: 'application/gpx+xml',
+      buffer: Buffer.from('<?xml version="1.0"?><gpx version="1.1"><wpt lat="48" lon="11"/></gpx>'),
+    });
+    await on(page).modal.upload.do.submit();
+
+    await expect(on(page).modal.upload.locators.error).toHaveText(
+      'This GPX file contains no track or route points.',
+    );
+    expect(await devUserTours()).toEqual([]);
+    expect(await devUserBlobNames()).toEqual([]);
+  });
+});
+
+fullstackTest('download GPX from the detail panel', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();
 
   const tourName = `CI E2E GPX Download ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
 
   const downloadPromise = page.waitForEvent('download');
-  await on(page).main.do.downloadGpx();
+  await on(page).detail.do.downloadGpx();
   const download = await downloadPromise;
-  // The filename comes from the signed URL's Content-Disposition, which GetTour
-  // sanitizes the same way (spaces → "_").
+  // Named by the signed URL's Content-Disposition (GetTour's gpxDownloadDisposition).
   expect(download.suggestedFilename()).toBe(`${tourName.replace(/[^a-z0-9-_]+/gi, '_')}.gpx`);
 });
 
-buddyTest('multi-image upload: per-file success and error handling', async ({ on, page }) => {
+fullstackTest('multi-image upload: per-file success and error handling', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();
 
   const tourName = `CI E2E Multi ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
 
-  // setInputFiles needs a uniform array shape, so the valid photos are passed
-  // as payloads too.
-  await on(page).main.do.addImage([
-    { name: 'photo1.jpg', mimeType: 'image/jpeg', buffer: SAMPLE_JPG_BUFFER },
-    { name: 'photo2.jpg', mimeType: 'image/jpeg', buffer: SAMPLE_JPG_BUFFER },
+  // setInputFiles takes no mixed array, so the valid photos are payloads too.
+  await on(page).detail.do.addPhotos([
+    { name: 'photo1.jpg', mimeType: 'image/jpeg', buffer: readFileSync(PHOTOS.untagged) },
+    { name: 'photo2.jpg', mimeType: 'image/jpeg', buffer: readFileSync(PHOTOS.untagged) },
     { name: 'not-a-photo.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') },
   ]);
 
   // The invalid file never hits the network, so its tile has no retry.
-  await expect(on(page).main.locators.image.errorTiles).toHaveCount(1);
-  await expect(on(page).main.locators.image.retryButtons).toHaveCount(0);
+  await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(1);
+  await expect(on(page).detail.locators.photos.retryButtons).toHaveCount(0);
 
-  await expect(on(page).main.locators.image.thumbs).toHaveCount(2);
-  await expect(on(page).main.locators.image.pendingTiles).toHaveCount(0);
+  await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(2);
+  await expect(on(page).detail.locators.photos.pendingTiles).toHaveCount(0);
 
-  await on(page).main.do.dismissImageError();
-  await expect(on(page).main.locators.image.errorTiles).toHaveCount(0);
+  await on(page).detail.do.dismissPhotoError();
+  await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(0);
 });

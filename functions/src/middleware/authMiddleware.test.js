@@ -2,43 +2,37 @@
 
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const {
-  authenticate,
-  openIdConfigUrl,
-  getOpenIdConfig,
-  defaultJwksClient,
-} = require('./authMiddleware');
+const { authenticate, getOpenIdConfig } = require('./authMiddleware');
+const { openIdConfigUrl } = require('../lib/oidcMetadataUrl');
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
 const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' });
 
-const TEST_ENV = {
+const ENTRA_ENVIRONMENT = {
   ENTRA_TENANT_SUBDOMAIN: 'bikebuddy',
   ENTRA_TENANT_ID: 'aaaabbbb-0000-cccc-1111-dddd2222eeee',
   ENTRA_CLIENT_ID: 'test-client-id',
 };
-const ISSUER = `https://${TEST_ENV.ENTRA_TENANT_ID}.ciamlogin.com/${TEST_ENV.ENTRA_TENANT_ID}/v2.0`;
-const now = () => Math.floor(Date.now() / 1000);
+const ISSUER = `https://${ENTRA_ENVIRONMENT.ENTRA_TENANT_ID}.ciamlogin.com/${ENTRA_ENVIRONMENT.ENTRA_TENANT_ID}/v2.0`;
+const NOW_MS = Date.UTC(2026, 0, 1, 12);
+const NOW_SECONDS = NOW_MS / 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
-// configLoader stub: returns the issuer/jwksUri the middleware would read from
-// the OIDC metadata document.
-const mockConfig = async () => ({ issuer: ISSUER, jwksUri: 'https://example/keys' });
-const mockJwks = () => ({ getSigningKey: async () => ({ getPublicKey: () => publicKeyPem }) });
-// The token's kid is genuinely absent from the tenant's JWKS — the caller's
-// fault, so this stays a 401. jwks-rsa signals it with this error name.
-const failingJwks = () => ({
+const signingKeys = () => ({
+  getSigningKey: async () => ({ getPublicKey: () => publicKeyPem }),
+});
+const failingWith = (name, message) => () => ({
   getSigningKey: async () => {
-    throw Object.assign(new Error('key not found'), { name: 'SigningKeyNotFoundError' });
+    throw Object.assign(new Error(message), { name });
   },
 });
-
-// The JWKS endpoint itself is unreachable — not the caller's fault.
-const unreachableJwks = () => ({
-  getSigningKey: async () => {
-    throw Object.assign(new Error('getaddrinfo ENOTFOUND'), { name: 'FetchError' });
-  },
-});
+// The kid is absent from the tenant's key set: the token's fault.
+const unknownKeyId = failingWith('SigningKeyNotFoundError', 'key not found');
+// The key endpoint is unreachable: not the caller's fault.
+const unreachableKeys = failingWith('FetchError', 'getaddrinfo ENOTFOUND');
+const tenantMetadata = async () => ({ issuer: ISSUER, jwksUri: 'https://example/keys' });
 
 function makeToken(overrides = {}) {
   return jwt.sign(
@@ -47,9 +41,10 @@ function makeToken(overrides = {}) {
       oid: 'oid-123',
       name: 'Test User',
       email: 'test@example.com',
-      aud: TEST_ENV.ENTRA_CLIENT_ID,
+      aud: ENTRA_ENVIRONMENT.ENTRA_CLIENT_ID,
       iss: ISSUER,
-      exp: now() + 3600,
+      exp: NOW_SECONDS + 3600,
+      scp: 'access_as_user',
       ...overrides,
     },
     privateKeyPem,
@@ -57,21 +52,22 @@ function makeToken(overrides = {}) {
   );
 }
 
-// v4 request: headers is a Map/Headers exposing .get().
+// v4 requests expose headers through .get().
 const bearer = (token) => ({ headers: new Map([['authorization', `Bearer ${token}`]]) });
+const noHeaders = () => ({ headers: new Map() });
 
-const run = (req, factory = mockJwks) => authenticate(req, factory, mockConfig);
-
-beforeEach(() => Object.assign(process.env, TEST_ENV));
-afterEach(() => {
-  for (const k of Object.keys(TEST_ENV)) delete process.env[k];
-  delete process.env.SKIP_AUTH;
-});
+const authenticateWith = (request, options = {}) =>
+  authenticate(request, {
+    jwksClientFactory: signingKeys,
+    configLoader: tenantMetadata,
+    environment: ENTRA_ENVIRONMENT,
+    now: () => NOW_MS,
+    ...options,
+  });
 
 describe('authenticate — success', () => {
   test('valid token resolves userId/userOid/userEmail/userName', async () => {
-    const user = await run(bearer(makeToken()));
-    expect(user).toEqual({
+    expect(await authenticateWith(bearer(makeToken()))).toEqual({
       userId: 'user-123',
       userOid: 'oid-123',
       userEmail: 'test@example.com',
@@ -80,7 +76,7 @@ describe('authenticate — success', () => {
   });
 
   test('userOid is null when the oid claim is absent', async () => {
-    const user = await run(bearer(makeToken({ oid: undefined })));
+    const user = await authenticateWith(bearer(makeToken({ oid: undefined })));
     expect(user.userOid).toBeNull();
   });
 
@@ -116,100 +112,123 @@ describe('authenticate — success', () => {
       null,
     ],
   ])('resolves %s', async (_label, claims, field, expected) => {
-    const user = await run(bearer(makeToken(claims)));
+    const user = await authenticateWith(bearer(makeToken(claims)));
     expect(user[field]).toBe(expected);
+  });
+
+  test('accepts the scope among others', async () => {
+    const token = makeToken({ scp: 'User.Read access_as_user openid' });
+    expect(await authenticateWith(bearer(token))).not.toBeNull();
+  });
+
+  test('checks expiry against the injected clock', async () => {
+    const token = makeToken({ exp: NOW_SECONDS + 60 });
+
+    expect(await authenticateWith(bearer(token))).not.toBeNull();
+    expect(await authenticateWith(bearer(token), { now: () => NOW_MS + 61_000 })).toBeNull();
   });
 });
 
 describe('authenticate — rejection (null)', () => {
-  const hsToken = jwt.sign(
-    { sub: 'user-123', aud: TEST_ENV.ENTRA_CLIENT_ID, iss: ISSUER, exp: now() + 3600 },
+  const symmetricToken = jwt.sign(
+    {
+      sub: 'user-123',
+      aud: ENTRA_ENVIRONMENT.ENTRA_CLIENT_ID,
+      iss: ISSUER,
+      exp: NOW_SECONDS + 3600,
+    },
     crypto.randomBytes(32).toString('hex'),
     { algorithm: 'HS256', header: { kid: 'test-key' } },
   );
 
   test.each([
-    ['missing Authorization header', { headers: new Map() }],
+    ['missing Authorization header', noHeaders()],
     ['non-Bearer scheme', { headers: new Map([['authorization', 'Basic sometoken']]) }],
     ['malformed token', bearer('notajwt')],
-    ['expired token', bearer(makeToken({ exp: now() - 60 }))],
+    ['expired token', bearer(makeToken({ exp: NOW_SECONDS - 60 }))],
+    ['token not valid yet', bearer(makeToken({ nbf: NOW_SECONDS + 60 }))],
     ['wrong audience', bearer(makeToken({ aud: 'wrong-client' }))],
     ['wrong issuer', bearer(makeToken({ iss: 'https://attacker.example.com/' }))],
-    ['disallowed algorithm (HS256)', bearer(hsToken)],
-    ['unknown signing key (kid not in JWKS)', bearer(makeToken()), failingJwks],
-  ])('returns null for %s', async (_label, req, factory) => {
-    expect(await run(req, factory)).toBeNull();
+    ['disallowed algorithm (HS256)', bearer(symmetricToken)],
+    ['unknown signing key (kid not in JWKS)', bearer(makeToken()), unknownKeyId],
+    ['no scp claim', bearer(makeToken({ scp: undefined }))],
+    ['an ID token for the same client', bearer(makeToken({ scp: undefined, nonce: 'n-1' }))],
+    ['only another scope', bearer(makeToken({ scp: 'User.Read' }))],
+    ['a scope that merely contains the name', bearer(makeToken({ scp: 'access_as_user_admin' }))],
+    ['scp as a list instead of a string', bearer(makeToken({ scp: ['access_as_user'] }))],
+  ])('returns null for %s', async (_label, request, jwksClientFactory = signingKeys) => {
+    expect(await authenticateWith(request, { jwksClientFactory })).toBeNull();
   });
 });
 
-// Returning null here would answer 401, telling every correctly-authenticated
-// user they are signed out for the duration of an upstream outage. These must
-// propagate so callers surface a retryable 5xx instead.
+// A null here would answer 401 and sign every user out for the length of an outage.
 describe('authenticate — infrastructure failures propagate', () => {
   test('rethrows when the JWKS endpoint is unreachable', async () => {
-    await expect(run(bearer(makeToken()), unreachableJwks)).rejects.toThrow(
-      'getaddrinfo ENOTFOUND',
-    );
+    await expect(
+      authenticateWith(bearer(makeToken()), { jwksClientFactory: unreachableKeys }),
+    ).rejects.toThrow('getaddrinfo ENOTFOUND');
   });
 
   test('rethrows when the OIDC metadata document cannot be loaded', async () => {
-    const failingConfig = async () => {
+    const configLoader = async () => {
       throw new Error('OIDC metadata fetch failed: 503');
     };
-    await expect(authenticate(bearer(makeToken()), mockJwks, failingConfig)).rejects.toThrow(
+    await expect(authenticateWith(bearer(makeToken()), { configLoader })).rejects.toThrow(
       'OIDC metadata fetch failed: 503',
     );
   });
 
   test('a malformed token is still rejected, not thrown, before any network call', async () => {
-    const neverCalled = async () => {
-      throw new Error('config should not be loaded for a malformed token');
-    };
-    expect(await authenticate(bearer('notajwt'), mockJwks, neverCalled)).toBeNull();
+    const configLoader = vi.fn();
+    expect(await authenticateWith(bearer('notajwt'), { configLoader })).toBeNull();
+    expect(configLoader).not.toHaveBeenCalled();
+  });
+
+  test('loads the metadata with the environment and clock it was given', async () => {
+    const configLoader = vi.fn(tenantMetadata);
+    const now = () => NOW_MS;
+    await authenticateWith(bearer(makeToken()), { configLoader, now });
+    expect(configLoader).toHaveBeenCalledWith({ environment: ENTRA_ENVIRONMENT, now });
   });
 });
 
 describe('authenticate — diagnostic logging', () => {
   test('logs a warning naming the rejection reason for a malformed token', async () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      await run(bearer('notajwt'));
-      expect(spy).toHaveBeenCalledWith(expect.stringContaining('rejected malformed bearer token'));
+      await authenticateWith(bearer('notajwt'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('rejected malformed bearer token'));
     } finally {
-      spy.mockRestore();
+      warn.mockRestore();
     }
   });
 
   test('logs a warning naming the error for a rejected (but verifiable) token', async () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      await run(bearer(makeToken({ exp: now() - 60 })));
-      expect(spy).toHaveBeenCalledWith(expect.stringContaining('TokenExpiredError'));
+      await authenticateWith(bearer(makeToken({ exp: NOW_SECONDS - 60 })));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('TokenExpiredError'));
     } finally {
-      spy.mockRestore();
+      warn.mockRestore();
     }
   });
 
   test('logs an error naming the failure when verification cannot be performed', async () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
-      await expect(run(bearer(makeToken()), unreachableJwks)).rejects.toThrow();
-      expect(spy).toHaveBeenCalledWith(expect.stringContaining('getaddrinfo ENOTFOUND'));
+      await expect(
+        authenticateWith(bearer(makeToken()), { jwksClientFactory: unreachableKeys }),
+      ).rejects.toThrow();
+      expect(logError).toHaveBeenCalledWith(expect.stringContaining('getaddrinfo ENOTFOUND'));
     } finally {
-      spy.mockRestore();
+      logError.mockRestore();
     }
   });
 });
 
 describe('authenticate — SKIP_AUTH dev bypass', () => {
-  beforeEach(() => {
-    process.env.SKIP_AUTH = 'true';
-  });
-
   test('returns a hardcoded dev user without a token', async () => {
-    for (const key of Object.keys(TEST_ENV)) delete process.env[key];
-
-    const user = await authenticate({ headers: new Map() });
+    const user = await authenticateWith(noHeaders(), { environment: { SKIP_AUTH: 'true' } });
     expect(user).toEqual({
       userId: 'local-dev-user',
       userEmail: 'dev@localhost',
@@ -217,121 +236,212 @@ describe('authenticate — SKIP_AUTH dev bypass', () => {
     });
   });
 
-  // A deployment that has both real auth configured and the bypass switched on
-  // would otherwise serve every anonymous caller as the same shared user.
-  test('refuses the bypass when a client id is configured', async () => {
-    delete process.env.ENTRA_TENANT_ID;
+  test('stays off for any other SKIP_AUTH value', async () => {
+    const environment = { ...ENTRA_ENVIRONMENT, SKIP_AUTH: 'yes' };
+    expect(await authenticateWith(noHeaders(), { environment })).toBeNull();
+  });
 
-    await expect(authenticate({ headers: new Map() })).rejects.toThrow(
+  // Both at once would serve every anonymous caller as one shared user.
+  test('refuses the bypass when a client id is configured', async () => {
+    const environment = { SKIP_AUTH: 'true', ENTRA_CLIENT_ID: 'test-client-id' };
+    await expect(authenticateWith(noHeaders(), { environment })).rejects.toThrow(
       'SKIP_AUTH must not be set when Entra auth is configured',
     );
   });
 
   test('refuses the bypass when a tenant id is configured', async () => {
-    delete process.env.ENTRA_CLIENT_ID;
-
-    await expect(authenticate({ headers: new Map() })).rejects.toThrow(
+    const environment = { SKIP_AUTH: 'true', ENTRA_TENANT_ID: ENTRA_ENVIRONMENT.ENTRA_TENANT_ID };
+    await expect(authenticateWith(noHeaders(), { environment })).rejects.toThrow(
       'SKIP_AUTH must not be set when Entra auth is configured',
     );
   });
 
-  // Tofu always writes the Entra app settings, empty until the tenant exists —
-  // an empty value must stay a dev environment, not a refusal.
+  // Tofu writes the Entra app settings empty until the tenant exists.
   test('honours the bypass when the Entra settings are present but empty', async () => {
-    Object.assign(process.env, { ENTRA_CLIENT_ID: '', ENTRA_TENANT_ID: '' });
-
-    const user = await authenticate({ headers: new Map() });
+    const environment = { SKIP_AUTH: 'true', ENTRA_CLIENT_ID: '', ENTRA_TENANT_ID: '' };
+    const user = await authenticateWith(noHeaders(), { environment });
     expect(user.userId).toBe('local-dev-user');
   });
 });
 
-describe('External ID configuration helpers', () => {
-  test('openIdConfigUrl builds the ciamlogin metadata URL from env', () => {
-    expect(openIdConfigUrl()).toBe(
-      'https://bikebuddy.ciamlogin.com/aaaabbbb-0000-cccc-1111-dddd2222eeee/v2.0/.well-known/openid-configuration',
-    );
-  });
-});
-
 describe('getOpenIdConfig', () => {
-  const doc = {
+  const metadata = {
     issuer: 'https://tenant.ciamlogin.com/v2.0',
     jwks_uri: 'https://tenant.ciamlogin.com/keys',
   };
+  const fetchingMetadata = () =>
+    vi.fn().mockResolvedValue({ ok: true, json: async () => metadata });
+  // The cache is module-wide, so each test starts its clock far past the last one's.
+  let clockStart = NOW_MS;
+  const freshClock = () => {
+    clockStart += 1000 * HOUR_MS;
+    let time = clockStart;
+    return { now: () => time, advance: (milliseconds) => (time += milliseconds) };
+  };
 
   test('throws when the metadata endpoint returns a non-ok status', async () => {
-    const failFetch = async () => ({ ok: false, status: 503 });
-    await expect(getOpenIdConfig(failFetch)).rejects.toThrow('OIDC metadata fetch failed: 503');
+    const fetchMetadata = async () => ({ ok: false, status: 503 });
+    await expect(
+      getOpenIdConfig({ fetchMetadata, now: freshClock().now, environment: ENTRA_ENVIRONMENT }),
+    ).rejects.toThrow('OIDC metadata fetch failed: 503');
   });
 
-  test('fetches metadata and caches the result on subsequent calls', async () => {
-    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => doc });
-    const config1 = await getOpenIdConfig(fetchFn);
-    const config2 = await getOpenIdConfig(fetchFn);
-    expect(config1).toEqual({ issuer: doc.issuer, jwksUri: doc.jwks_uri });
-    expect(config2).toBe(config1);
-    expect(fetchFn).toHaveBeenCalledTimes(1);
-  });
+  test('fetches the tenant metadata and caches the result', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const options = { fetchMetadata, now: freshClock().now, environment: ENTRA_ENVIRONMENT };
 
-  // Without a TTL an issuer or jwks_uri change stays invisible until the warm
-  // instance recycles, which can be a very long time.
-  test('re-fetches once the cache TTL has elapsed', async () => {
-    const TTL = 60 * 60 * 1000;
-    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => doc });
-    // Drive a synthetic clock, starting past the TTL so this does not depend on
-    // whatever the earlier tests in this file left in the module-level cache.
-    let clock = Date.now() + TTL + 1;
-    const spy = vi.spyOn(Date, 'now').mockImplementation(() => clock);
-    try {
-      await getOpenIdConfig(fetchFn);
-      expect(fetchFn).toHaveBeenCalledTimes(1);
+    const first = await getOpenIdConfig(options);
+    const second = await getOpenIdConfig(options);
 
-      await getOpenIdConfig(fetchFn);
-      expect(fetchFn).toHaveBeenCalledTimes(1); // still within the new TTL
-
-      clock += TTL + 1;
-      await getOpenIdConfig(fetchFn);
-      expect(fetchFn).toHaveBeenCalledTimes(2);
-    } finally {
-      spy.mockRestore();
-    }
-  });
-
-  // The elapsed time hitting the TTL exactly must still count as expired, not
-  // just exceeding it — a warm instance shouldn't get to serve one request's
-  // worth of extra life out of rounding.
-  test('re-fetches when the cache age exactly equals the TTL', async () => {
-    const TTL = 60 * 60 * 1000;
-    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => doc });
-    // Same "start comfortably past whatever earlier tests left cached" trick
-    // as above, so this establishes its own fresh baseline first.
-    let clock = Date.now() + 100 * TTL;
-    const spy = vi.spyOn(Date, 'now').mockImplementation(() => clock);
-    try {
-      await getOpenIdConfig(fetchFn);
-      expect(fetchFn).toHaveBeenCalledTimes(1);
-
-      clock += TTL;
-      await getOpenIdConfig(fetchFn);
-      expect(fetchFn).toHaveBeenCalledTimes(2);
-    } finally {
-      spy.mockRestore();
-    }
-  });
-});
-
-describe('defaultJwksClient', () => {
-  // The client is a module-level singleton (built once, reused for every
-  // request), so this has to be the one test that ever observes a fresh
-  // construction — a later call would just hand back the cached instance
-  // without re-invoking jwks-rsa, leaving these options unverified.
-  test('creates a jwks-rsa client, with caching and rate limiting enabled, and caches it', () => {
-    const first = defaultJwksClient('https://example.com/keys');
-    const second = defaultJwksClient('https://example.com/keys');
-    expect(typeof first.getSigningKey).toBe('function');
+    expect(first).toEqual({ issuer: metadata.issuer, jwksUri: metadata.jwks_uri });
     expect(second).toBe(first);
-    // Both guard against the JWKS endpoint being hammered: caching avoids a
-    // fetch per token, rate limiting avoids one per unknown kid.
-    expect(first.options).toMatchObject({ cache: true, rateLimit: true });
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
+    expect(fetchMetadata).toHaveBeenCalledWith(openIdConfigUrl(ENTRA_ENVIRONMENT), {
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  test('bounds the fetch with a timeout signal', async () => {
+    const fetchMetadata = fetchingMetadata();
+    await getOpenIdConfig({ fetchMetadata, now: freshClock().now, environment: ENTRA_ENVIRONMENT });
+
+    const { signal } = fetchMetadata.mock.calls[0][1];
+    expect(signal.aborted).toBe(false);
+  });
+
+  test('fetches a local override instead of the tenant metadata', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const override = 'http://127.0.0.1:43123/.well-known/openid-configuration';
+    const environment = { ...ENTRA_ENVIRONMENT, ENTRA_OIDC_METADATA_URL: override };
+
+    await getOpenIdConfig({ fetchMetadata, now: freshClock().now, environment });
+
+    expect(fetchMetadata).toHaveBeenCalledWith(override, expect.anything());
+  });
+
+  // Thrown, so every signed-in request answers 5xx instead of trusting another issuer.
+  test('refuses a remote override without fetching anything', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const environment = {
+      ...ENTRA_ENVIRONMENT,
+      ENTRA_OIDC_METADATA_URL: 'https://issuer.example.com/.well-known/openid-configuration',
+    };
+
+    await expect(
+      getOpenIdConfig({ fetchMetadata, now: freshClock().now, environment }),
+    ).rejects.toThrow('ENTRA_OIDC_METADATA_URL must be an http(s) URL on localhost');
+    expect(fetchMetadata).not.toHaveBeenCalled();
+  });
+
+  test('turns a refused override into a failure for every token, never a 401', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const environment = {
+      ...ENTRA_ENVIRONMENT,
+      ENTRA_OIDC_METADATA_URL: 'http://127.0.0.1:43123/.well-known/openid-configuration',
+      WEBSITE_SITE_NAME: 'func-bikebuddy',
+    };
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(
+        authenticate(bearer(makeToken()), {
+          jwksClientFactory: signingKeys,
+          configLoader: (options) => getOpenIdConfig({ ...options, fetchMetadata }),
+          environment,
+          now: freshClock().now,
+        }),
+      ).rejects.toThrow('ENTRA_OIDC_METADATA_URL must not be set in Azure');
+      expect(fetchMetadata).not.toHaveBeenCalled();
+    } finally {
+      logError.mockRestore();
+    }
+  });
+
+  test('re-fetches once the one-hour cache has expired, not before', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const clock = freshClock();
+    const options = { fetchMetadata, now: clock.now, environment: ENTRA_ENVIRONMENT };
+
+    await getOpenIdConfig(options);
+    clock.advance(HOUR_MS - 1);
+    await getOpenIdConfig(options);
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
+
+    clock.advance(1);
+    await getOpenIdConfig(options);
+    expect(fetchMetadata).toHaveBeenCalledTimes(2);
+  });
+
+  test('concurrent callers share one fetch', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const options = { fetchMetadata, now: freshClock().now, environment: ENTRA_ENVIRONMENT };
+
+    const [first, second] = await Promise.all([getOpenIdConfig(options), getOpenIdConfig(options)]);
+
+    expect(second).toBe(first);
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  // #571: an Entra blip at the one-hour mark used to fail every signed-in request.
+  describe('when a refresh fails', () => {
+    const refreshFailing = (fetchMetadata) => {
+      fetchMetadata.mockResolvedValue({ ok: false, status: 503 });
+      return fetchMetadata;
+    };
+
+    test('keeps serving the cached copy and logs why', async () => {
+      const fetchMetadata = fetchingMetadata();
+      const clock = freshClock();
+      const options = { fetchMetadata, now: clock.now, environment: ENTRA_ENVIRONMENT };
+      const cached = await getOpenIdConfig(options);
+      clock.advance(HOUR_MS);
+      refreshFailing(fetchMetadata);
+      const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        expect(await getOpenIdConfig(options)).toBe(cached);
+        expect(logError).toHaveBeenCalledWith(
+          'auth: OIDC metadata refresh failed, serving the cached copy (OIDC metadata fetch failed: 503)',
+        );
+      } finally {
+        logError.mockRestore();
+      }
+    });
+
+    test('tries again on the next call and caches what it gets', async () => {
+      const fetchMetadata = fetchingMetadata();
+      const clock = freshClock();
+      const options = { fetchMetadata, now: clock.now, environment: ENTRA_ENVIRONMENT };
+      await getOpenIdConfig(options);
+      clock.advance(HOUR_MS);
+      refreshFailing(fetchMetadata);
+      const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await getOpenIdConfig(options);
+      } finally {
+        logError.mockRestore();
+      }
+      fetchMetadata.mockResolvedValue({ ok: true, json: async () => metadata });
+
+      await getOpenIdConfig(options);
+      await getOpenIdConfig(options);
+      expect(fetchMetadata).toHaveBeenCalledTimes(3);
+    });
+
+    test('throws once the cached copy is a day old', async () => {
+      const fetchMetadata = fetchingMetadata();
+      const clock = freshClock();
+      const options = { fetchMetadata, now: clock.now, environment: ENTRA_ENVIRONMENT };
+      await getOpenIdConfig(options);
+      clock.advance(DAY_MS - 1);
+      refreshFailing(fetchMetadata);
+      const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await getOpenIdConfig(options);
+      } finally {
+        logError.mockRestore();
+      }
+
+      clock.advance(1);
+      await expect(getOpenIdConfig(options)).rejects.toThrow('OIDC metadata fetch failed: 503');
+    });
   });
 });

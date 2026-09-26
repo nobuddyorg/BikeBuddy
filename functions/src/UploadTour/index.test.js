@@ -1,8 +1,26 @@
 'use strict';
 
 const { uploadTour } = require('./index');
+const {
+  fakeToursContainer,
+  fakeTracksContainer,
+  fakeUsersContainer,
+  cosmosError,
+} = require('../../test/fakes/cosmosContainer');
+const { fakeGpxContainer } = require('../../test/fakes/blobContainer');
+const { withFailureResponse } = require('../lib/failureResponse');
+const {
+  signedInAs,
+  signedOut,
+  fixedClock,
+  NOW,
+  idsInOrder,
+} = require('../../test/fakes/collaborators');
 
-const GPX_CONTENT = `<?xml version="1.0"?>
+const TOUR_ID = '11111111-1111-4111-8111-111111111111';
+const GPX_BLOB = `u1/${TOUR_ID}.gpx`;
+
+const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>Test Tour</name><time>2024-06-01T10:00:00Z</time></metadata>
   <trk><trkseg>
@@ -10,320 +28,452 @@ const GPX_CONTENT = `<?xml version="1.0"?>
     <trkpt lat="48.1361" lon="11.5830"/>
   </trkseg></trk>
 </gpx>`;
+const BARE_GPX =
+  '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">' +
+  '<trk><trkseg><trkpt lat="48.1" lon="11.5"/></trkseg></trk></gpx>';
 
-const mockAuth = async () => ({ userId: 'user-1' });
-const failAuth = async () => null;
+const fileOf =
+  (content, fields = {}) =>
+  async () => ({
+    filename: 'tour.gpx',
+    mimeType: 'application/gpx+xml',
+    buffer: Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8'),
+    fields,
+  });
+const clientError = (message) => Object.assign(new Error(message), { status: 400 });
 
-const reqWith = (query = {}) => ({ query: new URLSearchParams(query) });
+const ALLOW_ALL = { take: () => ({ allowed: true }) };
 
-function makeGpxContainer() {
-  const blockBlob = {
-    uploadData: vi.fn().mockResolvedValue({}),
-    deleteIfExists: vi.fn().mockResolvedValue({ succeeded: true }),
-    url: 'https://blob.example/gpx-files/user-1/some-id.gpx',
-  };
-  const getBlockBlobClient = vi.fn().mockReturnValue(blockBlob);
-  const get = vi.fn().mockResolvedValue({ getBlockBlobClient });
-  // Expose the inner mocks so tests can assert on blob name / upload options.
-  get.getBlockBlobClient = getBlockBlobClient;
-  get.blockBlob = blockBlob;
-  return get;
+function setUp({
+  authenticate = signedInAs('u1'),
+  parseFile = fileOf(GPX),
+  parseTrack,
+  queued = [],
+  documents = [],
+  rateLimiter = ALLOW_ALL,
+} = {}) {
+  const tours = fakeToursContainer(documents);
+  const tracks = fakeTracksContainer();
+  const gpx = fakeGpxContainer();
+  const deletions = fakeUsersContainer(queued);
+  const run = (query = {}) =>
+    uploadTour(
+      { query: new URLSearchParams(query) },
+      {
+        authenticate,
+        deletionsContainer: () => deletions,
+        toursContainer: () => tours,
+        tracksContainer: () => tracks,
+        gpxContainer: async () => gpx,
+        parseFile,
+        ...(parseTrack && { parseTrack }),
+        rateLimiter,
+        newId: idsInOrder(TOUR_ID),
+        now: fixedClock,
+      },
+    );
+  const storedTour = () => tours.stored(TOUR_ID, 'u1');
+  const storedTrack = () => tracks.stored(TOUR_ID, 'u1');
+  return { tours, tracks, gpx, run, storedTour, storedTrack };
 }
 
-function makeToursContainer() {
-  return { items: { create: vi.fn().mockResolvedValue({ resource: {} }) } };
-}
+describe('POST /api/v1/tours (and /api/tours/upload)', () => {
+  it('stores the GPX, the track and the tour, and returns 201 with the new tour id', async () => {
+    const { gpx, run, storedTour, storedTrack } = setUp();
 
-function makeParseFile(buffer = Buffer.from(GPX_CONTENT, 'utf8')) {
-  return vi
-    .fn()
-    .mockResolvedValue({ filename: 'tour.gpx', mimeType: 'application/gpx+xml', buffer });
-}
+    const response = await run();
 
-describe('UploadTour', () => {
-  it('returns 401 when auth fails', async () => {
-    const res = await uploadTour(
-      reqWith(),
-      failAuth,
-      makeToursContainer,
-      makeGpxContainer(),
-      makeParseFile(),
-    );
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 400 when parseFile rejects', async () => {
-    const err = new Error('No file found');
-    err.status = 400;
-    const parseFile = vi.fn().mockRejectedValue(err);
-    const res = await uploadTour(
-      reqWith(),
-      mockAuth,
-      makeToursContainer,
-      makeGpxContainer(),
-      parseFile,
-    );
-    expect(res.status).toBe(400);
-    expect(res.jsonBody.error).toBe('No file found');
-  });
-
-  it('defaults to 500 when the parseFile error has no status', async () => {
-    const parseFile = vi.fn().mockRejectedValue(new Error('boom'));
-    const res = await uploadTour(
-      reqWith(),
-      mockAuth,
-      makeToursContainer,
-      makeGpxContainer(),
-      parseFile,
-    );
-    expect(res.status).toBe(500);
-  });
-
-  it('returns 400 when file fails magic byte check', async () => {
-    const parseFile = makeParseFile(Buffer.from('not xml at all'));
-    const res = await uploadTour(
-      reqWith(),
-      mockAuth,
-      makeToursContainer,
-      makeGpxContainer(),
-      parseFile,
-    );
-    expect(res.status).toBe(400);
-    expect(res.jsonBody.error).toMatch(/GPX\/XML/);
-  });
-
-  it('returns 400 when GPX content is malformed XML', async () => {
-    const parseFile = makeParseFile(Buffer.from('<?xml version="1.0"?><notgpx/>'));
-    const res = await uploadTour(
-      reqWith(),
-      mockAuth,
-      makeToursContainer,
-      makeGpxContainer(),
-      parseFile,
-    );
-    expect(res.status).toBe(400);
-    expect(res.jsonBody.error).toMatch(/parse GPX/);
-  });
-
-  it('creates tour and returns 201 on success', async () => {
-    const toursContainer = makeToursContainer();
-    const gpx = makeGpxContainer();
-    const res = await uploadTour(reqWith(), mockAuth, () => toursContainer, gpx, makeParseFile());
-    expect(res.status).toBe(201);
-    expect(res.jsonBody.tourId).toMatch(/^[\da-f-]{36}$/);
-    expect(res.jsonBody.gpxFileUrl).toContain('blob');
-    expect(res.jsonBody.name).toBe('Test Tour');
-    expect(toursContainer.items.create).toHaveBeenCalledOnce();
-
-    const [doc] = toursContainer.items.create.mock.calls[0];
-    expect(doc.images).toEqual([]);
-    expect(doc.description).toBe('');
-    expect(gpx.getBlockBlobClient).toHaveBeenCalledWith(`user-1/${doc.id}.gpx`);
-    expect(gpx.blockBlob.uploadData).toHaveBeenCalledWith(expect.any(Buffer), {
-      blobHTTPHeaders: { blobContentType: 'application/gpx+xml' },
+    expect(response.status).toBe(201);
+    expect(response.headers).toEqual({ Location: `/api/v1/tours/${TOUR_ID}` });
+    expect(response.jsonBody).toStrictEqual({
+      id: TOUR_ID,
+      tourId: TOUR_ID,
+      name: 'Test Tour',
+      distance: expect.any(Number),
+      createdAt: '2024-06-01T10:00:00.000Z',
+    });
+    expect(gpx.blob(GPX_BLOB)).toEqual({
+      data: Buffer.from(GPX, 'utf8'),
+      contentType: 'application/gpx+xml',
+    });
+    expect(storedTour()).toMatchObject({
+      id: TOUR_ID,
+      userId: 'u1',
+      schemaVersion: 3,
+      name: 'Test Tour',
+      description: '',
+      images: [],
+      gpxFileUrl: `https://fake.blob/gpx-files/${GPX_BLOB}`,
+      gpxBytes: Buffer.byteLength(GPX),
+      pointCount: 2,
+    });
+    // The points live in the track item only, so no tour query ever loads them (#615).
+    expect(storedTour()).not.toHaveProperty('heatmapData');
+    expect(storedTrack()).toMatchObject({
+      id: TOUR_ID,
+      userId: 'u1',
+      schemaVersion: 1,
+      heatmapData: [
+        [48.1351, 11.582],
+        [48.1361, 11.583],
+      ],
+      segmentStarts: [],
     });
   });
 
-  it('stores the description from the query string', async () => {
-    const toursContainer = makeToursContainer();
-    await uploadTour(
-      reqWith({ description: 'Nice ride' }),
-      mockAuth,
-      () => toursContainer,
-      makeGpxContainer(),
-      makeParseFile(),
-    );
-    const [doc] = toursContainer.items.create.mock.calls[0];
-    expect(doc.description).toBe('Nice ride');
+  it('never returns the stored blob URL', async () => {
+    const { run } = setUp();
+
+    const response = await run();
+
+    expect(JSON.stringify(response.jsonBody)).not.toContain('fake.blob');
   });
 
-  it('returns 400 when the metadata fails validation', async () => {
-    const res = await uploadTour(
-      reqWith({ name: 'a'.repeat(201) }),
-      mockAuth,
-      makeToursContainer,
-      makeGpxContainer(),
-      makeParseFile(),
-    );
-    expect(res.status).toBe(400);
-    // A translatable key, not Zod's English.
-    expect(res.jsonBody.error).toBe('errors.tourName');
+  it('files the tour, its track and its blob under the token user, whatever the request says', async () => {
+    const { tours, tracks, gpx, run } = setUp();
+
+    await run({ userId: 'u2', name: 'Mine' });
+
+    expect(tours.all().map((stored) => stored.userId)).toEqual(['u1']);
+    expect(tracks.all().map((stored) => stored.userId)).toEqual(['u1']);
+    expect(gpx.names()).toEqual([GPX_BLOB]);
   });
 
-  it('accepts a file starting with <gpx (no XML declaration)', async () => {
-    const gpxNoDecl = Buffer.from(
-      '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">' +
-        '<trk><trkseg><trkpt lat="48.1" lon="11.5"/></trkseg></trk></gpx>',
-      'utf8',
-    );
-    const res = await uploadTour(
-      reqWith(),
-      mockAuth,
-      makeToursContainer,
-      makeGpxContainer(),
-      makeParseFile(gpxNoDecl),
-    );
-    expect(res.status).toBe(201);
-    // No query-string name and no <metadata>/<trk> name in the GPX itself —
-    // falls all the way through to the hardcoded default.
-    expect(res.jsonBody.name).toBe('Untitled Tour');
-  });
+  it('takes name and description from the form fields, the name over the GPX name (#579)', async () => {
+    const parseFile = vi.fn(fileOf(GPX, { name: 'My Custom Name', description: 'Nice ride' }));
+    const { run, storedTour } = setUp({ parseFile });
 
-  it("uses the GPX's <time> metadata as the tour's createdAt", async () => {
-    const toursContainer = makeToursContainer();
-    const res = await uploadTour(
-      reqWith(),
-      mockAuth,
-      () => toursContainer,
-      makeGpxContainer(),
-      makeParseFile(),
-    );
-    expect(res.status).toBe(201);
-    const [doc] = toursContainer.items.create.mock.calls[0];
-    expect(doc.createdAt).toBe('2024-06-01T10:00:00.000Z');
-    expect(res.jsonBody.createdAt).toBe('2024-06-01T10:00:00.000Z');
-  });
+    await run();
 
-  it('falls back to the current time when the GPX has no <time> metadata', async () => {
-    const noTimeGpx = Buffer.from(
-      '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">' +
-        '<trk><trkseg><trkpt lat="48.1" lon="11.5"/></trkseg></trk></gpx>',
-      'utf8',
-    );
-    const toursContainer = makeToursContainer();
-    const before = Date.now();
-    await uploadTour(
-      reqWith(),
-      mockAuth,
-      () => toursContainer,
-      makeGpxContainer(),
-      makeParseFile(noTimeGpx),
-    );
-    const [doc] = toursContainer.items.create.mock.calls[0];
-    const createdAtMs = new Date(doc.createdAt).getTime();
-    expect(createdAtMs).toBeGreaterThanOrEqual(before);
-    expect(createdAtMs).toBeLessThanOrEqual(Date.now());
-  });
-
-  it('uses query-string name over GPX name', async () => {
-    const toursContainer = makeToursContainer();
-    const res = await uploadTour(
-      reqWith({ name: 'My Custom Name' }),
-      mockAuth,
-      () => toursContainer,
-      makeGpxContainer(),
-      makeParseFile(),
-    );
-    expect(res.status).toBe(201);
-    const [doc] = toursContainer.items.create.mock.calls[0];
-    expect(doc.name).toBe('My Custom Name');
-  });
-
-  it('accepts a file with a UTF-8 BOM prefix', async () => {
-    const bom = Buffer.from([0xef, 0xbb, 0xbf]);
-    const bomBuffer = Buffer.concat([bom, Buffer.from(GPX_CONTENT, 'utf8')]);
-    const res = await uploadTour(
-      reqWith(),
-      mockAuth,
-      makeToursContainer,
-      makeGpxContainer(),
-      makeParseFile(bomBuffer),
-    );
-    expect(res.status).toBe(201);
-  });
-
-  it('uploads the blob before creating the document', async () => {
-    const order = [];
-    const gpx = makeGpxContainer();
-    gpx.blockBlob.uploadData.mockImplementation(async () => {
-      order.push('blob');
-      return {};
+    expect(storedTour()).toMatchObject({ name: 'My Custom Name', description: 'Nice ride' });
+    expect(parseFile).toHaveBeenCalledWith(expect.anything(), {
+      fieldNames: ['name', 'description'],
     });
-    const toursContainer = makeToursContainer();
-    toursContainer.items.create.mockImplementation(async () => {
-      order.push('doc');
-      return { resource: {} };
-    });
-
-    await uploadTour(reqWith(), mockAuth, () => toursContainer, gpx, makeParseFile());
-
-    expect(order).toEqual(['blob', 'doc']);
   });
 
-  it('rolls the blob back when the document create fails', async () => {
-    const gpx = makeGpxContainer();
-    const toursContainer = makeToursContainer();
-    toursContainer.items.create.mockRejectedValue(new Error('cosmos down'));
+  it('takes them from the query string, as pages from before #579 send them', async () => {
+    const { run, storedTour } = setUp();
 
-    await expect(
-      uploadTour(reqWith(), mockAuth, () => toursContainer, gpx, makeParseFile()),
-    ).rejects.toThrow('cosmos down');
+    await run({ name: 'My Custom Name', description: 'Nice ride' });
 
-    // Without this the orphaned GPX would be unreferenced by any tour and only
-    // ever cleaned up by a full account deletion.
-    expect(gpx.blockBlob.deleteIfExists).toHaveBeenCalled();
+    expect(storedTour()).toMatchObject({ name: 'My Custom Name', description: 'Nice ride' });
   });
 
-  it('surfaces the create failure even when the rollback itself fails', async () => {
-    const gpx = makeGpxContainer();
-    gpx.blockBlob.deleteIfExists.mockRejectedValue(new Error('storage down'));
-    const toursContainer = makeToursContainer();
-    toursContainer.items.create.mockRejectedValue(new Error('cosmos down'));
+  it('prefers each form field over the same query parameter', async () => {
+    const { run, storedTour } = setUp({ parseFile: fileOf(GPX, { description: 'From the form' }) });
 
-    // The create error is the actionable one; a failed best-effort cleanup must
-    // not mask it.
-    await expect(
-      uploadTour(reqWith(), mockAuth, () => toursContainer, gpx, makeParseFile()),
-    ).rejects.toThrow('cosmos down');
+    await run({ name: 'From the query', description: 'Also from the query' });
+
+    expect(storedTour()).toMatchObject({ name: 'From the query', description: 'From the form' });
   });
 
-  it('does not delete the blob when the document create succeeds', async () => {
-    const gpx = makeGpxContainer();
+  it('falls back to "Untitled Tour" and the upload time without GPX name or time', async () => {
+    const { run, storedTour } = setUp({ parseFile: fileOf(BARE_GPX) });
 
-    const res = await uploadTour(reqWith(), mockAuth, makeToursContainer, gpx, makeParseFile());
+    const response = await run();
 
-    expect(res.status).toBe(201);
-    expect(gpx.blockBlob.deleteIfExists).not.toHaveBeenCalled();
+    expect(response.jsonBody.name).toBe('Untitled Tour');
+    expect(storedTour().createdAt).toBe(NOW.toISOString());
   });
 
-  it('stores elevation, duration and speed parsed from the GPX', async () => {
-    const gpxWithElevation = Buffer.from(
-      `<?xml version="1.0"?>
+  it.each([
+    ['a numeric name as text (#548)', '<name>20240512</name>', '20240512'],
+    ['the text of a name with attributes', '<name lang="de">Isartal</name>', 'Isartal'],
+    ['a name with markup as typed (#574)', '<name>&lt;b&gt;Alps&lt;/b&gt;</name>', '<b>Alps</b>'],
+    [
+      '"Untitled Tour" for a name over 200 characters',
+      `<name>${'a'.repeat(201)}</name>`,
+      'Untitled Tour',
+    ],
+    ['"Untitled Tour" for a name that is only whitespace', '<name>  </name>', 'Untitled Tour'],
+  ])('stores %s from the GPX', async (_label, nameTag, expected) => {
+    const gpx = `<gpx><metadata>${nameTag}</metadata><trk><trkseg><trkpt lat="48" lon="11"/></trkseg></trk></gpx>`;
+    const { run, storedTour } = setUp({ parseFile: fileOf(gpx) });
+
+    await run();
+
+    expect(storedTour().name).toBe(expected);
+  });
+
+  it('accepts a file behind a UTF-8 byte order mark', async () => {
+    const withMark = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(GPX, 'utf8')]);
+    const { run } = setUp({ parseFile: fileOf(withMark) });
+
+    expect((await run()).status).toBe(201);
+  });
+
+  it('stores elevation, duration and speed parsed from the GPX, null when absent', async () => {
+    const timed = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><trkseg>
     <trkpt lat="48.1351" lon="11.5820"><ele>500</ele><time>2024-06-01T10:00:00Z</time></trkpt>
     <trkpt lat="48.1361" lon="11.5830"><ele>520</ele><time>2024-06-01T10:10:00Z</time></trkpt>
   </trkseg></trk>
-</gpx>`,
-      'utf8',
-    );
-    const toursContainer = makeToursContainer();
-    await uploadTour(
-      reqWith(),
-      mockAuth,
-      () => toursContainer,
-      makeGpxContainer(),
-      makeParseFile(gpxWithElevation),
-    );
-    const [doc] = toursContainer.items.create.mock.calls[0];
-    expect(doc.elevationGain).toBe(20);
-    expect(doc.elevationLoss).toBe(0);
-    expect(doc.minElevation).toBe(500);
-    expect(doc.maxElevation).toBe(520);
-    expect(doc.durationSeconds).toBe(600);
+</gpx>`;
+    const withStats = setUp({ parseFile: fileOf(timed) });
+    const withoutStats = setUp();
+
+    await withStats.run();
+    await withoutStats.run();
+
+    expect(withStats.storedTour()).toMatchObject({
+      elevationGain: 20,
+      elevationLoss: 0,
+      minElevation: 500,
+      maxElevation: 520,
+      durationSeconds: 600,
+    });
+    expect(withoutStats.storedTour()).toMatchObject({ elevationGain: null, durationSeconds: null });
   });
 
-  it('stores null elevation/duration when the GPX has neither <ele> nor <time>', async () => {
-    const toursContainer = makeToursContainer();
-    await uploadTour(
-      reqWith(),
-      mockAuth,
-      () => toursContainer,
-      makeGpxContainer(),
-      makeParseFile(), // GPX_CONTENT has neither
+  it('writes the blob, then the track, then the tour', async () => {
+    const { tours, tracks, gpx, run } = setUp();
+    let blobsWhenTrackCreated = [];
+    let tracksWhenTourCreated = [];
+    tracks.beforeNext('create', () => {
+      blobsWhenTrackCreated = gpx.names();
+    });
+    tours.beforeNext('create', () => {
+      tracksWhenTourCreated = tracks.all().map((track) => track.id);
+    });
+
+    await run();
+
+    expect(blobsWhenTrackCreated).toEqual([GPX_BLOB]);
+    expect(tracksWhenTourCreated).toEqual([TOUR_ID]);
+  });
+
+  it('rolls the blob back and writes no tour when the track create fails', async () => {
+    const { tours, tracks, gpx, run } = setUp();
+    tracks.failOn('create', { error: cosmosError(503, 'cosmos down') });
+
+    await expect(run()).rejects.toThrow('cosmos down');
+
+    expect(gpx.names()).toEqual([]);
+    expect(tours.all()).toEqual([]);
+  });
+
+  it('writes no document when the blob upload fails', async () => {
+    const { tours, gpx, run } = setUp();
+    gpx.failOn('upload', { error: new Error('storage down') });
+
+    await expect(run()).rejects.toThrow('storage down');
+
+    expect(tours.all()).toEqual([]);
+  });
+
+  it('rolls the track and the blob back and rethrows when the tour create fails', async () => {
+    const { tours, tracks, gpx, run } = setUp();
+    tours.failOn('create', { error: cosmosError(503, 'cosmos down') });
+
+    await expect(run()).rejects.toThrow('cosmos down');
+
+    expect(tracks.all()).toEqual([]);
+    expect(gpx.names()).toEqual([]);
+  });
+
+  it('surfaces both errors when the create and the rollback fail', async () => {
+    const { tours, gpx, run } = setUp();
+    tours.failOn('create', { error: cosmosError(503, 'cosmos down') });
+    gpx.failOn('delete', { error: new Error('storage down') });
+
+    const error = await run().catch((failure) => failure);
+
+    expect(error).toBeInstanceOf(AggregateError);
+    const [createError, rollbackError] = error.errors;
+    expect(createError.message).toBe('cosmos down');
+    expect(rollbackError.message).toBe(
+      `Tour ${TOUR_ID} was not created, and its track or GPX was not rolled back`,
     );
-    const [doc] = toursContainer.items.create.mock.calls[0];
-    expect(doc.elevationGain).toBeNull();
-    expect(doc.durationSeconds).toBeNull();
+    expect(rollbackError.errors.map((failure) => failure.message)).toEqual(['storage down']);
+  });
+
+  it.each([
+    ['metadata that fails validation', { query: { name: 'a'.repeat(201) } }, 'errors.tourName'],
+    [
+      'a form field that fails validation',
+      { parseFile: fileOf(GPX, { description: 'd'.repeat(2001) }) },
+      'errors.tourDescription',
+    ],
+    [
+      'a file without XML magic bytes',
+      { parseFile: fileOf('not xml at all') },
+      'errors.gpxInvalid',
+    ],
+    [
+      'XML that is not GPX',
+      { parseFile: fileOf('<?xml version="1.0"?><notgpx/>') },
+      'errors.gpxInvalid',
+    ],
+    [
+      'a GPX file without a single track or route point',
+      { parseFile: fileOf('<?xml version="1.0"?><gpx><trk><trkseg/></trk></gpx>') },
+      'errors.gpxNoTrack',
+    ],
+    [
+      'an upload the parser refuses',
+      {
+        parseFile: async () => {
+          throw clientError('errors.noFile');
+        },
+      },
+      'errors.noFile',
+    ],
+  ])('returns 400 for %s, storing nothing', async (_label, { query, parseFile }, message) => {
+    const { tours, gpx, run } = setUp({ parseFile });
+
+    const response = await run(query);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.error).toBe(message);
+    const writes = tours.calls.filter((call) => call.operation !== 'query');
+    expect([...writes, ...gpx.calls]).toEqual([]);
+  });
+
+  it('rolls its GPX blob back and answers 503 when Cosmos throttles the create', async () => {
+    const { tours, gpx, run } = setUp();
+    tours.failOn('create', { error: cosmosError(429, 'Request rate is large') });
+    const context = { invocationId: 'invocation-1', error: vi.fn() };
+
+    const response = await withFailureResponse(() => run())({}, context);
+
+    expect(response.status).toBe(503);
+    expect(response.jsonBody).toStrictEqual({ error: 'errors.busy', invocationId: 'invocation-1' });
+    expect(gpx.names()).toEqual([]);
+    expect(tours.all()).toEqual([]);
+  });
+
+  it('answers 410 and stores nothing while the account deletion is queued', async () => {
+    const { tours, gpx, run } = setUp({
+      authenticate: signedInAs('u1', { userOid: 'oid-1' }),
+      queued: [{ id: 'oid-1', userId: 'u1' }],
+    });
+
+    const response = await run();
+
+    expect(response).toEqual({ status: 410, jsonBody: { error: 'errors.accountDeleted' } });
+    expect([...tours.calls, ...gpx.calls]).toEqual([]);
+  });
+
+  it('refuses a file without XML magic bytes before parsing it', async () => {
+    const parseTrack = vi.fn();
+
+    const response = await uploadTour(
+      { query: new URLSearchParams() },
+      {
+        authenticate: signedInAs('u1'),
+        toursContainer: () => fakeToursContainer(),
+        gpxContainer: async () => fakeGpxContainer(),
+        parseFile: fileOf('not xml at all'),
+        parseTrack,
+      },
+    );
+
+    expect(response.jsonBody).toEqual({ error: 'errors.gpxInvalid' });
+    expect(parseTrack).not.toHaveBeenCalled();
+  });
+
+  it('rethrows a GPX parser failure that is not an invalid file', async () => {
+    const tours = fakeToursContainer();
+    const parseTrack = () => {
+      throw new TypeError('parser bug');
+    };
+
+    await expect(
+      uploadTour(
+        { query: new URLSearchParams() },
+        {
+          authenticate: signedInAs('u1'),
+          toursContainer: () => tours,
+          gpxContainer: async () => fakeGpxContainer(),
+          parseFile: fileOf(GPX),
+          parseTrack,
+        },
+      ),
+    ).rejects.toThrow('parser bug');
+    expect(tours.all()).toEqual([]);
+  });
+
+  it('rethrows a parser failure that is not the client’s fault', async () => {
+    const { run } = setUp({
+      parseFile: async () => {
+        throw new Error('boom');
+      },
+    });
+
+    await expect(run()).rejects.toThrow('boom');
+  });
+
+  it('returns 401 without parsing or storing anything when the caller is not signed in', async () => {
+    const parseFile = vi.fn(fileOf(GPX));
+    const { tours, gpx, run } = setUp({ authenticate: signedOut, parseFile });
+
+    const response = await run();
+
+    expect(response.status).toBe(401);
+    expect(parseFile).not.toHaveBeenCalled();
+    expect([...tours.calls, ...gpx.calls]).toEqual([]);
+  });
+
+  describe('limits (#549)', () => {
+    const GIGABYTE = 1024 ** 3;
+    const storedTour = (index, gpxBytes = 0) => ({
+      id: `stored-${index}`,
+      userId: 'u1',
+      gpxBytes,
+      images: [],
+    });
+
+    it('answers 429 with Retry-After before reading the upload once the rider is over the rate', async () => {
+      const parseFile = vi.fn(fileOf(GPX));
+      const rateLimiter = { take: vi.fn(() => ({ allowed: false, retryAfterSeconds: 36 })) };
+      const { tours, gpx, run } = setUp({ parseFile, rateLimiter });
+
+      const response = await run();
+
+      expect(response).toEqual({
+        status: 429,
+        headers: { 'Retry-After': '36' },
+        jsonBody: { error: 'errors.rateLimited' },
+      });
+      expect(rateLimiter.take).toHaveBeenCalledWith('u1', NOW.getTime());
+      expect(parseFile).not.toHaveBeenCalled();
+      expect([...tours.calls, ...gpx.calls]).toEqual([]);
+    });
+
+    it('refuses the tour past the tour limit before parsing its GPX', async () => {
+      const parseTrack = vi.fn();
+      const documents = Array.from({ length: 1000 }, (_, index) => storedTour(index));
+      const { tours, gpx, run } = setUp({ documents, parseTrack });
+
+      const response = await run();
+
+      expect(response).toEqual({ status: 400, jsonBody: { error: 'errors.tourLimit' } });
+      expect(parseTrack).not.toHaveBeenCalled();
+      expect(tours.all()).toHaveLength(1000);
+      expect(gpx.calls).toEqual([]);
+    });
+
+    it('refuses a GPX that would pass the storage limit, counting its size', async () => {
+      const room = 5 * GIGABYTE - Buffer.byteLength(GPX);
+      const { run: fits } = setUp({ documents: [storedTour(1, room)] });
+      const { run: overflows } = setUp({ documents: [storedTour(1, room + 1)] });
+
+      expect((await fits()).status).toBe(201);
+      expect(await overflows()).toEqual({
+        status: 400,
+        jsonBody: { error: 'errors.storageLimit' },
+      });
+    });
+
+    it("never counts another rider's tours", async () => {
+      const documents = Array.from({ length: 1000 }, (_, index) => ({
+        ...storedTour(index),
+        userId: 'u2',
+      }));
+      const { run } = setUp({ documents });
+
+      expect((await run()).status).toBe(201);
+    });
   });
 });

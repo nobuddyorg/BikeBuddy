@@ -3,16 +3,31 @@
 const { spawn } = require('node:child_process');
 const { setTimeout: sleep } = require('node:timers/promises');
 const { resolve } = require('node:path');
+const { assertEmulatorTargets } = require('./emulatorGuard');
+const { startOidcProvider } = require('./oidcProvider');
 
-const HEALTH_URL = 'http://localhost:7071/api/health';
-const functionsDir = resolve(__dirname, '..', '..');
+// Its own port: a dev host on :7071 (often SKIP_AUTH) is never reused or disturbed.
+const HOST_PORT = 7072;
+const API_BASE_URL = `http://localhost:${HOST_PORT}/api/v1`;
+const HEALTH_URL = `${API_BASE_URL}/health`;
+const HOST_START_TIMEOUT_MS = 150_000;
+const functionsDirectory = resolve(__dirname, '..', '..');
+
+// Fixed test values: the tenant only names the (unused) Entra URL; the audience is what tokens carry.
+const TEST_ENTRA_SETTINGS = {
+  ENTRA_TENANT_SUBDOMAIN: 'integration-test',
+  ENTRA_TENANT_ID: '00000000-0000-4000-8000-000000000067',
+  ENTRA_CLIENT_ID: 'integration-test-client',
+};
 
 async function isUp() {
   try {
-    const res = await fetch(HEALTH_URL);
-    return res.ok;
-  } catch {
-    return false;
+    const response = await fetch(HEALTH_URL);
+    return response.ok;
+  } catch (error) {
+    // Nothing listening yet: fetch rejects with a TypeError whose cause is the socket error.
+    if (error instanceof TypeError) return false;
+    throw error;
   }
 }
 
@@ -25,34 +40,70 @@ async function waitForHealth(timeoutMs) {
   return false;
 }
 
-// Start the Azure Functions host for the integration run and stop it after.
-// If a host is already listening (e.g. a local dev stack), reuse it untouched.
-// Cosmos + Azurite must already be running (CI starts them; locally use buddy.sh).
-module.exports = async function setup() {
-  if (await isUp()) return () => {};
+function stopProcessGroup(child) {
+  try {
+    process.kill(-child.pid, 'SIGTERM');
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+}
 
-  const child = spawn('func', ['start'], {
-    cwd: functionsDir,
-    env: process.env,
+/**
+ * Core Tools lets a non-empty environment variable win over local.settings.json, so each of these
+ * replaces whatever the developer's settings say, SKIP_AUTH included.
+ */
+function hostEnvironment({ metadataUrl, cosmosConnectionString, blobConnectionString }) {
+  return {
+    ...process.env,
+    ...TEST_ENTRA_SETTINGS,
+    ENTRA_OIDC_METADATA_URL: metadataUrl,
+    SKIP_AUTH: 'false',
+    COSMOS_CONNECTION_STRING: cosmosConnectionString,
+    BLOB_CONNECTION_STRING: blobConnectionString,
+  };
+}
+
+async function startHost(environment) {
+  const child = spawn('func', ['start', '--port', String(HOST_PORT)], {
+    cwd: functionsDirectory,
+    env: environment,
     stdio: 'inherit',
     detached: true,
   });
+  if (!(await waitForHealth(HOST_START_TIMEOUT_MS))) {
+    stopProcessGroup(child);
+    throw new Error(
+      `Functions host did not become healthy on :${HOST_PORT} within ${HOST_START_TIMEOUT_MS} ms`,
+    );
+  }
+  return child;
+}
 
-  const healthy = await waitForHealth(150_000);
-  if (!healthy) {
-    try {
-      process.kill(-child.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
-    throw new Error('Functions host did not become healthy on :7071 within 150s');
+// Starts a local OIDC issuer and an authenticated Functions host; Cosmos and Azurite must run.
+module.exports = async function setup(project) {
+  const { cosmosConnectionString, blobConnectionString } = assertEmulatorTargets();
+  if (await isUp()) {
+    throw new Error(`Port ${HOST_PORT} already serves a host this run did not configure; stop it`);
   }
 
+  const issuer = await startOidcProvider({ audience: TEST_ENTRA_SETTINGS.ENTRA_CLIENT_ID });
+  let host;
+  try {
+    host = await startHost(
+      hostEnvironment({
+        metadataUrl: issuer.metadataUrl,
+        cosmosConnectionString,
+        blobConnectionString,
+      }),
+    );
+  } catch (error) {
+    await issuer.close();
+    throw error;
+  }
+
+  project.provide('integration', { apiBaseUrl: API_BASE_URL, signing: issuer.signing });
   return async () => {
-    try {
-      process.kill(-child.pid, 'SIGTERM'); // kill the detached process group
-    } catch {
-      /* already gone */
-    }
+    stopProcessGroup(host);
+    await issuer.close();
   };
 };

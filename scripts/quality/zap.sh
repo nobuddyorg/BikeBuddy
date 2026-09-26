@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 # Description: Run the OWASP ZAP passive scans (frontend + API) against the local stack
-# Frontend pass: frontend/src served as GitHub Pages serves it; API pass: the
-# Functions host on :7071 (./buddy.sh development start-backend, SKIP_AUTH=true).
-# Needs Docker. Reports: zap-reports/<pass>/. CI runs the same scans through the
-# zaproxy actions in gate.yml's zap job.
+# Needs Docker and the Functions host on :7071 (SKIP_AUTH=true ./buddy.sh development start-backend).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -14,8 +11,8 @@ mkdir -p zap-reports/frontend zap-reports/api
 chmod a+w zap-reports/frontend zap-reports/api
 
 node e2e/lighthouse/serve-pages.mjs "$PORT" signed-out &
-SERVER=$!
-trap 'kill "$SERVER" 2>/dev/null || true' EXIT
+PAGES_SERVER=$!
+trap 'kill "$PAGES_SERVER" 2>/dev/null || true' EXIT
 timeout 30 bash -c "until curl -sf -o /dev/null http://127.0.0.1:$PORT/BikeBuddy/; do sleep 1; done"
 
 status=0

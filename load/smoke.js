@@ -1,5 +1,4 @@
-// One iteration of every journey, to prove the scripts and the target work
-// before a heavier run. Correctness thresholds only, no latency limits.
+// One iteration of every journey before a heavier run: correctness thresholds only, no latency limits.
 import * as flows from './lib/flows.js';
 import { LIFECYCLE_TIMEOUTS, SUMMARY_TREND_STATS, correctnessThresholds } from './lib/options.js';
 import { summarize } from './lib/summary.js';

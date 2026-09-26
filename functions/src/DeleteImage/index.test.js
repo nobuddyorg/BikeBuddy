@@ -1,260 +1,215 @@
 'use strict';
 
 const { deleteImage } = require('./index');
+const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const { fakeImagesContainer } = require('../../test/fakes/blobContainer');
+const { signedInAs, signedOut } = require('../../test/fakes/collaborators');
 
-const TID = '11111111-1111-4111-8111-111111111111';
-const IMG1 = '22222222-2222-4222-8222-222222222222';
-const IMG2 = '33333333-3333-4333-8333-333333333333';
-const GHOST = '44444444-4444-4444-8444-444444444444';
-const IMG = { id: IMG1, blobName: `u1/${TID}/${IMG1}.jpg` };
+const TOUR_ID = '11111111-1111-4111-8111-111111111111';
+const OTHER_TOUR_ID = '99999999-9999-4999-8999-999999999999';
+const IMAGE_ID = '22222222-2222-4222-8222-222222222222';
+const KEPT_IMAGE_ID = '33333333-3333-4333-8333-333333333333';
+const UNKNOWN_IMAGE_ID = '44444444-4444-4444-8444-444444444444';
+
+const image = (userId, tourId, imageId) => ({
+  id: imageId,
+  blobName: `${userId}/${tourId}/${imageId}.jpg`,
+});
 const TOUR = {
-  id: TID,
+  id: TOUR_ID,
   userId: 'u1',
   name: 'Alps',
-  _etag: '"etag-v1"',
-  images: [IMG, { id: IMG2, blobName: `u1/${TID}/${IMG2}.jpg` }],
+  images: [image('u1', TOUR_ID, IMAGE_ID), image('u1', TOUR_ID, KEPT_IMAGE_ID)],
 };
+const OTHER_USERS_TOUR = {
+  id: OTHER_TOUR_ID,
+  userId: 'u2',
+  name: 'Not yours',
+  images: [image('u2', OTHER_TOUR_ID, IMAGE_ID)],
+};
+const blobsOf = (userId, tourId, imageId) => [
+  `${userId}/${tourId}/${imageId}.jpg`,
+  `${userId}/${tourId}/${imageId}_thumb.jpg`,
+];
+const DELETED_BLOBS = blobsOf('u1', TOUR_ID, IMAGE_ID);
+const SURVIVING_BLOBS = [
+  ...blobsOf('u1', TOUR_ID, KEPT_IMAGE_ID),
+  ...blobsOf('u2', OTHER_TOUR_ID, IMAGE_ID),
+  ...blobsOf('u2', TOUR_ID, IMAGE_ID),
+].sort();
 
-const mockAuth = async () => ({ userId: 'u1' });
-
-function makeToursContainer(readImpl) {
-  const read = vi.fn(readImpl);
-  const replace = vi.fn(async (doc) => ({ resource: doc }));
-  const item = vi.fn().mockReturnValue({ read, replace });
-  return { container: { item }, item, read, replace };
+function setUp({ documents = [TOUR, OTHER_USERS_TOUR], authenticate = signedInAs('u1') } = {}) {
+  const tours = fakeToursContainer(documents);
+  const images = fakeImagesContainer([...DELETED_BLOBS, ...SURVIVING_BLOBS]);
+  const run = (tourId, imageId) =>
+    deleteImage(
+      { params: { tourId, imageId } },
+      { authenticate, toursContainer: () => tours, imagesContainer: async () => images },
+    );
+  const imageIdsOf = (tourId, userId) => tours.stored(tourId, userId).images.map(({ id }) => id);
+  const replaces = () => tours.calls.filter((call) => call.operation === 'replace');
+  return { tours, images, run, imageIdsOf, replaces };
 }
 
-function makeImagesContainer() {
-  const deleteIfExists = vi.fn().mockResolvedValue({ succeeded: true });
-  const getBlockBlobClient = vi.fn().mockReturnValue({ deleteIfExists });
-  return { container: { getBlockBlobClient }, getBlockBlobClient, deleteIfExists };
-}
-
-const reqWith = (tourId, imageId) => ({ params: { tourId, imageId } });
+const conflict = () => cosmosError(412, 'Precondition failed');
 
 describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
-  it('deletes the blob, removes the entry, returns 204', async () => {
-    const tours = makeToursContainer(async () => ({
-      resource: { ...TOUR, images: [...TOUR.images] },
-    }));
-    const images = makeImagesContainer();
-    const res = await deleteImage(
-      reqWith(TID, IMG1),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-    );
+  it('removes the entry, then the photo and its thumbnail, and returns 204', async () => {
+    const { images, run, imageIdsOf } = setUp();
 
-    expect(images.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}/${IMG1}.jpg`);
-    expect(images.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}/${IMG1}_thumb.jpg`);
-    expect(images.deleteIfExists).toHaveBeenCalled();
-    const [doc, options] = tours.replace.mock.calls[0];
-    expect(doc.images.map((i) => i.id)).toEqual([IMG2]);
-    expect(options).toEqual({ accessCondition: { type: 'IfMatch', condition: TOUR._etag } });
-    expect(res.status).toBe(204);
+    const response = await run(TOUR_ID, IMAGE_ID);
+
+    expect(response.status).toBe(204);
+    expect(imageIdsOf(TOUR_ID, 'u1')).toEqual([KEPT_IMAGE_ID]);
+    expect(images.names()).toEqual(SURVIVING_BLOBS);
   });
 
-  it('removes the entry before deleting the blob', async () => {
-    const order = [];
-    const tours = makeToursContainer(async () => ({
-      resource: { ...TOUR, images: [...TOUR.images] },
-    }));
-    tours.replace.mockImplementation(async (doc) => {
-      order.push('doc');
-      return { resource: doc };
-    });
-    const images = makeImagesContainer();
-    images.deleteIfExists.mockImplementation(async () => {
-      order.push('blob');
-      return { succeeded: true };
+  it("writes to the token user's partition, conditional on the tour as read", async () => {
+    const { run, replaces } = setUp();
+
+    await run(TOUR_ID, IMAGE_ID);
+
+    const [replace] = replaces();
+    expect(replace.partitionKey).toBe('u1');
+    expect(replace.options.accessCondition.type).toBe('IfMatch');
+  });
+
+  it('removes the entry before deleting any blob', async () => {
+    const { tours, images, run } = setUp();
+    let blobsWhenEntryRemoved = [];
+    tours.beforeNext('replace', () => {
+      blobsWhenEntryRemoved = images.names();
     });
 
-    await deleteImage(
-      reqWith(TID, IMG1),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
+    await run(TOUR_ID, IMAGE_ID);
+
+    expect(blobsWhenEntryRemoved).toEqual(expect.arrayContaining(DELETED_BLOBS));
+  });
+
+  it('deletes no blob when the entry removal fails', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('replace', { error: cosmosError(503, 'service unavailable') });
+
+    await expect(run(TOUR_ID, IMAGE_ID)).rejects.toThrow('service unavailable');
+
+    expect(images.names()).toEqual([...DELETED_BLOBS, ...SURVIVING_BLOBS].sort());
+  });
+
+  it('does not retry an error other than a conflict', async () => {
+    const { tours, run, replaces } = setUp();
+    tours.failOn('replace', { error: cosmosError(503, 'service unavailable') });
+
+    await expect(run(TOUR_ID, IMAGE_ID)).rejects.toThrow('service unavailable');
+
+    expect(replaces()).toHaveLength(1);
+  });
+
+  it('keeps a photo another request added between the read and the write', async () => {
+    const { tours, run, imageIdsOf } = setUp();
+    const added = image('u1', TOUR_ID, UNKNOWN_IMAGE_ID);
+    tours.beforeNext('replace', () => tours.seed({ ...TOUR, images: [...TOUR.images, added] }));
+
+    const response = await run(TOUR_ID, IMAGE_ID);
+
+    expect(response.status).toBe(204);
+    expect(imageIdsOf(TOUR_ID, 'u1')).toEqual([KEPT_IMAGE_ID, UNKNOWN_IMAGE_ID]);
+  });
+
+  it('succeeds on the third attempt after two conflicts', async () => {
+    const { tours, run, replaces, imageIdsOf } = setUp();
+    tours.failOn('replace', { error: conflict(), times: 2 });
+
+    const response = await run(TOUR_ID, IMAGE_ID);
+
+    expect(response.status).toBe(204);
+    expect(replaces()).toHaveLength(3);
+    expect(imageIdsOf(TOUR_ID, 'u1')).toEqual([KEPT_IMAGE_ID]);
+  });
+
+  it('gives up after three conflicts, deleting no blob', async () => {
+    const { tours, images, run, replaces } = setUp();
+    tours.failOn('replace', { error: conflict(), times: 3 });
+
+    await expect(run(TOUR_ID, IMAGE_ID)).rejects.toThrow('Precondition failed');
+
+    expect(replaces()).toHaveLength(3);
+    expect(images.names()).toEqual([...DELETED_BLOBS, ...SURVIVING_BLOBS].sort());
+  });
+
+  it('returns 404 when the tour was deleted while the entry was being removed', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('replace', { error: conflict() });
+    tours.beforeNext('replace', () => tours.item(TOUR_ID, 'u1').delete());
+
+    const response = await run(TOUR_ID, IMAGE_ID);
+
+    expect(response.status).toBe(404);
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
+    expect(images.names()).toEqual([...DELETED_BLOBS, ...SURVIVING_BLOBS].sort());
+  });
+
+  it('surfaces a blob delete failure after the entry is gone', async () => {
+    const { images, run, imageIdsOf } = setUp();
+    images.failOn('delete', { error: new Error('storage down'), blobName: DELETED_BLOBS[1] });
+
+    await expect(run(TOUR_ID, IMAGE_ID)).rejects.toThrow(
+      `Image ${IMAGE_ID} was removed from its tour, but not all of its blobs were deleted`,
     );
 
-    // Blob-first would leave tour.images referencing a deleted blob — a
-    // permanently broken thumbnail — if the write below then failed.
-    // Both the full and thumbnail blob deletes fire (in parallel) only
-    // after the doc write settles.
-    expect(order).toEqual(['doc', 'blob', 'blob']);
+    expect(imageIdsOf(TOUR_ID, 'u1')).toEqual([KEPT_IMAGE_ID]);
+    expect(images.names()).not.toContain(DELETED_BLOBS[0]);
   });
 
-  it('does not delete the blob when the entry removal fails', async () => {
-    const tours = makeToursContainer(async () => ({
-      resource: { ...TOUR, images: [...TOUR.images] },
-    }));
-    // Never resolves a 412 → the retry loop exhausts and rethrows.
-    tours.replace.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
-    const images = makeImagesContainer();
+  it("returns 404 for another user's tour and image that exist, changing nothing", async () => {
+    const { tours, images, run, imageIdsOf } = setUp();
 
-    await expect(
-      deleteImage(
-        reqWith(TID, IMG1),
-        mockAuth,
-        () => tours.container,
-        () => images.container,
-      ),
-    ).rejects.toThrow('conflict');
+    const response = await run(OTHER_TOUR_ID, IMAGE_ID);
 
-    expect(images.deleteIfExists).not.toHaveBeenCalled();
+    expect(response.status).toBe(404);
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
+    expect(imageIdsOf(OTHER_TOUR_ID, 'u2')).toEqual([IMAGE_ID]);
+    expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
+    expect(images.calls).toEqual([]);
   });
 
-  it('does not retry a non-412 error, even on the first attempt', async () => {
-    const tours = makeToursContainer(async () => ({
-      resource: { ...TOUR, images: [...TOUR.images] },
-    }));
-    tours.replace.mockRejectedValue(Object.assign(new Error('service unavailable'), { code: 503 }));
-    const images = makeImagesContainer();
+  it('returns 404 for an image id the tour does not have', async () => {
+    const { images, run, replaces } = setUp();
 
-    await expect(
-      deleteImage(
-        reqWith(TID, IMG1),
-        mockAuth,
-        () => tours.container,
-        () => images.container,
-      ),
-    ).rejects.toThrow('service unavailable');
+    const response = await run(TOUR_ID, UNKNOWN_IMAGE_ID);
 
-    // A non-412 error must throw immediately (attempt 0), not fall into the
-    // conflict-retry loop that's only meant for 412s: replace() is called
-    // once, and read() only from the initial load, never from a retry.
-    expect(tours.replace).toHaveBeenCalledTimes(1);
-    expect(tours.read).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(404);
+    expect(response.jsonBody.error).toBe('errors.imageNotFound');
+    expect(replaces()).toEqual([]);
+    expect(images.calls).toEqual([]);
   });
 
-  // .replace() overwrites the whole document, so without an ETag check two
-  // deletes racing on the same tour could silently clobber each other (same
-  // class of bug as UploadImage's — see index.js). A 412 means someone else's
-  // write landed first; re-read and retry against the fresh version.
-  it('retries against a fresh read after a 412 conflict, then succeeds', async () => {
-    const read = vi
-      .fn()
-      .mockResolvedValueOnce({ resource: { ...TOUR, images: [...TOUR.images] } })
-      .mockResolvedValueOnce({
-        resource: { ...TOUR, _etag: '"etag-v2"', images: [...TOUR.images] },
-      });
-    const replace = vi
-      .fn()
-      .mockRejectedValueOnce(Object.assign(new Error('conflict'), { code: 412 }))
-      .mockResolvedValueOnce({ resource: {} });
-    const item = vi.fn().mockReturnValue({ read, replace });
-    const tours = { container: { item } };
-    const images = makeImagesContainer();
+  it('returns 404 for a tour stored without an images field', async () => {
+    const { run } = setUp({ documents: [{ ...TOUR, images: undefined }] });
 
-    const res = await deleteImage(
-      reqWith(TID, IMG1),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-    );
+    const response = await run(TOUR_ID, IMAGE_ID);
 
-    expect(res.status).toBe(204);
-    expect(replace).toHaveBeenCalledTimes(2);
-    expect(replace.mock.calls[0][1]).toEqual({
-      accessCondition: { type: 'IfMatch', condition: '"etag-v1"' },
-    });
-    expect(replace.mock.calls[1][1]).toEqual({
-      accessCondition: { type: 'IfMatch', condition: '"etag-v2"' },
-    });
-    // The blob delete isn't retried — only the document write races. Two
-    // calls (full + thumbnail), not one per retry.
-    expect(images.deleteIfExists).toHaveBeenCalledTimes(2);
+    expect(response.status).toBe(404);
+    expect(response.jsonBody.error).toBe('errors.imageNotFound');
   });
 
-  it('gives up after repeated 412 conflicts', async () => {
-    const read = vi.fn().mockResolvedValue({ resource: { ...TOUR, images: [...TOUR.images] } });
-    const replace = vi.fn().mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
-    const item = vi.fn().mockReturnValue({ read, replace });
-    const tours = { container: { item } };
-    const images = makeImagesContainer();
+  it('returns 400 before any read when an id is not a UUID', async () => {
+    const { tours, run } = setUp();
 
-    await expect(
-      deleteImage(
-        reqWith(TID, IMG1),
-        mockAuth,
-        () => tours.container,
-        () => images.container,
-      ),
-    ).rejects.toThrow('conflict');
-    expect(replace).toHaveBeenCalledTimes(3);
+    const badImage = await run(TOUR_ID, 'bad');
+    const badTour = await run('bad', IMAGE_ID);
+
+    expect(badImage.status).toBe(400);
+    expect(badImage.jsonBody.error).toBe('errors.invalidId');
+    expect(badTour.jsonBody.error).toBe('errors.invalidId');
+    expect(tours.calls).toEqual([]);
   });
 
-  it('returns 400 when an id is not a UUID', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
-    const images = makeImagesContainer();
-    const res = await deleteImage(
-      reqWith(TID, 'bad'),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-    );
+  it('returns 401 without reading or deleting when the caller is not signed in', async () => {
+    const { tours, images, run } = setUp({ authenticate: signedOut });
 
-    expect(res.status).toBe(400);
-    expect(tours.item).not.toHaveBeenCalled();
-  });
+    const response = await run(TOUR_ID, IMAGE_ID);
 
-  it('returns 404 when the tour is not in the caller partition', async () => {
-    const tours = makeToursContainer(async () => ({ resource: undefined }));
-    const images = makeImagesContainer();
-    const res = await deleteImage(
-      reqWith(TID, IMG1),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-    );
-
-    expect(res.status).toBe(404);
-    expect(images.deleteIfExists).not.toHaveBeenCalled();
-  });
-
-  it('returns 404 when the image id is unknown', async () => {
-    const tours = makeToursContainer(async () => ({
-      resource: { ...TOUR, images: [...TOUR.images] },
-    }));
-    const images = makeImagesContainer();
-    const res = await deleteImage(
-      reqWith(TID, GHOST),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-    );
-
-    expect(res.status).toBe(404);
-    expect(res.jsonBody.error).toBe('Image not found');
-    expect(images.deleteIfExists).not.toHaveBeenCalled();
-    expect(tours.replace).not.toHaveBeenCalled();
-  });
-
-  it('returns 404 when the tour has no images at all', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: undefined } }));
-    const images = makeImagesContainer();
-    const res = await deleteImage(
-      reqWith(TID, IMG1),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-    );
-
-    expect(res.status).toBe(404);
-    expect(images.deleteIfExists).not.toHaveBeenCalled();
-  });
-
-  it('returns 401 when auth fails', async () => {
-    const failAuth = async () => null;
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
-    const images = makeImagesContainer();
-    const res = await deleteImage(
-      reqWith(TID, IMG1),
-      failAuth,
-      () => tours.container,
-      () => images.container,
-    );
-
-    expect(res.status).toBe(401);
-    expect(tours.item).not.toHaveBeenCalled();
+    expect(response.status).toBe(401);
+    expect([...tours.calls, ...images.calls]).toEqual([]);
   });
 });

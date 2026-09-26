@@ -18,8 +18,8 @@
     "lint": "eslint src/ test/ scripts/ --max-warnings 0",
     "typecheck": "tsc -p .",
     "knip": "knip --no-progress && knip --no-progress --directory ../frontend && knip --no-progress --directory ../e2e",
-    "depcruise": "cd .. && depcruise --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json functions/src functions/scripts functions/test frontend/src frontend/test e2e",
-    "format": "prettier --write 'src/**/*.js' 'test/**/*.js'",
+    "depcruise": "cd .. && depcruise --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json functions/src functions/scripts functions/test frontend/src frontend/test e2e load",
+    "format": "prettier --write 'src/**/*.js' 'test/**/*.js' 'scripts/**/*.{js,mjs}'",
     "mutate": "stryker run",
     "mutation:summary": "node scripts/mutation-summary.mjs --title 'Mutation testing (functions)' --artifact mutation-report-functions"
   },
@@ -50,7 +50,7 @@
     "globals": "^17.12.0",
     "knip": "^6.38.0",
     "mutation-testing-metrics": "^3.9.0",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.8",
     "typescript": "^5.9.3",
     "vitest": "^4.1.9"
   },

@@ -1,15 +1,8 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { clearUsers, listUsers } from './usersDb';
+import { expect, fullstackTest } from './fullstack-test';
+import { devUserProfiles } from './store';
 
-// Language selection lives in profile settings and persists to the user doc,
-// unlike the old navbar-only, localStorage-only picker.
-
-buddyTest.describe('language preference', () => {
-  buddyTest.beforeEach(async () => {
-    await clearUsers();
-  });
-
-  buddyTest(
+fullstackTest.describe('language preference', () => {
+  fullstackTest(
     'switching language in settings persists it and translates the UI',
     async ({ on, page }) => {
       await page.goto('/');
@@ -17,32 +10,30 @@ buddyTest.describe('language preference', () => {
 
       await on(page).main.do.openProfile();
       await expect(on(page).modal.profile()).toBeVisible();
-      await on(page).modal.profile.do.switchLanguage({ search: 'deu', pick: 'Deutsch' });
+      await on(page).modal.profile.do.switchLanguage({ search: 'deu', code: 'de' });
 
-      // Selecting PATCHes /api/me and reloads; the UI comes back in German.
+      // Selecting PATCHes /api/v1/me and reloads; the UI comes back in German.
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
-      await expect(page.getByText('Meine Touren')).toBeVisible();
+      await expect(on(page).main.locators.sidebarTitle).toHaveText('Meine Touren');
 
-      const [user] = await listUsers();
-      expect(user.language).toBe('de');
+      const [profile] = await devUserProfiles();
+      expect(profile.language).toBe('de');
     },
   );
 
-  buddyTest(
+  fullstackTest(
     'a fresh session with no local override picks up the saved backend language',
     async ({ on, page }) => {
       await page.goto('/');
       await on(page).main.do.openProfile();
-      await on(page).modal.profile.do.switchLanguage({ search: 'deu', pick: 'Deutsch' });
+      await on(page).modal.profile.do.switchLanguage({ search: 'deu', code: 'de' });
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
 
-      // Simulate a different browser/device: no local override, but the
-      // account still has the saved language.
-      await page.evaluate(() => localStorage.removeItem('bikebuddy-lang'));
+      // A second device: no local choice, only the account's.
+      await on(page).main.do.forgetLocalSettings();
       await page.reload();
 
-      // Momentarily falls back to browser detection, then devSignIn()'s
-      // /api/me re-fetch sees the saved language and re-applies it.
+      // Browser detection first, then GET /api/v1/me's saved language.
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
     },
   );

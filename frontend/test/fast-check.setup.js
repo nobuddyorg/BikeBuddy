@@ -1,7 +1,4 @@
-// Global fast-check settings for every property test (vitest setupFiles).
-// A failure prints its seed and path; replay exactly that run with
-//   FC_SEED=<seed> FC_PATH=<path> npm test -- <file>
-// (docs/how-to/developer-guide.md, "Replay a property-test failure").
+// Replay a failure: FC_SEED=<seed> FC_PATH=<path> npm test -- <file> (developer-guide.md).
 import fc from 'fast-check';
 
 const seed = process.env.FC_SEED ? Number(process.env.FC_SEED) : undefined;

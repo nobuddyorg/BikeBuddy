@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   parseLineStyle,
-  loadLineStyle,
-  saveLineStyle,
   DEFAULT_LINE_STYLE,
   WEIGHT_MIN,
   WEIGHT_MAX,
   OPACITY_MIN,
   OPACITY_MAX,
+  opacityToPercent,
+  percentToOpacity,
 } from '../src/lib/lineStyle.js';
 
 describe('parseLineStyle', () => {
@@ -29,6 +29,17 @@ describe('parseLineStyle', () => {
   it('passes through a valid stored value', () => {
     const stored = JSON.stringify({ color: '#00ff00', weight: 5, opacity: 0.5 });
     expect(parseLineStyle(stored)).toEqual({ color: '#00ff00', weight: 5, opacity: 0.5 });
+  });
+
+  it('is itself a valid, in-range style', () => {
+    expect(DEFAULT_LINE_STYLE.color).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(parseLineStyle(JSON.stringify(DEFAULT_LINE_STYLE))).toStrictEqual(DEFAULT_LINE_STYLE);
+  });
+
+  it('only accepts a whole six-digit hex colour', () => {
+    for (const color of ['x#123456', '#1234567', '#12345']) {
+      expect(parseLineStyle(JSON.stringify({ color })).color).toBe(DEFAULT_LINE_STYLE.color);
+    }
   });
 
   it('falls back to the default color when malformed', () => {
@@ -55,22 +66,10 @@ describe('parseLineStyle', () => {
   });
 });
 
-describe('loadLineStyle / saveLineStyle', () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  it('round-trips a style through localStorage', () => {
-    const store = new Map();
-    vi.stubGlobal('localStorage', {
-      getItem: (key) => store.get(key) ?? null,
-      setItem: (key, value) => store.set(key, value),
-    });
-    const style = { color: '#123456', weight: WEIGHT_MIN, opacity: OPACITY_MAX };
-    saveLineStyle(style);
-    expect(loadLineStyle()).toEqual(style);
-  });
-
-  it('loads the default when nothing is stored', () => {
-    vi.stubGlobal('localStorage', { getItem: () => null });
-    expect(loadLineStyle()).toEqual(DEFAULT_LINE_STYLE);
+describe('opacityToPercent / percentToOpacity', () => {
+  it('converts between the stored fraction and the slider percent', () => {
+    expect(opacityToPercent(0.75)).toBe(75);
+    expect(opacityToPercent(0.204)).toBe(20);
+    expect(percentToOpacity(35)).toBe(0.35);
   });
 });

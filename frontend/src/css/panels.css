@@ -1,0 +1,258 @@
+.detail-panel {
+  width: var(--detail-width);
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  padding: 20px 16px;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* A 44x44 hit area (WCAG 2.5.5), above the map preview's controls on mobile. */
+.detail-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.detail-close:hover {
+  color: var(--color-text);
+}
+
+.detail-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  /* Clears the 44px-wide .detail-close hit area anchored at right:6px. */
+  padding-right: 40px;
+}
+
+.detail-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin-bottom: 16px;
+}
+
+.detail-meta dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  align-self: center;
+}
+
+.detail-meta dd {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.detail-description {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#user-name {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.btn {
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-primary-strong);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-strong-hover);
+}
+
+.btn-secondary {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.btn-danger {
+  background: var(--color-danger-strong);
+  color: #fff;
+  border: 1px solid var(--color-danger-strong);
+}
+
+/* The SVG's fill is currentColor, so it follows the button's colour. */
+/* For the map toolbar's checkbox toggles. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.btn-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-strong-hover);
+  border-color: var(--color-danger-strong-hover);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-border);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--color-text);
+}
+
+/* After .btn on purpose: same specificity, so its zero padding wins. */
+.stats-header-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.stats-header-btn svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.btn-full {
+  width: 100%;
+  text-align: center;
+}
+
+/* Icon-only buttons whose glyph is smaller than the 44x44 hit-area floor (WCAG 2.5.5). */
+#btn-help,
+#tour-pager-prev,
+#tour-pager-next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 32px 36px;
+  min-width: 300px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  text-align: center;
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+}
+
+.help-modal {
+  max-width: 480px;
+}
+
+.help-content {
+  text-align: left;
+  margin-top: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.help-content h3 {
+  font-size: 14px;
+  margin: 14px 0 4px;
+}
+
+.help-content p {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.help-content code {
+  /* Full-strength text: the paragraph's muted colour is below 4.5:1 on the chip. */
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}

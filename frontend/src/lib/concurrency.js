@@ -1,21 +1,25 @@
 // @ts-check
-'use strict';
 
-// A rejecting worker is swallowed so one bad item can't halt the batch; callers
-// that care report failures through `worker` itself.
-export async function runWithConcurrency(items, limit, worker) {
+// Like Promise.allSettled over `worker(item)`, with at most `limit` running at once.
+export async function runWithConcurrency({ items, limit, worker }) {
+  const outcomes = [];
   let next = 0;
 
   async function runNext() {
-    const i = next++;
-    if (i >= items.length) return;
+    const index = next++;
+    if (index >= items.length) return;
     try {
-      await worker(items[i], i);
-    } catch {
-      // See above: one item's failure must not stop the pool.
+      outcomes[index] = {
+        item: items[index],
+        status: 'fulfilled',
+        value: await worker(items[index], index),
+      };
+    } catch (reason) {
+      outcomes[index] = { item: items[index], status: 'rejected', reason };
     }
-    return runNext();
+    await runNext();
   }
 
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runNext));
+  return outcomes;
 }

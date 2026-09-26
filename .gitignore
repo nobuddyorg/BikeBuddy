@@ -13,7 +13,6 @@ yarn-error.log*
 functions/local.settings.json
 functions/.python_packages/
 functions/__pycache__/
-functions/.funcignore
 .azure/
 
 # Local emulators / dev tooling
@@ -72,7 +71,6 @@ functions/reports/mutation/
 
 # Terraform
 infrastructure/.terraform/
-infrastructure/.terraform.lock.hcl
 infrastructure/terraform.tfstate
 infrastructure/terraform.tfstate.backup
 func.zip
