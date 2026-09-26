@@ -98,7 +98,7 @@ export const buddyTest = test.extend<BuddyFixtures>({
   ],
   offlineBasemap: [
     async ({ page }, use) => {
-      await page.route('https://*.basemaps.cartocdn.com/**', (route) =>
+      await page.route('https://tile.openstreetmap.org/**', (route) =>
         route.fulfill({ status: 200, contentType: 'image/png', body: BLANK_TILE }),
       );
       await use();

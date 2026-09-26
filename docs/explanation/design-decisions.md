@@ -245,6 +245,13 @@ which the number of tours per rider bounds.
   and a tour list reloaded within the window leaves the pending tours out
   (#559). Still best-effort: a browser killed outright sends nothing, and the
   server has no soft delete.
+- Map tiles come from `tile.openstreetmap.org`: keyless, and within the OSMF
+  tile usage policy for interactive viewing (attribution shown, a Referer
+  sent, nothing prefetched, the service worker never caches tiles). It has no
+  dark style, so dark mode inverts the light tiles with a CSS filter. CARTO
+  was dropped when its keyless tiles started carrying an "API key required"
+  watermark (September 2026). OpenFreeMap's keyless vector tiles would need
+  MapLibre GL, far heavier than Leaflet.
 - iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
   viewport meta.
 - The line style is saved on change, not on every input event.
@@ -266,8 +273,8 @@ which the number of tours per rider bounds.
 - the controller
 - the data processed, including the GPS position read from a photo's EXIF data
 - the purposes and their legal bases
-- the recipients: Microsoft for Azure and Entra, CARTO's map tiles, which show
-  CARTO the areas a rider looks at, and GitHub Pages
+- the recipients: Microsoft for Azure and Entra, the OpenStreetMap Foundation's
+  map tiles, which show it the areas a rider looks at, and GitHub Pages
 - retention, including Entra's 30-day recycle bin and the 7- and 14-day backups
 - what the browser stores
 - the rider's rights

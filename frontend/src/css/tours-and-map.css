@@ -175,9 +175,9 @@
   touch-action: pan-x pan-y;
 }
 
-/* CARTO's dark_all tiles are low-contrast; the route pane above is unaffected. */
+/* Inverts lightness only (hue turned back); the route pane above is unaffected. */
 .map-tiles-dark {
-  filter: brightness(1.8) contrast(1.2) saturate(2);
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
 }
 
 .map-top-controls {

@@ -234,7 +234,7 @@
   "privacy.purposeNone": "BikeBuddy gebruikt geen advertenties, geen tracking en geen analysediensten, en verkoopt je gegevens niet en gebruikt ze nergens anders voor.",
   "privacy.recipientsHeading": "Wie gegevens ontvangt",
   "privacy.recipientsMicrosoft": "<strong>Microsoft</strong> host de dienst in zijn Azure-datacenters in de regio Noord-Europa (Ierland): de API, de database en de bestandsopslag. Aanmelden verloopt via Microsoft Entra External ID. Microsoft verwerkt deze gegevens in onze opdracht.",
-  "privacy.recipientsCarto": "<strong>CARTO</strong> levert de kaartafbeeldingen. Om de kaart te tekenen, laadt je browser de afbeeldingen van het gebied dat je bekijkt van de servers van CARTO. Zo ziet CARTO je IP-adres en dat gebied, vaak rond je huis of je ritten. De kaartgegevens komen van OpenStreetMap.",
+  "privacy.recipientsMapTiles": "De <strong>OpenStreetMap Foundation</strong> levert de kaartafbeeldingen. Om de kaart te tekenen, laadt je browser de afbeeldingen van het gebied dat je bekijkt van de servers van OpenStreetMap. Zo ziet de OpenStreetMap Foundation je IP-adres en dat gebied, vaak rond je huis of je ritten. De kaartgegevens komen van OpenStreetMap.",
   "privacy.recipientsGithub": "<strong>GitHub</strong> (een bedrijf van Microsoft) host deze website op GitHub Pages en ziet je IP-adres wanneer je browser haar laadt.",
   "privacy.recipientsTransfer": "Deze aanbieders kunnen gegevens ook buiten de EU verwerken, bijvoorbeeld in de Verenigde Staten. Dan baseren ze zich op de waarborgen die de AVG daarvoor biedt, zoals de standaardcontractbepalingen van de EU.",
   "privacy.retentionHeading": "Hoe lang gegevens bewaard worden",

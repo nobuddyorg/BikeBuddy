@@ -19,22 +19,15 @@ const recordZoom = () => {
 recordZoom();
 map.on('zoomend', recordZoom);
 
-const TILE_URLS = {
-  light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',
-};
-
-const tileLayer = L.tileLayer(TILE_URLS.light, {
-  attribution:
-    '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-  subdomains: 'abcd',
+// Keyless under the OSMF tile usage policy: interactive viewing only, no prefetch, attribution shown.
+const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   maxZoom: 19,
 }).addTo(map);
 
-// Tile URLs are JS state, out of reach of the stylesheets' prefers-color-scheme switch.
+// OpenStreetMap has no dark tiles; a CSS filter darkens the light ones.
 function applyMapTheme(theme) {
   leafletContainer.dataset.tiles = theme;
-  tileLayer.setUrl(TILE_URLS[theme]);
   tileLayer.getContainer()?.classList.toggle('map-tiles-dark', theme === 'dark');
 }
 
