@@ -345,7 +345,7 @@ summary).
 ## Dead code (Knip)
 
 [Knip](https://knip.dev) reports unused files, unused exports and unused or
-missing dependencies in `functions/`, `frontend/` and `e2e/` (one
+missing dependencies in `functions/`, `frontend/`, `e2e/` and `load/` (one
 `knip.jsonc` per package):
 
 ```bash
@@ -356,7 +356,8 @@ The configs list only what Knip cannot follow statically, each with its reason:
 Function handlers (loaded by the Functions host), operator scripts (run by
 name), `frontend/src/app.js` and `sw.js` (loaded by `index.html` and the
 service-worker registration), `e2e/serve.mjs` (a Playwright `webServer`
-command), and global CLIs such as `func` (`ignoreBinaries`). Anything else it
+command), the k6 scripts (handed to k6 by name) and their built-in `k6/*`
+modules, and global CLIs such as `func` and `k6` (`ignoreBinaries`). Anything else it
 reports is removed, not ignored: an export used only in its own file loses
 `export`. Runs as a pre-commit hook and in CI's `architecture` job.
 
@@ -518,12 +519,28 @@ cd e2e && npm run lighthouse:summary         # the table CI puts in the job summ
   host, proxied at `/api`, with seeded tours of 2,000 points each).
 - **Assertions** (`e2e/lighthouse/lighthouserc.<state>.json`), median of three
   runs: performance, accessibility = 100, best practices, SEO, LCP, TBT and
-  CLS, set from runner measurements with margin (numbers and reasons in the
-  files and the table below). Raised when a change makes room, never lowered to
-  let a regression through.
+  CLS, set from runner measurements with margin (the table below; JSON holds no
+  reasons). Raised when a change makes room, never lowered to let a regression
+  through.
 - **Reports**: HTML/JSON under `e2e/lighthouse-reports/<state>/` (the
   `lighthouse-reports` artifact in CI); no LHCI server, no GitHub App, no PR
-  comment.
+  comment. The score table goes to the job summary and the job log.
+
+Baseline: three CI runs on `ubuntu-latest` (2026-09-26, PR #650), each the
+median of three Lighthouse runs.
+
+| Assertion      | Signed out, measured | Signed in, measured | Threshold (both) | Why this threshold                                                          |
+| -------------- | -------------------- | ------------------- | ---------------- | --------------------------------------------------------------------------- |
+| Performance    | 87–90                | 87–89               | ≥ 80             | about 7 points under the worst run; the score moves a few points run to run |
+| Accessibility  | 100                  | 100                 | = 100            | any axe-detectable regression fails                                         |
+| Best practices | 100                  | 100                 | ≥ 90             | one audit's worth of room: map tiles come from a third-party CDN (CARTO)    |
+| SEO            | 100                  | 100                 | ≥ 90             | one audit's worth of room                                                   |
+| LCP            | 3.5–3.9 s            | 3.6–3.9 s           | ≤ 5,000 ms       | about 1.1 s over the worst run (runner CPU varies)                          |
+| TBT            | 0–14 ms              | 0–26 ms             | ≤ 300 ms         | TBT is the noisiest metric on shared runners; still 2× under the old 600 ms |
+| CLS            | 0.000                | 0.001               | ≤ 0.1            | Google's "good" bound, far above both measurements                          |
+
+Signed in was provisional (performance ≥ 60, LCP ≤ 8 s, CLS ≤ 0.25) until these
+runs; it now holds the same bar as signed out (#621).
 
 ## Run the OWASP ZAP scans
 

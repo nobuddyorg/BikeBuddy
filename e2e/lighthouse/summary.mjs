@@ -17,6 +17,7 @@ async function thresholds(state) {
     performance: a['categories:performance'][1].minScore,
     accessibility: a['categories:accessibility'][1].minScore,
     lcp: a['largest-contentful-paint'][1].maxNumericValue,
+    tbt: a['total-blocking-time'][1].maxNumericValue,
     cls: a['cumulative-layout-shift'][1].maxNumericValue,
   };
 }
@@ -37,6 +38,7 @@ async function row({ label, state }) {
   const t = await thresholds(state);
   const { performance, accessibility } = run.summary;
   const lcp = report.audits['largest-contentful-paint']?.numericValue;
+  const tbt = report.audits['total-blocking-time']?.numericValue;
   const cls = report.audits['cumulative-layout-shift']?.numericValue;
   return [
     label,
@@ -45,6 +47,7 @@ async function row({ label, state }) {
     pct(run.summary['best-practices']),
     pct(run.summary.seo),
     `${mark(lcp <= t.lcp)} ${Number.isFinite(lcp) ? `${(lcp / 1000).toFixed(1)} s` : 'n/a'}`,
+    `${mark(tbt <= t.tbt)} ${Number.isFinite(tbt) ? `${Math.round(tbt)} ms` : 'n/a'}`,
     `${mark(cls <= t.cls)} ${Number.isFinite(cls) ? cls.toFixed(3) : 'n/a'}`,
   ]
     .map((cell) => `| ${cell} `)
@@ -57,11 +60,12 @@ const markdown = [
   '',
   'Scores 0-100, median of three runs. Full HTML reports: the `lighthouse-reports` artifact.',
   '',
-  '| State | Performance | Accessibility | Best practices | SEO | LCP | CLS |',
-  '|---|---|---|---|---|---|---|',
+  '| State | Performance | Accessibility | Best practices | SEO | LCP | TBT | CLS |',
+  '|---|---|---|---|---|---|---|---|',
   ...(await Promise.all(STATES.map(row))),
   '',
 ].join('\n');
 
+// The log too: the job summary has no API, and the thresholds are recalibrated from runner numbers.
+console.log(markdown);
 if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown);
-else console.log(markdown);
