@@ -38,6 +38,10 @@ staticTest('the sign-in prompt links the notice before anyone signs in', async (
 
   await expect(on(notice).privacy.locators.title).toHaveText('Privacy notice');
   await expect(on(notice).privacy.locators.controller).toBeVisible();
+  await expect(on(notice).privacy.locators.contact).toHaveAttribute(
+    'href',
+    'mailto:info@nobuddy.org',
+  );
   await on(notice).a11y.check('privacy notice');
 });
 
