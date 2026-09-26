@@ -23,7 +23,7 @@ interface FrontendConfig {
 
 function readFrontendConfig(): FrontendConfig {
   const sandbox: { window: { BIKEBUDDY_CONFIG?: FrontendConfig } } = { window: {} };
-  runInNewContext(readFileSync(CONFIG_PATH, 'utf8'), sandbox);
+  runInNewContext(readFileSync(CONFIG_PATH, 'utf8'), sandbox); // nosemgrep: scripts.quality.bikebuddy.no-runtime-code -- the developer's own config.js, in a sandbox, never shipped
   return sandbox.window.BIKEBUDDY_CONFIG ?? {};
 }
 

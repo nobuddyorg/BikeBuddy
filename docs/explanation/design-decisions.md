@@ -464,12 +464,19 @@ package feed (401 outside their network). Bump it once a fixed release exists.
 
 ## SAST rule packs
 
-OpenGrep runs `--config auto` and `--config p/security-audit` together.
-`auto` selects the community rules for every language in
-the tree (JavaScript, TypeScript, HCL, Bash, HTML, JSON), including the
-taint rules that catch `eval(req.body)`-style injections at error severity.
-`p/security-audit` is the narrower audit pack the pre-commit hook ran before;
-keeping it means the switch cannot lose a rule that was already enforced. Only
+OpenGrep runs `--config auto`, `--config p/security-audit` and BikeBuddy's own
+`scripts/quality/opengrep-rules.yml` together. `auto` selects the community
+rules for every language in the tree (JavaScript, TypeScript, HCL, Bash, HTML,
+JSON). Its taint rules catch `eval(req.body)` in Express, but they do not know
+an Azure Functions request: a probe PR that added `eval(await request.text())`
+to a handler passed the job with no error-severity finding (#595). ESLint's
+`sonarjs/code-eval` stops that line first, but the SAST gate must hold on its
+own, so the repo's rule `bikebuddy.no-runtime-code` fails on any `eval`,
+`Function` or `node:vm` call at error severity; nothing here needs one. The
+e2e harness reading a local `config.js` in a `vm` sandbox is its one inline
+suppression. `p/security-audit` is the narrower audit pack the pre-commit hook
+ran before; keeping it means the switch cannot lose a rule that was already
+enforced. Only
 error severity fails the job: the warning-level packs (i18n key formats, Azure
 hardening advice) are reported for triage, and the IaC ones are owned by the
 IaC scanner. Two findings were fixed on adoption (the language menu built

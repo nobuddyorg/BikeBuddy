@@ -243,8 +243,10 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
 ```
 
 - **Rule packs**: `--config auto` (the community rules for the languages
-  found) plus `--config p/security-audit` (the audit pack BikeBuddy used
-  before). The union is the gate; see the design decision "SAST rule packs".
+  found), `--config p/security-audit` (the audit pack BikeBuddy used before)
+  and [`scripts/quality/opengrep-rules.yml`](../../scripts/quality/opengrep-rules.yml)
+  (BikeBuddy's own error-severity rules). The union is the gate; see the design
+  decision "SAST rule packs".
 - **Gate**: CI fails only on **error**-severity findings, with an annotation
   per finding; warnings and infos are report-only. Every finding goes to the job
   summary and to the Security tab (code scanning, category `opengrep`), together
