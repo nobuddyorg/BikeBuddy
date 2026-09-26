@@ -175,9 +175,9 @@
   touch-action: pan-x pan-y;
 }
 
-/* Inverts lightness only (hue turned back); the route pane above is unaffected. */
+/* Grey, not hue-rotated: inverted greens turn harsh; the route pane above is unaffected. */
 .map-tiles-dark {
-  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+  filter: grayscale(1) invert(1) brightness(0.9) contrast(0.9);
 }
 
 .map-top-controls {
