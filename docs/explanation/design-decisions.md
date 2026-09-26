@@ -218,6 +218,27 @@ which the number of tours per rider bounds.
   dropped after a missed bump left users on stale code (#544); the name now
   changes only to discard an old cache.
 
+## Privacy notice (#542)
+
+`frontend/src/privacy.html` is the Art. 13 GDPR notice. It covers:
+
+- the controller
+- the data processed, including the GPS position read from a photo's EXIF data
+- the purposes and their legal bases
+- the recipients: Microsoft for Azure and Entra, CARTO's map tiles, which show
+  CARTO the areas a rider looks at, and GitHub Pages
+- retention, including Entra's 30-day recycle bin and the 7- and 14-day backups
+- what the browser stores
+- the rider's rights
+
+It is a page of its own, so it opens without signing in and the Entra sign-up
+page can link it. It uses the app's i18n, so every sentence is in all seven
+locales. The header links it (on screens wider than 480 px), as do the help,
+the sign-in prompt and the profile. The controller's name, address and contact
+are not translated: they sit in the page itself as placeholders, to be filled
+in before it is published. A change to what the app collects, whom it sends
+data to, or how long it keeps it updates the notice in the same change.
+
 ## Account deletion (GDPR), out-of-band
 
 `DELETE /api/v1/account` purges all app data immediately (tours, blobs, user doc)

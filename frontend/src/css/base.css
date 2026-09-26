@@ -364,3 +364,59 @@ body.modal-open {
   font-size: 13px;
   text-align: center;
 }
+
+/* The privacy notice (privacy.html, #542): a plain, scrolling document on the app's tokens. */
+body.privacy-page {
+  overflow: auto;
+}
+
+body.privacy-page.i18n-loading .privacy {
+  visibility: hidden;
+}
+
+.privacy {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+  line-height: 1.6;
+}
+
+.privacy h1 {
+  margin: 16px 0 12px;
+  font-size: 28px;
+}
+
+.privacy h2 {
+  margin: 28px 0 8px;
+  font-size: 19px;
+}
+
+.privacy ul {
+  padding-left: 20px;
+}
+
+.privacy li + li {
+  margin-top: 8px;
+}
+
+.privacy address {
+  font-style: normal;
+}
+
+.privacy a {
+  color: var(--color-primary-text);
+}
+
+/* Its links in the app: the header, the sign-in prompt, the help and the profile. */
+.auth-privacy a,
+.help-privacy a,
+.profile-privacy-link {
+  color: var(--color-primary-text);
+}
+
+.profile-privacy-link {
+  display: block;
+  margin-top: 16px;
+  font-size: 13px;
+  text-align: center;
+}

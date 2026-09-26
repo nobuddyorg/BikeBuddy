@@ -25,6 +25,8 @@ interface ProfileModal {
     since: Locator;
     nameInput: Locator;
     nameError: Locator;
+    /** Opens the privacy notice in a new tab. */
+    privacyLink: Locator;
     lang: {
       button: Locator;
       menu: Locator;
@@ -54,6 +56,7 @@ export function initProfileModal(page: Page): ProfileModal {
     since: page.locator('#profile-since'),
     nameInput: page.locator('#profile-name-input'),
     nameError: page.locator('#profile-name-error'),
+    privacyLink: page.locator('#link-privacy-profile'),
     lang: {
       button: page.locator('#btn-lang'),
       menu: page.locator('#lang-menu'),

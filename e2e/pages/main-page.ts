@@ -36,6 +36,11 @@ interface MainPage {
     toastActions: Locator;
     sidebar: Locator;
     sidebarTitle: Locator;
+    /** Links to the privacy notice (#542), each opening it in a new tab. */
+    privacyLinks: {
+      header: Locator;
+      signIn: Locator;
+    };
     buttons: {
       login: Locator;
       upload: Locator;
@@ -64,6 +69,10 @@ export function initMainPage(page: Page): MainPage {
     toastActions: page.locator('#toasts').getByTestId('toast-action'),
     sidebar: page.locator('#sidebar'),
     sidebarTitle: page.locator('#sidebar-title'),
+    privacyLinks: {
+      header: page.locator('#link-privacy-header'),
+      signIn: page.locator('#link-privacy-signin'),
+    },
     buttons: {
       login: page.locator('#btn-login'),
       upload: page.locator('#btn-upload'),
