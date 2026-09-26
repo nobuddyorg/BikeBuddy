@@ -1,6 +1,8 @@
 'use strict';
 
 const { app } = require('@azure/functions');
+// Loaded once outside any test, so Stryker counts their load-time mutants as static (ignoreStatic).
+require('./failureResponse');
 
 function freshFunctionsApp() {
   delete require.cache[require.resolve('./functionsApp')];

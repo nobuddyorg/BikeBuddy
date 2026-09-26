@@ -2,10 +2,12 @@
 
 import { markFetched, isStale } from './sasCache.js';
 
-async function fetchMapEntries({ apiFetch, pendingResponse }) {
+async function fetchMapEntriesById({ apiFetch, pendingResponse }) {
   const response = await (pendingResponse ?? apiFetch('/api/v1/map'));
   if (!response.ok) throw new Error(`GET /api/v1/map answered ${response.status}`);
-  return (await response.json()) || [];
+  const entries = await response.json();
+  if (!Array.isArray(entries)) return new Map();
+  return new Map(entries.map((entry) => [entry.id, entry]));
 }
 
 // /api/v1/map carries only the pinnable photos: a loaded gallery keeps its other photos.
@@ -30,8 +32,7 @@ export async function ensureMapData({ apiFetch, tours, now, pendingResponse }) {
   if (missing.length === 0) return;
 
   try {
-    const entries = await fetchMapEntries({ apiFetch, pendingResponse });
-    const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+    const entriesById = await fetchMapEntriesById({ apiFetch, pendingResponse });
     for (const tour of missing) applyEntry({ tour, entry: entriesById.get(tour.id), now });
   } catch (error) {
     for (const tour of missing) {

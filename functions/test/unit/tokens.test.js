@@ -165,6 +165,8 @@ describe('rejectedTokensFor', () => {
     expect(new URL(claimsOf('wrong issuer').iss).origin).not.toBe(new URL(SIGNING.issuer).origin);
     expect(claimsOf('no scope')).not.toHaveProperty('scp');
     expect(claimsOf('ID token for the same client')).not.toHaveProperty('scp');
+    // What makes it an ID token rather than a second 'no scope' case.
+    expect(claimsOf('ID token for the same client').nonce).toBeTruthy();
     expect(claimsOf('ID token for the same client').aud).toBe(SIGNING.audience);
     expect(claimsOf('another scope').scp).toBe('User.Read');
     expect(claimsOf('HS256 keyed with the public key')).toMatchObject({

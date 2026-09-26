@@ -518,19 +518,25 @@ cannot be mutation-tested without being fully covered, or the reverse.
 `ignoreStatic` (functions) skips mutants that only run at module load
 (`app.http()` registration, top-level schema constants): handlers are
 imported once per test file, so those mutants cannot be killed without
-reloading the module per mutant. Break thresholds start one point below the
-measured score and only move up; known equivalent mutants are listed here when
-one blocks a raise. Current survivors, all equivalent:
+reloading the module per mutant. A test that first requires a module inside
+its body (to spy on its load, like `functionsApp.test.js`) makes that
+module's imports look covered by that one test instead, so Stryker runs only it
+against their load-time mutants; such a test file requires those imports at
+its top first. Break thresholds start one point below the measured score and
+only move up; known equivalent mutants are listed here when one blocks a
+raise. None survive: both packages measured 100 % (#602), after these
+equivalent mutants were designed out rather than tested around:
 
-- `parseGpx.js`: min/max comparisons on equal values, the elevation loop
-  starting at the first point, `difference >= 0`, the 1 km/h speed boundary,
-  and `toArray`'s empty-element branch.
-- `emulatorGuard.js`: the `'utf8'` read encoding (`JSON.parse` accepts the
-  Buffer either way).
-- `frontend/src/lib/mapData.js`: `|| []` → a non-empty array; a body that is not
-  a list settles every tour on empty data either way.
-- `frontend/src/lib/tours.js`: the static `SORT_OPTIONS` initialiser, which
-  only runs at import.
+- `parseGpx.js`'s `toArray` filters the wrapped value instead of returning an
+  empty-array literal for a missing element.
+- `parseMultipart.js` builds its allowed fields as `new Set(fieldNames)`,
+  which is empty for no names, instead of defaulting to `[]`.
+- `emulatorGuard.js` decodes the settings file with `toString()` instead of
+  an encoding argument that `JSON.parse` made redundant.
+- `frontend/src/lib/mapData.js` answers a body that is not a list with an
+  empty map, and `tours.js` names its default sort as a literal rather than
+  reading it from `SORT_OPTIONS` at import, whose empty mutant only broke the
+  import, which Stryker does not count as a failed test.
 
 ## Property tests
 

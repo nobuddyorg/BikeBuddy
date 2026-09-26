@@ -427,8 +427,8 @@ cd frontend && npm run mutate      # one package
 
 | Package      | Break threshold | Measured (full run) |
 | ------------ | --------------- | ------------------- |
-| `functions/` | 98 %            | 99.40 %             |
-| `frontend/`  | 98 %            | 99.80 %             |
+| `functions/` | 99 %            | 100 %               |
+| `frontend/`  | 99 %            | 100 %               |
 
 - **Incremental**: results are kept in `reports/stryker-incremental.json`; a
   rerun only tests mutants in changed code or covered by changed tests. CI

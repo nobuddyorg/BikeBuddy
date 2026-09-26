@@ -203,7 +203,7 @@ const isValidPoint = ({ latitude, longitude }) =>
 // fast-xml-parser yields an object for one element, an array for several, undefined for none.
 function toArray(value) {
   if (Array.isArray(value)) return value;
-  return value == null ? [] : [value];
+  return [value].filter((element) => element != null);
 }
 
 // An element with attributes or children parses to an object holding its text as '#text'.

@@ -229,10 +229,10 @@ describe('ensureMapData', () => {
     expect(stale.detailLoaded).toBe(false);
   });
 
-  it('tolerates a response body that is not a list', async () => {
+  it.each([null, {}])('tolerates a response body that is not a list: %j', async (body) => {
     const tours = [{ id: 't1' }];
 
-    await ensureMapData({ apiFetch: async () => ok(null), tours, now: NOW });
+    await ensureMapData({ apiFetch: async () => ok(body), tours, now: NOW });
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
   });

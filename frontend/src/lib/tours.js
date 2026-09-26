@@ -11,7 +11,7 @@ export const SORT_OPTIONS = [
   { key: 'length-desc', labelKey: 'sort.lengthDesc' },
   { key: 'length-asc', labelKey: 'sort.lengthAsc' },
 ];
-export const DEFAULT_SORT = SORT_OPTIONS[0].key;
+export const DEFAULT_SORT = 'date-desc';
 
 // An exact name beats a prefix, a word start, a substring, then any scattered subsequence.
 const EXACT_SCORE = 1000;

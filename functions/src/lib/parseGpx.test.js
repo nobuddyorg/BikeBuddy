@@ -495,6 +495,17 @@ describe('parseGpx', () => {
       expect(result.maxElevation).toBeNull();
     });
 
+    it('counts the climb between just two elevation points', () => {
+      const result = parseGpx(
+        makeGpxWithExtras([
+          [48, 11, 100],
+          [48, 11.001, 150],
+        ]),
+      );
+      expect(result.elevationGain).toBe(50);
+      expect(result.elevationLoss).toBe(0);
+    });
+
     it('reports min/max but not gain/loss for a single elevation point', () => {
       const result = parseGpx(makeGpxWithExtras([[48, 11, 42]]));
       expect(result.minElevation).toBe(42);
