@@ -524,7 +524,7 @@ jobs:
         run: ./buddy.sh quality opengrep --sarif-output=opengrep-results.sarif --json-output=opengrep-results.json
 
       - name: Upload SARIF to code scanning
-        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: opengrep-results.sarif
           category: opengrep
@@ -616,14 +616,14 @@ jobs:
 
       - name: Upload TFLint SARIF to code scanning
         if: ${{ !cancelled() && hashFiles('iac-reports/tflint.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: iac-reports/tflint.sarif
           category: iac-tflint
 
       - name: Upload Trivy SARIF to code scanning
         if: ${{ !cancelled() && hashFiles('iac-reports/trivy.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: iac-reports/trivy.sarif
           category: iac
