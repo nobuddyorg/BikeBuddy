@@ -256,8 +256,11 @@ one missed: a partial failure, or a write from another device in between.
 
 Why out-of-band: deleting a directory user needs a tenant-wide
 `User.ReadWrite.All` Graph credential. Keeping that **only in CI** (never in the
-internet-facing Functions app) means a compromise of the web app can't delete
-arbitrary users. GDPR allows the identity removal to complete shortly after (the
+internet-facing Functions app) means a compromise of the web app cannot call
+Graph itself. It can still write the queue, since the app holds the Cosmos key.
+So the job deletes only entries that look as the API leaves them (below), and
+it cannot prove more: a signature the app could not make would be the next step
+(#570 chose validation only). GDPR allows the identity removal to complete shortly after (the
 app data — the bulk of personal data — is already gone).
 
 Deleted data stays in the backups for a bounded time and then expires on its
@@ -270,16 +273,23 @@ fakes; a change to it is security-relevant):
 
 - Only queued ids shaped like a GUID reach Graph, URL-encoded. Anything else
   (`../groups/…`, `a/b`) stays queued and fails the run for a human to look at.
-- A queued `userId` is purged before the Graph call; the identity is deleted and
-  the entry removed only when the purge succeeded. A `userId` that is not a
-  token subject (empty, or with a `/`) is refused, since it would widen the
-  blob prefix. Entries queued before #538 carry no `userId`; their data was
-  purged when they were queued.
+- An entry must name the app user it was queued for (`userId`, a token subject:
+  never empty, never with a `/`, which would widen the blob prefix), and that
+  user's document must already be gone, as `DeleteAccount` leaves it (#570).
+  Anything else is rejected before any purge or Graph call: it stays queued
+  and fails the run. An entry from before #538 has no `userId`, and one whose
+  user document the API failed to delete still has it. Either needs a human:
+  after checking the account, delete the identity in the Entra admin center
+  and remove the entry, or ask the user to delete the account again.
+- The `userId` is purged before the Graph call; the identity is deleted and
+  the entry removed only when the purge succeeded.
 - A Graph 204 or 404 removes the queue entry, so a re-run is idempotent; a 5xx,
   429 or network error keeps it for the next run and fails this one. One
   failing id never stops the others.
-- Logs carry counts and masked ids (`…abcd`), never a full object id (#570
-  tracks purging Entra's soft-deleted users).
+- Logs carry counts and a hash per id (`id#` and 8 hex digits of its SHA-256),
+  never an object id, a part of one or an app user id, not even inside an error
+  message (#570). Entra keeps a deleted user in its recycle bin for 30 days;
+  the privacy notice says so.
 - `--dry-run` lists what a real run would do without Graph credentials; manual
   runs of `process-deletions.yml` default to it (input `dry_run`), the daily
   cron runs for real, and runs never overlap.

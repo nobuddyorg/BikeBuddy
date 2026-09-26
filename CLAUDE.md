@@ -109,9 +109,10 @@ security-critical.
 it purges each queued user's app data and deletes the directory user. A
 deletion cannot be undone from here. It must delete only ids the API queued and
 stay idempotent ("Account deletion (GDPR), out-of-band"). Never loosen what it
-accepts; #570 tracks the checks it still lacks (it cannot prove that the API,
-and not someone else holding the Cosmos key, queued an id). A change to it is
-security-relevant (see above).
+accepts: it deletes only entries that name an app user whose document is
+already gone (#570), and still cannot prove that the API, and not someone else
+holding the Cosmos key, queued an id. A change to it is security-relevant (see
+above).
 
 ## Infrastructure changes
 

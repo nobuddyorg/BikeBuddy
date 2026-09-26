@@ -49,6 +49,7 @@ export const FUNCTIONS_TARGETS = [
   'src/middleware/authMiddleware.js',
   'scripts/lib/cli.js',
   'scripts/lib/deletionJob.js',
+  'scripts/lib/graphClient.js',
   'scripts/lib/localCosmos.js',
   'scripts/lib/mutationSummary.mjs',
   'scripts/lib/queryItems.js',

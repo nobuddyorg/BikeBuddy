@@ -12,6 +12,7 @@ runDeletionJob({
   environment: process.env,
   fetch: globalThis.fetch,
   openDeletionsContainer: db.deletionsContainer,
+  openUsersContainer: db.usersContainer,
   purgeAccount: (userId) =>
     purgeAccountData({
       userId,
