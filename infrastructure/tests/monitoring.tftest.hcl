@@ -1,6 +1,6 @@
 # Run: cd infrastructure && tofu init -backend=false && tofu test
 # Plans against mock providers: no Azure credentials, nothing is created.
-# The cost ceiling (#549): how far the app can scale, and what stops it once the budget is spent.
+# Telemetry and alerting (#547): what reaches Application Insights, and what wakes someone up.
 
 mock_provider "azurerm" {
   mock_resource "azurerm_resource_group" {
@@ -53,41 +53,41 @@ variables {
   entra_client_id        = "11111111-1111-1111-1111-111111111111"
 }
 
-run "scaling_is_capped" {
+run "the_api_reports_to_application_insights_within_a_cap" {
   command = plan
   assert {
-    condition     = azurerm_function_app_flex_consumption.main.maximum_instance_count <= 10
-    error_message = "maximum_instance_count is the hard cost ceiling (#549); raising it is a cost decision."
+    condition     = azurerm_function_app_flex_consumption.main.site_config[0].application_insights_connection_string == azurerm_application_insights.main.connection_string
+    error_message = "The Functions host sends its telemetry to Application Insights only with the connection string."
+  }
+  assert {
+    condition     = azurerm_application_insights.main.daily_data_cap_in_gb <= 0.1 && azurerm_log_analytics_workspace.main.daily_quota_gb <= 0.1
+    error_message = "Ingestion stays capped: a flood of logs must not become a bill (#549)."
   }
 }
 
-run "a_spent_budget_stops_the_function_app" {
+run "an_outage_and_failures_alert_the_maintainer" {
   command = plan
   assert {
-    condition = anytrue([
-      for notification in azurerm_consumption_budget_resource_group.main.notification :
-      notification.threshold == 100 && notification.threshold_type == "Actual" &&
-      contains(coalesce(notification.contact_groups, []), azurerm_monitor_action_group.budget_stop.id)
+    condition     = azurerm_application_insights_standard_web_test.health.request[0].url == "https://${azurerm_function_app_flex_consumption.main.default_hostname}/api/v1/health"
+    error_message = "The availability test probes the public liveness route."
+  }
+  assert {
+    condition = alltrue([
+      for alert in [azurerm_monitor_metric_alert.health, azurerm_monitor_metric_alert.failed_requests] :
+      contains([for action in alert.action : action.action_group_id], azurerm_monitor_action_group.ops.id)
     ])
-    error_message = "The actual-spend notification must call the stop action group (#549)."
+    error_message = "Every metric alert mails the maintainer through the ops action group."
   }
   assert {
-    condition     = azurerm_monitor_action_group.budget_stop.logic_app_receiver[0].resource_id == azurerm_logic_app_workflow.budget_stop.id
-    error_message = "The action group must call the budget stop Logic App."
+    condition     = contains(azurerm_monitor_scheduled_query_rules_alert_v2.auth_failures.action[0].action_groups, azurerm_monitor_action_group.ops.id)
+    error_message = "Token failures mail the maintainer through the ops action group."
   }
   assert {
-    condition = (
-      jsondecode(azurerm_logic_app_action_custom.stop_function_app.body).inputs.uri ==
-      "https://management.azure.com${azurerm_function_app_flex_consumption.main.id}/stop?api-version=2024-04-01"
-    )
-    error_message = "The Logic App must stop this Function App, and nothing else."
+    condition     = strcontains(azurerm_monitor_scheduled_query_rules_alert_v2.auth_failures.criteria[0].query, "auth: unable to verify token")
+    error_message = "The query matches the log line authMiddleware.js writes when it cannot verify a token."
   }
   assert {
-    condition     = jsondecode(azurerm_logic_app_action_custom.stop_function_app.body).inputs.authentication.type == "ManagedServiceIdentity"
-    error_message = "The stop call authenticates as the Logic App's own identity, never with a stored secret."
-  }
-  assert {
-    condition     = azurerm_logic_app_workflow.budget_stop.identity[0].type == "SystemAssigned"
-    error_message = "The role an Owner grants goes to the Logic App's system-assigned identity."
+    condition     = azurerm_monitor_action_group.ops.email_receiver[0].email_address == var.budget_contact_email
+    error_message = "Alerts go to the same contact as the budget."
   }
 }

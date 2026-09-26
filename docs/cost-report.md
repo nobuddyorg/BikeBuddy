@@ -87,11 +87,20 @@ overwritten blobs at the same rate for their 14 days; the blobs are written
 once, so that is a small multiple of what users delete. Cosmos continuous
 backup at the 7-day tier carries no backup-storage charge.
 
-### Telemetry — not provisioned
+### Monitoring — ~€0–1
 
-`functions/host.json` configures Application Insights sampling, but no
-Application Insights resource is provisioned (#547), so there is no ingestion
-cost and no production telemetry yet.
+`infrastructure/monitoring.tf` (#547) sends the Functions host's requests,
+failures and console output to workspace-based Application Insights. Both the
+Log Analytics workspace and Application Insights cap ingestion at 0.1 GB a
+day, which stays inside the workspace's free monthly ingestion. What costs a
+little:
+
+- the availability test on `/api/v1/health`: every 15 minutes from one region,
+  about 2,900 runs a month;
+- two metric alerts (API down, failed requests);
+- one log alert on token failures, evaluated every 15 minutes.
+
+Check the first month's bill for these meters.
 
 ### Bandwidth (egress) — €0
 

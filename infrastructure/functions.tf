@@ -51,6 +51,8 @@ resource "azurerm_function_app_flex_consumption" "main" {
 
   site_config {
     minimum_tls_version = "1.2"
+    # Requests, failures and console output (#547, monitoring.tf).
+    application_insights_connection_string = azurerm_application_insights.main.connection_string
     # HTTPS only: local development runs its own Functions host, never against production.
     cors {
       allowed_origins = [

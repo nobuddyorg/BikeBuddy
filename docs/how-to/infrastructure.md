@@ -157,6 +157,20 @@ way, then `tofu plan` to check it matches Azure before anything is applied.
 (`budget_amount`, default 5; `budget_contact_email`; `budget_start_date`) that
 mails at 80 % forecast and 100 % actual spend. See the [cost report](../cost-report.md).
 
+### Monitoring
+
+`monitoring.tf` (#547) sends the API's requests, failures and log lines to
+Application Insights (`bikebuddy-insights`), capped at 0.1 GB a day. Each of
+these mails `budget_contact_email` through the `bikebuddy-ops` action group:
+
+- `/api/v1/health` fails its availability test;
+- more than 5 requests fail in 15 minutes;
+- a token cannot be verified at all (the OIDC metadata or keys are
+  unreachable), or more than 50 are rejected in 15 minutes.
+
+A failed scheduled run of `process-deletions.yml` opens an issue, or comments
+on the open one.
+
 ### Budget stop
 
 At 100 % actual spend the budget also calls the action group
