@@ -32,6 +32,8 @@ function drawRoutes(pointSets) {
   const lines = pointSets
     .filter((points) => points.length > 1)
     .map((points) => L.polyline(points, { ...state.lineStyle, interactive: false }));
+  // Lines on the canvas renderer leave no element behind, so a test counts them here.
+  map.getContainer().dataset.routeLines = String(lines.length);
   if (lines.length === 0) return;
   state.routeLayer = L.layerGroup(lines).addTo(map);
 }

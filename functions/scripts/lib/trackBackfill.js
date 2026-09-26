@@ -1,5 +1,7 @@
 'use strict';
 
+const { parseGpx, InvalidGpxError } = require('../../src/lib/parseGpx');
+const { gpxBlobName } = require('../../src/lib/blobNames');
 const { newTrackDocument } = require('../../src/lib/tourTrack');
 const { TOUR_SCHEMA_VERSION } = require('../../src/lib/schemaVersion');
 const { queryItems } = require('./queryItems');
@@ -14,13 +16,31 @@ const PENDING_TOURS_QUERY =
   `WHERE IS_DEFINED(c.heatmapData) OR c.schemaVersion = ${STATS_SCHEMA_VERSION}`;
 
 const inlinePoints = (tour) => (Array.isArray(tour.heatmapData) ? tour.heatmapData : []);
+const isMissingBlob = (error) => error.statusCode === 404;
+
+/**
+ * The track as an upload builds it now, from the tour's GPX, segment starts included (#552);
+ * without a readable GPX, the inline points as one line.
+ */
+async function rebuiltTrack({ tour, gpxContainer }) {
+  const blob = gpxContainer.getBlockBlobClient(
+    gpxBlobName({ userId: tour.userId, tourId: tour.id }),
+  );
+  try {
+    const { heatmapData, segmentStarts } = parseGpx(await blob.downloadToBuffer());
+    return { heatmapData, segmentStarts, source: 'its GPX' };
+  } catch (error) {
+    if (!isMissingBlob(error) && !(error instanceof InvalidGpxError)) throw error;
+    return { heatmapData: inlinePoints(tour), segmentStarts: [], source: 'its inline points' };
+  }
+}
 
 /** The patch that leaves a tour as UploadTour writes it now: its points counted, not held (#615). */
-function tourOperations(tour) {
+function tourOperations(tour, track) {
   return [
-    ...('heatmapData' in tour
+    ...(track
       ? [
-          { op: 'set', path: '/pointCount', value: inlinePoints(tour).length },
+          { op: 'set', path: '/pointCount', value: track.heatmapData.length },
           { op: 'remove', path: '/heatmapData' },
         ]
       : []),
@@ -30,16 +50,21 @@ function tourOperations(tour) {
   ];
 }
 
-const describeChange = (tour) =>
-  'heatmapData' in tour
-    ? `move the track of tour ${tour.id} (${inlinePoints(tour).length} points)`
+// Only a tour still holding its points needs a track; one already moved only needs its version.
+async function changeFor({ tour, gpxContainer }) {
+  const track = 'heatmapData' in tour ? await rebuiltTrack({ tour, gpxContainer }) : undefined;
+  const description = track
+    ? `move the track of tour ${tour.id} (${track.heatmapData.length} points, ` +
+      `${track.segmentStarts.length + 1} segment(s), from ${track.source})`
     : `mark tour ${tour.id} as version ${TOUR_SCHEMA_VERSION}`;
+  return { track, operations: tourOperations(tour, track), description };
+}
 
-async function forEachPendingTour({ toursContainer, log, handleTour }) {
+async function forEachPendingTour({ toursContainer, gpxContainer, log, handleChange }) {
   const tally = { changed: 0, failed: 0 };
   for await (const tour of queryItems(toursContainer, PENDING_TOURS_QUERY)) {
     try {
-      await handleTour(tour);
+      await handleChange(tour, await changeFor({ tour, gpxContainer }));
       tally.changed += 1;
     } catch (error) {
       tally.failed += 1;
@@ -49,11 +74,12 @@ async function forEachPendingTour({ toursContainer, log, handleTour }) {
   return tally;
 }
 
-async function planTrackBackfill({ toursContainer, log }) {
+async function planTrackBackfill({ toursContainer, gpxContainer, log }) {
   const tally = await forEachPendingTour({
     toursContainer,
+    gpxContainer,
     log,
-    handleTour: async (tour) => log.info(`Would ${describeChange(tour)}`),
+    handleChange: async (tour, { description }) => log.info(`Would ${description}`),
   });
   log.info(
     `Dry run, nothing changed: ${tally.changed} tour(s) would change, ${tally.failed} failed.`,
@@ -62,22 +88,20 @@ async function planTrackBackfill({ toursContainer, log }) {
 }
 
 // The track first: a failure between the two writes leaves the points in both places, never none.
-async function applyTrackBackfill({ toursContainer, tracksContainer, log }) {
+async function applyTrackBackfill({ toursContainer, tracksContainer, gpxContainer, log }) {
   const tally = await forEachPendingTour({
     toursContainer,
+    gpxContainer,
     log,
-    handleTour: async (tour) => {
-      if ('heatmapData' in tour) {
+    handleChange: async (tour, { track, operations, description }) => {
+      if (track) {
+        const { heatmapData, segmentStarts } = track;
         await tracksContainer.items.upsert(
-          newTrackDocument({
-            tourId: tour.id,
-            userId: tour.userId,
-            heatmapData: inlinePoints(tour),
-          }),
+          newTrackDocument({ tourId: tour.id, userId: tour.userId, heatmapData, segmentStarts }),
         );
       }
-      await toursContainer.item(tour.id, tour.userId).patch(tourOperations(tour));
-      log.info(`Done: ${describeChange(tour)}`);
+      await toursContainer.item(tour.id, tour.userId).patch(operations);
+      log.info(`Done: ${description}`);
     },
   });
   log.info(`Done: ${tally.changed} tour(s) changed, ${tally.failed} failed.`);

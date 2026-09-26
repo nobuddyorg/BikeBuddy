@@ -32,6 +32,7 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/pendingDeletion.js',
   'src/lib/resizeImage.js',
   'src/lib/schemaVersion.js',
+  'src/lib/segments.js',
   'src/lib/settle.js',
   'src/lib/signingKeyCache.js',
   'src/lib/simplify.js',

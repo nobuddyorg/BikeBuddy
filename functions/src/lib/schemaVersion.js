@@ -8,7 +8,8 @@
  * Tour 1: an `images` array and every stat field (null when the GPX has no such data).
  * Tour 2: as 1, with the points moved to the tour's track item and their number in `pointCount`;
  * a tour still holding `heatmapData` inline is read as before (scripts/backfillTracks.js moves it).
- * Track 1: the tour's id and userId, and its points in `heatmapData`.
+ * Track 1: the tour's id and userId, its points in `heatmapData`, and `segmentStarts`, the index
+ * where each GPX segment after the first begins (empty for one segment).
  * User 1: id, name, email, createdAt, and `language` once one is chosen.
  */
 const TOUR_SCHEMA_VERSION = 2;

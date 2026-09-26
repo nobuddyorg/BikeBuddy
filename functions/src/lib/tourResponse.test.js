@@ -32,7 +32,7 @@ const STORED = {
 };
 
 // Read from the tour's track item (#615), never from the tour document.
-const TRACK = [[48.1, 11.5]];
+const TRACK = { heatmapData: [[48.1, 11.5]], segmentStarts: [] };
 
 const STATS = {
   elevationGain: 340,
@@ -53,6 +53,7 @@ describe('toTourResponse', () => {
       distance: 120,
       createdAt: '2026-01-01T00:00:00.000Z',
       heatmapData: [[48.1, 11.5]],
+      segmentStarts: [],
       ...STATS,
     });
   });
@@ -73,7 +74,7 @@ describe('toTourResponse', () => {
   it('answers the track it is given, never points left inline on the document', () => {
     const legacy = { ...STORED, heatmapData: [[1, 1]] };
 
-    expect(toTourResponse(legacy, TRACK).heatmapData).toBe(TRACK);
+    expect(toTourResponse(legacy, TRACK).heatmapData).toBe(TRACK.heatmapData);
   });
 
   it.each([
@@ -102,7 +103,7 @@ describe('toTourDetailResponse', () => {
   it('adds the signed images and download URL, never the stored ones', () => {
     const body = toTourDetailResponse({
       tour: STORED,
-      heatmapData: TRACK,
+      track: TRACK,
       images,
       gpxFileUrl: 'https://signed/gpx',
     });
@@ -116,9 +117,9 @@ describe('toTourDetailResponse', () => {
   });
 
   it('leaves gpxFileUrl out when there is nothing to download', () => {
-    expect(
-      toTourDetailResponse({ tour: STORED, heatmapData: TRACK, images: [] }),
-    ).not.toHaveProperty('gpxFileUrl');
+    expect(toTourDetailResponse({ tour: STORED, track: TRACK, images: [] })).not.toHaveProperty(
+      'gpxFileUrl',
+    );
   });
 });
 

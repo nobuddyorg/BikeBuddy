@@ -250,10 +250,12 @@ Runbook, from a machine with `az login` to the subscription:
 2. `./buddy.sh maintenance backfill tour-stats`, read the dry run, then again
    with `--apply`.
 3. The same for `thumbnails`, then `schema-version`, then `tracks`.
-   `tracks` (`backfillTracks.js`) writes each inline track to its own item
-   first, then removes the points from the tour, sets `pointCount` and takes a
-   version-1 tour to 2; a failure between the two writes leaves the points in
-   both places, and a rerun finishes it.
+   `tracks` (`backfillTracks.js`) first writes each tour's track item, rebuilt
+   from its GPX file with segment breaks (#552), or from its inline points as
+   one line when the file is missing or unreadable. Only then does it remove
+   the points from the tour, set `pointCount` and take a version-1 tour to 2.
+   A failure between the two writes leaves the points in both places, and a
+   rerun finishes it.
 4. Put the dry-run and apply summaries in the PR or issue that needed the
    backfill: that is the record that it ran.
 
@@ -461,9 +463,14 @@ out-of-order timestamps are a property too: the duration is never negative.
 - Distance, moving time and climb add up **within** each `<trkseg>` (and each
   `<trk>`), never across the gap between two: a train ride between two
   segments is not riding (#552). Elapsed duration still spans the earliest to
-  the latest timestamp. The stored `heatmapData` stays one flat line, so the
-  map still draws a straight line across the gap; splitting it is a
-  document-shape change for another issue.
+  the latest timestamp. The track stores its points as one list plus
+  `segmentStarts`, the index where each segment after the first begins, and
+  the map draws one line per segment, never one across the gap. Downsampling
+  keeps each segment's first and last point within the 5,000-point cap; a file
+  with more than 500 segments is drawn as one line, so its ends cannot outgrow
+  the cap. The map budget simplifies each segment on its own, and a tour stored
+  before the breaks gets them when `backfillTracks.js` rebuilds its track from
+  the GPX file (falling back to its inline points, as one line, without one).
 - A file without a valid track point falls back to its `<rte>` points (a
   planner's export); with none of either, the upload is refused with
   `errors.gpxNoTrack` instead of storing an empty 0 km tour (#554).

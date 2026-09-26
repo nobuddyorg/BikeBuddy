@@ -7,7 +7,7 @@ const {
   runTrackBackfill,
 } = require('./trackBackfill');
 const { PAGE_SIZE } = require('./queryItems');
-const { fakeCosmosContainer } = require('../../test/scriptFakes');
+const { fakeCosmosContainer, fakeBlobContainer } = require('../../test/scriptFakes');
 
 const ENVIRONMENT = {
   COSMOS_CONNECTION_STRING: 'AccountEndpoint=http://localhost:8081/;AccountKey=a2V5;',
@@ -18,6 +18,22 @@ const POINTS = [
   [48.1, 11.5],
   [48.2, 11.6],
 ];
+// Two rides a day apart: the rebuilt track breaks the line between them (#552).
+const TWO_RIDES_GPX = Buffer.from(`<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk>
+  <trkseg><trkpt lat="48" lon="11"/><trkpt lat="49" lon="12"/></trkseg>
+  <trkseg><trkpt lat="52" lon="13"/><trkpt lat="52" lon="13.01"/><trkpt lat="52" lon="13.02"/></trkseg>
+</trk></gpx>`);
+const TWO_RIDES = {
+  heatmapData: [
+    [48, 11],
+    [49, 12],
+    [52, 13],
+    [52, 13.01],
+    [52, 13.02],
+  ],
+  segmentStarts: [2],
+};
 
 const inlineTour = (id, extra = {}) => ({
   id,
@@ -28,7 +44,7 @@ const inlineTour = (id, extra = {}) => ({
 });
 
 // Plays PENDING_TOURS_QUERY: points still inline, or version 1 without them.
-function stores(tours) {
+function stores(tours, gpxBlobs = {}) {
   const toursStore = fakeCosmosContainer({
     documents: tours,
     answerQuery: (all) =>
@@ -47,7 +63,8 @@ function stores(tours) {
     answerQuery: () => [],
     partitionKeyOf: (document) => document.userId,
   });
-  return { toursStore, tracksStore };
+  const gpxStore = fakeBlobContainer(new Map(Object.entries(gpxBlobs)));
+  return { toursStore, tracksStore, gpxStore };
 }
 
 function recordingLog() {
@@ -59,68 +76,80 @@ function recordingLog() {
   };
 }
 
-const containersOf = ({ toursStore, tracksStore }, log = recordingLog()) => ({
+const containersOf = ({ toursStore, tracksStore, gpxStore }, log = recordingLog()) => ({
   toursContainer: toursStore.container,
   tracksContainer: tracksStore.container,
+  gpxContainer: gpxStore.container,
   log,
 });
 
 describe('tourOperations', () => {
-  it('counts the points, drops them from the tour and marks version 1 as 2', () => {
-    expect(tourOperations(inlineTour('t1'))).toEqual([
-      { op: 'set', path: '/pointCount', value: 2 },
+  it("counts the new track's points, drops the inline ones and marks version 1 as 2", () => {
+    expect(tourOperations(inlineTour('t1'), TWO_RIDES)).toEqual([
+      { op: 'set', path: '/pointCount', value: 5 },
       { op: 'remove', path: '/heatmapData' },
       { op: 'set', path: '/schemaVersion', value: 2 },
     ]);
   });
 
   it('moves the points of an unversioned tour but leaves its version to the schema backfill', () => {
-    expect(tourOperations(inlineTour('t1', { schemaVersion: undefined }))).toEqual([
-      { op: 'set', path: '/pointCount', value: 2 },
+    expect(tourOperations(inlineTour('t1', { schemaVersion: undefined }), TWO_RIDES)).toEqual([
+      { op: 'set', path: '/pointCount', value: 5 },
       { op: 'remove', path: '/heatmapData' },
     ]);
   });
 
   it('only marks a version-1 tour whose points were moved before it was versioned', () => {
-    expect(tourOperations({ id: 't1', userId: 'user-1', schemaVersion: 1 })).toEqual([
+    expect(tourOperations({ id: 't1', userId: 'user-1', schemaVersion: 1 }, undefined)).toEqual([
       { op: 'set', path: '/schemaVersion', value: 2 },
     ]);
-  });
-
-  it('counts no points for inline points that are not a list', () => {
-    expect(tourOperations(inlineTour('t1', { heatmapData: null }))[0]).toEqual({
-      op: 'set',
-      path: '/pointCount',
-      value: 0,
-    });
   });
 });
 
 describe('applyTrackBackfill', () => {
-  it('writes each track item, then the tour without its points, by partition', async () => {
-    const state = stores([
-      inlineTour('t1', { name: 'Alps' }),
-      inlineTour('t2', { userId: 'user-2' }),
-      { id: 't3', userId: 'user-1', schemaVersion: 2, pointCount: 2 },
-    ]);
+  it('rebuilds each track from its GPX, breaks included, then drops the inline points', async () => {
+    const state = stores([inlineTour('t1', { name: 'Alps' })], {
+      'user-1/t1.gpx': TWO_RIDES_GPX,
+    });
 
     const tally = await applyTrackBackfill(containersOf(state));
 
-    expect(tally).toEqual({ changed: 2, failed: 0 });
+    expect(tally).toEqual({ changed: 1, failed: 0 });
     expect(state.tracksStore.documents).toEqual([
-      { id: 't1', userId: 'user-1', schemaVersion: 1, heatmapData: POINTS },
-      { id: 't2', userId: 'user-2', schemaVersion: 1, heatmapData: POINTS },
+      { id: 't1', userId: 'user-1', schemaVersion: 1, ...TWO_RIDES },
     ]);
     expect(state.toursStore.documents).toEqual([
-      { id: 't1', userId: 'user-1', schemaVersion: 2, name: 'Alps', pointCount: 2 },
-      { id: 't2', userId: 'user-2', schemaVersion: 2, pointCount: 2 },
-      { id: 't3', userId: 'user-1', schemaVersion: 2, pointCount: 2 },
+      { id: 't1', userId: 'user-1', schemaVersion: 2, name: 'Alps', pointCount: 5 },
     ]);
-    expect(
-      [...state.tracksStore.writes, ...state.toursStore.writes].map(
-        (write) => write.upsert ?? write.patch,
-      ),
-    ).toEqual(['t1', 't2', 't1', 't2']);
+  });
+
+  it.each([
+    ['no GPX file', {}],
+    ['an unreadable GPX file', { 'user-1/t1.gpx': Buffer.from('<html></html>') }],
+  ])('moves the inline points as one line for a tour with %s', async (_label, gpxBlobs) => {
+    const state = stores([inlineTour('t1'), inlineTour('t2', { heatmapData: null })], gpxBlobs);
+
+    await applyTrackBackfill(containersOf(state));
+
+    expect(state.tracksStore.documents).toEqual([
+      { id: 't1', userId: 'user-1', schemaVersion: 1, heatmapData: POINTS, segmentStarts: [] },
+      { id: 't2', userId: 'user-1', schemaVersion: 1, heatmapData: [], segmentStarts: [] },
+    ]);
+    expect(state.toursStore.documents.map((tour) => tour.pointCount)).toEqual([2, 0]);
+  });
+
+  it('counts a GPX read that fails for another reason as failed, changing nothing', async () => {
+    const state = stores([inlineTour('t1')]);
+    state.gpxStore.container.getBlockBlobClient = () => ({
+      downloadToBuffer: async () => Promise.reject(new Error('Server busy')),
+    });
+    const log = recordingLog();
+
+    const tally = await applyTrackBackfill(containersOf(state, log));
+
+    expect(tally).toEqual({ changed: 0, failed: 1 });
+    expect(state.tracksStore.writes).toEqual([]);
+    expect(log.lines).toContain('Tour t1: Server busy');
   });
 
   it('only marks a tour moved before its version-1 mark, writing no track', async () => {
@@ -136,17 +165,17 @@ describe('applyTrackBackfill', () => {
   });
 
   it('logs each change and a summary', async () => {
-    const state = stores([
-      { id: 't1', userId: 'user-1', schemaVersion: 1, pointCount: 2 },
-      inlineTour('t2'),
-    ]);
+    const state = stores(
+      [{ id: 't1', userId: 'user-1', schemaVersion: 1, pointCount: 2 }, inlineTour('t2')],
+      { 'user-1/t2.gpx': TWO_RIDES_GPX },
+    );
     const log = recordingLog();
 
     await applyTrackBackfill(containersOf(state, log));
 
     expect(log.lines).toEqual([
       'Done: mark tour t1 as version 2',
-      'Done: move the track of tour t2 (2 points)',
+      'Done: move the track of tour t2 (5 points, 2 segment(s), from its GPX)',
       'Done: 2 tour(s) changed, 0 failed.',
     ]);
   });
@@ -197,10 +226,10 @@ describe('applyTrackBackfill', () => {
 
 describe('planTrackBackfill', () => {
   it('reports what an apply would do and writes nothing', async () => {
-    const state = stores([
-      inlineTour('t1'),
-      { id: 't2', userId: 'user-1', schemaVersion: 1, pointCount: 2 },
-    ]);
+    const state = stores(
+      [inlineTour('t1'), { id: 't2', userId: 'user-1', schemaVersion: 1, pointCount: 2 }],
+      {},
+    );
     const before = structuredClone(state.toursStore.documents);
     const log = recordingLog();
 
@@ -210,26 +239,10 @@ describe('planTrackBackfill', () => {
     expect([...state.toursStore.writes, ...state.tracksStore.writes]).toEqual([]);
     expect(state.toursStore.documents).toEqual(before);
     expect(log.lines).toEqual([
-      'Would move the track of tour t1 (2 points)',
+      'Would move the track of tour t1 (2 points, 1 segment(s), from its inline points)',
       'Would mark tour t2 as version 2',
       'Dry run, nothing changed: 2 tour(s) would change, 0 failed.',
     ]);
-  });
-});
-
-describe('a tour whose inline points are not a list', () => {
-  it('is reported with no points and moved as an empty track', async () => {
-    const state = stores([inlineTour('t1', { heatmapData: null })]);
-    const log = recordingLog();
-
-    await planTrackBackfill(containersOf(state, log));
-    await applyTrackBackfill(containersOf(state));
-
-    expect(log.lines[0]).toBe('Would move the track of tour t1 (0 points)');
-    expect(state.tracksStore.documents).toEqual([
-      { id: 't1', userId: 'user-1', schemaVersion: 1, heatmapData: [] },
-    ]);
-    expect(state.toursStore.documents[0]).not.toHaveProperty('heatmapData');
   });
 });
 
@@ -240,6 +253,7 @@ describe('runTrackBackfill', () => {
     const openContainers = (state) => async () => ({
       toursContainer: state.toursStore.container,
       tracksContainer: state.tracksStore.container,
+      gpxContainer: state.gpxStore.container,
     });
 
     await expect(

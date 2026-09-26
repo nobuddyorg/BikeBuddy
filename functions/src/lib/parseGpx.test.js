@@ -90,6 +90,71 @@ describe('parseGpx', () => {
     expect(result.heatmapData[result.heatmapData.length - 1]).toEqual(points[points.length - 1]);
   });
 
+  it('has no segment starts for a single segment', () => {
+    expect(parseGpx(makeGpx({ points: TWO_POINTS })).segmentStarts).toEqual([]);
+  });
+
+  describe('downsampling a track of several segments', () => {
+    const segmentedGpx = (segments) =>
+      `<gpx><trk>${segments
+        .map(
+          (points) =>
+            `<trkseg>${points.map(([lat, lon]) => `<trkpt lat="${lat}" lon="${lon}"/>`).join('')}</trkseg>`,
+        )
+        .join('')}</trk></gpx>`;
+    const line = (count, latitude) =>
+      Array.from({ length: count }, (_, index) => [latitude, 11 + index * 0.0001]);
+
+    it("keeps each segment's first and last point, and marks where each begins", () => {
+      const segments = [line(3000, 48), line(3000, 49), line(3001, 50)];
+
+      const { heatmapData, segmentStarts } = parseGpx(segmentedGpx(segments));
+
+      expect(heatmapData.length).toBeLessThanOrEqual(5000);
+      const starts = [0, ...segmentStarts];
+      const ends = [...segmentStarts.map((start) => start - 1), heatmapData.length - 1];
+      segments.forEach((segment, index) => {
+        expect(heatmapData[starts[index]]).toEqual(segment[0]);
+        expect(heatmapData[ends[index]]).toEqual(segment.at(-1));
+      });
+      expect(segmentStarts).toHaveLength(2);
+    });
+
+    it('stays within 5000 points even when every segment adds its end points', () => {
+      // A step of 2 would keep 13 of each 24 points (the even share plus the last): 5,200 in all.
+      const segments = Array.from({ length: 400 }, (_, index) => line(24, 40 + index * 0.01));
+
+      const { heatmapData, segmentStarts } = parseGpx(segmentedGpx(segments));
+
+      expect(heatmapData.length).toBeLessThanOrEqual(5000);
+      expect(segmentStarts).toHaveLength(399);
+    });
+
+    it('keeps every point, and every break, of a track within the cap', () => {
+      const segments = [line(2, 48), line(3, 49)];
+
+      const { heatmapData, segmentStarts } = parseGpx(segmentedGpx(segments));
+
+      expect(heatmapData).toEqual([...segments[0], ...segments[1]]);
+      expect(segmentStarts).toEqual([2]);
+    });
+
+    it('keeps the breaks of a file with exactly 500 segments', () => {
+      const segments = Array.from({ length: 500 }, (_, index) => line(2, 40 + index * 0.01));
+
+      expect(parseGpx(segmentedGpx(segments)).segmentStarts).toHaveLength(499);
+    });
+
+    it('drops the breaks of a file with more than 500 segments, as one line', () => {
+      const segments = Array.from({ length: 501 }, (_, index) => line(2, 40 + index * 0.01));
+
+      const { heatmapData, segmentStarts } = parseGpx(segmentedGpx(segments));
+
+      expect(heatmapData).toHaveLength(1002);
+      expect(segmentStarts).toEqual([]);
+    });
+  });
+
   it('handles a single trackpoint without crashing', () => {
     const result = parseGpx(makeGpx({ points: [[48.0, 11.0]] }));
     expect(result.heatmapData).toHaveLength(1);
@@ -221,6 +286,18 @@ describe('parseGpx', () => {
   </trk>
 </gpx>`;
     const SECOND_SEGMENT_KM = 0.6846;
+
+    it('marks where the second segment starts, so the map breaks the line there', () => {
+      const result = parseGpx(TWO_RIDES);
+
+      expect(result.heatmapData).toEqual([
+        [48, 11],
+        [49, 12],
+        [52, 13],
+        [52, 13.01],
+      ]);
+      expect(result.segmentStarts).toEqual([2]);
+    });
 
     it('adds up distance within each segment, never across the gap', () => {
       expect(parseGpx(TWO_RIDES).distanceKm).toBeCloseTo(133.3878 + SECOND_SEGMENT_KM, 3);

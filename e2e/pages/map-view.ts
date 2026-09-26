@@ -1,7 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
 
 interface MapView {
-  /** Points to self (the Leaflet map; carries data-tiles and data-zoom). */
+  /** Points to self (the Leaflet map; carries data-tiles, data-zoom and data-route-lines). */
   (): Locator;
   /** High-level interactions. */
   do: {

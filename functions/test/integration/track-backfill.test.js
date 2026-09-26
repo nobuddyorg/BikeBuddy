@@ -3,9 +3,17 @@
 // Real emulator, real host: a tour stored before #615 reads the same before and after its track moves.
 
 const db = require('../../src/lib/db');
+const blobStorage = require('../../src/lib/blobStorage');
 const { applyTrackBackfill } = require('../../scripts/lib/trackBackfill');
 const { connectHarness } = require('./harness');
 const { assertEmulatorTargets } = require('./emulatorGuard');
+
+// Two rides a day apart: inline points drew them joined; the rebuilt track breaks the line (#552).
+const TWO_RIDES_GPX = `<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk>
+  <trkseg><trkpt lat="48.1" lon="11.5"/><trkpt lat="48.2" lon="11.6"/></trkseg>
+  <trkseg><trkpt lat="52.5" lon="13.4"/><trkpt lat="52.51" lon="13.41"/></trkseg>
+</trk></gpx>`;
 
 let rider;
 let tourId;
@@ -14,10 +22,12 @@ const quietLog = { info: () => {}, error: (line) => console.error(line) };
 
 beforeAll(async () => {
   // db.js reads the emulator the host was started against; the guard refuses anything else.
-  process.env.COSMOS_CONNECTION_STRING = assertEmulatorTargets().cosmosConnectionString;
+  const targets = assertEmulatorTargets();
+  process.env.COSMOS_CONNECTION_STRING = targets.cosmosConnectionString;
+  process.env.BLOB_CONNECTION_STRING = targets.blobConnectionString;
   process.env.COSMOS_DATABASE ??= 'bikebuddy';
   rider = (await connectHarness()).newUser();
-  tourId = await rider.api.createTour({ name: 'Stored before #615' });
+  tourId = await rider.api.createTour({ name: 'Stored before #615', gpx: TWO_RIDES_GPX });
 
   // Rewrite it into the old shape: points inline, version 1, no track item.
   const { userId } = rider;
@@ -38,14 +48,16 @@ afterAll(async () => {
 });
 
 describe('backfillTracks against the emulator', () => {
-  test('moves the points to a track item, and the API answers the same track before and after', async () => {
+  test('moves the points to a track item rebuilt from the GPX, and the API answers the same points', async () => {
     const { userId } = rider;
     const before = await rider.api.readJson(`/tours/${tourId}`);
     const [mapBefore] = await rider.api.readJson('/map');
+    expect(before.segmentStarts).toEqual([]);
 
     await applyTrackBackfill({
       toursContainer: db.toursContainer(),
       tracksContainer: db.tracksContainer(),
+      gpxContainer: await blobStorage.gpxContainer(),
       log: quietLog,
     });
 
@@ -53,8 +65,15 @@ describe('backfillTracks against the emulator', () => {
     const track = await db.readItem(db.tracksContainer(), { id: tourId, partitionKey: userId });
     expect(tour).not.toHaveProperty('heatmapData');
     expect(tour).toMatchObject({ schemaVersion: 2, pointCount: before.heatmapData.length });
-    expect(track).toMatchObject({ id: tourId, userId, heatmapData: before.heatmapData });
-    expect((await rider.api.readJson(`/tours/${tourId}`)).heatmapData).toEqual(before.heatmapData);
-    expect((await rider.api.readJson('/map'))[0].heatmapData).toEqual(mapBefore.heatmapData);
+    expect(track).toMatchObject({
+      id: tourId,
+      userId,
+      heatmapData: before.heatmapData,
+      segmentStarts: [2],
+    });
+    const after = await rider.api.readJson(`/tours/${tourId}`);
+    expect(after).toMatchObject({ heatmapData: before.heatmapData, segmentStarts: [2] });
+    const [mapAfter] = await rider.api.readJson('/map');
+    expect(mapAfter).toMatchObject({ heatmapData: mapBefore.heatmapData, segmentStarts: [2] });
   });
 });

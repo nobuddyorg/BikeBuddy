@@ -17,6 +17,7 @@ function refreshedImages(tour, freshImages) {
 
 function applyEntry({ tour, entry, now }) {
   tour.heatmapData = entry?.heatmapData || [];
+  tour.segmentStarts = entry?.segmentStarts || [];
   tour.images = refreshedImages(tour, entry?.images || []);
   // The gallery's other photos were not re-signed, so the next opening fetches the detail again.
   tour.detailLoaded = false;

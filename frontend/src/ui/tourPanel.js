@@ -12,6 +12,7 @@ import { state } from './state.js';
 import { apiRequest } from './api.js';
 import { toast } from './toast.js';
 import { redrawAllRoutesInPlace, renderRoutes, SINGLE_TOUR_PADDING_PX } from './routes.js';
+import { routePointSets } from '../lib/routes.js';
 import { renderPins } from './pins.js';
 import { ensureDetail } from './tourData.js';
 import { resetImageSection, renderGallery } from './gallery.js';
@@ -55,7 +56,7 @@ async function focusTourOnMap(tour) {
   if (state.selectedTourId !== tour.id) return false;
   if (!loaded) toast(t('toast.tourDetailError'), { type: 'error' });
   hideElement(mapEmptyOverlay);
-  renderRoutes([tour.heatmapData || []], SINGLE_TOUR_PADDING_PX);
+  renderRoutes(routePointSets([tour]), SINGLE_TOUR_PADDING_PX);
   renderPins();
   return true;
 }

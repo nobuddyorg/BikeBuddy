@@ -10,6 +10,7 @@ async function fetchDetail({ apiFetch, tourId }) {
 
 function applyDetail({ tour, detail, now }) {
   tour.heatmapData = detail.heatmapData || [];
+  tour.segmentStarts = detail.segmentStarts || [];
   tour.images = detail.images || [];
   tour.gpxFileUrl = detail.gpxFileUrl;
   // null, not 0: a GPX without elevation or timestamps has no such metric.

@@ -11,6 +11,7 @@ describe('ensureDetail', () => {
     const apiFetch = vi.fn(async () =>
       ok({
         heatmapData: [[48, 11]],
+        segmentStarts: [],
         images: [{ id: 'i1' }],
         gpxFileUrl: 'https://blob/t1.gpx',
         elevationGain: 0,
@@ -25,6 +26,7 @@ describe('ensureDetail', () => {
     expect(tour).toEqual({
       id: 't1',
       heatmapData: [[48, 11]],
+      segmentStarts: [],
       images: [{ id: 'i1' }],
       gpxFileUrl: 'https://blob/t1.gpx',
       elevationGain: 0,
@@ -42,6 +44,7 @@ describe('ensureDetail', () => {
 
     expect(tour).toMatchObject({
       heatmapData: [],
+      segmentStarts: [],
       images: [],
       elevationGain: null,
       durationSeconds: null,

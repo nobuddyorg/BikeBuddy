@@ -77,6 +77,7 @@ describe('GET /api/map', () => {
       {
         id: 't1',
         heatmapData: TRACK,
+        segmentStarts: [],
         images: [
           {
             id: 'img1',
@@ -87,7 +88,7 @@ describe('GET /api/map', () => {
           },
         ],
       },
-      { id: 't2', heatmapData: [], images: [] },
+      { id: 't2', heatmapData: [], segmentStarts: [], images: [] },
     ]);
   });
 
@@ -123,7 +124,9 @@ describe('GET /api/map', () => {
     const response = await run();
 
     expect(imagesContainer).not.toHaveBeenCalled();
-    expect(response.jsonBody).toStrictEqual([{ id: 't2', heatmapData: [], images: [] }]);
+    expect(response.jsonBody).toStrictEqual([
+      { id: 't2', heatmapData: [], segmentStarts: [], images: [] },
+    ]);
   });
 
   it("queries only the token user's partition, in bounded pages", async () => {
@@ -145,7 +148,9 @@ describe('GET /api/map', () => {
 
     const response = await run();
 
-    expect(response.jsonBody).toStrictEqual([{ id: 'old', heatmapData: TRACK, images: [] }]);
+    expect(response.jsonBody).toStrictEqual([
+      { id: 'old', heatmapData: TRACK, segmentStarts: [], images: [] },
+    ]);
   });
 
   it('shows another user only their own tours and photos', async () => {
@@ -153,7 +158,9 @@ describe('GET /api/map', () => {
 
     const response = await run();
 
-    expect(response.jsonBody).toStrictEqual([{ id: 't9', heatmapData: TRACK, images: [] }]);
+    expect(response.jsonBody).toStrictEqual([
+      { id: 't9', heatmapData: TRACK, segmentStarts: [], images: [] },
+    ]);
   });
 
   it('returns 401 without reading anything when the caller is not signed in', async () => {
@@ -164,6 +171,28 @@ describe('GET /api/map', () => {
     expect(response.status).toBe(401);
     expect([...tours.calls, ...tracks.calls]).toEqual([]);
     expect(imagesContainer).not.toHaveBeenCalled();
+  });
+
+  it('keeps a break between two segments through the budget (#552)', async () => {
+    const straightLine = (latitude, count) =>
+      Array.from({ length: count }, (_, index) => [latitude, 11.0 + index * 0.0001]);
+    const { tours, tracks, run } = setUp({ documents: [], budget: { totalPointBudget: 100 } });
+    tours.seed({ id: 'trip', userId: 'u1', pointCount: 400, images: [] });
+    tracks.seed({
+      id: 'trip',
+      userId: 'u1',
+      heatmapData: [...straightLine(48, 200), ...straightLine(52, 200)],
+      segmentStarts: [200],
+    });
+
+    const [{ heatmapData, segmentStarts }] = (await run()).jsonBody;
+
+    expect(heatmapData.length).toBeLessThanOrEqual(100);
+    const [start] = segmentStarts;
+    expect(heatmapData.slice(0, start).every(([latitude]) => latitude === 48)).toBe(true);
+    expect(heatmapData.slice(start).every(([latitude]) => latitude === 52)).toBe(true);
+    expect(heatmapData[start - 1]).toEqual([48, 11.0 + 199 * 0.0001]);
+    expect(heatmapData[start]).toEqual([52, 11.0]);
   });
 
   it('simplifies tracks when the combined point count blows the budget', async () => {
@@ -211,6 +240,29 @@ describe('GET /api/map', () => {
     const [first] = (await run()).jsonBody;
 
     expect(first.heatmapData).toEqual([TRACK[0], TRACK[2]]);
+  });
+
+  it("reads the tracks again once the backfill moves a tour's points, breaks and all", async () => {
+    const { tours, tracks, run } = setUp({ documents: [], heatmapCache: createHeatmapCache() });
+    tours.seed({ id: 'old', userId: 'u1', heatmapData: TRACK, images: [] });
+    await run();
+
+    tours.seed({ id: 'old', userId: 'u1', pointCount: 3, images: [] });
+    tracks.seed({ id: 'old', userId: 'u1', heatmapData: TRACK, segmentStarts: [2] });
+    const [moved] = (await run()).jsonBody;
+
+    expect(moved.segmentStarts).toEqual([2]);
+  });
+
+  it("reads the points again once an inline tour's point count changes", async () => {
+    const { tours, run } = setUp({ documents: [], heatmapCache: createHeatmapCache() });
+    tours.seed({ id: 'old', userId: 'u1', heatmapData: TRACK, images: [] });
+    await run();
+
+    tours.seed({ id: 'old', userId: 'u1', heatmapData: [TRACK[0], TRACK[2]], images: [] });
+    const [changed] = (await run()).jsonBody;
+
+    expect(changed.heatmapData).toEqual([TRACK[0], TRACK[2]]);
   });
 
   it('reads the tracks again once a tour is added', async () => {

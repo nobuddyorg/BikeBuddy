@@ -111,7 +111,8 @@ async function uploadTour(
     contentType: 'application/gpx+xml',
   });
   const deleteBlob = () => blobStorage.deleteBlobIfExists(container, blobName);
-  const trackDocument = newTrackDocument({ tourId, userId, heatmapData: upload.track.heatmapData });
+  const { heatmapData, segmentStarts } = upload.track;
+  const trackDocument = newTrackDocument({ tourId, userId, heatmapData, segmentStarts });
   await withRollback(() => db.createItem(tracksContainer(), trackDocument), deleteBlob);
   await withRollback(
     () => db.createItem(toursContainer(), tour),

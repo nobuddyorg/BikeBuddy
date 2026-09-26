@@ -2,6 +2,7 @@
 'use strict';
 
 const { XMLParser } = require('fast-xml-parser');
+const { joinSegments } = require('./segments');
 
 const MAX_POINTS = 5000;
 const EARTH_RADIUS_KM = 6371;
@@ -60,16 +61,37 @@ function pathLengthKm(points) {
  * @param {{ latitude: number, longitude: number }[]} points
  * @returns {[number, number][]}
  */
-function downsample(points) {
-  const step = Math.ceil(points.length / MAX_POINTS);
+// Beyond this many segments the breaks are dropped, so their end points cannot outgrow the cap.
+const MAX_SEGMENTS = 500;
+
+// Every step-th point and the last one, so the line still reaches its end.
+function thinned(line, step) {
   const kept = [];
-  for (let index = 0; index < points.length; index += step) kept.push(points[index]);
-  const last = points[points.length - 1];
+  for (let index = 0; index < line.length; index += step) kept.push(line[index]);
+  const last = line[line.length - 1];
   if (kept[kept.length - 1] !== last) kept.push(last);
-  return kept.map(({ latitude, longitude }) => [
-    roundCoordinate(latitude),
-    roundCoordinate(longitude),
-  ]);
+  return kept;
+}
+
+/**
+ * At most MAX_POINTS points, thinned per segment so each keeps its first and last point and the
+ * map can break the line between two (#552). A segment adds at most two points to the even share.
+ *
+ * @returns {{ heatmapData: [number, number][], segmentStarts: number[] }} where each segment after
+ *   the first begins in heatmapData
+ */
+function downsampleTrack(segments) {
+  const lines = segments.length > MAX_SEGMENTS ? [segments.flat()] : segments;
+  const total = sum(lines.map((line) => line.length));
+  const step = total <= MAX_POINTS ? 1 : Math.ceil(total / (MAX_POINTS - 2 * lines.length));
+  return joinSegments(
+    lines.map((line) =>
+      thinned(line, step).map(({ latitude, longitude }) => [
+        roundCoordinate(latitude),
+        roundCoordinate(longitude),
+      ]),
+    ),
+  );
 }
 
 // Rule of thumb for consumer GPS altimeters: smaller deltas are noise.
@@ -243,7 +265,7 @@ function parseDocument(input) {
  * @param {string|Buffer} input
  * @returns {{
  *   name: string|null, date: string|null,
- *   distanceKm: number, heatmapData: [number,number][],
+ *   distanceKm: number, heatmapData: [number,number][], segmentStarts: number[],
  *   elevationGain: number|null, elevationLoss: number|null,
  *   minElevation: number|null, maxElevation: number|null,
  *   durationSeconds: number|null, movingSeconds: number|null,
@@ -263,7 +285,7 @@ function parseGpx(input) {
     name,
     date: tourDate(gpx, ranges.time),
     distanceKm: sum(segments.map(pathLengthKm)),
-    heatmapData: downsample(points),
+    ...downsampleTrack(segments),
     ...elevationStats(segments, ranges.elevation),
     ...durationStats(segments, ranges.time),
   };

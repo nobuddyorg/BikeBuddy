@@ -10,7 +10,7 @@ const { gpxBlobName, imageBlobName } = require('../lib/blobNames');
 const { toExportDocument, toExportTour } = require('../lib/exportDocument');
 const { gpxDownloadDisposition } = require('../lib/tourResponse');
 const { unauthorized } = require('../lib/http');
-const { readPointsByTour } = require('../lib/tourTrack');
+const { readTracksByTour } = require('../lib/tourTrack');
 
 const ALL_OWN_TOURS_QUERY = 'SELECT * FROM c WHERE c.userId = @userId';
 
@@ -50,15 +50,15 @@ async function exportData(
   const { userId } = user;
   const requestTime = now();
 
-  const [profile, storedTours, pointsByTour] = await Promise.all([
+  const [profile, storedTours, tracksByTour] = await Promise.all([
     db.readItem(usersContainer(), { id: userId, partitionKey: userId }),
     db.queryUserItems(toursContainer(), { userId, query: ALL_OWN_TOURS_QUERY }),
-    readPointsByTour({ userId, toursContainer, tracksContainer }),
+    readTracksByTour({ userId, toursContainer, tracksContainer }),
   ]);
-  // The export keeps one document per tour: its points go back in, wherever they are stored.
+  // The export keeps one document per tour: its track goes back in, wherever it is stored.
   const tours = storedTours.map((tour) => ({
     ...tour,
-    heatmapData: pointsByTour.get(tour.id) ?? [],
+    ...(tracksByTour.get(tour.id) ?? { heatmapData: [], segmentStarts: [] }),
   }));
   const signers = {
     userId,

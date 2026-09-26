@@ -7,8 +7,8 @@ const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
 const { unauthorized } = require('../lib/http');
 const { createHeatmapCache } = require('../lib/heatmapCache');
-const { readPointsByTour } = require('../lib/tourTrack');
-const { budgetTracks, TOTAL_POINT_BUDGET } = require('../lib/mapBudget');
+const { readTracksByTour } = require('../lib/tourTrack');
+const { budgetSegmentedTracks, TOTAL_POINT_BUDGET } = require('../lib/mapBudget');
 const { geotaggedImages, toSignedImage } = require('../lib/tourImages');
 const system = require('../lib/system');
 
@@ -35,19 +35,23 @@ async function getMapData(
   if (!user) return unauthorized();
   const { userId } = user;
 
+  // An inline count keys apart from a moved one: the backfill adds segment breaks (#552) that a
+  // warm cache must not hide.
   const tours = (await db.queryUserItems(toursContainer(), { userId, query: MAP_QUERY })).map(
     ({ inlinePointCount, ...tour }) => ({
       ...tour,
-      pointCount: tour.pointCount ?? inlinePointCount,
+      pointCount: tour.pointCount ?? `${inlinePointCount} inline`,
     }),
   );
-  const heatmapDataByTour = await heatmapCache.getOrCompute({
+  const tracksByTour = await heatmapCache.getOrCompute({
     userId,
     tours,
     compute: async () => {
-      const points = await readPointsByTour({ userId, toursContainer, tracksContainer });
-      const tracks = tours.map((tour) => ({ heatmapData: points.get(tour.id) ?? [] }));
-      return budgetTracks(tracks, budget);
+      const tracksByTour = await readTracksByTour({ userId, toursContainer, tracksContainer });
+      const tracks = tours.map(
+        (tour) => tracksByTour.get(tour.id) ?? { heatmapData: [], segmentStarts: [] },
+      );
+      return budgetSegmentedTracks(tracks, budget);
     },
   });
   const signUrl = blobStorage.readUrlSigner({ container: imagesContainer, now: now() });
@@ -55,7 +59,7 @@ async function getMapData(
   const jsonBody = await Promise.all(
     tours.map(async (tour, index) => ({
       id: tour.id,
-      heatmapData: heatmapDataByTour[index],
+      ...tracksByTour[index],
       images: await Promise.all(
         geotaggedImages(tour).map((image) =>
           toSignedImage(image, { userId, tourId: tour.id, signUrl }),

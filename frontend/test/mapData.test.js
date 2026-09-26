@@ -12,7 +12,11 @@ describe('ensureMapData', () => {
       ok([
         {
           id: 't1',
-          heatmapData: [[48, 11]],
+          heatmapData: [
+            [48, 11],
+            [52, 13],
+          ],
+          segmentStarts: [1],
           images: [{ id: 'i1', lat: 48, lon: 11 }],
         },
         { id: 't2', heatmapData: [], images: [] },
@@ -23,9 +27,14 @@ describe('ensureMapData', () => {
 
     expect(apiFetch).toHaveBeenCalledTimes(1);
     expect(apiFetch).toHaveBeenCalledWith('/api/map');
-    expect(tours[0].heatmapData).toEqual([[48, 11]]);
+    expect(tours[0].heatmapData).toEqual([
+      [48, 11],
+      [52, 13],
+    ]);
+    expect(tours[0].segmentStarts).toEqual([1]);
     expect(tours[0].images).toEqual([{ id: 'i1', lat: 48, lon: 11 }]);
     expect(tours[1].heatmapData).toEqual([]);
+    expect(tours[1].segmentStarts).toEqual([]);
   });
 
   it('makes no request when every tour already has fresh data', async () => {

@@ -31,7 +31,13 @@ const signedUrlParts = (url) => {
   const parsed = new URL(url);
   return { path: parsed.pathname, ...Object.fromEntries(parsed.searchParams) };
 };
-const TRACK = { id: 't1', userId: 'u1', schemaVersion: 1, heatmapData: [[48.1, 11.5]] };
+const TRACK = {
+  id: 't1',
+  userId: 'u1',
+  schemaVersion: 1,
+  heatmapData: [[48.1, 11.5]],
+  segmentStarts: [],
+};
 const OTHER_USERS_TOUR = { id: 't9', userId: 'u2', name: 'Not yours' };
 
 function setUp({
@@ -80,6 +86,7 @@ describe('GET /api/me/export', () => {
           name: 'Alps',
           pointCount: 1,
           heatmapData: [[48.1, 11.5]],
+          segmentStarts: [],
           gpxFileUrl: expect.any(String),
           images: [{ id: 'i1', lat: 48.1, lon: 11.5, url: expect.any(String) }],
         },
@@ -156,7 +163,7 @@ describe('GET /api/me/export', () => {
     );
 
     expect(response.jsonBody.tours).toStrictEqual([
-      { id: 't3', userId: 'u1', name: 'Seeded', heatmapData: [], images: [] },
+      { id: 't3', userId: 'u1', name: 'Seeded', heatmapData: [], segmentStarts: [], images: [] },
     ]);
     expect([...gpx.calls, ...images.calls]).toEqual([]);
   });

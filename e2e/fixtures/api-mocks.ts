@@ -18,6 +18,8 @@ export interface MockTour {
   distance: number;
   createdAt: string;
   heatmapData: [number, number][];
+  /** Where each GPX segment after the first begins in heatmapData (#552). */
+  segmentStarts: number[];
   images: MockPhoto[];
 }
 
@@ -47,6 +49,7 @@ export const mockTour = (tour: Pick<MockTour, 'id' | 'name'> & Partial<MockTour>
   distance: 5,
   createdAt: '2026-07-01T00:00:00.000Z',
   heatmapData: [],
+  segmentStarts: [],
   images: [],
   ...tour,
 });
@@ -67,9 +70,10 @@ const listItem = ({ id, name, description, distance, createdAt }: MockTour) => (
   createdAt,
 });
 
-const mapEntry = ({ id, heatmapData, images }: MockTour) => ({
+const mapEntry = ({ id, heatmapData, segmentStarts, images }: MockTour) => ({
   id,
   heatmapData,
+  segmentStarts,
   images: images.filter((image) => image.lat !== undefined && image.lon !== undefined),
 });
 

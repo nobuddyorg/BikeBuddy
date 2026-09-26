@@ -88,6 +88,16 @@ describe('GET /api/tours/{tourId}', () => {
     expect(tracks.calls).toEqual([]);
   });
 
+  it("answers the track's segment starts, so the detail map breaks the line there (#552)", async () => {
+    const { run } = setUp({
+      trackDocuments: [{ id: TOUR_ID, userId: 'u1', heatmapData: POINTS, segmentStarts: [1] }],
+    });
+
+    const response = await run(TOUR_ID);
+
+    expect(response.jsonBody).toMatchObject({ heatmapData: POINTS, segmentStarts: [1] });
+  });
+
   it('answers an empty track when the track item is missing', async () => {
     const { run } = setUp({ trackDocuments: [] });
 

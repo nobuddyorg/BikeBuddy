@@ -100,6 +100,7 @@ describe('POST /api/tours/upload', () => {
         [48.1351, 11.582],
         [48.1361, 11.583],
       ],
+      segmentStarts: [],
     });
   });
 

@@ -10,7 +10,7 @@ const { loadOwnedTour } = require('../lib/ownedTour');
 const { gpxBlobName } = require('../lib/blobNames');
 const { toSignedImage } = require('../lib/tourImages');
 const { toTourDetailResponse, gpxDownloadDisposition } = require('../lib/tourResponse');
-const { readTourPoints } = require('../lib/tourTrack');
+const { readTourTrack } = require('../lib/tourTrack');
 
 // Tours seeded without an upload have no GPX blob, and so nothing to download.
 async function signedGpxDownload({ tour, userId, gpxContainer, now }) {
@@ -41,8 +41,8 @@ async function getTour(
   const requestTime = now();
 
   const signUrl = blobStorage.readUrlSigner({ container: imagesContainer, now: requestTime });
-  const [heatmapData, images, download] = await Promise.all([
-    readTourPoints({ tour, userId, tracksContainer }),
+  const [track, images, download] = await Promise.all([
+    readTourTrack({ tour, userId, tracksContainer }),
     Promise.all(
       (tour.images ?? []).map((image) =>
         toSignedImage(image, { userId, tourId: tour.id, signUrl }),
@@ -53,7 +53,7 @@ async function getTour(
 
   return {
     status: 200,
-    jsonBody: toTourDetailResponse({ tour, heatmapData, images, ...download }),
+    jsonBody: toTourDetailResponse({ tour, track, images, ...download }),
   };
 }
 
