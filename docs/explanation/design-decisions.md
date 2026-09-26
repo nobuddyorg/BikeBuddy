@@ -282,10 +282,10 @@ which the number of tours per rider bounds.
 It is a page of its own, so it opens without signing in and the Entra sign-up
 page can link it. It uses the app's i18n, so every sentence is in all seven
 locales. The header links it (on screens wider than 480 px), as do the help,
-the sign-in prompt and the profile. The controller's name, address and contact
-are not translated: they sit in the page itself as placeholders, to be filled
-in before it is published. A change to what the app collects, whom it sends
-data to, or how long it keeps it updates the notice in the same change.
+the sign-in prompt and the profile. The controller's name and email address
+are not translated: they sit in the page itself and match nobuddy.org's About
+page, which gives no postal address. A change to what the app collects, whom
+it sends data to, or how long it keeps it updates the notice in the same change.
 
 ## Account deletion (GDPR), out-of-band
 

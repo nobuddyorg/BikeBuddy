@@ -8,6 +8,7 @@ interface PrivacyPage {
   locators: {
     title: Locator;
     controller: Locator;
+    contact: Locator;
     back: Locator;
   };
 }
@@ -17,6 +18,7 @@ export function initPrivacyPage(page: Page): PrivacyPage {
   const locators = {
     title: page.locator('#privacy-title'),
     controller: page.locator('#privacy-controller'),
+    contact: page.locator('#privacy-contact'),
     back: page.locator('#privacy-back'),
   };
   return Object.assign(() => root, { locators });
