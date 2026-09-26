@@ -24,7 +24,7 @@ repos:
 
   # Spell checking
   - repo: https://github.com/crate-ci/typos
-    rev: v1.50.1
+    rev: v1.50.2
     hooks:
       - id: typos
         # Minified vendor code and non-English locale strings (also quoted in docs/superpowers/) trip it.
