@@ -443,6 +443,13 @@ dependency type, because a mixed group reports as `direct:production` and would
 never qualify. Every lockfile entry must resolve from the npm registry over
 https with an integrity hash (lockfile-lint, pre-commit).
 
+Two majors are held in `.github/dependabot.yml`, because the tooling cannot run
+on them yet. Under vitest 5, Stryker's vitest runner reports a 0 % mutation
+score. TypeScript 7 drops the JavaScript API that typescript-eslint, SonarJS and
+Stryker call. `vitest` and `@vitest/*` form one group: each requires the
+other's exact version, and separate PRs could never pass. The hold is lifted in
+one reviewed PR once Stryker and typescript-eslint support them.
+
 `npm audit` findings are handled with the smallest change that removes them:
 
 1. An in-range lockfile update (`npm update <pkg>` or a plain `npm audit fix`)

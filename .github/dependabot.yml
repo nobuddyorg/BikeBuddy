@@ -23,7 +23,21 @@ updates:
     directory: "/functions"
     schedule:
       interval: "weekly"
+    # Held until the tooling supports them: Stryker scores 0 % under vitest 5, and TypeScript 7 drops
+    # the JS API typescript-eslint, SonarJS and Stryker call. Lift together, as one reviewed PR.
+    ignore:
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
+      # vitest and @vitest/coverage-v8 each require the other's exact version, so they move as one.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       # @stryker-mutator/vitest-runner needs a matching core; listed first because Dependabot uses the first matching group.
       stryker-mutator:
         patterns:
@@ -55,7 +69,21 @@ updates:
       - "/e2e"
     schedule:
       interval: "weekly"
+    # Held until the tooling supports them: Stryker scores 0 % under vitest 5, and TypeScript 7 drops
+    # the JS API typescript-eslint, SonarJS and Stryker call. Lift together, as one reviewed PR.
+    ignore:
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
+      # vitest and @vitest/coverage-v8 each require the other's exact version, so they move as one.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       stryker-mutator:
         patterns:
           - "@stryker-mutator/*"
