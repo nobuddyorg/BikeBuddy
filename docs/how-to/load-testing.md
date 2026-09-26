@@ -46,6 +46,7 @@ would widen the auth bypass (see #545); it needs its own design and review.
 SKIP_AUTH=true LOAD_PROFILING=true ./buddy.sh development start-backend
 ./buddy.sh test load smoke                      # every journey once
 ./buddy.sh test load browse --profile normal    # ~3 minutes plus seeding
+cd load && npm run load -- browse               # the same, as an npm script
 ```
 
 `load/run.mjs` (what `./buddy.sh test load` runs) refuses a non-local API for

@@ -17,7 +17,7 @@
     "test:integration:ci": "vitest run --config vitest.integration.config.js --reporter=default --reporter=junit --outputFile.junit=reports/integration-results.xml",
     "lint": "eslint src/ test/ scripts/ --max-warnings 0",
     "typecheck": "tsc -p .",
-    "knip": "knip --no-progress && knip --no-progress --directory ../frontend && knip --no-progress --directory ../e2e",
+    "knip": "knip --no-progress && knip --no-progress --directory ../frontend && knip --no-progress --directory ../e2e && knip --no-progress --directory ../load",
     "depcruise": "cd .. && depcruise --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json functions/src functions/scripts functions/test frontend/src frontend/test e2e load",
     "format": "prettier --write 'src/**/*.js' 'test/**/*.js' 'scripts/**/*.{js,mjs}'",
     "mutate": "stryker run",

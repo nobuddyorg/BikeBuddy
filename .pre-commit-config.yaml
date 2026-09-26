@@ -150,7 +150,7 @@ repos:
         entry: bash -c 'cd functions && npm run --silent knip'
         language: system
         pass_filenames: false
-        files: ^((functions|frontend)/(src|scripts|test)/.*\.(js|mjs)|e2e/.*\.(ts|mjs)|(functions|frontend|e2e)/(package\.json|knip\.jsonc))$
+        files: ^((functions|frontend)/(src|scripts|test)/.*\.(js|mjs)|e2e/.*\.(ts|mjs)|load/.*\.(js|mjs)|(functions|frontend|e2e|load)/(package\.json|knip\.jsonc))$
         exclude: ^frontend/src/vendor/
         stages: [pre-commit]
 

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Only what Knip's static analysis cannot follow, each with its reason.
+  "entry": [
+    // The k6 scripts: run.mjs hands one to k6 by name (`k6 run <flow>.js`); nothing imports them.
+    "{smoke,browse,upload,edit,export}.js",
+    // Run by name in the optimization loop (load-testing.md, "Compare"); nothing imports it.
+    "compare.mjs",
+  ],
+  "project": ["*.{js,mjs}", "lib/**/*.js"],
+  "ignoreBinaries": [
+    // Installed by the developer or the workflow's pinned setup step (load-testing.md), not an npm package.
+    "k6",
+  ],
+  "ignoreDependencies": [
+    // k6's built-in modules (k6, k6/http, k6/metrics), resolved by the k6 runtime, not npm.
+    "k6",
+  ],
+}

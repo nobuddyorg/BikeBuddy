@@ -345,7 +345,7 @@ summary).
 ## Dead code (Knip)
 
 [Knip](https://knip.dev) reports unused files, unused exports and unused or
-missing dependencies in `functions/`, `frontend/` and `e2e/` (one
+missing dependencies in `functions/`, `frontend/`, `e2e/` and `load/` (one
 `knip.jsonc` per package):
 
 ```bash
@@ -356,7 +356,8 @@ The configs list only what Knip cannot follow statically, each with its reason:
 Function handlers (loaded by the Functions host), operator scripts (run by
 name), `frontend/src/app.js` and `sw.js` (loaded by `index.html` and the
 service-worker registration), `e2e/serve.mjs` (a Playwright `webServer`
-command), and global CLIs such as `func` (`ignoreBinaries`). Anything else it
+command), the k6 scripts (handed to k6 by name) and their built-in `k6/*`
+modules, and global CLIs such as `func` and `k6` (`ignoreBinaries`). Anything else it
 reports is removed, not ignored: an export used only in its own file loses
 `export`. Runs as a pre-commit hook and in CI's `architecture` job.
 

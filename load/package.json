@@ -1,0 +1,10 @@
+{
+  "name": "bikebuddy-load",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BikeBuddy k6 load tests: k6 scripts (*.js) and their Node tooling (*.mjs); no dependencies",
+  "type": "module",
+  "scripts": {
+    "load": "node run.mjs"
+  }
+}
