@@ -13,7 +13,9 @@ resource "azurerm_function_app_flex_consumption" "main" {
   location            = azurerm_resource_group.main.location
   service_plan_id     = azurerm_service_plan.main.id
   https_only          = true
-  tags                = local.tags
+  # Publishing goes through Core Tools with the deploy's Azure login; no basic-auth credential (#558).
+  webdeploy_publish_basic_authentication_enabled = false
+  tags                                           = local.tags
 
   # Flex deploys the app package from a blob container (not WEBSITE_RUN_FROM_PACKAGE).
   storage_container_type      = "blobContainer"
