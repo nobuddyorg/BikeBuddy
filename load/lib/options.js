@@ -7,13 +7,13 @@ export const LIFECYCLE_TIMEOUTS = { setupTimeout: '15m', teardownTimeout: '10m' 
 
 // Calibrated at the normal profile: docs/how-to/load-testing.md, "Thresholds".
 const P95_MS = {
-  list: 16400,
-  detail: 13350,
-  map: 43900,
+  list: 250,
+  detail: 300,
+  map: 350,
   upload_tour: 800,
   upload_image: 300,
   edit: 400,
-  export: 11700,
+  export: 9650,
 };
 
 /** Failures, timeouts and checks per named scenario, with no latency limit. */
