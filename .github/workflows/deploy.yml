@@ -70,6 +70,7 @@ jobs:
     outputs:
       functions_url: ${{ steps.output.outputs.functions_url }}
       functions_app_name: ${{ steps.output.outputs.functions_app_name }}
+      storage_url: ${{ steps.output.outputs.storage_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,6 +93,7 @@ jobs:
         run: |
           echo "functions_url=$(tofu output -raw functions_url)" >> "$GITHUB_OUTPUT"
           echo "functions_app_name=$(tofu output -raw functions_app_name)" >> "$GITHUB_OUTPUT"
+          echo "storage_url=$(tofu output -raw storage_url)" >> "$GITHUB_OUTPUT"
         working-directory: infrastructure
 
   deploy-functions:
@@ -156,6 +158,13 @@ jobs:
           ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
           ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
         run: ./buddy.sh infrastructure generate-config
+
+      - name: Narrow the CSP to this deployment's hosts
+        env:
+          FUNCTIONS_URL: ${{ needs.infrastructure.outputs.functions_url }}
+          STORAGE_URL: ${{ needs.infrastructure.outputs.storage_url }}
+          ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
+        run: ./buddy.sh infrastructure tighten-csp
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

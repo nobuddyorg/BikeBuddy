@@ -3,6 +3,11 @@ output "functions_url" {
   value       = "https://${azurerm_function_app_flex_consumption.main.default_hostname}"
 }
 
+# The one storage origin the production CSP allows (#560); no trailing slash.
+output "storage_url" {
+  value = trimsuffix(azurerm_storage_account.main.primary_blob_endpoint, "/")
+}
+
 output "functions_app_name" {
   value = azurerm_function_app_flex_consumption.main.name
 }

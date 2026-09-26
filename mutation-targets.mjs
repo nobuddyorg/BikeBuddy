@@ -52,6 +52,7 @@ export const FUNCTIONS_TARGETS = [
   'scripts/lib/graphClient.js',
   'scripts/lib/localCosmos.js',
   'scripts/lib/mutationSummary.mjs',
+  'scripts/lib/productionCsp.js',
   'scripts/lib/queryItems.js',
   'scripts/lib/schemaVersionBackfill.js',
   'scripts/lib/storedBytesBackfill.js',

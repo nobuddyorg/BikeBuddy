@@ -25,4 +25,11 @@ expect_status "$FUNCTIONS_URL/api/v1/me" 401
 grep -q '"errors.unauthorized"' "$BODY" ||
   { echo "FAIL $FUNCTIONS_URL/api/v1/me refused without errors.unauthorized" >&2; exit 1; }
 expect_status "${PAGES_URL%/}/" 200
+# The published page allows this deployment's API, and no Azure host at large (#560).
+grep -qF "$FUNCTIONS_URL" "$BODY" ||
+  { echo "FAIL the published CSP does not name $FUNCTIONS_URL" >&2; exit 1; }
+if grep -qE '\*\.(azurewebsites\.net|blob\.core\.windows\.net)|127\.0\.0\.1' "$BODY"; then
+  echo "FAIL the published CSP still allows a development host" >&2
+  exit 1
+fi
 expect_status "${PAGES_URL%/}/privacy.html" 200
