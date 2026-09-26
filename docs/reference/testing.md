@@ -32,7 +32,7 @@ real paths, numbers and issues live here. Commands are in the
 | Authorization: every endpoint × owner, other user, 10 rejected credentials | Integration, two identities, real tokens | `authorization-tokens.test.js`, `authorization-isolation.test.js`, `account-deletion.test.js`, `signed-urls.test.js`; the route list `endpoints.js` is checked against every `app.http()` registration by `test/unit/endpoints.test.js` |
 | Deletion job, backfills, operator scripts                                  | Unit + mutation                          | `functions/scripts/lib/*.test.js` with fakes (dry run writes nothing; only GUIDs reach Graph)                                                                                                                                           |
 | Hot-query shape and payload bounds                                         | Integration (cost guards)                | `query-cost.test.js` (single partition, bounded pages), `map-budget.test.js` (point and byte budget)                                                                                                                                    |
-| Base path, theme, URL state, empty and error states                        | E2E static, API mocked                   | `e2e/tests/` on `staticTest` from `e2e/fixtures/api-mocks.ts` (projected response shapes)                                                                                                                                               |
+| Base path, theme, URL state, empty and error states                        | E2E static, API mocked                   | `e2e/tests/` on `staticTest` from `e2e/fixtures/api-mocks.ts` (answers from `api-responses.ts`, held to the handlers)                                                                                                                   |
 | Journeys: upload, edit, photos, delete, account, language                  | E2E full stack                           | `e2e/tests-fullstack/` on `fullstackTest`: seeds through the API (`seed.ts`), checks blobs and documents in `store.ts`; page objects in `e2e/pages/` reached through `on(page)`                                                         |
 | Accessibility                                                              | Runtime, in both E2E suites              | `e2e/axe.ts` via `on(page).a11y.check()`; `frontend/test/contrast.test.js` pins colour-token contrast                                                                                                                                   |
 | Frontend lab performance                                                   | Lighthouse CI                            | `e2e/lighthouse/lighthouserc.signed-out.json`, `lighthouserc.signed-in.json`                                                                                                                                                            |
@@ -114,7 +114,7 @@ and what catches it today. **Covered**: a test fails if the risk comes back.
 | #549  | No per-user quotas or rate limiting                                                  | Design + cost guards               | Partly  | Per-request cost is bounded by the two guards; per-user volume is not                                                                                                                                                                                                                                                                        |
 | #544  | Service worker serves stale JS/CSS                                                   | Unit                               | Covered | `frontend/test/sw.test.js` runs `sw.js` in a fake worker scope: modules come from the network and refresh the cache, the cache answers only offline, and the precache bypasses the HTTP cache                                                                                                                                                |
 | #559  | Undo-able deletes are lost when the tab closes                                       | DOM-layer unit + E2E               | Covered | `pendingActions.test.js` (flush, undo after commit); static e2e `delete-on-leave.spec.ts` (a hidden page sends the delete at once, a later Undo is too late, a 404 counts as deleted); full stack `tours.spec.ts` (Undo keeps the tour; a list reloaded in the window leaves the pending tour out). A browser killed outright still loses it |
-| #574  | Contract duplication and DTO drift                                                   | Contract check                     | Partly  | `frontendContract.test.js` holds the photo cap, the 10 MB limit, every name/description `maxlength`, the languages and every API error key to the frontend; `endpoints.test.js` holds `.zap/openapi.yaml` to the registered GET routes; the static E2E mocks are still hand-written                                                          |
+| #574  | Contract duplication and DTO drift                                                   | Contract check                     | Partly  | `frontendContract.test.js` holds the photo cap, the 10 MB limit, every name/description `maxlength`, the languages and every API error key to the frontend; `endpoints.test.js` holds `.zap/openapi.yaml` to the registered GET routes; `e2eMockContract.test.js` holds the static E2E mocks to the handlers' answers                        |
 | #556  | Account keys instead of managed identity                                             | Design, not a test                 | Not     | Revisit the playbook's §0 when it lands                                                                                                                                                                                                                                                                                                      |
 
 ## Known gaps
@@ -126,11 +126,12 @@ Measured against the playbook. Each has an issue unless marked **no issue**
   i18n runtime, line-style storage and upload request have tests; the rest is
   exercised by Playwright.
 - **No post-deploy smoke test** (#563).
-- **Contract** (#574): the static suite's mocks are centralised in
-  `e2e/fixtures/api-mocks.ts` in the handlers' projected shapes, but nothing
-  checks them against the handlers. `.zap/openapi.yaml` is checked:
-  `endpoints.test.js` fails while it lists anything but the registered GET
-  routes.
+- **Contract** (#574): each tour document still stores an absolute
+  `gpxFileUrl`, which no response uses. The static suite's mocks
+  (`e2e/fixtures/api-responses.ts`) are checked: `e2eMockContract.test.js`
+  runs the real handlers over the same account and fails when an answer
+  differs from the mock's. So is `.zap/openapi.yaml`: `endpoints.test.js`
+  fails while it lists anything but the registered GET routes.
 - **Direct DB seeding** (**no issue**, deliberate): `query-cost.test.js` seeds
   150 tours straight into Cosmos under a throwaway user, to measure the
   adapter. Every other test seeds through the API.
