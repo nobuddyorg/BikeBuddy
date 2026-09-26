@@ -1,5 +1,5 @@
 import * as i18n from './i18n.js';
-import { deletionFailureMessage, removeToursById } from '../lib/tours.js';
+import { deletionFailureMessage, isDeleted, removeToursById, tourKey } from '../lib/tours.js';
 import { runWithConcurrency } from '../lib/concurrency.js';
 import { state } from './state.js';
 import { apiFetch } from './api.js';
@@ -19,9 +19,12 @@ function showTours() {
   return renderAllRoutes();
 }
 
+// keepalive lets the request outlive a closing page; a 404 means another tab deleted it first.
 async function deleteTourOnServer(tour) {
-  const response = await apiFetch(`/api/tours/${tour.id}`, { method: 'DELETE' });
-  if (!response.ok) throw new Error(`DELETE /api/tours/${tour.id} answered ${response.status}`);
+  const response = await apiFetch(`/api/tours/${tour.id}`, { method: 'DELETE', keepalive: true });
+  if (!isDeleted(response)) {
+    throw new Error(`DELETE /api/tours/${tour.id} answered ${response.status}`);
+  }
 }
 
 async function deleteOnServer(tours) {
@@ -52,6 +55,7 @@ function scheduleTourRemoval(tours) {
   showTours();
 
   scheduleUndoable({
+    keys: ids.map(tourKey),
     message: t('toast.toursDeleted', { count: ids.length }),
     commit: () => deleteOnServer(tours),
     revert: () => {

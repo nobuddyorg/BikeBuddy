@@ -154,8 +154,14 @@ fetching it again (#580).
   uses Escape to close marks the key handled, so its dialog stays open.
 - A malformed `#/tour/` link opens no tour, and blocked storage costs only the
   saved line style and language, never startup.
-- Deletes are undoable: the DELETE is deferred behind an undo toast (#559 tracks
-  that closing the tab during that window loses the delete).
+- Deletes are undoable: the DELETE is deferred behind an undo toast for six
+  seconds (`frontend/src/lib/pendingActions.js`). A page that is hidden or
+  closed within that window sends every pending delete at once, with
+  `keepalive` requests, instead of losing it with the timer; an Undo after
+  that says it is too late. A 404 counts as deleted (another tab was first),
+  and a tour list reloaded within the window leaves the pending tours out
+  (#559). Still best-effort: a browser killed outright sends nothing, and the
+  server has no soft delete.
 - iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
   viewport meta.
 - The line style is saved on change, not on every input event.

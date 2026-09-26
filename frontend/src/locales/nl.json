@@ -183,6 +183,7 @@
 
   "toast.toursLoadError": "Je ritten konden niet worden geladen. Controleer je verbinding en probeer het opnieuw.",
   "toast.undo": "Ongedaan maken",
+  "toast.undoTooLate": "Te laat om ongedaan te maken: het is al verwijderd.",
   "toast.tourDeleteError": "Rit kon niet worden verwijderd.",
   "toast.gpxDownloadError": "GPX-bestand kon niet worden gedownload.",
   "toast.toursDeleted.one": "Rit verwijderd.",

@@ -183,6 +183,7 @@
 
   "toast.toursLoadError": "Couldn’t load your tours. Check your connection and try again.",
   "toast.undo": "Undo",
+  "toast.undoTooLate": "Too late to undo: it was already deleted.",
   "toast.tourDeleteError": "Could not delete the tour.",
   "toast.gpxDownloadError": "Could not download the GPX file.",
   "toast.toursDeleted.one": "Tour deleted.",

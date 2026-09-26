@@ -183,6 +183,7 @@
 
   "toast.toursLoadError": "No se pudieron cargar tus rutas. Comprueba tu conexión e inténtalo de nuevo.",
   "toast.undo": "Deshacer",
+  "toast.undoTooLate": "Ya no se puede deshacer: ya se ha eliminado.",
   "toast.tourDeleteError": "No se pudo eliminar la ruta.",
   "toast.gpxDownloadError": "No se pudo descargar el archivo GPX.",
   "toast.toursDeleted.one": "Ruta eliminada.",

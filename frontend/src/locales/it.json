@@ -183,6 +183,7 @@
 
   "toast.toursLoadError": "Impossibile caricare i tuoi giri. Controlla la connessione e riprova.",
   "toast.undo": "Annulla",
+  "toast.undoTooLate": "Troppo tardi per annullare: è già stato eliminato.",
   "toast.tourDeleteError": "Impossibile eliminare il giro.",
   "toast.gpxDownloadError": "Impossibile scaricare il file GPX.",
   "toast.toursDeleted.one": "Giro eliminato.",

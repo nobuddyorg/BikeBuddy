@@ -183,6 +183,7 @@
 
   "toast.toursLoadError": "Não foi possível carregar os teus percursos. Verifica a tua ligação e tenta novamente.",
   "toast.undo": "Desfazer",
+  "toast.undoTooLate": "Já não é possível anular: já foi eliminado.",
   "toast.tourDeleteError": "Não foi possível eliminar o percurso.",
   "toast.gpxDownloadError": "Não foi possível descarregar o ficheiro GPX.",
   "toast.toursDeleted.one": "Percurso eliminado.",

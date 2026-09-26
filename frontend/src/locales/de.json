@@ -183,6 +183,7 @@
 
   "toast.toursLoadError": "Deine Touren konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
   "toast.undo": "Rückgängig",
+  "toast.undoTooLate": "Rückgängig nicht mehr möglich: Es wurde bereits gelöscht.",
   "toast.tourDeleteError": "Tour konnte nicht gelöscht werden.",
   "toast.gpxDownloadError": "GPX-Datei konnte nicht heruntergeladen werden.",
   "toast.toursDeleted.one": "Tour gelöscht.",

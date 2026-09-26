@@ -7,6 +7,8 @@ import { selectTour } from './tourPanel.js';
 import { renderTourList } from './tourList.js';
 import { consumeDeepLinkTourId, syncUrl } from './router.js';
 import { toast } from './toast.js';
+import { pendingKeys } from './undoableAction.js';
+import { tourKey } from '../lib/tours.js';
 import {
   setVisible,
   appLayout,
@@ -33,7 +35,9 @@ async function fetchTours() {
   try {
     const response = await apiFetch('/api/tours');
     if (!response.ok) throw new Error('load failed');
-    state.tours = await response.json();
+    // A tour deleted within the Undo window is gone for the rider, whatever the server still says.
+    const pending = pendingKeys();
+    state.tours = (await response.json()).filter((tour) => !pending.has(tourKey(tour.id)));
   } catch {
     state.tours = [];
     state.toursLoadFailed = true;

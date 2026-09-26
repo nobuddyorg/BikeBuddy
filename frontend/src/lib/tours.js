@@ -208,3 +208,9 @@ export function deletionFailureMessage({ succeededCount, totalCount }) {
     params: { deleted: succeededCount, count: totalCount },
   };
 }
+
+// The key a pending tour delete is filed under (ui/undoableAction.js), to hide it from a refetch.
+export const tourKey = (tourId) => `tour:${tourId}`;
+
+// A DELETE that finds nothing left to delete (another tab, a repeated request) still succeeded.
+export const isDeleted = (response) => response.ok || response.status === 404;

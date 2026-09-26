@@ -20,6 +20,9 @@ interface MainPage {
     forgetLocalSettings(): Promise<void>;
     /** Clicks Undo on the newest toast that offers it. */
     undo(): Promise<void>;
+    /** Plays the browser hiding the page (tab switch, app switcher), then bringing it back. */
+    hidePage(): Promise<void>;
+    showPage(): Promise<void>;
     /** Uploads through the modal; returns once the new tour is open. */
     uploadGpx(upload: { name: string; gpx: string }): Promise<void>;
   };
@@ -44,6 +47,13 @@ interface MainPage {
     };
   };
 }
+
+// Headless Chromium never hides a page by itself, so the page's own state and event are played.
+const setVisibility = (page: Page, visibility: 'hidden' | 'visible') =>
+  page.evaluate((state) => {
+    Object.defineProperty(document, 'visibilityState', { value: state, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, visibility);
 
 export function initMainPage(page: Page): MainPage {
   const root = page.locator('body');
@@ -79,6 +89,8 @@ export function initMainPage(page: Page): MainPage {
     openMobileMap: async () => locators.buttons.mobileMapFab.click(),
     forgetLocalSettings: async () => page.evaluate(() => localStorage.clear()),
     undo: async () => locators.toastActions.last().click(),
+    hidePage: async () => setVisibility(page, 'hidden'),
+    showPage: async () => setVisibility(page, 'visible'),
     uploadGpx: async ({ name, gpx }: { name: string; gpx: string }) => {
       await locators.buttons.upload.click();
       const upload = initUploadModal(page);

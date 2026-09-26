@@ -43,6 +43,7 @@ const PRECACHE_URLS = [
   'lib/layout.js',
   'lib/lineStyle.js',
   'lib/mapData.js',
+  'lib/pendingActions.js',
   'lib/markup.js',
   'lib/pinLayout.js',
   'lib/routes.js',

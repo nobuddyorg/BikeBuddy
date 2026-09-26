@@ -76,6 +76,28 @@ fullstackTest(
   },
 );
 
+fullstackTest(
+  'a list reloaded within the Undo window leaves the deleted tour out',
+  async ({ on, page }) => {
+    await page.clock.install();
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    await on(page).main.do.uploadGpx({ name: 'CI E2E Deleted', gpx: GPX });
+    await on(page).detail.do.deleteTour();
+    await expect(on(page).list.row('CI E2E Deleted')()).toHaveCount(0);
+
+    // Uploading reloads the list while the server still holds the deleted tour (#559).
+    await on(page).main.do.uploadGpx({ name: 'CI E2E Kept', gpx: GPX });
+
+    await expect(on(page).list.row('CI E2E Kept')()).toHaveCount(1);
+    await expect(on(page).list.row('CI E2E Deleted')()).toHaveCount(0);
+    await page.clock.runFor(10_000);
+    await expect
+      .poll(async () => (await devUserTours()).map((tour) => tour.name))
+      .toEqual(['CI E2E Kept']);
+  },
+);
+
 fullstackTest.describe('a GPX file without track points', () => {
   // The refused upload's 400 is the expected answer, which the browser logs as a console error.
   fullstackTest.use({

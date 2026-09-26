@@ -13,6 +13,8 @@ import {
   buildTourPatch,
   removeToursById,
   deletionFailureMessage,
+  isDeleted,
+  tourKey,
   SORT_OPTIONS,
   DEFAULT_SORT,
   PAGE_SIZE,
@@ -524,5 +526,22 @@ describe('deletionFailureMessage', () => {
       key: 'toast.toursDeletedPartial',
       params: { deleted: 2, count: 3 },
     });
+  });
+});
+
+describe('tourKey', () => {
+  it('files a tour under its id, apart from anything else pending', () => {
+    expect(tourKey('t1')).toBe('tour:t1');
+  });
+});
+
+describe('isDeleted', () => {
+  it.each([
+    [{ ok: true, status: 204 }, true],
+    [{ ok: false, status: 404 }, true],
+    [{ ok: false, status: 500 }, false],
+    [{ ok: false, status: 401 }, false],
+  ])('counts %j as deleted: %s', (response, deleted) => {
+    expect(isDeleted(response)).toBe(deleted);
   });
 });

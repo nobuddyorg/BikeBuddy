@@ -183,6 +183,7 @@
 
   "toast.toursLoadError": "Impossible de charger tes sorties. Vérifie ta connexion et réessaie.",
   "toast.undo": "Annuler",
+  "toast.undoTooLate": "Trop tard pour annuler : la suppression a déjà eu lieu.",
   "toast.tourDeleteError": "Impossible de supprimer la sortie.",
   "toast.gpxDownloadError": "Impossible de télécharger le fichier GPX.",
   "toast.toursDeleted.one": "Sortie supprimée.",
