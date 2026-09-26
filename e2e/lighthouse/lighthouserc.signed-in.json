@@ -15,7 +15,7 @@
         "categories:performance": [
           "error",
           {
-            "minScore": 0.6
+            "minScore": 0.8
           }
         ],
         "categories:accessibility": [
@@ -39,19 +39,19 @@
         "largest-contentful-paint": [
           "error",
           {
-            "maxNumericValue": 8000
+            "maxNumericValue": 5000
           }
         ],
         "total-blocking-time": [
           "error",
           {
-            "maxNumericValue": 600
+            "maxNumericValue": 300
           }
         ],
         "cumulative-layout-shift": [
           "error",
           {
-            "maxNumericValue": 0.25
+            "maxNumericValue": 0.1
           }
         ]
       }
