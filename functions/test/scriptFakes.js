@@ -58,8 +58,8 @@ function fakeCosmosContainer({ documents, answerQuery, partitionKeyOf }) {
           if (index === -1) throw notFound();
           documents.splice(index, 1);
         },
-        async patch(operations) {
-          writes.push({ patch: id, partitionKey, operations });
+        async patch(operations, options) {
+          writes.push({ patch: id, partitionKey, operations, ...(options && { options }) });
           const index = find(id, partitionKey);
           if (index === -1) throw notFound();
           applyPatch(documents[index], operations);
@@ -82,6 +82,10 @@ function fakeBlobContainer(blobs) {
         async downloadToBuffer() {
           if (!blobs.has(name)) throw Object.assign(new Error('BlobNotFound'), { statusCode: 404 });
           return blobs.get(name);
+        },
+        async getProperties() {
+          if (!blobs.has(name)) throw Object.assign(new Error('BlobNotFound'), { statusCode: 404 });
+          return { contentLength: blobs.get(name).length };
         },
         async uploadData(data, options) {
           writes.push({ upload: name, options });

@@ -21,10 +21,12 @@ resource "azurerm_function_app_flex_consumption" "main" {
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main.primary_access_key
 
-  runtime_name           = "node"
-  runtime_version        = "24"
-  instance_memory_in_mb  = 2048
-  maximum_instance_count = 40
+  runtime_name          = "node"
+  runtime_version       = "24"
+  instance_memory_in_mb = 2048
+  # The hard cost ceiling (#549): a handful of riders never needs more, and each instance keeps
+  # its own upload rate limit, so this also bounds how far one rider can get past it.
+  maximum_instance_count = 10
 
   app_settings = {
     COSMOS_CONNECTION_STRING = "AccountEndpoint=${azurerm_cosmosdb_account.main.endpoint};AccountKey=${azurerm_cosmosdb_account.main.primary_key};"

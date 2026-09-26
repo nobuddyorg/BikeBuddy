@@ -30,7 +30,10 @@ provisions the user and uploads deterministic tracks (a seeded PRNG, so two
 runs load the same data); `teardown()` deletes **every** tour the user has
 through `DELETE /api/v1/tours/{id}` (the document, then its GPX blob; photo blobs
 stay in Azurite until #553 is fixed). Locally the user is the `SKIP_AUTH` dev
-user, so a load run empties the local dev account's tours.
+user, so a load run empties the local dev account's tours. That one user would
+also run out of the per-rider upload budget (100 an hour, #549) at once, so
+`start-backend` raises it with `UPLOAD_RATE_LIMIT_PER_HOUR`; a host started
+another way needs it set too, or the upload flow measures 429s.
 
 A `population` flow (many distinct users at once) is out of scope: locally
 `SKIP_AUTH` maps every request to one user, and a per-request user override

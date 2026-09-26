@@ -49,7 +49,9 @@ personal app stays far below; no premium add-ons are used.
 The on-demand meters include a monthly free grant of **250,000 executions** and
 **100,000 GB-seconds** per subscription. Each API call is one short execution;
 light use is a few thousand executions a month. Cold starts are acceptable for
-this app. The plan and instance memory are set in `infrastructure/functions.tf`.
+this app. The plan and instance memory are set in `infrastructure/functions.tf`,
+and `maximum_instance_count` caps the scale-out at 10 instances (#549): the hard
+ceiling on what a burst of traffic can cost per hour.
 
 ### Cosmos DB — ~€0–1 (Serverless)
 
@@ -107,7 +109,7 @@ resized images stay far below this.
 | Storing original full-size images                               | Avoided   | `sharp` resize to ≤ 2000 px before upload                     |
 | Returning `heatmapData` in the tour list → RU + egress          | Avoided   | List omits it; detail and the budgeted map endpoint return it |
 | Public blob containers / unbounded reads                        | Avoided   | Private containers + short-lived SAS URLs                     |
-| One self-registered account driving unbounded volume            | **Open**  | No per-user quota or rate limit yet (#549)                    |
+| One self-registered account driving unbounded volume            | **Fixed** | 1,000 tours / 5 GB per rider, 100 uploads/hour (#549)         |
 | GRS replication (2× storage cost)                               | Avoided   | LRS                                                           |
 
 ---
@@ -116,7 +118,9 @@ resized images stay far below this.
 
 `infrastructure/budget.tf` creates a monthly consumption budget on the resource
 group (`budget_amount`, default 5) and mails `budget_contact_email` when the
-**forecast** reaches 80 % and when **actual** spend reaches 100 %. It is applied
+**forecast** reaches 80 % and when **actual** spend reaches 100 %. At 100 %
+actual it also **stops the Function App** through an action group and a Logic
+App (#549), once an Owner has granted that Logic App its role. It is applied
 with the rest of the infrastructure on every deploy; see
 [Infrastructure](how-to/infrastructure.md#budget).
 

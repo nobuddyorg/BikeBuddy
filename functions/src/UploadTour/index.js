@@ -18,6 +18,8 @@ const { ERROR_KEYS, unauthorized, error } = require('../lib/http');
 const { TOUR_SCHEMA_VERSION } = require('../lib/schemaVersion');
 const { storedTrackStats } = require('../lib/tourStats');
 const { newTrackDocument } = require('../lib/tourTrack');
+const { refuseOverRate } = require('../lib/rateLimit');
+const { refuseOverQuota } = require('../lib/userQuota');
 
 const METADATA_FIELDS = ['name', 'description'];
 
@@ -56,7 +58,7 @@ function trackName(name) {
   return parsed.success ? parsed.data : 'Untitled Tour';
 }
 
-function newTourDocument({ tourId, userId, metadata, track, gpxFileUrl, uploadedAt }) {
+function newTourDocument({ tourId, userId, metadata, track, file, gpxFileUrl, uploadedAt }) {
   return {
     id: tourId,
     userId,
@@ -64,6 +66,7 @@ function newTourDocument({ tourId, userId, metadata, track, gpxFileUrl, uploaded
     name: metadata.name ?? trackName(track.name),
     description: metadata.description ?? '',
     gpxFileUrl,
+    gpxBytes: file.buffer.length,
     pointCount: track.heatmapData.length,
     images: [],
     createdAt: track.date ?? uploadedAt.toISOString(),
@@ -83,6 +86,7 @@ async function uploadTour(
     gpxContainer = blobStorage.gpxContainer,
     parseFile = parseMultipart,
     parseTrack = parseGpxOffThread,
+    rateLimiter = system.uploadRateLimiter,
     newId = system.newId,
     now = system.currentTime,
   } = {},
@@ -92,11 +96,20 @@ async function uploadTour(
   const refused = await refusePendingDeletion(user, deletionsContainer);
   if (refused) return refused;
   const { userId } = user;
+  const throttled = refuseOverRate(rateLimiter, { userId, now: now() });
+  if (throttled) return throttled;
 
   const upload = await readUpload(request, parseFile);
   if (upload.response) return upload.response;
   const metadata = uploadMetadata(request, upload.file.fields);
   if (!metadata.success) return tourMetaError(metadata.error);
+  // Before the parse, which is the costly part (#549).
+  const overQuota = await refuseOverQuota({
+    userId,
+    toursContainer,
+    adding: { tours: 1, bytes: upload.file.buffer.length },
+  });
+  if (overQuota) return overQuota;
   const gpx = await readTrack(upload.file.buffer, parseTrack);
   if (gpx.response) return gpx.response;
 
@@ -108,6 +121,7 @@ async function uploadTour(
     userId,
     metadata: metadata.data,
     track: gpx.track,
+    file: upload.file,
     gpxFileUrl: blobStorage.blobUrl(container, blobName),
     uploadedAt: now(),
   });

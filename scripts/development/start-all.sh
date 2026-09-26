@@ -55,6 +55,9 @@ echo "==> Installing function dependencies..."
 echo "==> Initializing Cosmos database + containers..."
 (cd "$FUNCTIONS_DIRECTORY" && node scripts/init-cosmos.js)
 
+# One SKIP_AUTH dev user for everything local, so its upload budget (#549) is raised; see start-backend.sh.
+export UPLOAD_RATE_LIMIT_PER_HOUR="${UPLOAD_RATE_LIMIT_PER_HOUR:-1000000}"
+
 echo "==> Starting Functions API (Node $(node --version))..."
 (cd "$FUNCTIONS_DIRECTORY" && npm run dev) &
 background_process_ids+=($!)

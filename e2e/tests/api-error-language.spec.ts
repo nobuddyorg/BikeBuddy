@@ -7,7 +7,10 @@ const german = JSON.parse(
 
 // The API answers with an i18n key; the user reads it in their own language, limits filled in.
 staticTest.describe('an API error in German', () => {
-  staticTest.use({ locale: 'de-DE', allowedConsoleErrors: { matching: [/status of 400/] } });
+  staticTest.use({
+    locale: 'de-DE',
+    allowedConsoleErrors: { matching: [/status of 400/, /status of 429/] },
+  });
 
   staticTest.beforeEach(async ({ on, page }) => {
     await page.goto('/');
@@ -20,16 +23,20 @@ staticTest.describe('an API error in German', () => {
     });
   });
 
-  for (const { key, shown } of [
+  for (const { key, shown, status = 400 } of [
     { key: 'errors.gpxInvalid', shown: german['errors.gpxInvalid'] },
     { key: 'errors.fileSize', shown: german['errors.fileSize'].replace('{maxMegabytes}', '10') },
+    // The upload limits (#549).
+    { key: 'errors.rateLimited', shown: german['errors.rateLimited'], status: 429 },
+    { key: 'errors.tourLimit', shown: german['errors.tourLimit'] },
+    { key: 'errors.storageLimit', shown: german['errors.storageLimit'] },
   ]) {
     staticTest(`shows ${key} translated`, async ({ on, page }) => {
       // The upload shares its path with the list: only the POST is refused.
       await page.route('**/api/v1/tours', (route) =>
         route.request().method() === 'POST'
           ? route.fulfill({
-              status: 400,
+              status,
               contentType: 'application/json',
               body: JSON.stringify({ error: key }),
             })

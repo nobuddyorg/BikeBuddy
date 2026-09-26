@@ -3,12 +3,12 @@
 const { parseGpx, InvalidGpxError } = require('../../src/lib/parseGpx');
 const { gpxBlobName } = require('../../src/lib/blobNames');
 const { newTrackDocument } = require('../../src/lib/tourTrack');
-const { TOUR_SCHEMA_VERSION } = require('../../src/lib/schemaVersion');
 const { queryItems } = require('./queryItems');
 const { runBackfill } = require('./cli');
 
 // Version 1 (images and stats), which schemaVersionBackfill.js marks; moving the track makes it 2.
 const STATS_SCHEMA_VERSION = 1;
+const TRACKS_SCHEMA_VERSION = 2;
 
 // A tour still holding its points, or one moved before the schema-version backfill marked it.
 const PENDING_TOURS_QUERY =
@@ -45,7 +45,7 @@ function tourOperations(tour, track) {
         ]
       : []),
     ...(tour.schemaVersion === STATS_SCHEMA_VERSION
-      ? [{ op: 'set', path: '/schemaVersion', value: TOUR_SCHEMA_VERSION }]
+      ? [{ op: 'set', path: '/schemaVersion', value: TRACKS_SCHEMA_VERSION }]
       : []),
   ];
 }
@@ -56,7 +56,7 @@ async function changeFor({ tour, gpxContainer }) {
   const description = track
     ? `move the track of tour ${tour.id} (${track.heatmapData.length} points, ` +
       `${track.segmentStarts.length + 1} segment(s), from ${track.source})`
-    : `mark tour ${tour.id} as version ${TOUR_SCHEMA_VERSION}`;
+    : `mark tour ${tour.id} as version ${TRACKS_SCHEMA_VERSION}`;
   return { track, operations: tourOperations(tour, track), description };
 }
 

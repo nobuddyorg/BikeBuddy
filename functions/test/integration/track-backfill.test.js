@@ -1,10 +1,13 @@
 'use strict';
 
-// Real emulator, real host: a tour stored before #615 reads the same before and after its track moves.
+// Real emulator, real host: a tour stored before #615 reads the same before and after its track
+// moves, then gets the sizes an upload records now (#549). One file, so the backfills run in order.
 
 const db = require('../../src/lib/db');
 const blobStorage = require('../../src/lib/blobStorage');
 const { applyTrackBackfill } = require('../../scripts/lib/trackBackfill');
+const { applyStoredBytesBackfill } = require('../../scripts/lib/storedBytesBackfill');
+const { plainJpeg } = require('../fixtures/jpegs');
 const { connectHarness } = require('./harness');
 const { assertEmulatorTargets } = require('./emulatorGuard');
 
@@ -17,6 +20,7 @@ const TWO_RIDES_GPX = `<?xml version="1.0"?>
 
 let rider;
 let tourId;
+let recordedSizes;
 
 const quietLog = { info: () => {}, error: (line) => console.error(line) };
 
@@ -28,16 +32,19 @@ beforeAll(async () => {
   process.env.COSMOS_DATABASE ??= 'bikebuddy';
   rider = (await connectHarness()).newUser();
   tourId = await rider.api.createTour({ name: 'Stored before #615', gpx: TWO_RIDES_GPX });
+  await rider.api.addPhoto({ tourId, jpeg: await plainJpeg() });
 
-  // Rewrite it into the old shape: points inline, version 1, no track item.
+  // Rewrite it into the old shape: points inline, no sizes, version 1, no track item.
   const { userId } = rider;
   const tour = await db.readItem(db.toursContainer(), { id: tourId, partitionKey: userId });
   const track = await db.readItem(db.tracksContainer(), { id: tourId, partitionKey: userId });
-  const { pointCount, ...withoutCount } = tour;
+  const { pointCount, gpxBytes, ...withoutCount } = tour;
+  recordedSizes = { gpxBytes, imageBytes: tour.images.map((image) => image.bytes) };
   await db.upsertItem(db.toursContainer(), {
     ...withoutCount,
     schemaVersion: 1,
     heatmapData: track.heatmapData,
+    images: tour.images.map((image) => ({ ...image, bytes: undefined })),
   });
   await db.deleteItem(db.tracksContainer(), { id: tourId, partitionKey: userId });
   expect(pointCount).toBe(track.heatmapData.length);
@@ -75,5 +82,22 @@ describe('backfillTracks against the emulator', () => {
     expect(after).toMatchObject({ heatmapData: before.heatmapData, segmentStarts: [2] });
     const [mapAfter] = await rider.api.readJson('/map');
     expect(mapAfter).toMatchObject({ heatmapData: mapBefore.heatmapData, segmentStarts: [2] });
+  });
+
+  test('then records the sizes the upload had recorded, read from the blobs (#549)', async () => {
+    const { userId } = rider;
+    expect(recordedSizes.gpxBytes).toBe(Buffer.byteLength(TWO_RIDES_GPX));
+    expect(recordedSizes.imageBytes).toEqual([expect.any(Number)]);
+
+    await applyStoredBytesBackfill({
+      toursContainer: db.toursContainer(),
+      gpxContainer: await blobStorage.gpxContainer(),
+      imagesContainer: await blobStorage.imagesContainer(),
+      log: quietLog,
+    });
+
+    const tour = await db.readItem(db.toursContainer(), { id: tourId, partitionKey: userId });
+    expect(tour).toMatchObject({ schemaVersion: 3, gpxBytes: recordedSizes.gpxBytes });
+    expect(tour.images.map((image) => image.bytes)).toEqual(recordedSizes.imageBytes);
   });
 });

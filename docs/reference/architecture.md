@@ -66,6 +66,10 @@ partition.
 
 ## Key data rules
 
+- Uploads are limited per rider: 1,000 tours, 5 GB stored, 100 uploads an hour
+  (#549; design-decisions.md, "Upload limits"). The stored size is recorded on
+  the documents: `gpxBytes` on a tour, `bytes` (full size plus thumbnail) on
+  each photo entry.
 - `heatmapData` (the downsampled track points the map draws as routes) is
   stored apart from the tour, in the `tracks` container under the tour's id
   (#615). It is excluded from the tour list and from Cosmos indexing;

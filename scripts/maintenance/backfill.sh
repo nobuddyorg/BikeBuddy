@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Description: Run a backfill against production (tour-stats, thumbnails, schema-version, tracks); a dry run unless --apply
-# Needs az login. Order: tour-stats, thumbnails, schema-version, then tracks. Runbook: design-decisions.md, "Backfills".
+# Description: Run a backfill against production (tour-stats, thumbnails, schema-version, tracks, stored-bytes); a dry run unless --apply
+# Needs az login. Order: tour-stats, thumbnails, schema-version, tracks, then stored-bytes. Runbook: design-decisions.md, "Backfills".
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -11,8 +11,9 @@ case "${1:-}" in
   thumbnails) SCRIPT="backfillImageThumbnails.js" ;;
   schema-version) SCRIPT="backfillSchemaVersion.js" ;;
   tracks) SCRIPT="backfillTracks.js" ;;
+  stored-bytes) SCRIPT="backfillStoredBytes.js" ;;
   *)
-    echo "Usage: $0 <tour-stats|thumbnails|schema-version|tracks> [--apply]" >&2
+    echo "Usage: $0 <tour-stats|thumbnails|schema-version|tracks|stored-bytes> [--apply]" >&2
     exit 2
     ;;
 esac

@@ -137,6 +137,28 @@ fetches `/api/v1/map` in parallel with `/api/v1/tours`, so a cold start is paid 
 and overlapping renders queue behind the load in flight instead of each
 fetching it again (#580).
 
+## Upload limits (#549)
+
+Entra lets anyone sign up, so the API caps what one rider can make it store
+and compute:
+
+- **1,000 tours and 5 GB** per rider (`lib/userQuota.js`), checked by
+  `UploadTour` and `UploadImage` before the costly part (the GPX parse, the
+  blob writes). The usage is summed from sizes recorded on the documents
+  (`gpxBytes` on a tour, `bytes` on each photo entry): one single-partition
+  query per upload, and a delete frees its bytes with the entry, so there is no
+  counter to drift. Concurrent uploads can pass a cap by a few; the rate limit
+  bounds by how many.
+- **100 uploads an hour** per rider, tours and photos together
+  (`lib/rateLimit.js`): a token bucket, so a tour with its 20 photos goes up at
+  once. It lives in each instance's memory, so with N instances a rider could
+  get up to N times that; `maximum_instance_count` (10) bounds N. A shared
+  store (Cosmos, Redis) would make it exact at a cost per upload that this
+  scale does not need.
+- The platform ceiling: at most 10 Flex instances, and a budget that stops the
+  Function App once the month's actual spend reaches it
+  ([infrastructure.md](../how-to/infrastructure.md#budget-stop)).
+
 ## API versioning and paging
 
 Routes live under `/api/v1/` (#579), so a later breaking change can ship as
@@ -282,6 +304,13 @@ Runbook, from a machine with `az login` to the subscription:
    the points from the tour, set `pointCount` and take a version-1 tour to 2.
    A failure between the two writes leaves the points in both places, and a
    rerun finishes it.
+   Then `stored-bytes` (`backfillStoredBytes.js`), which takes a version-2 tour
+   to 3: it reads the size of its GPX blob and of each photo's two blobs and
+   records them (`gpxBytes`, and `bytes` on each image entry), which the
+   upload quota sums (#549). It sets the whole `images` array under the ETag
+   it read, so a photo added meanwhile fails that tour and a rerun takes it.
+   Until it has run, older sizes count as nothing: the quota under-counts,
+   never refuses wrongly.
 4. Put the dry-run and apply summaries in the PR or issue that needed the
    backfill: that is the record that it ran.
 

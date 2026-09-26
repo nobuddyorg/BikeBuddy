@@ -2,19 +2,20 @@
 
 ## Backend — `functions/local.settings.json` (or Function App settings)
 
-| Setting                    | Purpose                                                               |
-| -------------------------- | --------------------------------------------------------------------- |
-| `COSMOS_CONNECTION_STRING` | Cosmos DB account connection string                                   |
-| `COSMOS_DATABASE`          | Database name (`bikebuddy`)                                           |
-| `BLOB_CONNECTION_STRING`   | Blob Storage connection string (`UseDevelopmentStorage=true` locally) |
-| `ENTRA_TENANT_SUBDOMAIN`   | External ID subdomain, e.g. `bikebuddy` for `bikebuddy.ciamlogin.com` |
-| `ENTRA_TENANT_ID`          | Directory (tenant) GUID                                               |
-| `ENTRA_CLIENT_ID`          | App registration client id (also the token audience)                  |
-| `SKIP_AUTH`                | `"true"` skips JWT verification (local dev only)                      |
-| `ENTRA_OIDC_METADATA_URL`  | Test issuer's metadata URL; loopback only, refused inside Azure       |
-| `LOAD_PROFILING`           | `"true"` logs per-request timings and RU for the load-test report     |
-| `AzureWebJobsStorage`      | Functions host storage (`UseDevelopmentStorage=true` locally)         |
-| `FUNCTIONS_WORKER_RUNTIME` | `node`                                                                |
+| Setting                      | Purpose                                                               |
+| ---------------------------- | --------------------------------------------------------------------- |
+| `COSMOS_CONNECTION_STRING`   | Cosmos DB account connection string                                   |
+| `COSMOS_DATABASE`            | Database name (`bikebuddy`)                                           |
+| `BLOB_CONNECTION_STRING`     | Blob Storage connection string (`UseDevelopmentStorage=true` locally) |
+| `ENTRA_TENANT_SUBDOMAIN`     | External ID subdomain, e.g. `bikebuddy` for `bikebuddy.ciamlogin.com` |
+| `ENTRA_TENANT_ID`            | Directory (tenant) GUID                                               |
+| `ENTRA_CLIENT_ID`            | App registration client id (also the token audience)                  |
+| `SKIP_AUTH`                  | `"true"` skips JWT verification (local dev only)                      |
+| `ENTRA_OIDC_METADATA_URL`    | Test issuer's metadata URL; loopback only, refused inside Azure       |
+| `LOAD_PROFILING`             | `"true"` logs per-request timings and RU for the load-test report     |
+| `UPLOAD_RATE_LIMIT_PER_HOUR` | Uploads per rider per hour (default 100, #549); local stacks raise it |
+| `AzureWebJobsStorage`        | Functions host storage (`UseDevelopmentStorage=true` locally)         |
+| `FUNCTIONS_WORKER_RUNTIME`   | `node`                                                                |
 
 The account-deletion job (`functions/scripts/process-deletions.js`) also reads
 `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID` and `GRAPH_CLIENT_SECRET`; the API never

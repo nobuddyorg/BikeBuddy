@@ -9,6 +9,7 @@
     "ENTRA_TENANT_SUBDOMAIN": "",
     "ENTRA_TENANT_ID": "",
     "ENTRA_CLIENT_ID": "",
-    "SKIP_AUTH": "true"
+    "SKIP_AUTH": "true",
+    "UPLOAD_RATE_LIMIT_PER_HOUR": "1000000"
   }
 }
