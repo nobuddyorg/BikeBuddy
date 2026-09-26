@@ -1,8 +1,6 @@
-import { expect, fullstackTest } from './fullstack-test';
+import { AFTER_UNDO_WINDOW, expect, fullstackTest } from './fullstack-test';
 import { devUserTours } from './store';
 
-// The delete requests wait out the Undo window (ui/undoableAction.js) first.
-const AFTER_UNDO_WINDOW = { timeout: 20_000 };
 const storedNames = async () => (await devUserTours()).map((tour) => tour.name).sort();
 
 // Eleven tours over a page size of ten: Tour 01 (newest) leads page 1, Tour 11 is alone on page 2.

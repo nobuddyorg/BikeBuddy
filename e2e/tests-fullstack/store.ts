@@ -23,6 +23,8 @@ export interface TourDocument {
   id: string;
   userId: string;
   name: string;
+  description?: string;
+  createdAt: string;
 }
 
 /** A tour's points, stored apart from the tour under its id (#615). */

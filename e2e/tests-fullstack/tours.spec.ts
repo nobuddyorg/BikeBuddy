@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, fullstackTest } from './fullstack-test';
+import { AFTER_UNDO_WINDOW, expect, fullstackTest } from './fullstack-test';
 import { PHOTOS } from './seed';
 import { DEV_USER_ID, devUserBlobNames, devUserTours, devUserTracks } from './store';
 
@@ -12,9 +12,6 @@ const GPX = `<?xml version="1.0"?>
     <trkpt lat="48.1371" lon="11.5840"/>
   </trkseg></trk>
 </gpx>`;
-
-// The delete request waits out the Undo window (ui/undoableAction.js) first.
-const AFTER_UNDO_WINDOW = { timeout: 20_000 };
 
 fullstackTest('tour lifecycle: upload → list → detail → photo → delete', async ({ on, page }) => {
   await page.goto('/');

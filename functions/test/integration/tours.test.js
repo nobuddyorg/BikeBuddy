@@ -4,7 +4,6 @@ const { randomUUID } = require('node:crypto');
 const { UUID_PATTERN, ISO_TIMESTAMP_PATTERN, SAMPLE_GPX } = require('./api');
 const { connectHarness } = require('./harness');
 const { plainJpeg } = require('../fixtures/jpegs');
-const { MAX_FILE_BYTES } = require('../../src/lib/parseMultipart');
 
 let rider;
 
@@ -108,9 +107,10 @@ describe('tours HTTP lifecycle', () => {
 
   // fetch declares the whole multipart body, so more than the file's own 10 MB.
   it('accepts a GPX file of exactly 10 MB with its real Content-Length', async () => {
-    const padding = MAX_FILE_BYTES - Buffer.byteLength(SAMPLE_GPX) - '<!---->'.length;
+    const tenMegabytes = 10 * 1024 * 1024;
+    const padding = tenMegabytes - Buffer.byteLength(SAMPLE_GPX) - '<!---->'.length;
     const gpx = `${SAMPLE_GPX}<!--${'x'.repeat(padding)}-->`;
-    expect(Buffer.byteLength(gpx)).toBe(MAX_FILE_BYTES);
+    expect(Buffer.byteLength(gpx)).toBe(tenMegabytes);
 
     const response = await rider.api.uploadTour({ name: `Ten megabytes ${randomUUID()}`, gpx });
 
@@ -145,6 +145,24 @@ describe('tours HTTP lifecycle', () => {
     });
 
     expect(response.status).toBe(400);
+  });
+
+  it('stores an edit, keeping the photos it did not name (#567)', async () => {
+    const tourId = await rider.api.createTour({ name: `Before edit ${randomUUID()}` });
+    await rider.api.addPhoto({ tourId, jpeg: await plainJpeg() });
+    const edit = {
+      name: 'After edit',
+      description: 'Now with a description',
+      createdAt: '2026-06-15T08:00:00.000Z',
+    };
+
+    const response = await rider.api.sendJson(`/tours/${tourId}`, { method: 'PATCH', body: edit });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ id: tourId, ...edit });
+    const stored = await rider.api.readJson(`/tours/${tourId}`);
+    expect(stored).toMatchObject(edit);
+    expect(stored.images).toHaveLength(1);
   });
 });
 

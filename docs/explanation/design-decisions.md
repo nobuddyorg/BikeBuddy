@@ -513,8 +513,9 @@ repointed tag cannot move.
 Mutation testing runs on an explicit list of modules (`mutation-targets.mjs`),
 not on a glob: the pure logic whose behaviour unit tests can pin down, the
 Function handlers (called directly with fake requests) and `frontend/src/lib/`.
-Off the list: the Cosmos/Blob adapters and the multipart stream parser, which
-the integration suite exercises against the emulators; the system clock and id
+Off the list: the Cosmos/Blob adapters, which the integration suite exercises
+against the emulators (the multipart parser is on it, unit-tested with a real
+busboy stream); the system clock and id
 source `functions/src/lib/system.js` (nothing to mutate but the platform calls);
 the load-test instrumentation `lib/profiling.js` and its switch `LoadProfiling/`
 (never enabled in production; the load run's report checks them); the thin

@@ -1,6 +1,9 @@
 'use strict';
 
-const { parseMultipart, MAX_FILE_BYTES, MULTIPART_OVERHEAD_BYTES } = require('./parseMultipart');
+const { parseMultipart, MAX_FILE_BYTES } = require('./parseMultipart');
+
+// The published limits, as literals: a change to either one is a decision, not a refactor (#567).
+const DECLARED_LENGTH_LIMIT = 10 * 1024 * 1024 + 16 * 1024;
 
 const BOUNDARY = '----bikebuddytest';
 
@@ -65,7 +68,7 @@ describe('parseMultipart', () => {
 
   it('rejects a declared Content-Length over the limit before reading the body', async () => {
     const request = makeRequest(multipartBody('<gpx/>'), {
-      contentLength: MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES + 1,
+      contentLength: DECLARED_LENGTH_LIMIT + 1,
     });
 
     await expect(parseMultipart(request)).rejects.toMatchObject({
@@ -112,7 +115,7 @@ describe('parseMultipart', () => {
 
   it('still reads the body when the declared length is at most the limit plus framing', async () => {
     const request = makeRequest(multipartBody('<gpx/>'), {
-      contentLength: MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES,
+      contentLength: DECLARED_LENGTH_LIMIT,
     });
 
     expect((await parseMultipart(request)).buffer.toString()).toBe('<gpx/>');
