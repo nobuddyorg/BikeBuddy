@@ -150,11 +150,29 @@ To run against a **real** tenant locally, fill `ENTRA_*` in
 
 ## Deploy
 
-Push to `main` → `.github/workflows/deploy.yml` runs three jobs: OpenTofu apply,
-Functions publish (Flex, remote build), and GitHub Pages. Each job calls a
-`buddy.sh` script (`infrastructure provision`, `publish-functions`,
-`generate-config`); never run them against production by hand, the workflow is
-the only path there (see [Infrastructure](infrastructure.md)).
+`.github/workflows/deploy.yml` ships the commit a green **CI Gate** run
+tested on `main` (#563); it never runs beside the tests. It is triggered by
+that gate run (`workflow_run`), by hand from `main`, and daily by a drift check
+(#539). The drift check exists because a Dependabot merge starts no workflow:
+when production runs an older commit than `main`, it runs the gate on `main`,
+waits for it, and deploys only if it passed. `infrastructure pick-release`
+decides which commit ships.
+
+The jobs run in order:
+
+1. OpenTofu apply
+2. Functions publish (Flex, remote build)
+3. GitHub Pages, only after the API is live
+4. A smoke test (`infrastructure smoke-test`): `/api/v1/health` answers 200,
+   `/api/v1/me` answers 401 without a token, and the site and its privacy page
+   load.
+
+The apply and publish jobs run in the `production` environment, which records
+each release; Settings → Environments can require a reviewer there. Each job
+calls a `buddy.sh` script (`infrastructure provision`, `publish-functions`,
+`generate-config`). Never run them against production by hand: the workflow is
+the only path there (see [Infrastructure](infrastructure.md)). To roll back,
+revert the commit on `main`; the revert deploys like any change.
 
 `destroy.yml` (manual, typed confirmation) runs `tofu destroy`; the destroy
 guards make it fail on the data resources by design

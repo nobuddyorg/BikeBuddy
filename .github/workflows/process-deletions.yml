@@ -28,9 +28,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # Before the login and without install scripts: nothing a dependency runs sees an Azure session (#561).
       - uses: ./.github/actions/setup-node-packages
         with:
           packages: functions
+          ignore-scripts: "true"
 
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:

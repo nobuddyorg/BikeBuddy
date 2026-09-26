@@ -21,8 +21,8 @@ on a map, and attaches photos. Seven locales. Features:
 - **Authorization**: in the handlers, and nothing else. Entra External ID
   issues OIDC access tokens; `authMiddleware` validates them per request.
 - **Infrastructure**: OpenTofu in `infrastructure/`.
-- **Deploy**: `deploy.yml` applies infrastructure and publishes Functions and
-  frontend on every push to `main`. No staging.
+- **Deploy**: `deploy.yml` applies infrastructure and publishes Functions, then
+  frontend, for each commit CI Gate passed on `main` (#563). No staging.
 
 ## Read before you touch
 

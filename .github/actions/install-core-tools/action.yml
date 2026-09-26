@@ -1,0 +1,10 @@
+name: Install Azure Functions Core Tools
+description: The one pinned Core Tools version, for the local stack in CI and for the deploy's publish (#561, #609).
+
+runs:
+  using: composite
+  steps:
+    # 4.14.0's shrinkwrap resolves chalk from Microsoft's private feed (401 outside their network).
+    - name: Install Azure Functions Core Tools
+      shell: bash
+      run: npm install -g azure-functions-core-tools@4.13.0 # zizmor: ignore[adhoc-packages] global CLI, no lockfile; the pin lives only here

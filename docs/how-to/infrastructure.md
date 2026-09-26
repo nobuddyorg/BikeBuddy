@@ -25,7 +25,7 @@ a monthly budget alert. Production changes reach Azure one way only: merge to
 3. In the PR, paste the plan's destroy/replace lines (or say there are none). A
    plan that destroys or replaces the Cosmos account or the storage account is
    a stop-and-ask: those hold every user's data.
-4. After the merge, `deploy.yml` runs `./buddy.sh infrastructure provision`:
+4. Once CI Gate passes on `main`, `deploy.yml` runs `./buddy.sh infrastructure provision`:
    `tofu plan` with the Entra variables, a check that fails the deploy when
    the plan deletes or replaces any resource, then `tofu apply` of exactly
    that saved plan. It then publishes the
@@ -72,7 +72,17 @@ environment set up before them.
 
 ## CI credentials
 
-CI authenticates with a service principal (#561 tracks narrowing it):
+CI authenticates with a service principal. Its secret and the state key reach
+only the jobs that use them (#561):
+
+- the `ARM_*` variables and `TF_BACKEND_ACCESS_KEY` reach only the OpenTofu job;
+- the Functions publish installs its pinned Core Tools before `azure/login`;
+- the deletion job installs its packages without install scripts, and before
+  `azure/login`.
+
+Still to do: federated OIDC credentials in place of the secret, and a
+principal scoped to the resource groups instead of the subscription. Both need
+changes in Entra and Azure first.
 
 ```bash
 az ad sp create-for-rbac --name bikebuddy-ci --role Contributor \
