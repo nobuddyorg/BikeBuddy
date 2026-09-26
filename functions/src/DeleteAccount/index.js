@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -46,12 +45,11 @@ async function deleteAccount(
   return { status: 204 };
 }
 
-app.http('DeleteAccount', {
+apiRoute('DeleteAccount', {
   methods: ['delete'],
-  authLevel: 'anonymous',
   route: 'account',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => deleteAccount(request)),
+  handler: (request) => deleteAccount(request),
 });
 
 module.exports = { deleteAccount };

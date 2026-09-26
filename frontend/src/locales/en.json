@@ -159,6 +159,7 @@
   "errors.tourDescription": "The description can be at most 2000 characters.",
   "errors.tourDate": "Please enter a valid date.",
   "errors.tourInvalid": "Please check the tour details.",
+  "errors.pageInvalid": "This page of results is no longer available. Please reload.",
   "errors.network": "Network error.",
   "errors.saveChanges": "Could not save changes.",
   "errors.saveName": "Could not save your name.",

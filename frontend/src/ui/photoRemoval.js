@@ -35,7 +35,7 @@ export function scheduleImageRemoval(image, tourId) {
     revert: restore,
     commit: async () => {
       try {
-        const response = await apiFetch(`/api/tours/${tourId}/images/${image.id}`, {
+        const response = await apiFetch(`/api/v1/tours/${tourId}/images/${image.id}`, {
           method: 'DELETE',
           keepalive: true,
         });

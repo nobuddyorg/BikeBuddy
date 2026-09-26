@@ -46,7 +46,7 @@ staticTest.describe('deleting a tour another tab already deleted', () => {
     'counts the 404 as deleted, with no error and no tour brought back',
     async ({ on, page }) => {
       await page.clock.install();
-      await page.route(`**/api/tours/${ALPS.id}`, (route) =>
+      await page.route(`**/api/v1/tours/${ALPS.id}`, (route) =>
         route.request().method() === 'DELETE'
           ? route.fulfill({
               status: 404,

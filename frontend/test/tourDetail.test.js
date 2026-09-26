@@ -22,7 +22,7 @@ describe('ensureDetail', () => {
 
     await ensureDetail({ apiFetch, tour, now: NOW });
 
-    expect(apiFetch).toHaveBeenCalledWith('/api/tours/t1');
+    expect(apiFetch).toHaveBeenCalledWith('/api/v1/tours/t1');
     expect(tour).toEqual({
       id: 't1',
       heatmapData: [[48, 11]],
@@ -75,7 +75,7 @@ describe('ensureDetail', () => {
 
     await expect(
       ensureDetail({ apiFetch: async () => ({ ok: false, status: 500 }), tour, now: NOW }),
-    ).rejects.toThrow('GET /api/tours/t1 answered 500');
+    ).rejects.toThrow('GET /api/v1/tours/t1 answered 500');
 
     expect(tour).toEqual({ id: 't1', heatmapData: [], images: [] });
   });

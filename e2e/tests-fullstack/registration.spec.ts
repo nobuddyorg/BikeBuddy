@@ -8,7 +8,7 @@ fullstackTest.describe('user registration', () => {
     expect(await devUserProfiles()).toEqual([]);
 
     await page.goto('/');
-    await expect(on(page).main.locators.userMenu).toBeVisible(); // /api/me succeeded
+    await expect(on(page).main.locators.userMenu).toBeVisible(); // /api/v1/me succeeded
 
     const profiles = await devUserProfiles();
     expect(profiles).toHaveLength(1);

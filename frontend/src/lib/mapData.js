@@ -3,12 +3,12 @@
 import { markFetched, isStale } from './sasCache.js';
 
 async function fetchMapEntries({ apiFetch, pendingResponse }) {
-  const response = await (pendingResponse ?? apiFetch('/api/map'));
-  if (!response.ok) throw new Error(`GET /api/map answered ${response.status}`);
+  const response = await (pendingResponse ?? apiFetch('/api/v1/map'));
+  if (!response.ok) throw new Error(`GET /api/v1/map answered ${response.status}`);
   return (await response.json()) || [];
 }
 
-// /api/map carries only the pinnable photos: a loaded gallery keeps its other photos.
+// /api/v1/map carries only the pinnable photos: a loaded gallery keeps its other photos.
 function refreshedImages(tour, freshImages) {
   if (!tour.detailLoaded || !tour.images) return freshImages;
   const freshById = new Map(freshImages.map((image) => [image.id, image]));
@@ -43,7 +43,7 @@ export async function ensureMapData({ apiFetch, tours, now, pendingResponse }) {
 }
 
 /**
- * Overlapping renders share one /api/map: each call waits for the one before it, then fetches only
+ * Overlapping renders share one /api/v1/map: each call waits for the one before it, then fetches only
  * what that one left missing (a tour added meanwhile, or everything after a failure).
  */
 export function queueMapDataLoads() {

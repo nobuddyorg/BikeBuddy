@@ -37,7 +37,7 @@ function gpx(index) {
   return `<?xml version="1.0"?><gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>${points.join('')}</trkseg></trk></gpx>`;
 }
 
-const listing = await fetch(`${API}/api/tours`);
+const listing = await fetch(`${API}/api/v1/tours`);
 if (!listing.ok) throw new Error(`listing the seeded tours failed: HTTP ${listing.status}`);
 const existing = await listing.json();
 if (existing.length >= TOURS) {
@@ -45,14 +45,9 @@ if (existing.length >= TOURS) {
 } else {
   for (let i = existing.length; i < TOURS; i++) {
     const form = new FormData();
+    form.append('name', `Lighthouse ride ${i + 1}`);
     form.append('file', new Blob([gpx(i)], { type: 'application/gpx+xml' }), `ride-${i}.gpx`);
-    const res = await fetch(
-      `${API}/api/tours/upload?name=${encodeURIComponent(`Lighthouse ride ${i + 1}`)}`,
-      {
-        method: 'POST',
-        body: form,
-      },
-    );
+    const res = await fetch(`${API}/api/v1/tours`, { method: 'POST', body: form });
     if (res.status !== 201) throw new Error(`seeding tour ${i + 1} failed: HTTP ${res.status}`);
   }
   console.log(`Seeded ${TOURS - existing.length} tours.`);

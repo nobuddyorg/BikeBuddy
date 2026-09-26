@@ -18,7 +18,7 @@ const AFTER_UNDO_WINDOW = { timeout: 20_000 };
 
 fullstackTest('tour lifecycle: upload → list → detail → photo → delete', async ({ on, page }) => {
   await page.goto('/');
-  await expect(on(page).main.locators.userMenu).toBeVisible(); // real /api/me login
+  await expect(on(page).main.locators.userMenu).toBeVisible(); // real /api/v1/me login
 
   const tourName = 'CI E2E Tour';
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
@@ -98,10 +98,35 @@ fullstackTest(
   },
 );
 
+// Both travel as form fields of the upload (#579) and are stored as typed (#574).
+fullstackTest(
+  'an upload keeps the typed name and description, markup and all',
+  async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    const name = 'Pass <b>& back</b>';
+    const description = 'Steep, "really" <i>steep</i>';
+
+    await on(page).main.locators.buttons.upload.click();
+    await on(page).modal.upload.do.setName(name);
+    await on(page).modal.upload.do.setDescription(description);
+    await on(page).modal.upload.do.pickFile({
+      name: 'ride.gpx',
+      mimeType: 'application/gpx+xml',
+      buffer: Buffer.from(GPX),
+    });
+    await on(page).modal.upload.do.submit();
+
+    await expect(on(page).detail.locators.name).toHaveText(name);
+    await expect(on(page).detail.locators.description).toHaveText(description);
+    expect(await devUserTours()).toEqual([expect.objectContaining({ name, description })]);
+  },
+);
+
 fullstackTest.describe('a GPX file without track points', () => {
   // The refused upload's 400 is the expected answer, which the browser logs as a console error.
   fullstackTest.use({
-    allowedConsoleErrors: { matching: [/status of 400 .*\/api\/tours\/upload/] },
+    allowedConsoleErrors: { matching: [/status of 400 .*\/api\/v1\/tours/] },
   });
 
   fullstackTest('is refused, storing nothing', async ({ on, page }) => {

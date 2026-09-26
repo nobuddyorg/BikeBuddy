@@ -50,9 +50,9 @@ function setUp({
   );
   const images = fakeImagesContainer();
   const imagesContainer = vi.fn(async () => images);
-  const run = () =>
+  const run = (parameters = {}) =>
     getMapData(
-      {},
+      { query: new URLSearchParams(parameters) },
       {
         authenticate: signedInAs('u1'),
         toursContainer: () => tours,
@@ -66,7 +66,7 @@ function setUp({
   return { tours, tracks, images, imagesContainer, run };
 }
 
-describe('GET /api/map', () => {
+describe('GET /api/v1/map', () => {
   it('returns the points and pinnable photos of every tour of the caller in one response', async () => {
     const { run } = setUp();
 
@@ -277,5 +277,92 @@ describe('GET /api/map', () => {
     expect(tracks.calls.length).toBeGreaterThan(trackReadsAfterFirst);
     expect(response.jsonBody.map((tour) => tour.id)).toEqual(['t1', 't2', 't3']);
     expect(response.jsonBody[2].heatmapData).toEqual([TRACK[0], TRACK[2]]);
+  });
+
+  describe('with ?limit, one page at a time (#579)', () => {
+    const dated = (tour, month) => ({ ...tour, createdAt: `2026-0${month}-01T00:00:00.000Z` });
+    const tourWithTrack = (id, month) =>
+      dated({ id, userId: 'u1', heatmapData: TRACK, images: [] }, month);
+
+    it('walks the tours newest first, each page with its own tracks, until no token is left', async () => {
+      const { run } = setUp({
+        documents: [
+          dated(TOUR_WITH_PHOTOS, 3),
+          dated(TOUR_WITHOUT_TRACK, 2),
+          tourWithTrack('t3', 1),
+          OTHER_USERS_TOUR,
+        ],
+      });
+
+      const first = await run({ limit: '2' });
+      expect(first.status).toBe(200);
+      expect(first.jsonBody.items.map(({ id }) => id)).toEqual(['t1', 't2']);
+      expect(first.jsonBody.items[0]).toMatchObject({ heatmapData: TRACK, segmentStarts: [] });
+      expect(first.jsonBody.items[0].images).toHaveLength(1);
+      expect(first.jsonBody.items[1]).toMatchObject({ heatmapData: [], segmentStarts: [] });
+
+      const last = await run({ limit: '2', continuationToken: first.jsonBody.continuationToken });
+      expect(last.jsonBody).toStrictEqual({
+        items: [{ id: 't3', heatmapData: TRACK, segmentStarts: [], images: [] }],
+      });
+    });
+
+    it("reads only the page's tracks, in the token user's partition, and never the cache", async () => {
+      const heatmapCache = { getOrCompute: vi.fn() };
+      const { tours, tracks, run } = setUp({
+        documents: [tourWithTrack('t1', 2), tourWithTrack('t2', 1)],
+        heatmapCache,
+      });
+
+      await run({ limit: '1' });
+
+      const [tourQuery] = tours.calls.filter((call) => call.operation === 'query');
+      expect(tourQuery.options.partitionKey).toBe('u1');
+      expect(tourQuery.spec.query).toMatch(
+        / ORDER BY c\.createdAt DESC OFFSET @offset LIMIT @limit$/,
+      );
+      const [trackQuery] = tracks.calls.filter((call) => call.operation === 'query');
+      expect(trackQuery.options.partitionKey).toBe('u1');
+      expect(trackQuery.spec.parameters).toContainEqual({ name: '@tourIds', value: ['t1'] });
+      expect(heatmapCache.getOrCompute).not.toHaveBeenCalled();
+    });
+
+    it('reads the points of a tour from before #615 on its page', async () => {
+      const tours = fakeToursContainer([dated({ id: 'old', userId: 'u1', heatmapData: TRACK }, 1)]);
+      const response = await getMapData(
+        { query: new URLSearchParams({ limit: '5' }) },
+        {
+          authenticate: signedInAs('u1'),
+          toursContainer: () => tours,
+          tracksContainer: () => fakeTracksContainer(),
+          imagesContainer: async () => fakeImagesContainer(),
+          now: fixedClock,
+        },
+      );
+
+      expect(response.jsonBody).toEqual({
+        items: [{ id: 'old', heatmapData: TRACK, segmentStarts: [], images: [] }],
+      });
+    });
+
+    it('budgets a page on its own', async () => {
+      const { run } = setUp({
+        documents: [tourWithTrack('t1', 2), tourWithTrack('t2', 1)],
+        budget: { totalPointBudget: 2 },
+      });
+
+      const response = await run({ limit: '1' });
+
+      expect(response.jsonBody.items[0].heatmapData).toEqual([TRACK[0], TRACK[2]]);
+    });
+
+    it('answers 400 errors.pageInvalid for a malformed request, without reading', async () => {
+      const { tours, run } = setUp();
+
+      const response = await run({ continuationToken: 'Mg' });
+
+      expect(response).toEqual({ status: 400, jsonBody: { error: 'errors.pageInvalid' } });
+      expect(tours.calls).toEqual([]);
+    });
   });
 });

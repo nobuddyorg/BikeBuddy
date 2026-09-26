@@ -61,7 +61,7 @@ fullstackTest.describe('a failed photo upload', () => {
 
     // Only the first attempt fails; the retry goes to the real backend.
     let attempt = 0;
-    await page.route('**/api/tours/*/images', async (route) => {
+    await page.route('**/api/v1/tours/*/images', async (route) => {
       attempt++;
       if (attempt === 1) {
         await route.fulfill({ status: 500, body: 'Internal Server Error' });

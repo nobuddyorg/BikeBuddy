@@ -83,10 +83,10 @@ const json = (route: Route, { status = 200, body }: { status?: number; body: unk
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 async function mockApi(page: Page, tours: MockTour[]) {
-  await page.route('**/api/me', (route) => json(route, { body: DEV_USER }));
-  await page.route('**/api/map', (route) => json(route, { body: tours.map(mapEntry) }));
-  await page.route('**/api/tours', (route) => json(route, { body: tours.map(listItem) }));
-  await page.route('**/api/tours/*', (route) => {
+  await page.route('**/api/v1/me', (route) => json(route, { body: DEV_USER }));
+  await page.route('**/api/v1/map', (route) => json(route, { body: tours.map(mapEntry) }));
+  await page.route('**/api/v1/tours', (route) => json(route, { body: tours.map(listItem) }));
+  await page.route('**/api/v1/tours/*', (route) => {
     const tourId = new URL(route.request().url()).pathname.split('/').pop();
     const tour = tours.find((candidate) => candidate.id === tourId);
     if (!tour) return json(route, { status: 404, body: { error: 'errors.tourNotFound' } });

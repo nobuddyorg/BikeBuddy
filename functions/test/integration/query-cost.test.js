@@ -17,7 +17,7 @@ const { cosmosConnectionString } = assertEmulatorTargets();
 
 const USER_ID = `query-cost-${randomUUID()}`;
 const TOURS = 150;
-// The list query GET /api/tours runs (GetTours/index.js).
+// The list query GET /api/v1/tours runs (GetTours/index.js).
 const LIST_QUERY =
   'SELECT c.id, c.name, c.description, c.distance, c.createdAt ' +
   'FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC';
@@ -124,11 +124,22 @@ describe('hot query guards', () => {
   it("the map reads only the caller's partition", async () => {
     requests.length = 0;
     const response = await getMapData(
-      {},
+      { query: new URLSearchParams() },
       { ...handlerCollaborators, heatmapCache: createHeatmapCache() },
     );
 
     expect(response.jsonBody).toHaveLength(TOURS);
+    expectOnlyPartition(requests, USER_ID);
+  });
+
+  it("a map page (#579) reads only the caller's partition", async () => {
+    requests.length = 0;
+    const response = await getMapData(
+      { query: new URLSearchParams({ limit: '2' }) },
+      handlerCollaborators,
+    );
+
+    expect(response.jsonBody.items).toHaveLength(2);
     expectOnlyPartition(requests, USER_ID);
   });
 

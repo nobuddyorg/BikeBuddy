@@ -159,6 +159,7 @@
   "errors.tourDescription": "La description ne peut pas dépasser 2000 caractères.",
   "errors.tourDate": "Saisis une date valide.",
   "errors.tourInvalid": "Vérifie les informations de la sortie.",
+  "errors.pageInvalid": "Cette page de résultats n'est plus disponible. Veuillez recharger.",
   "errors.network": "Erreur réseau.",
   "errors.saveChanges": "Impossible d'enregistrer les modifications.",
   "errors.saveName": "Impossible d'enregistrer ton nom.",

@@ -33,7 +33,7 @@ const t = i18n.t;
 async function fetchTours() {
   state.toursLoadFailed = false;
   try {
-    const response = await apiFetch('/api/tours');
+    const response = await apiFetch('/api/v1/tours');
     if (!response.ok) throw new Error('load failed');
     // A tour deleted within the Undo window is gone for the rider, whatever the server still says.
     const pending = pendingKeys();
@@ -56,8 +56,8 @@ async function openDeepLinkedTour() {
 }
 
 export async function loadTours() {
-  // Started with /api/tours: a cold backend then pays its start-up latency once.
-  const pendingMapResponse = apiFetch('/api/map');
+  // Started with /api/v1/tours: a cold backend then pays its start-up latency once.
+  const pendingMapResponse = apiFetch('/api/v1/map');
   // Marked handled: ensureMapData awaits it only while a tour still lacks map data.
   pendingMapResponse.catch(() => {});
   await fetchTours();

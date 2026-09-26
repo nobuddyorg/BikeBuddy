@@ -159,6 +159,7 @@
   "errors.tourDescription": "La descrizione può contenere al massimo 2000 caratteri.",
   "errors.tourDate": "Inserisci una data valida.",
   "errors.tourInvalid": "Controlla i dati del giro.",
+  "errors.pageInvalid": "Questa pagina di risultati non è più disponibile. Ricarica.",
   "errors.network": "Errore di rete.",
   "errors.saveChanges": "Impossibile salvare le modifiche.",
   "errors.saveName": "Impossibile salvare il tuo nome.",

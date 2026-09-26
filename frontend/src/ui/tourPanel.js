@@ -120,7 +120,7 @@ export async function submitEdit(event) {
   if (!tour) return;
 
   hideElement(editError);
-  const { response, networkError } = await apiRequest(`/api/tours/${tour.id}`, {
+  const { response, networkError } = await apiRequest(`/api/v1/tours/${tour.id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(

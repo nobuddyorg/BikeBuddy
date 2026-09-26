@@ -21,6 +21,7 @@ const ERROR_KEYS = Object.freeze({
   tourDescription: 'errors.tourDescription',
   tourDate: 'errors.tourDate',
   tourInvalid: 'errors.tourInvalid',
+  pageInvalid: 'errors.pageInvalid',
   profileInvalid: 'errors.profileInvalid',
   busy: 'errors.busy',
   accountDeleted: 'errors.accountDeleted',

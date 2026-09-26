@@ -53,8 +53,9 @@ function toTourDetailResponse({ tour, track, images, gpxFileUrl }) {
   return { ...toTourResponse(tour, track), images, ...(gpxFileUrl && { gpxFileUrl }) };
 }
 
-// The frontend reads `tourId` from the upload response.
+// `id` as everywhere else (#579); `tourId` for pages loaded before it, which read that.
 const toCreatedTourResponse = (tour) => ({
+  id: tour.id,
   tourId: tour.id,
   name: tour.name,
   distance: tour.distance,

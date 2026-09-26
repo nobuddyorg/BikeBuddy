@@ -1,6 +1,11 @@
 'use strict';
 
-const { newTrackDocument, readTourTrack, readTracksByTour } = require('./tourTrack');
+const {
+  newTrackDocument,
+  readTourTrack,
+  readTracksByTour,
+  readTracksOfTours,
+} = require('./tourTrack');
 const { fakeToursContainer, fakeTracksContainer } = require('../../test/fakes/cosmosContainer');
 
 const POINTS = [
@@ -80,5 +85,40 @@ describe('readTracksByTour', () => {
       empty: ONE_LINE,
       old: { heatmapData: [[1, 2]], segmentStarts: [] },
     });
+  });
+});
+
+describe('readTracksOfTours', () => {
+  it("reads only the listed tours' tracks, moved or still inline, in the rider's partition", async () => {
+    const tours = fakeToursContainer([
+      { id: 'old', userId: 'u1', heatmapData: [[1, 2]] },
+      { id: 'old-unlisted', userId: 'u1', heatmapData: [[5, 6]] },
+      { id: 'other', userId: 'u2', heatmapData: [[3, 4]] },
+    ]);
+    const tracks = fakeTracksContainer([
+      { id: 'new', userId: 'u1', heatmapData: POINTS, segmentStarts: [2] },
+      { id: 'unlisted', userId: 'u1', heatmapData: POINTS },
+      { id: 'other', userId: 'u2', heatmapData: POINTS },
+    ]);
+
+    const byTour = await readTracksOfTours({
+      userId: 'u1',
+      tourIds: ['new', 'old', 'other'],
+      toursContainer: () => tours,
+      tracksContainer: () => tracks,
+    });
+
+    expect(Object.fromEntries(byTour)).toEqual({
+      new: { heatmapData: POINTS, segmentStarts: [2] },
+      old: { heatmapData: [[1, 2]], segmentStarts: [] },
+    });
+    for (const container of [tours, tracks]) {
+      const [query] = container.calls;
+      expect(query.options.partitionKey).toBe('u1');
+      expect(query.spec.parameters).toEqual([
+        { name: '@userId', value: 'u1' },
+        { name: '@tourIds', value: ['new', 'old', 'other'] },
+      ]);
+    }
   });
 });

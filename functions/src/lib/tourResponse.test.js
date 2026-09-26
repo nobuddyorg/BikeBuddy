@@ -124,8 +124,9 @@ describe('toTourDetailResponse', () => {
 });
 
 describe('toCreatedTourResponse', () => {
-  it('returns the new tour id under tourId, and no storage URL', () => {
+  it('returns the new tour id as id and, for older pages, tourId, and no storage URL', () => {
     expect(toCreatedTourResponse(STORED)).toStrictEqual({
+      id: 't1',
       tourId: 't1',
       name: 'Alps',
       distance: 120,

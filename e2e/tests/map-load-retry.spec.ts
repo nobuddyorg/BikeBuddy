@@ -1,7 +1,7 @@
 import { expect, mockTour, staticTest } from '../fixtures/api-mocks';
 
 staticTest.use({
-  allowedConsoleErrors: { matching: [/status of 503/, /GET \/api\/map answered 503/] },
+  allowedConsoleErrors: { matching: [/status of 503/, /GET \/api\/v1\/map answered 503/] },
   mockAccount: {
     tours: [
       mockTour({
@@ -31,7 +31,7 @@ staticTest.describe('when the map data fails to load but the tours do not', () =
   staticTest.beforeEach(async ({ page }) => {
     mapFailing = true;
     mapRequests = 0;
-    await page.route('**/api/map', (route) => {
+    await page.route('**/api/v1/map', (route) => {
       mapRequests++;
       return mapFailing
         ? route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })

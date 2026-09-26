@@ -18,17 +18,21 @@ function applyPatch(document, { op, path, value }) {
   document[field] = value;
 }
 
-// SELECT <* | c.a, ARRAY_LENGTH(c.b) AS n, ...> FROM c [WHERE c.x = @x [AND IS_DEFINED(c.y) ...]]
-// [ORDER BY c.y [ASC|DESC]]
+// SELECT <* | c.a, ARRAY_LENGTH(c.b) AS n, ...> FROM c
+// [WHERE c.x = @x [AND IS_DEFINED(c.y) | AND ARRAY_CONTAINS(@ids, c.id) ...]]
+// [ORDER BY c.y [ASC|DESC]] [OFFSET @offset LIMIT @limit]
 const FIELD = String.raw`(?:c\.\w+|ARRAY_LENGTH\(c\.\w+\) AS \w+)`;
 const QUERY_PATTERN = new RegExp(
   String.raw`^SELECT (?<fields>\*|${FIELD}(?:, ${FIELD})*) FROM c(?: WHERE (?<where>.+?))?` +
-    String.raw`(?: ORDER BY c\.(?<orderBy>\w+)(?: (?<direction>ASC|DESC))?)?$`,
+    String.raw`(?: ORDER BY c\.(?<orderBy>\w+)(?: (?<direction>ASC|DESC))?)?` +
+    String.raw`(?: OFFSET (?<offset>@\w+) LIMIT (?<limit>@\w+))?$`,
 );
 
 function conditionOf(condition, valueOf) {
   const defined = /^IS_DEFINED\(c\.(\w+)\)$/.exec(condition);
   if (defined) return (document) => defined[1] in document;
+  const contains = /^ARRAY_CONTAINS\((@\w+), c\.(\w+)\)$/.exec(condition);
+  if (contains) return (document) => valueOf(contains[1]).includes(document[contains[2]]);
   const [, field, parameter] = /^c\.(\w+) = (@\w+)$/.exec(condition);
   return (document) => document[field] === valueOf(parameter);
 }
@@ -48,7 +52,7 @@ function projectionOf(field) {
 function runQuery(documents, { query, parameters }) {
   const match = QUERY_PATTERN.exec(query.replace(/\s+/g, ' ').trim());
   if (!match) throw new Error(`fake Cosmos: unsupported query ${query}`);
-  const { fields, where, orderBy, direction } = match.groups;
+  const { fields, where, orderBy, direction, offset, limit } = match.groups;
   const valueOf = (name) => parameters.find((parameter) => parameter.name === name).value;
   const conditions = (where ? where.split(' AND ') : []).map((condition) =>
     conditionOf(condition, valueOf),
@@ -57,6 +61,11 @@ function runQuery(documents, { query, parameters }) {
   if (orderBy) {
     const sign = direction === 'DESC' ? -1 : 1;
     selected.sort((left, right) => (left[orderBy] > right[orderBy] ? sign : -sign));
+  }
+  if (offset) {
+    if (!orderBy) throw new Error('fake Cosmos: OFFSET without ORDER BY pages unpredictably');
+    selected.splice(0, valueOf(offset));
+    selected.splice(valueOf(limit));
   }
   if (fields === '*') return selected;
   const projections = fields.split(/, (?=c\.|ARRAY_LENGTH)/).map(projectionOf);

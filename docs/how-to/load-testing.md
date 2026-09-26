@@ -11,13 +11,13 @@ testing is manual and local by default").
 One [k6](https://grafana.com/docs/k6/) script per journey in [`load/`](../../load),
 each spelling out as HTTP what the frontend sends:
 
-| Flow     | Scenarios                       | Endpoints                                                                                                  |
-| -------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `smoke`  | every scenario below, 1 VU once | all of them: proves the scripts and the target work                                                        |
-| `browse` | `list`, `detail`, `map`         | `GET /api/tours`, `GET /api/tours/{id}`, `GET /api/map`                                                    |
-| `upload` | `upload_tour`, `upload_image`   | `POST /api/tours/upload` (2,000-, 10,000- and 100,000-point GPX, 80/15/5 %), `POST /api/tours/{id}/images` |
-| `edit`   | `edit`                          | `PATCH /api/tours/{id}` (rename, date), `DELETE /api/tours/{id}`                                           |
-| `export` | `export`                        | `GET /api/me/export` for the seeded account                                                                |
+| Flow     | Scenarios                       | Endpoints                                                                                                 |
+| -------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `smoke`  | every scenario below, 1 VU once | all of them: proves the scripts and the target work                                                       |
+| `browse` | `list`, `detail`, `map`         | `GET /api/v1/tours`, `GET /api/v1/tours/{id}`, `GET /api/v1/map`                                          |
+| `upload` | `upload_tour`, `upload_image`   | `POST /api/v1/tours` (2,000-, 10,000- and 100,000-point GPX, 80/15/5 %), `POST /api/v1/tours/{id}/images` |
+| `edit`   | `edit`                          | `PATCH /api/v1/tours/{id}` (rename, date), `DELETE /api/v1/tours/{id}`                                    |
+| `export` | `export`                        | `GET /api/v1/me/export` for the seeded account                                                            |
 
 | Profile  | Users        | Seed                                       | Meant for                          |
 | -------- | ------------ | ------------------------------------------ | ---------------------------------- |
@@ -28,7 +28,7 @@ each spelling out as HTTP what the frontend sends:
 **Seed and teardown** ([`load/lib/seed.js`](../../load/lib/seed.js)): `setup()`
 provisions the user and uploads deterministic tracks (a seeded PRNG, so two
 runs load the same data); `teardown()` deletes **every** tour the user has
-through `DELETE /api/tours/{id}` (the document, then its GPX blob; photo blobs
+through `DELETE /api/v1/tours/{id}` (the document, then its GPX blob; photo blobs
 stay in Azurite until #553 is fixed). Locally the user is the `SKIP_AUTH` dev
 user, so a load run empties the local dev account's tours.
 
@@ -111,7 +111,7 @@ registered by `functions/src/LoadProfiling/`) writes one `LOADPROF` log line per
 
 | Record     | Source                                                                                                  | Read it for                                                                                       |
 | ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| invocation | the Functions pre/post-invocation hooks: handler, status, duration, response bytes                      | which handler owns the p95; payload size of `/api/map`, `/api/tours`                              |
+| invocation | the Functions pre/post-invocation hooks: handler, status, duration, response bytes                      | which handler owns the p95; payload size of `/api/v1/map`, `/api/v1/tours`                        |
 | cosmos     | the Cosmos SDK's request plugin: operation, request charge, duration per HTTP request (each query page) | RU per request (Serverless bills RU); several round trips per request (N+1, paging)               |
 | blob       | a wrapped HTTP client for Blob Storage: method, blob or container                                       | extra list/properties calls, SAS work per item                                                    |
 | sample     | `monitorEventLoopDelay` and `process.memoryUsage()` every 5 s                                           | CPU-bound work blocking everyone (GPX parsing #576, simplification, `sharp`); memory peaks (#550) |
@@ -176,7 +176,7 @@ CPU-bound. Every handler was waiting on Cosmos instead: a point read averaged
 request at 3.7 s each, all three returning every tour's full `heatmapData`
 although the handler's heatmap cache already held the budgeted result.
 
-**Hypothesis**: "`/api/map` reads every tour's points on every call although
+**Hypothesis**: "`/api/v1/map` reads every tour's points on every call although
 its cache is warm. Querying only `ARRAY_LENGTH(c.heatmapData)` and loading the
 points on a cache miss should cut `map` p95 by more than half and free Cosmos
 for `list` and `detail`."
@@ -224,7 +224,7 @@ slower, and no projection avoids it. Cosmos DB bills query RU by the size of
 the documents it loads, so the same shape should also cost RU in production;
 the emulator's nominal charges cannot confirm that here. The fix is a
 document-shape change (the track in its own item or blob, read only by
-`/api/map` and the detail view), which needs schema versioning and a backfill
+`/api/v1/map` and the detail view), which needs schema versioning and a backfill
 (#615, #577). That makes it a design change of its own, not a step of this loop.
 
 Profiling overhead in these runs: about 1 % of worker CPU, mostly measuring
@@ -243,6 +243,6 @@ emulator and the Functions host) asserts the shape of the hot paths:
   detail view is one point read, never a query. Index use is not asserted: the
   emulator reports no index metrics.
 - `functions/test/integration/map-budget.test.js`: 120,000 raw points on
-  100 km tracks, 50 m apart, come back within `GET /api/map`'s hard point
+  100 km tracks, 50 m apart, come back within `GET /api/v1/map`'s hard point
   budget and a bounded response size. `mapBudget.test.js` holds 200 rides of
   100 km (1,000,000 points) to the budget in bounded time.

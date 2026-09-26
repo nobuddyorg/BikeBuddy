@@ -4,16 +4,23 @@ const { parseMultipart, MAX_FILE_BYTES, MULTIPART_OVERHEAD_BYTES } = require('./
 
 const BOUNDARY = '----bikebuddytest';
 
-// Minimal multipart/form-data body with a single file part.
-function multipartBody(content, { filename = 'tour.gpx', mimeType = 'application/gpx+xml' } = {}) {
+const fieldPart = ([name, value]) =>
+  `--${BOUNDARY}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+
+// Minimal multipart/form-data body with a single file part, text fields before and after it.
+function multipartBody(
+  content,
+  { filename = 'tour.gpx', mimeType = 'application/gpx+xml', before = [], after = [] } = {},
+) {
   return Buffer.concat([
+    Buffer.from(before.map(fieldPart).join('')),
     Buffer.from(
       `--${BOUNDARY}\r\n` +
         `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
         `Content-Type: ${mimeType}\r\n\r\n`,
     ),
     Buffer.isBuffer(content) ? content : Buffer.from(content),
-    Buffer.from(`\r\n--${BOUNDARY}--\r\n`),
+    Buffer.from(`\r\n${after.map(fieldPart).join('')}--${BOUNDARY}--\r\n`),
   ]);
 }
 
@@ -53,6 +60,7 @@ describe('parseMultipart', () => {
     expect(file.filename).toBe('tour.gpx');
     expect(file.mimeType).toBe('application/gpx+xml');
     expect(file.buffer.toString()).toBe('<gpx/>');
+    expect(file.fields).toEqual({});
   });
 
   it('rejects a declared Content-Length over the limit before reading the body', async () => {
@@ -204,5 +212,69 @@ describe('parseMultipart', () => {
     const file = await parseMultipart(makeRequest(multipartBody(content), { chunkSize: 64 }));
 
     expect(file.buffer.toString()).toBe(content);
+  });
+
+  describe('text fields (#579)', () => {
+    const TOUR_FIELDS = { fieldNames: ['name', 'description'] };
+    const parseWith = (body, options = TOUR_FIELDS) => parseMultipart(makeRequest(body), options);
+
+    it('collects the named fields, before and after the file', async () => {
+      const body = multipartBody('<gpx/>', {
+        before: [['name', 'Alps <b>& more</b>']],
+        after: [['description', 'Über den Pass']],
+      });
+
+      const upload = await parseWith(body);
+
+      expect(upload.fields).toEqual({ name: 'Alps <b>& more</b>', description: 'Über den Pass' });
+      expect(upload.buffer.toString()).toBe('<gpx/>');
+    });
+
+    it('accepts a value of the full field size', async () => {
+      const value = 'a'.repeat(8 * 1024);
+
+      const upload = await parseWith(multipartBody('<gpx/>', { before: [['description', value]] }));
+
+      expect(upload.fields.description).toBe(value);
+    });
+
+    it.each([
+      ['a field it was not given', { before: [['userId', 'u2']] }],
+      ['a field twice', { before: [['name', 'a']], after: [['name', 'b']] }],
+      ['a value past the field size', { before: [['description', 'a'.repeat(8 * 1024 + 1)]] }],
+      [
+        'more fields than it names',
+        {
+          before: [
+            ['name', 'a'],
+            ['description', 'b'],
+            ['name', 'c'],
+          ],
+        },
+      ],
+    ])('refuses %s as invalidUpload', async (_label, parts) => {
+      await expect(parseWith(multipartBody('<gpx/>', parts))).rejects.toMatchObject({
+        status: 400,
+        message: 'errors.invalidUpload',
+      });
+    });
+
+    it('refuses any field when it names none', async () => {
+      const body = multipartBody('<jpeg/>', { before: [['name', 'a']] });
+
+      await expect(parseWith(body, {})).rejects.toMatchObject({
+        status: 400,
+        message: 'errors.invalidUpload',
+      });
+    });
+
+    it('still refuses a body with fields but no file as noFile', async () => {
+      const body = Buffer.from(`${fieldPart(['name', 'a'])}--${BOUNDARY}--\r\n`);
+
+      await expect(parseWith(body)).rejects.toMatchObject({
+        status: 400,
+        message: 'errors.noFile',
+      });
+    });
   });
 });

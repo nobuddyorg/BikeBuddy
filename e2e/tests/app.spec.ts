@@ -27,7 +27,7 @@ staticTest.describe('BikeBuddy static UI', () => {
 
     staticTest('shows a retry-able error, and recovers', async ({ on, page }) => {
       let failing = true;
-      await page.route('**/api/tours', (route) =>
+      await page.route('**/api/v1/tours', (route) =>
         failing
           ? route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
           : route.fallback(),

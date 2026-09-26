@@ -44,15 +44,51 @@ async function readItem(container, { id, partitionKey }) {
 // fetchAll() still drains every page; this bounds each round trip, not the result.
 const MAX_ITEMS_PER_REQUEST = 100;
 
-// Filtering on @userId and passing it as partition key confines the read to the caller.
-async function queryUserItems(container, { userId, query, maxItemCount = MAX_ITEMS_PER_REQUEST }) {
+/** @typedef {{ name: string, value: import('@azure/cosmos').JSONValue }} QueryParameter */
+
+/** @param {{ userId: string, query: string, parameters: QueryParameter[] }} spec */
+const querySpec = ({ userId, query, parameters }) => ({
+  query,
+  parameters: [{ name: '@userId', value: userId }, ...parameters],
+});
+
+/**
+ * Filtering on @userId and passing it as partition key confines the read to the caller.
+ *
+ * @param {import('@azure/cosmos').Container} container
+ * @param {{ userId: string, query: string, parameters?: QueryParameter[],
+ *   maxItemCount?: number }} options
+ */
+async function queryUserItems(
+  container,
+  { userId, query, parameters = [], maxItemCount = MAX_ITEMS_PER_REQUEST },
+) {
   const { resources } = await container.items
-    .query(
-      { query, parameters: [{ name: '@userId', value: userId }] },
-      { partitionKey: userId, maxItemCount },
-    )
+    .query(querySpec({ userId, query, parameters }), { partitionKey: userId, maxItemCount })
     .fetchAll();
   return resources;
+}
+
+/**
+ * One page of an ordered, caller-scoped query (#579), by position: one item past the page tells
+ * whether another follows. OFFSET costs more RU the deeper it reads; the per-user tour count
+ * bounds that.
+ *
+ * @param {import('@azure/cosmos').Container} container
+ * @param {{ userId: string, query: string, parameters?: QueryParameter[], offset: number,
+ *   limit: number }} options
+ */
+async function queryUserPage(container, { userId, query, parameters = [], offset, limit }) {
+  const items = await queryUserItems(container, {
+    userId,
+    query: `${query} OFFSET @offset LIMIT @limit`,
+    parameters: [
+      ...parameters,
+      { name: '@offset', value: offset },
+      { name: '@limit', value: limit + 1 },
+    ],
+  });
+  return { items: items.slice(0, limit), more: items.length > limit };
 }
 
 async function createItem(container, document) {
@@ -112,6 +148,7 @@ module.exports = {
   deletionsContainer: () => database().container('deletions'),
   readItem,
   queryUserItems,
+  queryUserPage,
   createItem,
   createItemOrReadExisting,
   upsertItem,

@@ -99,7 +99,7 @@ describe('a sign-in while the account deletion is queued', () => {
       'PATCH /me',
       () => carol.api.sendJson('/me', { method: 'PATCH', body: { name: 'Carol again' } }),
     ],
-    ['POST /tours/upload', () => carol.api.uploadTour({ name: 'After deletion', gpx: SAMPLE_GPX })],
+    ['POST /tours', () => carol.api.uploadTour({ name: 'After deletion', gpx: SAMPLE_GPX })],
   ])('%s answers 410 and creates nothing', async (_name, send) => {
     const response = await send();
 

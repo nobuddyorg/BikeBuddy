@@ -13,7 +13,7 @@ echo "==> Starting Functions host..."
 
 echo "==> Waiting for the Functions host on http://localhost:7071 (up to 2 min)..."
 for _ in $(seq 1 60); do
-  if curl -sS -o /dev/null http://localhost:7071/api/me 2>/dev/null; then
+  if curl -sS -o /dev/null http://localhost:7071/api/v1/me 2>/dev/null; then
     echo "==> Functions host is up."
     exit 0
   fi

@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const { refusePendingDeletion } = require('../lib/pendingDeletion');
@@ -20,19 +19,29 @@ const { TOUR_SCHEMA_VERSION } = require('../lib/schemaVersion');
 const { storedTrackStats } = require('../lib/tourStats');
 const { newTrackDocument } = require('../lib/tourTrack');
 
-async function readGpxUpload(request, { parseFile, parseTrack }) {
-  let file;
+const METADATA_FIELDS = ['name', 'description'];
+
+async function readUpload(request, parseFile) {
   try {
-    file = await parseFile(request);
+    return { file: await parseFile(request, { fieldNames: METADATA_FIELDS }) };
   } catch (parseError) {
     if (parseError.status !== 400) throw parseError;
     return { response: error(400, parseError.message) };
   }
-  if (!looksLikeXml(file.buffer)) {
+}
+
+// Pages loaded before #579 send the metadata in the query string; the form fields win.
+function uploadMetadata(request, fields) {
+  const valueOf = (field) => fields[field] ?? request.query.get(field) ?? undefined;
+  return tourMetaSchema.safeParse({ name: valueOf('name'), description: valueOf('description') });
+}
+
+async function readTrack(buffer, parseTrack) {
+  if (!looksLikeXml(buffer)) {
     return { response: error(400, ERROR_KEYS.gpxInvalid) };
   }
   try {
-    return { file, track: await parseTrack(file.buffer) };
+    return { track: await parseTrack(buffer) };
   } catch (gpxError) {
     if (gpxError instanceof NoTrackPointsError)
       return { response: error(400, ERROR_KEYS.gpxNoTrack) };
@@ -84,14 +93,12 @@ async function uploadTour(
   if (refused) return refused;
   const { userId } = user;
 
-  const metadata = tourMetaSchema.safeParse({
-    name: request.query.get('name') ?? undefined,
-    description: request.query.get('description') ?? undefined,
-  });
-  if (!metadata.success) return tourMetaError(metadata.error);
-
-  const upload = await readGpxUpload(request, { parseFile, parseTrack });
+  const upload = await readUpload(request, parseFile);
   if (upload.response) return upload.response;
+  const metadata = uploadMetadata(request, upload.file.fields);
+  if (!metadata.success) return tourMetaError(metadata.error);
+  const gpx = await readTrack(upload.file.buffer, parseTrack);
+  if (gpx.response) return gpx.response;
 
   const tourId = newId();
   const blobName = gpxBlobName({ userId, tourId });
@@ -100,7 +107,7 @@ async function uploadTour(
     tourId,
     userId,
     metadata: metadata.data,
-    track: upload.track,
+    track: gpx.track,
     gpxFileUrl: blobStorage.blobUrl(container, blobName),
     uploadedAt: now(),
   });
@@ -111,7 +118,7 @@ async function uploadTour(
     contentType: 'application/gpx+xml',
   });
   const deleteBlob = () => blobStorage.deleteBlobIfExists(container, blobName);
-  const { heatmapData, segmentStarts } = upload.track;
+  const { heatmapData, segmentStarts } = gpx.track;
   const trackDocument = newTrackDocument({ tourId, userId, heatmapData, segmentStarts });
   await withRollback(() => db.createItem(tracksContainer(), trackDocument), deleteBlob);
   await withRollback(
@@ -126,15 +133,19 @@ async function uploadTour(
       ),
   );
 
-  return { status: 201, jsonBody: toCreatedTourResponse(tour) };
+  return {
+    status: 201,
+    headers: { Location: `/api/v1/tours/${tourId}` },
+    jsonBody: toCreatedTourResponse(tour),
+  };
 }
 
-app.http('UploadTour', {
+apiRoute('UploadTour', {
   methods: ['post'],
-  authLevel: 'anonymous',
-  route: 'tours/upload',
+  route: 'tours',
+  unversionedRoute: 'tours/upload',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => uploadTour(request)),
+  handler: (request) => uploadTour(request),
 });
 
 module.exports = { uploadTour };

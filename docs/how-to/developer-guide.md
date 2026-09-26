@@ -136,7 +136,7 @@ Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
    issuer + JWKS URI from the tenant's OIDC discovery document, verifies the
    RS256 signature, and checks `aud == ENTRA_CLIENT_ID`, the issuer and that
    `scp` names `access_as_user` (an ID token for the same client has no `scp`).
-5. On the first authenticated call, `GET /api/me` provisions the user's Cosmos doc.
+5. On the first authenticated call, `GET /api/v1/me` provisions the user's Cosmos doc.
 
 **Local no-auth mode:** set `SKIP_AUTH=true` (backend) + `devMode: true`
 (frontend) — the middleware returns a fixed dev user and the SPA skips MSAL.

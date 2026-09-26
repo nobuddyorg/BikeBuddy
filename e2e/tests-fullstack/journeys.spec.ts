@@ -66,7 +66,7 @@ fullstackTest.describe('user journeys', () => {
       // Avatar shows first+last initials: "Alpine Rider" → "AR".
       await expect(on(page).main.locators.buttons.profile).toHaveText('AR');
 
-      // After a reload, GET /api/me must return the chosen name, not the token's name claim.
+      // After a reload, GET /api/v1/me must return the chosen name, not the token's name claim.
       await page.reload();
       await expect(on(page).main.locators.buttons.profile).toHaveText('AR');
       await on(page).main.do.openProfile();

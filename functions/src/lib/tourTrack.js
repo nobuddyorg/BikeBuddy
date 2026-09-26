@@ -53,4 +53,24 @@ async function readTracksByTour({ userId, toursContainer, tracksContainer }) {
   return new Map([...tracks, ...inline].map((item) => [item.id, trackOf(item)]));
 }
 
-module.exports = { newTrackDocument, readTourTrack, readTracksByTour };
+const OF_TOURS = ' AND ARRAY_CONTAINS(@tourIds, c.id)';
+
+/**
+ * The tracks of the listed tours only, as readTracksByTour reads them: for one page of the map.
+ *
+ * @returns {Promise<Map<string, Track>>}
+ */
+async function readTracksOfTours({ userId, tourIds, toursContainer, tracksContainer }) {
+  const parameters = [{ name: '@tourIds', value: tourIds }];
+  const [tracks, inline] = await Promise.all([
+    db.queryUserItems(tracksContainer(), { userId, query: TRACKS_QUERY + OF_TOURS, parameters }),
+    db.queryUserItems(toursContainer(), {
+      userId,
+      query: INLINE_POINTS_QUERY + OF_TOURS,
+      parameters,
+    }),
+  ]);
+  return new Map([...tracks, ...inline].map((item) => [item.id, trackOf(item)]));
+}
+
+module.exports = { newTrackDocument, readTourTrack, readTracksByTour, readTracksOfTours };

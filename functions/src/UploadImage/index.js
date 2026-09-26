@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -172,12 +171,11 @@ async function uploadImage(
   };
 }
 
-app.http('UploadImage', {
+apiRoute('UploadImage', {
   methods: ['post'],
-  authLevel: 'anonymous',
   route: 'tours/{tourId}/images',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => uploadImage(request)),
+  handler: (request) => uploadImage(request),
 });
 
 module.exports = { uploadImage, MAX_TOUR_IMAGES };

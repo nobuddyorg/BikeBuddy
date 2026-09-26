@@ -21,9 +21,12 @@ function showTours() {
 
 // keepalive lets the request outlive a closing page; a 404 means another tab deleted it first.
 async function deleteTourOnServer(tour) {
-  const response = await apiFetch(`/api/tours/${tour.id}`, { method: 'DELETE', keepalive: true });
+  const response = await apiFetch(`/api/v1/tours/${tour.id}`, {
+    method: 'DELETE',
+    keepalive: true,
+  });
   if (!isDeleted(response)) {
-    throw new Error(`DELETE /api/tours/${tour.id} answered ${response.status}`);
+    throw new Error(`DELETE /api/v1/tours/${tour.id} answered ${response.status}`);
   }
 }
 

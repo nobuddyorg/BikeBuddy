@@ -23,25 +23,46 @@ Azure Functions (Node 24, Flex Consumption)   ── auth: Entra External ID (OI
 
 ## Functions (API)
 
-| Route                                         | Function                                                              |
-| --------------------------------------------- | --------------------------------------------------------------------- |
-| `GET /api/health`                             | Health — public liveness probe, no auth                               |
-| `GET /api/me`                                 | GetMe — returns/creates the caller's user doc                         |
-| `PATCH /api/me`                               | UpdateProfile — the caller's display name                             |
-| `GET /api/me/export`                          | ExportData — the caller's user doc and tours as JSON, with file links |
-| `DELETE /api/account`                         | DeleteAccount — the caller's data, then queues the user               |
-| `GET /api/tours`                              | GetTours — list (no `heatmapData`)                                    |
-| `GET /api/tours/{tourId}`                     | GetTour — detail incl. `heatmapData` + image SAS URLs                 |
-| `GET /api/map`                                | GetMapData — all tours' points + geotagged photo pins                 |
-| `POST /api/tours/upload`                      | UploadTour — parse GPX, downsample, store                             |
-| `PATCH /api/tours/{tourId}`                   | EditTour — name, description, date                                    |
-| `DELETE /api/tours/{tourId}`                  | DeleteTour — the document, then its GPX and photo blobs               |
-| `POST /api/tours/{tourId}/images`             | UploadImage — resize, extract GPS, store                              |
-| `DELETE /api/tours/{tourId}/images/{imageId}` | DeleteImage                                                           |
+Every route lives under `/api/v1/` (#579). The paths from before, without
+`v1/` (`POST /api/tours/upload` for the upload), stay registered for pages
+loaded before the move, with the very same handler (`apiRoute` in
+`lib/functionsApp.js`; `test/unit/endpoints.test.js` holds each alias to it).
+They are deprecated: the frontend calls only `/api/v1/`.
 
-Every route except `/api/health` authenticates through `authMiddleware`; the
+| Route                                     | Function                                                              |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| `GET /health`                             | Health — public liveness probe, no auth                               |
+| `GET /me`                                 | GetMe — returns/creates the caller's user doc                         |
+| `PATCH /me`                               | UpdateProfile — the caller's display name                             |
+| `GET /me/export`                          | ExportData — the caller's user doc and tours as JSON, with file links |
+| `DELETE /account`                         | DeleteAccount — the caller's data, then queues the user               |
+| `GET /tours`                              | GetTours — list (no `heatmapData`); pages with `?limit`               |
+| `GET /tours/{tourId}`                     | GetTour — detail incl. `heatmapData` + image SAS URLs                 |
+| `GET /map`                                | GetMapData — all tours' points + geotagged photo pins; `?limit`       |
+| `POST /tours`                             | UploadTour — parse GPX, downsample, store                             |
+| `PATCH /tours/{tourId}`                   | EditTour — name, description, date                                    |
+| `DELETE /tours/{tourId}`                  | DeleteTour — the document, then its GPX and photo blobs               |
+| `POST /tours/{tourId}/images`             | UploadImage — resize, extract GPS, store                              |
+| `DELETE /tours/{tourId}/images/{imageId}` | DeleteImage                                                           |
+
+Every route except `/health` authenticates through `authMiddleware`; the
 tour-scoped ones load the tour through `loadOwnedTour` in the caller's
 partition.
+
+- **Upload** (`POST /tours`): `multipart/form-data` with the GPX as `file` and
+  optional `name` and `description` fields, validated like an edit. The
+  unversioned alias still reads them from the query string, as older pages send
+  them; a form field wins over the same query parameter. The answer is 201 with
+  `Location: /api/v1/tours/{id}` and the new tour's `id` (and `tourId`, which
+  older pages read).
+- **Paging** (`GET /tours`, `GET /map`): without `limit` the whole list, as
+  the frontend asks for it. With `?limit=1..100` the body is
+  `{ items, continuationToken? }`: pass the token back with the same `limit`
+  for the next page; no token means the last page. The token is the API's own
+  (a position, not a Cosmos token), so nothing a client sends reaches Cosmos
+  but a number; a malformed one is `400 errors.pageInvalid`. Pages are
+  ordered newest first; a tour added or deleted between two requests shifts
+  the rest by one. A map page is budgeted on its own and never cached.
 
 ## Key data rules
 

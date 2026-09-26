@@ -55,10 +55,10 @@ this app. The plan and instance memory are set in `infrastructure/functions.tf`.
 
 Serverless bills per **Request Unit (RU)** consumed plus storage.
 
-- **Point reads** (id + partition key) cost ~1 RU: `GET /api/tours/{tourId}`,
+- **Point reads** (id + partition key) cost ~1 RU: `GET /api/v1/tours/{tourId}`,
   the profile, every ownership check.
 - **Writes** cost ~5–10 RU per document depending on size.
-- **`GET /api/tours`** is a single-partition query (partition key `/userId`)
+- **`GET /api/v1/tours`** is a single-partition query (partition key `/userId`)
   and never returns `heatmapData`, the cheapest shape.
 - Every user-scoped query runs with a page size (`MAX_ITEMS_PER_REQUEST` in
   `functions/src/lib/db.js`), so one round trip stays bounded however many

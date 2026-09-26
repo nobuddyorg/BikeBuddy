@@ -25,12 +25,15 @@ staticTest.describe('an API error in German', () => {
     { key: 'errors.fileSize', shown: german['errors.fileSize'].replace('{maxMegabytes}', '10') },
   ]) {
     staticTest(`shows ${key} translated`, async ({ on, page }) => {
-      await page.route('**/api/tours/upload*', (route) =>
-        route.fulfill({
-          status: 400,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: key }),
-        }),
+      // The upload shares its path with the list: only the POST is refused.
+      await page.route('**/api/v1/tours', (route) =>
+        route.request().method() === 'POST'
+          ? route.fulfill({
+              status: 400,
+              contentType: 'application/json',
+              body: JSON.stringify({ error: key }),
+            })
+          : route.fallback(),
       );
 
       await on(page).modal.upload.do.submit();

@@ -117,12 +117,12 @@ The order is chosen so a failure leaves something harmless:
 
 External ID sign-up does not reliably collect a display name, so BikeBuddy owns
 it: the token's `name` fills an empty profile, never overwrites a chosen one
-(#551). `GET /api/health` does no I/O, so it cannot become an unauthenticated
+(#551). `GET /api/v1/health` does no I/O, so it cannot become an unauthenticated
 probe of the backing services.
 
 ## Map endpoint
 
-`GET /api/map` returns every tour's points within a hard budget of 100,000
+`GET /api/v1/map` returns every tour's points within a hard budget of 100,000
 (`functions/src/lib/mapBudget.js`): each track keeps a floor of up to 20
 points, and the rest of the budget is shared by point count. Each track is cut
 to its share in one Douglas-Peucker pass that ranks every point by the largest
@@ -133,9 +133,29 @@ the request path. The expensive part is that simplification, so an LRU cache
 keys it on tour id and `pointCount` (a track is set once at upload): a warm map
 reads the small tour documents and no track at all. It holds at most 1,000,000 points (about
 75 MB, measured), so a warm instance cannot grow past that (#578). The frontend
-fetches `/api/map` in parallel with `/api/tours`, so a cold start is paid once,
+fetches `/api/v1/map` in parallel with `/api/v1/tours`, so a cold start is paid once,
 and overlapping renders queue behind the load in flight instead of each
 fetching it again (#580).
+
+## API versioning and paging
+
+Routes live under `/api/v1/` (#579), so a later breaking change can ship as
+`v2` beside it. The unversioned paths stay as aliases for pages loaded before
+the move: GitHub Pages deploys after the Functions, and an open tab keeps its
+old modules. Each alias is registered by the same `apiRoute` call with the
+same handler, so it cannot authorize differently; remove them once no page
+that old can still be open. The upload is `POST /tours` with the metadata as
+form fields beside the file, like every other write carries its data in the
+body; the alias `tours/upload` still reads the query string.
+
+`GET /tours` and `GET /map` page only when asked (`?limit`): the frontend
+still loads everything, since a rider's tours fit one response. A page is
+chosen by position (`OFFSET … LIMIT`, ordered newest first), and the
+continuation token is that position, encoded. Not Cosmos's own token: the
+emulator ignores `maxItemCount` on ordered queries and answers a forged token
+with 500, so its paging could not be tested here, and a position is a number
+the API validates itself. OFFSET reads cost more RU the deeper they go,
+which the number of tours per rider bounds.
 
 ## Frontend behaviour
 
@@ -178,7 +198,7 @@ fetching it again (#580).
 
 ## Account deletion (GDPR), out-of-band
 
-`DELETE /api/account` purges all app data immediately (tours, blobs, user doc)
+`DELETE /api/v1/account` purges all app data immediately (tours, blobs, user doc)
 and **queues** the user's Entra directory object id, with the app user id (the
 token's `sub`) it belongs to, in a `deletions` container. A **scheduled GitHub
 Action** (`process-deletions.yml`) then purges that app user's data again and

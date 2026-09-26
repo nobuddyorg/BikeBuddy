@@ -32,11 +32,14 @@ const BARE_GPX =
   '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">' +
   '<trk><trkseg><trkpt lat="48.1" lon="11.5"/></trkseg></trk></gpx>';
 
-const fileOf = (content) => async () => ({
-  filename: 'tour.gpx',
-  mimeType: 'application/gpx+xml',
-  buffer: Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8'),
-});
+const fileOf =
+  (content, fields = {}) =>
+  async () => ({
+    filename: 'tour.gpx',
+    mimeType: 'application/gpx+xml',
+    buffer: Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8'),
+    fields,
+  });
 const clientError = (message) => Object.assign(new Error(message), { status: 400 });
 
 function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queued = [] } = {}) {
@@ -63,14 +66,16 @@ function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queue
   return { tours, tracks, gpx, run, storedTour, storedTrack };
 }
 
-describe('POST /api/tours/upload', () => {
+describe('POST /api/v1/tours (and /api/tours/upload)', () => {
   it('stores the GPX, the track and the tour, and returns 201 with the new tour id', async () => {
     const { gpx, run, storedTour, storedTrack } = setUp();
 
     const response = await run();
 
     expect(response.status).toBe(201);
+    expect(response.headers).toEqual({ Location: `/api/v1/tours/${TOUR_ID}` });
     expect(response.jsonBody).toStrictEqual({
+      id: TOUR_ID,
       tourId: TOUR_ID,
       name: 'Test Tour',
       distance: expect.any(Number),
@@ -122,12 +127,32 @@ describe('POST /api/tours/upload', () => {
     expect(gpx.names()).toEqual([GPX_BLOB]);
   });
 
-  it('takes name and description from the query, the name over the GPX name', async () => {
+  it('takes name and description from the form fields, the name over the GPX name (#579)', async () => {
+    const parseFile = vi.fn(fileOf(GPX, { name: 'My Custom Name', description: 'Nice ride' }));
+    const { run, storedTour } = setUp({ parseFile });
+
+    await run();
+
+    expect(storedTour()).toMatchObject({ name: 'My Custom Name', description: 'Nice ride' });
+    expect(parseFile).toHaveBeenCalledWith(expect.anything(), {
+      fieldNames: ['name', 'description'],
+    });
+  });
+
+  it('takes them from the query string, as pages from before #579 send them', async () => {
     const { run, storedTour } = setUp();
 
     await run({ name: 'My Custom Name', description: 'Nice ride' });
 
     expect(storedTour()).toMatchObject({ name: 'My Custom Name', description: 'Nice ride' });
+  });
+
+  it('prefers each form field over the same query parameter', async () => {
+    const { run, storedTour } = setUp({ parseFile: fileOf(GPX, { description: 'From the form' }) });
+
+    await run({ name: 'From the query', description: 'Also from the query' });
+
+    expect(storedTour()).toMatchObject({ name: 'From the query', description: 'From the form' });
   });
 
   it('falls back to "Untitled Tour" and the upload time without GPX name or time', async () => {
@@ -253,6 +278,11 @@ describe('POST /api/tours/upload', () => {
 
   it.each([
     ['metadata that fails validation', { query: { name: 'a'.repeat(201) } }, 'errors.tourName'],
+    [
+      'a form field that fails validation',
+      { parseFile: fileOf(GPX, { description: 'd'.repeat(2001) }) },
+      'errors.tourDescription',
+    ],
     [
       'a file without XML magic bytes',
       { parseFile: fileOf('not xml at all') },

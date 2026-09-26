@@ -4,7 +4,7 @@
 
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
-const { registeredEndpoints } = require('./registeredEndpoints');
+const { registeredEndpoints, versionedEndpoints } = require('./registeredEndpoints');
 
 const ZAP_API_SURFACE = resolve(__dirname, '..', '..', '..', '.zap', 'openapi.yaml');
 
@@ -21,9 +21,12 @@ function openApiOperations(yaml) {
 }
 
 describe("ZAP's map of the API (.zap/openapi.yaml)", () => {
-  test('lists every registered GET route for the passive scan, and no write', () => {
+  // The unversioned aliases share these handlers (endpoints.test.js), so v1 is scanned alone.
+  test('lists every GET route under /api/v1/ for the passive scan, and no write', () => {
     const listed = openApiOperations(readFileSync(ZAP_API_SURFACE, 'utf8'));
-    const reads = registeredEndpoints(vi).filter((endpoint) => endpoint.startsWith('GET '));
+    const reads = versionedEndpoints(registeredEndpoints(vi))
+      .map(({ key }) => key)
+      .filter((key) => key.startsWith('GET '));
 
     expect([...listed].sort()).toEqual([...reads].sort());
   });

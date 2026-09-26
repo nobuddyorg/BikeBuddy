@@ -15,7 +15,7 @@ function registeredEndpoints(vi) {
   const registrations = [];
   const http = vi
     .spyOn(app, 'http')
-    .mockImplementation((_name, options) => registrations.push(options));
+    .mockImplementation((name, options) => registrations.push({ name, ...options }));
   try {
     for (const entry of readdirSync(SOURCE_DIRECTORY)) {
       const handler = join(SOURCE_DIRECTORY, entry, 'index.js');
@@ -26,9 +26,23 @@ function registeredEndpoints(vi) {
   } finally {
     http.mockRestore();
   }
-  return registrations.flatMap(({ methods, route }) =>
-    methods.map((method) => `${method.toUpperCase()} ${route}`),
+  return registrations.flatMap(({ name, methods, route, handler }) =>
+    methods.map((method) => ({ name, key: `${method.toUpperCase()} ${route}`, handler })),
   );
 }
 
-module.exports = { registeredEndpoints };
+const VERSION_PREFIX = 'v1/';
+
+/** Every registration under /api/v1/, keyed without the prefix as the matrix names it. */
+const versionedEndpoints = (registrations) =>
+  registrations
+    .filter(({ key }) => key.split(' ')[1].startsWith(VERSION_PREFIX))
+    .map((registration) => ({
+      ...registration,
+      key: registration.key.replace(` ${VERSION_PREFIX}`, ' '),
+    }));
+
+const unversionedEndpoints = (registrations) =>
+  registrations.filter(({ key }) => !key.split(' ')[1].startsWith(VERSION_PREFIX));
+
+module.exports = { registeredEndpoints, versionedEndpoints, unversionedEndpoints };

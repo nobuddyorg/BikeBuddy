@@ -159,6 +159,7 @@
   "errors.tourDescription": "Die Beschreibung darf höchstens 2000 Zeichen lang sein.",
   "errors.tourDate": "Bitte gib ein gültiges Datum ein.",
   "errors.tourInvalid": "Bitte überprüfe die Angaben zur Tour.",
+  "errors.pageInvalid": "Diese Ergebnisseite ist nicht mehr verfügbar. Bitte lade neu.",
   "errors.network": "Netzwerkfehler.",
   "errors.saveChanges": "Änderungen konnten nicht gespeichert werden.",
   "errors.saveName": "Name konnte nicht gespeichert werden.",
