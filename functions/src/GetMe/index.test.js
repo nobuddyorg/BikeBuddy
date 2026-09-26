@@ -103,7 +103,7 @@ describe('GET /api/me', () => {
 
     await run();
 
-    expect(users.stored('u1', 'u1')).toMatchObject({ name: `b${'a'.repeat(199)}`, email: null });
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: `<b>${'a'.repeat(197)}`, email: null });
   });
 
   it('backfills an empty name and email once the token carries them', async () => {

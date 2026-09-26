@@ -96,3 +96,23 @@ resource "azurerm_cosmosdb_sql_container" "tours" {
     prevent_destroy = true
   }
 }
+
+# One track per tour, keyed by the tour id in the rider's partition: tour queries never load points (#615).
+resource "azurerm_cosmosdb_sql_container" "tracks" {
+  name                = "tracks"
+  resource_group_name = azurerm_resource_group.main.name
+  account_name        = azurerm_cosmosdb_account.main.name
+  database_name       = azurerm_cosmosdb_sql_database.main.name
+  partition_key_paths = ["/userId"]
+
+  indexing_policy {
+    indexing_mode = "consistent"
+    included_path { path = "/*" }
+    # Read by id only; indexing the points would only raise the write RU.
+    excluded_path { path = "/heatmapData/*" }
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}

@@ -25,7 +25,7 @@ a monthly budget alert. Production changes reach Azure one way only: merge to
 3. In the PR, paste the plan's destroy/replace lines (or say there are none). A
    plan that destroys or replaces the Cosmos account or the storage account is
    a stop-and-ask: those hold every user's data.
-4. After the merge, `deploy.yml` runs `./buddy.sh infrastructure provision`:
+4. Once CI Gate passes on `main`, `deploy.yml` runs `./buddy.sh infrastructure provision`:
    `tofu plan` with the Entra variables, a check that fails the deploy when
    the plan deletes or replaces any resource, then `tofu apply` of exactly
    that saved plan. It then publishes the
@@ -72,7 +72,17 @@ environment set up before them.
 
 ## CI credentials
 
-CI authenticates with a service principal (#561 tracks narrowing it):
+CI authenticates with a service principal. Its secret and the state key reach
+only the jobs that use them (#561):
+
+- the `ARM_*` variables and `TF_BACKEND_ACCESS_KEY` reach only the OpenTofu job;
+- the Functions publish installs its pinned Core Tools before `azure/login`;
+- the deletion job installs its packages without install scripts, and before
+  `azure/login`.
+
+Still to do: federated OIDC credentials in place of the secret, and a
+principal scoped to the resource groups instead of the subscription. Both need
+changes in Entra and Azure first.
 
 ```bash
 az ad sp create-for-rbac --name bikebuddy-ci --role Contributor \
@@ -146,6 +156,52 @@ way, then `tofu plan` to check it matches Azure before anything is applied.
 `budget.tf` creates a monthly consumption budget on the resource group
 (`budget_amount`, default 5; `budget_contact_email`; `budget_start_date`) that
 mails at 80 % forecast and 100 % actual spend. See the [cost report](../cost-report.md).
+
+### Monitoring
+
+`monitoring.tf` (#547) sends the API's requests, failures and log lines to
+Application Insights (`bikebuddy-insights`), capped at 0.1 GB a day. Each of
+these mails `budget_contact_email` through the `bikebuddy-ops` action group:
+
+- `/api/v1/health` fails its availability test;
+- more than 5 requests fail in 15 minutes;
+- a token cannot be verified at all (the OIDC metadata or keys are
+  unreachable), or more than 50 are rejected in 15 minutes.
+
+A failed scheduled run of `process-deletions.yml` opens an issue, or comments
+on the open one.
+
+### Budget stop
+
+At 100 % actual spend the budget also calls the action group
+`bikebuddy-budget-stop`, whose Logic App stops the Function App (#549): the
+site answers nothing until someone starts it again. Scale-out is capped
+separately by `maximum_instance_count` (10) in `functions.tf`.
+
+The Logic App calls Azure Resource Manager as its own system-assigned identity,
+which needs **Website Contributor** on the Function App. The deploy principal
+is only Contributor and cannot assign roles, so an Owner grants it once, after
+the first deploy that creates the Logic App:
+
+```bash
+cd infrastructure
+az role assignment create \
+  --assignee-object-id "$(tofu output -raw budget_stop_principal_id)" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Website Contributor" \
+  --scope "$(tofu output -raw functions_app_id)"
+```
+
+Until then the Logic App's run history shows the stop failing with 403, and only
+the emails go out. Replacing the Logic App gives it a new identity, which needs
+the grant again.
+
+After a stop, look at what spent the budget (Cost analysis, the Functions and
+Cosmos metrics) before starting the app again; the budget does not restart it:
+
+```bash
+az functionapp start -g bikebuddy-rg -n "$(cd infrastructure && tofu output -raw functions_app_name)"
+```
 
 ## Teardown
 

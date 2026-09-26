@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -16,6 +15,8 @@ const { isImageContentType } = require('../lib/validation');
 const { toSignedImage } = require('../lib/tourImages');
 const { settleAll, withRollback } = require('../lib/settle');
 const { ERROR_KEYS, error } = require('../lib/http');
+const { refuseOverRate } = require('../lib/rateLimit');
+const { refuseOverQuota } = require('../lib/userQuota');
 
 const MAX_TOUR_IMAGES = 20;
 
@@ -132,6 +133,7 @@ async function uploadImage(
     parseFile = parseMultipart,
     resize = resizeVariants,
     readGps = extractGps,
+    rateLimiter = system.uploadRateLimiter,
     newId = system.newId,
     now = system.currentTime,
   } = {},
@@ -140,6 +142,8 @@ async function uploadImage(
   if (guard.response) return guard.response;
   const { tour } = guard;
   const { userId } = guard.user;
+  const throttled = refuseOverRate(rateLimiter, { userId, now: now() });
+  if (throttled) return throttled;
 
   if (tour.images?.length >= MAX_TOUR_IMAGES) return error(400, ERROR_KEYS.tourImageLimit);
   const upload = await readImageUpload(request, parseFile);
@@ -150,12 +154,16 @@ async function uploadImage(
     readGps(upload.file.buffer),
     resize(upload.file.buffer),
   ]);
+  // What is stored, not what was sent: the original is never kept.
+  const bytes = variants.full.length + variants.thumbnail.length;
+  const overQuota = await refuseOverQuota({ userId, toursContainer, adding: { tours: 0, bytes } });
+  if (overQuota) return overQuota;
   const imageId = newId();
   const blobName = imageBlobName({ userId, tourId: tour.id, imageId });
   const container = await imagesContainer();
   await storeVariants(container, { blobName, variants });
 
-  const image = { id: imageId, blobName, ...(gps && { lat: gps.lat, lon: gps.lon }) };
+  const image = { id: imageId, blobName, bytes, ...(gps && { lat: gps.lat, lon: gps.lon }) };
   const recorded = await recordImage(toursContainer(), {
     tour,
     userId,
@@ -172,12 +180,11 @@ async function uploadImage(
   };
 }
 
-app.http('UploadImage', {
+apiRoute('UploadImage', {
   methods: ['post'],
-  authLevel: 'anonymous',
   route: 'tours/{tourId}/images',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => uploadImage(request)),
+  handler: (request) => uploadImage(request),
 });
 
 module.exports = { uploadImage, MAX_TOUR_IMAGES };

@@ -11,7 +11,7 @@ export const SORT_OPTIONS = [
   { key: 'length-desc', labelKey: 'sort.lengthDesc' },
   { key: 'length-asc', labelKey: 'sort.lengthAsc' },
 ];
-export const DEFAULT_SORT = SORT_OPTIONS[0].key;
+export const DEFAULT_SORT = 'date-desc';
 
 // An exact name beats a prefix, a word start, a substring, then any scattered subsequence.
 const EXACT_SCORE = 1000;
@@ -208,3 +208,9 @@ export function deletionFailureMessage({ succeededCount, totalCount }) {
     params: { deleted: succeededCount, count: totalCount },
   };
 }
+
+// The key a pending tour delete is filed under (ui/undoableAction.js), to hide it from a refetch.
+export const tourKey = (tourId) => `tour:${tourId}`;
+
+// A DELETE that finds nothing left to delete (another tab, a repeated request) still succeeded.
+export const isDeleted = (response) => response.ok || response.status === 404;

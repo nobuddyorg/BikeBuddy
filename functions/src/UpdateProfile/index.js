@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const { z } = require('zod');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
@@ -60,12 +59,11 @@ async function updateProfile(
   return { status: 200, jsonBody: toUserResponse(updated) };
 }
 
-app.http('UpdateProfile', {
+apiRoute('UpdateProfile', {
   methods: ['patch'],
-  authLevel: 'anonymous',
   route: 'me',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => updateProfile(request)),
+  handler: (request) => updateProfile(request),
 });
 
 module.exports = { updateProfile };

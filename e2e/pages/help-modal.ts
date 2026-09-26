@@ -9,6 +9,8 @@ interface HelpModal {
   };
   /** Raw locators. */
   locators: {
+    /** Opens the privacy notice in a new tab. */
+    privacyLink: Locator;
     buttons: {
       close: Locator;
     };
@@ -18,6 +20,7 @@ interface HelpModal {
 export function initHelpModal(page: Page): HelpModal {
   const root = page.locator('#help-modal');
   const locators = {
+    privacyLink: page.locator('#link-privacy-help'),
     buttons: {
       close: page.locator('#btn-close-help'),
     },

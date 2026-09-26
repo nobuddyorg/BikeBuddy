@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const { loadOwnedTour } = require('../lib/ownedTour');
@@ -48,12 +47,11 @@ async function editTour(
   return { status: 200, jsonBody: toTourSummaryResponse(updated) };
 }
 
-app.http('EditTour', {
+apiRoute('EditTour', {
   methods: ['patch'],
-  authLevel: 'anonymous',
   route: 'tours/{tourId}',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => editTour(request)),
+  handler: (request) => editTour(request),
 });
 
 module.exports = { editTour };

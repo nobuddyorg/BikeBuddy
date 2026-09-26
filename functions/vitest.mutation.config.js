@@ -16,6 +16,7 @@ export default defineConfig({
       // They read files outside this package, which the sandbox copy lacks; the unit job runs them.
       'test/unit/frontendContract.test.js',
       'test/unit/zapApiSurface.test.js',
+      'test/unit/productionCspPage.test.js',
       '**/node_modules/**',
     ],
     setupFiles: ['test/fast-check.setup.js'],

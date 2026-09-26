@@ -17,7 +17,7 @@ const { cosmosConnectionString } = assertEmulatorTargets();
 
 const USER_ID = `query-cost-${randomUUID()}`;
 const TOURS = 150;
-// The list query GET /api/tours runs (GetTours/index.js).
+// The list query GET /api/v1/tours runs (GetTours/index.js).
 const LIST_QUERY =
   'SELECT c.id, c.name, c.description, c.distance, c.createdAt ' +
   'FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC';
@@ -45,6 +45,7 @@ const client = new CosmosClient({
 });
 const database = client.database(process.env.COSMOS_DATABASE ?? 'bikebuddy');
 const tours = database.container('tours');
+const tracks = database.container('tracks');
 const users = database.container('users');
 const seededIds = [];
 
@@ -57,22 +58,25 @@ beforeAll(async () => {
       name: `Guard ride ${index}`,
       distance: index,
       createdAt: new Date(Date.UTC(2025, 0, 1 + index)).toISOString(),
-      heatmapData: [[48, 11]],
+      pointCount: 1,
     });
+    await tracks.items.create({ id: seededIds[index], userId: USER_ID, heatmapData: [[48, 11]] });
   }
 }, 120_000);
 
 afterAll(async () => {
-  const { resources } = await tours.items
-    .query(
-      {
-        query: 'SELECT c.id FROM c WHERE c.userId = @userId',
-        parameters: [{ name: '@userId', value: USER_ID }],
-      },
-      { partitionKey: USER_ID },
-    )
-    .fetchAll();
-  for (const { id } of resources) await tours.item(id, USER_ID).delete();
+  for (const container of [tours, tracks]) {
+    const { resources } = await container.items
+      .query(
+        {
+          query: 'SELECT c.id FROM c WHERE c.userId = @userId',
+          parameters: [{ name: '@userId', value: USER_ID }],
+        },
+        { partitionKey: USER_ID },
+      )
+      .fetchAll();
+    for (const { id } of resources) await container.item(id, USER_ID).delete();
+  }
 }, 120_000);
 
 describe('hot query guards', () => {
@@ -110,6 +114,7 @@ describe('hot query guards', () => {
   const handlerCollaborators = {
     authenticate: signedInAs(USER_ID),
     toursContainer: () => tours,
+    tracksContainer: () => tracks,
     usersContainer: () => users,
     gpxContainer: async () => fakeGpxContainer(),
     imagesContainer: async () => fakeImagesContainer(),
@@ -119,7 +124,7 @@ describe('hot query guards', () => {
   it("the map reads only the caller's partition", async () => {
     requests.length = 0;
     const response = await getMapData(
-      {},
+      { query: new URLSearchParams() },
       { ...handlerCollaborators, heatmapCache: createHeatmapCache() },
     );
 
@@ -127,12 +132,24 @@ describe('hot query guards', () => {
     expectOnlyPartition(requests, USER_ID);
   });
 
-  it('the detail view is one point read, never a query', async () => {
+  it("a map page (#579) reads only the caller's partition", async () => {
+    requests.length = 0;
+    const response = await getMapData(
+      { query: new URLSearchParams({ limit: '2' }) },
+      handlerCollaborators,
+    );
+
+    expect(response.jsonBody.items).toHaveLength(2);
+    expectOnlyPartition(requests, USER_ID);
+  });
+
+  it('the detail view is two point reads, the tour and its track, never a query', async () => {
     requests.length = 0;
     const response = await getTour({ params: { tourId: seededIds[0] } }, handlerCollaborators);
 
     expect(response.status).toBe(200);
-    expect(requests.map((request) => request.operation)).toEqual(['read']);
+    expect(response.jsonBody.heatmapData).toEqual([[48, 11]]);
+    expect(requests.map((request) => request.operation)).toEqual(['read', 'read']);
     expectOnlyPartition(requests, USER_ID);
   });
 
@@ -148,13 +165,15 @@ describe('hot query guards', () => {
     const purgedUser = `query-cost-purge-${randomUUID()}`;
     await users.items.create({ id: purgedUser, name: 'Purged' });
     for (let index = 0; index < 3; index++) {
-      await tours.items.create({ id: randomUUID(), userId: purgedUser, name: `Purged ${index}` });
+      const id = randomUUID();
+      await tours.items.create({ id, userId: purgedUser, name: `Purged ${index}` });
+      await tracks.items.create({ id, userId: purgedUser, heatmapData: [] });
     }
     requests.length = 0;
 
     await purgeAccountData({ ...handlerCollaborators, userId: purgedUser });
 
-    expect(requests.filter((request) => request.operation === 'delete')).toHaveLength(4);
+    expect(requests.filter((request) => request.operation === 'delete')).toHaveLength(7);
     expectOnlyPartition(requests, purgedUser);
   });
 });

@@ -4,16 +4,12 @@
 const { z } = require('zod');
 const { ERROR_KEYS, error } = require('./http');
 
-const stripHtml = (text) => text.replace(/[<>]/g, '').trim();
-
-// Length limits apply to the stripped text; the form fields' maxlength must match them.
+// Stored as typed, only trimmed: the frontend writes user text through textContent (#574).
+// Length limits apply to the trimmed text; the form fields' maxlength must match them.
 const NAME_MAX_LENGTH = 200;
 const DESCRIPTION_MAX_LENGTH = 2000;
-const nameSchema = z.string().transform(stripHtml).pipe(z.string().min(1).max(NAME_MAX_LENGTH));
-const descriptionSchema = z
-  .string()
-  .transform(stripHtml)
-  .pipe(z.string().max(DESCRIPTION_MAX_LENGTH));
+const nameSchema = z.string().trim().min(1).max(NAME_MAX_LENGTH);
+const descriptionSchema = z.string().trim().max(DESCRIPTION_MAX_LENGTH);
 
 // createdAt is editable but never accepted on upload.
 const tourMetaSchema = z.object({
@@ -54,7 +50,6 @@ const isImageContentType = (contentType) =>
 module.exports = {
   NAME_MAX_LENGTH,
   DESCRIPTION_MAX_LENGTH,
-  stripHtml,
   nameSchema,
   tourMetaSchema,
   tourMetaError,

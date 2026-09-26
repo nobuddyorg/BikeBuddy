@@ -18,7 +18,7 @@ staticTest(
         contentType: 'application/json',
         body: JSON.stringify({ error: 'errors.unauthorized' }),
       });
-    await page.route('**/api/tours', refuse);
+    await page.route('**/api/v1/tours', refuse);
 
     await page.goto('/');
 
@@ -27,7 +27,7 @@ staticTest(
     await expect(on(page).main.locators.buttons.login).toBeVisible();
     await expect(on(page).main.locators.userMenu).toBeHidden();
 
-    await page.unroute('**/api/tours', refuse);
+    await page.unroute('**/api/v1/tours', refuse);
     await expired.getByRole('button', { name: 'Sign In' }).click();
 
     await expect(on(page).main.locators.userMenu).toBeVisible();

@@ -42,10 +42,23 @@ A failed refresh keeps serving the last good copy for up to a day (#571). See th
 
 ## Cosmos partitioning & payload hygiene
 
-`users` is partitioned by `/id`, `tours` by `/userId`, so a user's tours live in
-one partition (no cross-partition queries). `heatmapData` is large and never
-queried, so it's excluded from indexing and from list responses, and GPX tracks
-over 5,000 points are downsampled to keep documents under Cosmos's 2 MB limit.
+`users` is partitioned by `/id`, `tours` and `tracks` by `/userId`, so a user's
+tours and their tracks live in one partition each (no cross-partition queries).
+A tour's points (`heatmapData`) are the large part, so they live apart from the
+tour, in the `tracks` container under the tour's id (#615): every query over the
+tours reads small documents, and only the detail view (one point read) and the
+map (one query, on a cache miss) read points. The tour keeps their number in
+`pointCount`. Points are excluded from indexing and from list responses, and GPX
+tracks over 5,000 points are downsampled to keep documents under Cosmos's 2 MB
+limit.
+
+Writes and deletes keep the tour whole: an upload writes the GPX blob, then the
+track, then the tour, and rolls the earlier writes back if a later one fails; a
+delete removes the tour first, then its track and blobs. An account purge lists
+the tracks on their own, so a track a failed delete left behind still goes. A
+tour stored before #615 (schema version 1 or none) still holds its points
+inline and is read the same way until `backfillTracks.js` moves them (see
+"Backfills").
 
 ## Images
 
@@ -104,25 +117,67 @@ The order is chosen so a failure leaves something harmless:
 
 External ID sign-up does not reliably collect a display name, so BikeBuddy owns
 it: the token's `name` fills an empty profile, never overwrites a chosen one
-(#551). `GET /api/health` does no I/O, so it cannot become an unauthenticated
+(#551). `GET /api/v1/health` does no I/O, so it cannot become an unauthenticated
 probe of the backing services.
 
 ## Map endpoint
 
-`GET /api/map` returns every tour's points within a hard budget of 100,000
+`GET /api/v1/map` returns every tour's points within a hard budget of 100,000
 (`functions/src/lib/mapBudget.js`): each track keeps a floor of up to 20
 points, and the rest of the budget is shared by point count. Each track is cut
 to its share in one Douglas-Peucker pass that ranks every point by the largest
 tolerance that still keeps it, and keeps the top of that ranking (#546). The
 map draws polylines, so there is no gap rule: a straight 5 km stretch can be
 two points. A per-tour overview computed at upload would move this cost off
-the request path; it waits on where the track is stored (#615). The expensive
-part is that simplification, so an LRU cache keys it on tour id and point count
-(`heatmapData` is set once at upload); it holds at most 1,000,000 points (about
+the request path. The expensive part is that simplification, so an LRU cache
+keys it on tour id and `pointCount` (a track is set once at upload): a warm map
+reads the small tour documents and no track at all. It holds at most 1,000,000 points (about
 75 MB, measured), so a warm instance cannot grow past that (#578). The frontend
-fetches `/api/map` in parallel with `/api/tours`, so a cold start is paid once,
+fetches `/api/v1/map` in parallel with `/api/v1/tours`, so a cold start is paid once,
 and overlapping renders queue behind the load in flight instead of each
 fetching it again (#580).
+
+## Upload limits (#549)
+
+Entra lets anyone sign up, so the API caps what one rider can make it store
+and compute:
+
+- **1,000 tours and 5 GB** per rider (`lib/userQuota.js`), checked by
+  `UploadTour` and `UploadImage` before the costly part (the GPX parse, the
+  blob writes). The usage is summed from sizes recorded on the documents
+  (`gpxBytes` on a tour, `bytes` on each photo entry): one single-partition
+  query per upload, and a delete frees its bytes with the entry, so there is no
+  counter to drift. Concurrent uploads can pass a cap by a few; the rate limit
+  bounds by how many.
+- **100 uploads an hour** per rider, tours and photos together
+  (`lib/rateLimit.js`): a token bucket, so a tour with its 20 photos goes up at
+  once. It lives in each instance's memory, so with N instances a rider could
+  get up to N times that; `maximum_instance_count` (10) bounds N. A shared
+  store (Cosmos, Redis) would make it exact at a cost per upload that this
+  scale does not need.
+- The platform ceiling: at most 10 Flex instances, and a budget that stops the
+  Function App once the month's actual spend reaches it
+  ([infrastructure.md](../how-to/infrastructure.md#budget-stop)).
+
+## API versioning and paging
+
+Routes live under `/api/v1/` (#579), so a later breaking change can ship as
+`v2` beside it. The unversioned paths stay as aliases for pages loaded before
+the move: GitHub Pages deploys after the Functions, and an open tab keeps its
+old modules. Each alias is registered by the same `apiRoute` call with the
+same handler, so it cannot authorize differently; remove them once no page
+that old can still be open. The upload is `POST /tours` with the metadata as
+form fields beside the file, like every other write carries its data in the
+body; the alias `tours/upload` still reads the query string.
+
+`GET /tours` and `GET /map` page only when asked (`?limit`): the frontend
+still loads everything, since a rider's tours fit one response. A page is
+chosen by position (`OFFSET … LIMIT`, ordered newest first), and the
+continuation token is that position, encoded. Not Cosmos's own token: the
+emulator ignores `maxItemCount` on ordered queries and answers a forged token
+with 500, so its paging could not be tested here, and a position is a number
+the API validates itself. OFFSET reads cost more RU the deeper they go,
+which the number of tours per rider bounds.
 
 ## Frontend behaviour
 
@@ -141,8 +196,14 @@ fetching it again (#580).
   uses Escape to close marks the key handled, so its dialog stays open.
 - A malformed `#/tour/` link opens no tour, and blocked storage costs only the
   saved line style and language, never startup.
-- Deletes are undoable: the DELETE is deferred behind an undo toast (#559 tracks
-  that closing the tab during that window loses the delete).
+- Deletes are undoable: the DELETE is deferred behind an undo toast for six
+  seconds (`frontend/src/lib/pendingActions.js`). A page that is hidden or
+  closed within that window sends every pending delete at once, with
+  `keepalive` requests, instead of losing it with the timer; an Undo after
+  that says it is too late. A 404 counts as deleted (another tab was first),
+  and a tour list reloaded within the window leaves the pending tours out
+  (#559). Still best-effort: a browser killed outright sends nothing, and the
+  server has no soft delete.
 - iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
   viewport meta.
 - The line style is saved on change, not on every input event.
@@ -157,9 +218,30 @@ fetching it again (#580).
   dropped after a missed bump left users on stale code (#544); the name now
   changes only to discard an old cache.
 
+## Privacy notice (#542)
+
+`frontend/src/privacy.html` is the Art. 13 GDPR notice. It covers:
+
+- the controller
+- the data processed, including the GPS position read from a photo's EXIF data
+- the purposes and their legal bases
+- the recipients: Microsoft for Azure and Entra, CARTO's map tiles, which show
+  CARTO the areas a rider looks at, and GitHub Pages
+- retention, including Entra's 30-day recycle bin and the 7- and 14-day backups
+- what the browser stores
+- the rider's rights
+
+It is a page of its own, so it opens without signing in and the Entra sign-up
+page can link it. It uses the app's i18n, so every sentence is in all seven
+locales. The header links it (on screens wider than 480 px), as do the help,
+the sign-in prompt and the profile. The controller's name, address and contact
+are not translated: they sit in the page itself as placeholders, to be filled
+in before it is published. A change to what the app collects, whom it sends
+data to, or how long it keeps it updates the notice in the same change.
+
 ## Account deletion (GDPR), out-of-band
 
-`DELETE /api/account` purges all app data immediately (tours, blobs, user doc)
+`DELETE /api/v1/account` purges all app data immediately (tours, blobs, user doc)
 and **queues** the user's Entra directory object id, with the app user id (the
 token's `sub`) it belongs to, in a `deletions` container. A **scheduled GitHub
 Action** (`process-deletions.yml`) then purges that app user's data again and
@@ -174,8 +256,11 @@ one missed: a partial failure, or a write from another device in between.
 
 Why out-of-band: deleting a directory user needs a tenant-wide
 `User.ReadWrite.All` Graph credential. Keeping that **only in CI** (never in the
-internet-facing Functions app) means a compromise of the web app can't delete
-arbitrary users. GDPR allows the identity removal to complete shortly after (the
+internet-facing Functions app) means a compromise of the web app cannot call
+Graph itself. It can still write the queue, since the app holds the Cosmos key.
+So the job deletes only entries that look as the API leaves them (below), and
+it cannot prove more: a signature the app could not make would be the next step
+(#570 chose validation only). GDPR allows the identity removal to complete shortly after (the
 app data — the bulk of personal data — is already gone).
 
 Deleted data stays in the backups for a bounded time and then expires on its
@@ -188,16 +273,23 @@ fakes; a change to it is security-relevant):
 
 - Only queued ids shaped like a GUID reach Graph, URL-encoded. Anything else
   (`../groups/…`, `a/b`) stays queued and fails the run for a human to look at.
-- A queued `userId` is purged before the Graph call; the identity is deleted and
-  the entry removed only when the purge succeeded. A `userId` that is not a
-  token subject (empty, or with a `/`) is refused, since it would widen the
-  blob prefix. Entries queued before #538 carry no `userId`; their data was
-  purged when they were queued.
+- An entry must name the app user it was queued for (`userId`, a token subject:
+  never empty, never with a `/`, which would widen the blob prefix), and that
+  user's document must already be gone, as `DeleteAccount` leaves it (#570).
+  Anything else is rejected before any purge or Graph call: it stays queued
+  and fails the run. An entry from before #538 has no `userId`, and one whose
+  user document the API failed to delete still has it. Either needs a human:
+  after checking the account, delete the identity in the Entra admin center
+  and remove the entry, or ask the user to delete the account again.
+- The `userId` is purged before the Graph call; the identity is deleted and
+  the entry removed only when the purge succeeded.
 - A Graph 204 or 404 removes the queue entry, so a re-run is idempotent; a 5xx,
   429 or network error keeps it for the next run and fails this one. One
   failing id never stops the others.
-- Logs carry counts and masked ids (`…abcd`), never a full object id (#570
-  tracks purging Entra's soft-deleted users).
+- Logs carry counts and a hash per id (`id#` and 8 hex digits of its SHA-256),
+  never an object id, a part of one or an app user id, not even inside an error
+  message (#570). Entra keeps a deleted user in its recycle bin for 30 days;
+  the privacy notice says so.
 - `--dry-run` lists what a real run would do without Graph credentials; manual
   runs of `process-deletions.yml` default to it (input `dry_run`), the daily
   cron runs for real, and runs never overlap.
@@ -236,7 +328,20 @@ Runbook, from a machine with `az login` to the subscription:
    ([infrastructure.md](../how-to/infrastructure.md)).
 2. `./buddy.sh maintenance backfill tour-stats`, read the dry run, then again
    with `--apply`.
-3. The same for `thumbnails`, then `schema-version`.
+3. The same for `thumbnails`, then `schema-version`, then `tracks`.
+   `tracks` (`backfillTracks.js`) first writes each tour's track item, rebuilt
+   from its GPX file with segment breaks (#552), or from its inline points as
+   one line when the file is missing or unreadable. Only then does it remove
+   the points from the tour, set `pointCount` and take a version-1 tour to 2.
+   A failure between the two writes leaves the points in both places, and a
+   rerun finishes it.
+   Then `stored-bytes` (`backfillStoredBytes.js`), which takes a version-2 tour
+   to 3: it reads the size of its GPX blob and of each photo's two blobs and
+   records them (`gpxBytes`, and `bytes` on each image entry), which the
+   upload quota sums (#549). It sets the whole `images` array under the ETag
+   it read, so a photo added meanwhile fails that tour and a rerun takes it.
+   Until it has run, older sizes count as nothing: the quota under-counts,
+   never refuses wrongly.
 4. Put the dry-run and apply summaries in the PR or issue that needed the
    backfill: that is the record that it ran.
 
@@ -359,12 +464,20 @@ package feed (401 outside their network). Bump it once a fixed release exists.
 
 ## SAST rule packs
 
-OpenGrep runs `--config auto` and `--config p/security-audit` together.
-`auto` selects the community rules for every language in
-the tree (JavaScript, TypeScript, HCL, Bash, HTML, JSON), including the
-taint rules that catch `eval(req.body)`-style injections at error severity.
-`p/security-audit` is the narrower audit pack the pre-commit hook ran before;
-keeping it means the switch cannot lose a rule that was already enforced. Only
+OpenGrep runs `--config auto`, `--config p/security-audit` and BikeBuddy's own
+`scripts/quality/opengrep-rules.yml` together. `auto` selects the community
+rules for every language in the tree (JavaScript, TypeScript, HCL, Bash, HTML,
+JSON). Its taint rules catch `eval(req.body)` in Express, but they do not know
+an Azure Functions request: a probe PR that added `eval(await request.text())`
+to a handler passed the job with no error-severity finding (#595). ESLint's
+`sonarjs/code-eval` stops that line first, but the SAST gate must hold on its
+own, so the repo's rule `bikebuddy.no-runtime-code` fails on any `eval`,
+`Function` or `node:vm` call at error severity; nothing here needs one. The
+rule leaves out `e2e/`, whose harness reads the developer's own `config.js` in
+a `vm` sandbox: an inline `nosemgrep` there passed the job, but code scanning
+still opened an error alert on the PR for the suppressed result. `p/security-audit` is the narrower audit pack the pre-commit hook
+ran before; keeping it means the switch cannot lose a rule that was already
+enforced. Only
 error severity fails the job: the warning-level packs (i18n key formats, Azure
 hardening advice) are reported for triage, and the IaC ones are owned by the
 IaC scanner. Two findings were fixed on adoption (the language menu built
@@ -413,19 +526,25 @@ cannot be mutation-tested without being fully covered, or the reverse.
 `ignoreStatic` (functions) skips mutants that only run at module load
 (`app.http()` registration, top-level schema constants): handlers are
 imported once per test file, so those mutants cannot be killed without
-reloading the module per mutant. Break thresholds start one point below the
-measured score and only move up; known equivalent mutants are listed here when
-one blocks a raise. Current survivors, all equivalent:
+reloading the module per mutant. A test that first requires a module inside
+its body (to spy on its load, like `functionsApp.test.js`) makes that
+module's imports look covered by that one test instead, so Stryker runs only it
+against their load-time mutants; such a test file requires those imports at
+its top first. Break thresholds start one point below the measured score and
+only move up; known equivalent mutants are listed here when one blocks a
+raise. None survive: both packages measured 100 % (#602), after these
+equivalent mutants were designed out rather than tested around:
 
-- `parseGpx.js`: min/max comparisons on equal values, the elevation loop
-  starting at the first point, `difference >= 0`, the 1 km/h speed boundary,
-  and `toArray`'s empty-element branch.
-- `emulatorGuard.js`: the `'utf8'` read encoding (`JSON.parse` accepts the
-  Buffer either way).
-- `frontend/src/lib/mapData.js`: `|| []` → a non-empty array; a body that is not
-  a list settles every tour on empty data either way.
-- `frontend/src/lib/tours.js`: the static `SORT_OPTIONS` initialiser, which
-  only runs at import.
+- `parseGpx.js`'s `toArray` filters the wrapped value instead of returning an
+  empty-array literal for a missing element.
+- `parseMultipart.js` builds its allowed fields as `new Set(fieldNames)`,
+  which is empty for no names, instead of defaulting to `[]`.
+- `emulatorGuard.js` decodes the settings file with `toString()` instead of
+  an encoding argument that `JSON.parse` made redundant.
+- `frontend/src/lib/mapData.js` answers a body that is not a list with an
+  empty map, and `tours.js` names its default sort as a literal rather than
+  reading it from `SORT_OPTIONS` at import, whose empty mutant only broke the
+  import, which Stryker does not count as a failed test.
 
 ## Property tests
 
@@ -444,9 +563,14 @@ out-of-order timestamps are a property too: the duration is never negative.
 - Distance, moving time and climb add up **within** each `<trkseg>` (and each
   `<trk>`), never across the gap between two: a train ride between two
   segments is not riding (#552). Elapsed duration still spans the earliest to
-  the latest timestamp. The stored `heatmapData` stays one flat line, so the
-  map still draws a straight line across the gap; splitting it is a
-  document-shape change for another issue.
+  the latest timestamp. The track stores its points as one list plus
+  `segmentStarts`, the index where each segment after the first begins, and
+  the map draws one line per segment, never one across the gap. Downsampling
+  keeps each segment's first and last point within the 5,000-point cap; a file
+  with more than 500 segments is drawn as one line, so its ends cannot outgrow
+  the cap. The map budget simplifies each segment on its own, and a tour stored
+  before the breaks gets them when `backfillTracks.js` rebuilds its track from
+  the GPX file (falling back to its inline points, as one line, without one).
 - A file without a valid track point falls back to its `<rte>` points (a
   planner's export); with none of either, the upload is refused with
   `errors.gpxNoTrack` instead of storing an empty 0 km tour (#554).

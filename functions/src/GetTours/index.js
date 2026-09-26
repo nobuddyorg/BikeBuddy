@@ -1,11 +1,11 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
-const { unauthorized } = require('../lib/http');
+const { ERROR_KEYS, error, unauthorized } = require('../lib/http');
 const { toTourSummaryResponse } = require('../lib/tourResponse');
+const { pageRequest, pageBody } = require('../lib/paging');
 
 // The list projection: heatmapData stays out of list responses.
 const LIST_QUERY =
@@ -18,20 +18,30 @@ async function getTours(
 ) {
   const user = await authenticate(request);
   if (!user) return unauthorized();
+  const page = pageRequest(request.query);
+  if (page.kind === 'invalid') return error(400, ERROR_KEYS.pageInvalid);
+  const listQuery = { userId: user.userId, query: LIST_QUERY };
 
-  const tours = await db.queryUserItems(toursContainer(), {
-    userId: user.userId,
-    query: LIST_QUERY,
+  if (page.kind === 'all') {
+    const tours = await db.queryUserItems(toursContainer(), listQuery);
+    return { status: 200, jsonBody: tours.map(toTourSummaryResponse) };
+  }
+  const { items, more } = await db.queryUserPage(toursContainer(), {
+    ...listQuery,
+    offset: page.offset,
+    limit: page.limit,
   });
-  return { status: 200, jsonBody: tours.map(toTourSummaryResponse) };
+  return {
+    status: 200,
+    jsonBody: pageBody({ items: items.map(toTourSummaryResponse), page, more }),
+  };
 }
 
-app.http('GetTours', {
+apiRoute('GetTours', {
   methods: ['get'],
-  authLevel: 'anonymous',
   route: 'tours',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => getTours(request)),
+  handler: (request) => getTours(request),
 });
 
 module.exports = { getTours };

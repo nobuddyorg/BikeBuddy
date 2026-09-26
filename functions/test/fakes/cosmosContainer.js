@@ -18,32 +18,59 @@ function applyPatch(document, { op, path, value }) {
   document[field] = value;
 }
 
-// SELECT <* | c.a, c.b> FROM c [WHERE c.x = @x [AND ...]] [ORDER BY c.y [ASC|DESC]]
-const QUERY_PATTERN =
-  /^SELECT (?<fields>\*|c\.\w+(?:, c\.\w+)*) FROM c(?: WHERE (?<where>.+?))?(?: ORDER BY c\.(?<orderBy>\w+)(?: (?<direction>ASC|DESC))?)?$/;
+// SELECT <* | c.a, ARRAY_LENGTH(c.b) AS n, ...> FROM c
+// [WHERE c.x = @x [AND IS_DEFINED(c.y) | AND ARRAY_CONTAINS(@ids, c.id) ...]]
+// [ORDER BY c.y [ASC|DESC]] [OFFSET @offset LIMIT @limit]
+const FIELD = String.raw`(?:c\.\w+|ARRAY_LENGTH\(c\.\w+\) AS \w+)`;
+const QUERY_PATTERN = new RegExp(
+  String.raw`^SELECT (?<fields>\*|${FIELD}(?:, ${FIELD})*) FROM c(?: WHERE (?<where>.+?))?` +
+    String.raw`(?: ORDER BY c\.(?<orderBy>\w+)(?: (?<direction>ASC|DESC))?)?` +
+    String.raw`(?: OFFSET (?<offset>@\w+) LIMIT (?<limit>@\w+))?$`,
+);
+
+function conditionOf(condition, valueOf) {
+  const defined = /^IS_DEFINED\(c\.(\w+)\)$/.exec(condition);
+  if (defined) return (document) => defined[1] in document;
+  const contains = /^ARRAY_CONTAINS\((@\w+), c\.(\w+)\)$/.exec(condition);
+  if (contains) return (document) => valueOf(contains[1]).includes(document[contains[2]]);
+  const [, field, parameter] = /^c\.(\w+) = (@\w+)$/.exec(condition);
+  return (document) => document[field] === valueOf(parameter);
+}
+
+// Cosmos leaves a projected property out when its value is undefined.
+function projectionOf(field) {
+  const length = /^ARRAY_LENGTH\(c\.(\w+)\) AS (\w+)$/.exec(field);
+  if (length) {
+    const [, source, alias] = length;
+    return (document) =>
+      Array.isArray(document[source]) ? [[alias, document[source].length]] : [];
+  }
+  const name = field.slice(2);
+  return (document) => (name in document ? [[name, document[name]]] : []);
+}
 
 function runQuery(documents, { query, parameters }) {
   const match = QUERY_PATTERN.exec(query.replace(/\s+/g, ' ').trim());
   if (!match) throw new Error(`fake Cosmos: unsupported query ${query}`);
-  const { fields, where, orderBy, direction } = match.groups;
+  const { fields, where, orderBy, direction, offset, limit } = match.groups;
   const valueOf = (name) => parameters.find((parameter) => parameter.name === name).value;
-  const conditions = (where ? where.split(' AND ') : []).map((condition) => {
-    const [, field, parameter] = /^c\.(\w+) = (@\w+)$/.exec(condition);
-    return { field, value: valueOf(parameter) };
-  });
-  const selected = documents.filter((document) =>
-    conditions.every(({ field, value }) => document[field] === value),
+  const conditions = (where ? where.split(' AND ') : []).map((condition) =>
+    conditionOf(condition, valueOf),
   );
+  const selected = documents.filter((document) => conditions.every((matches) => matches(document)));
   if (orderBy) {
     const sign = direction === 'DESC' ? -1 : 1;
     selected.sort((left, right) => (left[orderBy] > right[orderBy] ? sign : -sign));
   }
+  if (offset) {
+    if (!orderBy) throw new Error('fake Cosmos: OFFSET without ORDER BY pages unpredictably');
+    selected.splice(0, valueOf(offset));
+    selected.splice(valueOf(limit));
+  }
   if (fields === '*') return selected;
-  const names = fields.split(', ').map((field) => field.slice(2));
+  const projections = fields.split(/, (?=c\.|ARRAY_LENGTH)/).map(projectionOf);
   return selected.map((document) =>
-    Object.fromEntries(
-      names.filter((name) => name in document).map((name) => [name, document[name]]),
-    ),
+    Object.fromEntries(projections.flatMap((project) => project(document))),
   );
 }
 
@@ -157,5 +184,7 @@ const fakeToursContainer = (documents = []) =>
   createFakeContainer({ partitionKeyPath: 'userId', documents });
 const fakeUsersContainer = (documents = []) =>
   createFakeContainer({ partitionKeyPath: 'id', documents });
+const fakeTracksContainer = (documents = []) =>
+  createFakeContainer({ partitionKeyPath: 'userId', documents });
 
-module.exports = { fakeToursContainer, fakeUsersContainer, cosmosError };
+module.exports = { fakeToursContainer, fakeUsersContainer, fakeTracksContainer, cosmosError };

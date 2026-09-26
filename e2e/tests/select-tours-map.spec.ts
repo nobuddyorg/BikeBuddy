@@ -68,7 +68,7 @@ staticTest.describe('selecting tours drives the map', () => {
     const mapRequests: string[] = [];
     let releaseMap = () => {};
     const mapHeld = new Promise<void>((resolve) => (releaseMap = resolve));
-    await page.route('**/api/map', async (route) => {
+    await page.route('**/api/v1/map', async (route) => {
       mapRequests.push(route.request().url());
       await mapHeld;
       await route.fallback();

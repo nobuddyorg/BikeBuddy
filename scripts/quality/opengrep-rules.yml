@@ -1,0 +1,21 @@
+# BikeBuddy's own OpenGrep rules, added to the community packs by opengrep.sh.
+rules:
+  # The community taint rules know Express's req.body, not an Azure Functions request (#595).
+  - id: bikebuddy.no-runtime-code
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Runs a string as code. Nothing BikeBuddy ships or runs against data needs eval, Function or
+      node:vm, and request data reaching one is remote code execution.
+    paths:
+      # The Playwright harness reads the developer's own config.js in a vm sandbox; no outside input.
+      exclude: [e2e/]
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: Function(...)
+      - pattern: $VM.runInThisContext(...)
+      - pattern: $VM.runInNewContext(...)
+      - pattern: $VM.runInContext(...)
+      - pattern: $VM.compileFunction(...)
+      - pattern: new $VM.Script(...)

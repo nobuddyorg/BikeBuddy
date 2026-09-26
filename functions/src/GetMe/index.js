@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const { refusePendingDeletion } = require('../lib/pendingDeletion');
@@ -64,12 +63,11 @@ async function getMe(
   return { status: 200, jsonBody: toUserResponse(profile) };
 }
 
-app.http('GetMe', {
+apiRoute('GetMe', {
   methods: ['get'],
-  authLevel: 'anonymous',
   route: 'me',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => getMe(request)),
+  handler: (request) => getMe(request),
 });
 
 module.exports = { getMe };

@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -10,6 +9,7 @@ const { loadOwnedTour } = require('../lib/ownedTour');
 const { gpxBlobName } = require('../lib/blobNames');
 const { toSignedImage } = require('../lib/tourImages');
 const { toTourDetailResponse, gpxDownloadDisposition } = require('../lib/tourResponse');
+const { readTourTrack } = require('../lib/tourTrack');
 
 // Tours seeded without an upload have no GPX blob, and so nothing to download.
 async function signedGpxDownload({ tour, userId, gpxContainer, now }) {
@@ -27,6 +27,7 @@ async function getTour(
   {
     authenticate = authMiddleware.authenticate,
     toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
     imagesContainer = blobStorage.imagesContainer,
     gpxContainer = blobStorage.gpxContainer,
     now = system.currentTime,
@@ -39,7 +40,8 @@ async function getTour(
   const requestTime = now();
 
   const signUrl = blobStorage.readUrlSigner({ container: imagesContainer, now: requestTime });
-  const [images, download] = await Promise.all([
+  const [track, images, download] = await Promise.all([
+    readTourTrack({ tour, userId, tracksContainer }),
     Promise.all(
       (tour.images ?? []).map((image) =>
         toSignedImage(image, { userId, tourId: tour.id, signUrl }),
@@ -48,15 +50,17 @@ async function getTour(
     signedGpxDownload({ tour, userId, gpxContainer, now: requestTime }),
   ]);
 
-  return { status: 200, jsonBody: toTourDetailResponse({ tour, images, ...download }) };
+  return {
+    status: 200,
+    jsonBody: toTourDetailResponse({ tour, track, images, ...download }),
+  };
 }
 
-app.http('GetTour', {
+apiRoute('GetTour', {
   methods: ['get'],
-  authLevel: 'anonymous',
   route: 'tours/{tourId}',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => getTour(request)),
+  handler: (request) => getTour(request),
 });
 
 module.exports = { getTour };

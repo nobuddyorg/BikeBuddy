@@ -3,6 +3,7 @@
 const { uploadTour } = require('./index');
 const {
   fakeToursContainer,
+  fakeTracksContainer,
   fakeUsersContainer,
   cosmosError,
 } = require('../../test/fakes/cosmosContainer');
@@ -31,15 +32,28 @@ const BARE_GPX =
   '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">' +
   '<trk><trkseg><trkpt lat="48.1" lon="11.5"/></trkseg></trk></gpx>';
 
-const fileOf = (content) => async () => ({
-  filename: 'tour.gpx',
-  mimeType: 'application/gpx+xml',
-  buffer: Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8'),
-});
+const fileOf =
+  (content, fields = {}) =>
+  async () => ({
+    filename: 'tour.gpx',
+    mimeType: 'application/gpx+xml',
+    buffer: Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8'),
+    fields,
+  });
 const clientError = (message) => Object.assign(new Error(message), { status: 400 });
 
-function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queued = [] } = {}) {
-  const tours = fakeToursContainer();
+const ALLOW_ALL = { take: () => ({ allowed: true }) };
+
+function setUp({
+  authenticate = signedInAs('u1'),
+  parseFile = fileOf(GPX),
+  parseTrack,
+  queued = [],
+  documents = [],
+  rateLimiter = ALLOW_ALL,
+} = {}) {
+  const tours = fakeToursContainer(documents);
+  const tracks = fakeTracksContainer();
   const gpx = fakeGpxContainer();
   const deletions = fakeUsersContainer(queued);
   const run = (query = {}) =>
@@ -49,24 +63,30 @@ function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queue
         authenticate,
         deletionsContainer: () => deletions,
         toursContainer: () => tours,
+        tracksContainer: () => tracks,
         gpxContainer: async () => gpx,
         parseFile,
+        ...(parseTrack && { parseTrack }),
+        rateLimiter,
         newId: idsInOrder(TOUR_ID),
         now: fixedClock,
       },
     );
   const storedTour = () => tours.stored(TOUR_ID, 'u1');
-  return { tours, gpx, run, storedTour };
+  const storedTrack = () => tracks.stored(TOUR_ID, 'u1');
+  return { tours, tracks, gpx, run, storedTour, storedTrack };
 }
 
-describe('POST /api/tours/upload', () => {
-  it('stores the GPX and the tour, and returns 201 with the new tour id', async () => {
-    const { gpx, run, storedTour } = setUp();
+describe('POST /api/v1/tours (and /api/tours/upload)', () => {
+  it('stores the GPX, the track and the tour, and returns 201 with the new tour id', async () => {
+    const { gpx, run, storedTour, storedTrack } = setUp();
 
     const response = await run();
 
     expect(response.status).toBe(201);
+    expect(response.headers).toEqual({ Location: `/api/v1/tours/${TOUR_ID}` });
     expect(response.jsonBody).toStrictEqual({
+      id: TOUR_ID,
       tourId: TOUR_ID,
       name: 'Test Tour',
       distance: expect.any(Number),
@@ -79,15 +99,25 @@ describe('POST /api/tours/upload', () => {
     expect(storedTour()).toMatchObject({
       id: TOUR_ID,
       userId: 'u1',
-      schemaVersion: 1,
+      schemaVersion: 3,
       name: 'Test Tour',
       description: '',
       images: [],
       gpxFileUrl: `https://fake.blob/gpx-files/${GPX_BLOB}`,
+      gpxBytes: Buffer.byteLength(GPX),
+      pointCount: 2,
+    });
+    // The points live in the track item only, so no tour query ever loads them (#615).
+    expect(storedTour()).not.toHaveProperty('heatmapData');
+    expect(storedTrack()).toMatchObject({
+      id: TOUR_ID,
+      userId: 'u1',
+      schemaVersion: 1,
       heatmapData: [
         [48.1351, 11.582],
         [48.1361, 11.583],
       ],
+      segmentStarts: [],
     });
   });
 
@@ -99,21 +129,42 @@ describe('POST /api/tours/upload', () => {
     expect(JSON.stringify(response.jsonBody)).not.toContain('fake.blob');
   });
 
-  it('files the tour and its blob under the token user, whatever the request says', async () => {
-    const { tours, gpx, run } = setUp();
+  it('files the tour, its track and its blob under the token user, whatever the request says', async () => {
+    const { tours, tracks, gpx, run } = setUp();
 
     await run({ userId: 'u2', name: 'Mine' });
 
     expect(tours.all().map((stored) => stored.userId)).toEqual(['u1']);
+    expect(tracks.all().map((stored) => stored.userId)).toEqual(['u1']);
     expect(gpx.names()).toEqual([GPX_BLOB]);
   });
 
-  it('takes name and description from the query, the name over the GPX name', async () => {
+  it('takes name and description from the form fields, the name over the GPX name (#579)', async () => {
+    const parseFile = vi.fn(fileOf(GPX, { name: 'My Custom Name', description: 'Nice ride' }));
+    const { run, storedTour } = setUp({ parseFile });
+
+    await run();
+
+    expect(storedTour()).toMatchObject({ name: 'My Custom Name', description: 'Nice ride' });
+    expect(parseFile).toHaveBeenCalledWith(expect.anything(), {
+      fieldNames: ['name', 'description'],
+    });
+  });
+
+  it('takes them from the query string, as pages from before #579 send them', async () => {
     const { run, storedTour } = setUp();
 
     await run({ name: 'My Custom Name', description: 'Nice ride' });
 
     expect(storedTour()).toMatchObject({ name: 'My Custom Name', description: 'Nice ride' });
+  });
+
+  it('prefers each form field over the same query parameter', async () => {
+    const { run, storedTour } = setUp({ parseFile: fileOf(GPX, { description: 'From the form' }) });
+
+    await run({ name: 'From the query', description: 'Also from the query' });
+
+    expect(storedTour()).toMatchObject({ name: 'From the query', description: 'From the form' });
   });
 
   it('falls back to "Untitled Tour" and the upload time without GPX name or time', async () => {
@@ -128,13 +179,13 @@ describe('POST /api/tours/upload', () => {
   it.each([
     ['a numeric name as text (#548)', '<name>20240512</name>', '20240512'],
     ['the text of a name with attributes', '<name lang="de">Isartal</name>', 'Isartal'],
-    ['a name with its angle brackets removed', '<name>&lt;b&gt;Alps&lt;/b&gt;</name>', 'bAlps/b'],
+    ['a name with markup as typed (#574)', '<name>&lt;b&gt;Alps&lt;/b&gt;</name>', '<b>Alps</b>'],
     [
       '"Untitled Tour" for a name over 200 characters',
       `<name>${'a'.repeat(201)}</name>`,
       'Untitled Tour',
     ],
-    ['"Untitled Tour" for a name that is only markup', '<name>&lt;&gt;</name>', 'Untitled Tour'],
+    ['"Untitled Tour" for a name that is only whitespace', '<name>  </name>', 'Untitled Tour'],
   ])('stores %s from the GPX', async (_label, nameTag, expected) => {
     const gpx = `<gpx><metadata>${nameTag}</metadata><trk><trkseg><trkpt lat="48" lon="11"/></trkseg></trk></gpx>`;
     const { run, storedTour } = setUp({ parseFile: fileOf(gpx) });
@@ -175,16 +226,31 @@ describe('POST /api/tours/upload', () => {
     expect(withoutStats.storedTour()).toMatchObject({ elevationGain: null, durationSeconds: null });
   });
 
-  it('writes the blob before the document', async () => {
-    const { tours, gpx, run } = setUp();
-    let blobsWhenCreated = [];
+  it('writes the blob, then the track, then the tour', async () => {
+    const { tours, tracks, gpx, run } = setUp();
+    let blobsWhenTrackCreated = [];
+    let tracksWhenTourCreated = [];
+    tracks.beforeNext('create', () => {
+      blobsWhenTrackCreated = gpx.names();
+    });
     tours.beforeNext('create', () => {
-      blobsWhenCreated = gpx.names();
+      tracksWhenTourCreated = tracks.all().map((track) => track.id);
     });
 
     await run();
 
-    expect(blobsWhenCreated).toEqual([GPX_BLOB]);
+    expect(blobsWhenTrackCreated).toEqual([GPX_BLOB]);
+    expect(tracksWhenTourCreated).toEqual([TOUR_ID]);
+  });
+
+  it('rolls the blob back and writes no tour when the track create fails', async () => {
+    const { tours, tracks, gpx, run } = setUp();
+    tracks.failOn('create', { error: cosmosError(503, 'cosmos down') });
+
+    await expect(run()).rejects.toThrow('cosmos down');
+
+    expect(gpx.names()).toEqual([]);
+    expect(tours.all()).toEqual([]);
   });
 
   it('writes no document when the blob upload fails', async () => {
@@ -196,12 +262,13 @@ describe('POST /api/tours/upload', () => {
     expect(tours.all()).toEqual([]);
   });
 
-  it('rolls the blob back and rethrows when the document create fails', async () => {
-    const { tours, gpx, run } = setUp();
+  it('rolls the track and the blob back and rethrows when the tour create fails', async () => {
+    const { tours, tracks, gpx, run } = setUp();
     tours.failOn('create', { error: cosmosError(503, 'cosmos down') });
 
     await expect(run()).rejects.toThrow('cosmos down');
 
+    expect(tracks.all()).toEqual([]);
     expect(gpx.names()).toEqual([]);
   });
 
@@ -213,11 +280,21 @@ describe('POST /api/tours/upload', () => {
     const error = await run().catch((failure) => failure);
 
     expect(error).toBeInstanceOf(AggregateError);
-    expect(error.errors.map((failure) => failure.message)).toEqual(['cosmos down', 'storage down']);
+    const [createError, rollbackError] = error.errors;
+    expect(createError.message).toBe('cosmos down');
+    expect(rollbackError.message).toBe(
+      `Tour ${TOUR_ID} was not created, and its track or GPX was not rolled back`,
+    );
+    expect(rollbackError.errors.map((failure) => failure.message)).toEqual(['storage down']);
   });
 
   it.each([
     ['metadata that fails validation', { query: { name: 'a'.repeat(201) } }, 'errors.tourName'],
+    [
+      'a form field that fails validation',
+      { parseFile: fileOf(GPX, { description: 'd'.repeat(2001) }) },
+      'errors.tourDescription',
+    ],
     [
       'a file without XML magic bytes',
       { parseFile: fileOf('not xml at all') },
@@ -249,7 +326,8 @@ describe('POST /api/tours/upload', () => {
 
     expect(response.status).toBe(400);
     expect(response.jsonBody.error).toBe(message);
-    expect([...tours.calls, ...gpx.calls]).toEqual([]);
+    const writes = tours.calls.filter((call) => call.operation !== 'query');
+    expect([...writes, ...gpx.calls]).toEqual([]);
   });
 
   it('rolls its GPX blob back and answers 503 when Cosmos throttles the create', async () => {
@@ -335,5 +413,67 @@ describe('POST /api/tours/upload', () => {
     expect(response.status).toBe(401);
     expect(parseFile).not.toHaveBeenCalled();
     expect([...tours.calls, ...gpx.calls]).toEqual([]);
+  });
+
+  describe('limits (#549)', () => {
+    const GIGABYTE = 1024 ** 3;
+    const storedTour = (index, gpxBytes = 0) => ({
+      id: `stored-${index}`,
+      userId: 'u1',
+      gpxBytes,
+      images: [],
+    });
+
+    it('answers 429 with Retry-After before reading the upload once the rider is over the rate', async () => {
+      const parseFile = vi.fn(fileOf(GPX));
+      const rateLimiter = { take: vi.fn(() => ({ allowed: false, retryAfterSeconds: 36 })) };
+      const { tours, gpx, run } = setUp({ parseFile, rateLimiter });
+
+      const response = await run();
+
+      expect(response).toEqual({
+        status: 429,
+        headers: { 'Retry-After': '36' },
+        jsonBody: { error: 'errors.rateLimited' },
+      });
+      expect(rateLimiter.take).toHaveBeenCalledWith('u1', NOW.getTime());
+      expect(parseFile).not.toHaveBeenCalled();
+      expect([...tours.calls, ...gpx.calls]).toEqual([]);
+    });
+
+    it('refuses the tour past the tour limit before parsing its GPX', async () => {
+      const parseTrack = vi.fn();
+      const documents = Array.from({ length: 1000 }, (_, index) => storedTour(index));
+      const { tours, gpx, run } = setUp({ documents, parseTrack });
+
+      const response = await run();
+
+      expect(response).toEqual({ status: 400, jsonBody: { error: 'errors.tourLimit' } });
+      expect(parseTrack).not.toHaveBeenCalled();
+      expect(tours.all()).toHaveLength(1000);
+      expect(gpx.calls).toEqual([]);
+    });
+
+    it('refuses a GPX that would pass the storage limit, counting its size', async () => {
+      const room = 5 * GIGABYTE - Buffer.byteLength(GPX);
+      const { run: fits } = setUp({ documents: [storedTour(1, room)] });
+      const { run: overflows } = setUp({ documents: [storedTour(1, room + 1)] });
+
+      expect((await fits()).status).toBe(201);
+      expect(await overflows()).toEqual({
+        status: 400,
+        jsonBody: { error: 'errors.storageLimit' },
+      });
+    });
+
+    it("never counts another rider's tours", async () => {
+      const documents = Array.from({ length: 1000 }, (_, index) => ({
+        ...storedTour(index),
+        userId: 'u2',
+      }));
+      const { run } = setUp({ documents });
+
+      expect((await run()).status).toBe(201);
+    });
   });
 });

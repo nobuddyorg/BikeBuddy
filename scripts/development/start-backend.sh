@@ -8,12 +8,16 @@ FUNCTIONS_HOST_LOG="${FUNCTIONS_HOST_LOG:-/tmp/func.log}"
 
 "$ROOT/scripts/development/start-azurite.sh"
 
+# Every local test runs as the one SKIP_AUTH dev user, so the per-rider upload budget (#549) is
+# raised here; the deployed app never sets it and keeps 100 an hour.
+export UPLOAD_RATE_LIMIT_PER_HOUR="${UPLOAD_RATE_LIMIT_PER_HOUR:-1000000}"
+
 echo "==> Starting Functions host..."
 (cd "$ROOT/functions" && nohup func start >"$FUNCTIONS_HOST_LOG" 2>&1 &)
 
 echo "==> Waiting for the Functions host on http://localhost:7071 (up to 2 min)..."
 for _ in $(seq 1 60); do
-  if curl -sS -o /dev/null http://localhost:7071/api/me 2>/dev/null; then
+  if curl -sS -o /dev/null http://localhost:7071/api/v1/me 2>/dev/null; then
     echo "==> Functions host is up."
     exit 0
   fi

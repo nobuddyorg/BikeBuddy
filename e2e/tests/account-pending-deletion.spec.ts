@@ -6,7 +6,7 @@ staticTest.use({ allowedConsoleErrors: { matching: [/status of 410/] } });
 staticTest(
   'signing in while the account deletion is queued signs straight out',
   async ({ on, page }) => {
-    await page.route('**/api/me', (route) =>
+    await page.route('**/api/v1/me', (route) =>
       route.fulfill({
         status: 410,
         contentType: 'application/json',

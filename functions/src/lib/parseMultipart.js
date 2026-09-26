@@ -21,12 +21,20 @@ function malformedRequest(error) {
   return badRequest(ERROR_KEYS.invalidUpload);
 }
 
-function createParser(headers) {
+// A 2,000-character description at four bytes a character; a longer value is no tour's.
+const MAX_FIELD_BYTES = 8 * 1024;
+
+function createParser(headers, allowedFields) {
   try {
     return Busboy({
       headers,
-      // busboy fires 'limit' on reaching fileSize, and a file of exactly 10 MB is allowed.
-      limits: { fileSize: MAX_FILE_BYTES + 1, files: 1, fields: 0 },
+      // busboy cuts a file or value on reaching its size, and one exactly at the limit is allowed.
+      limits: {
+        fileSize: MAX_FILE_BYTES + 1,
+        files: 1,
+        fields: allowedFields.size,
+        fieldSize: MAX_FIELD_BYTES + 1,
+      },
     });
   } catch (error) {
     // Busboy throws here only for a missing or unusable Content-Type header.
@@ -34,27 +42,54 @@ function createParser(headers) {
   }
 }
 
-function collectFirstFile(parser, { resolve, reject }) {
+// Only the named fields, each once and whole: anything else is a client that means something else.
+function collectFields(parser, { allowedFields, fields, reject }) {
+  parser.on('field', (name, value, { valueTruncated }) => {
+    if (!allowedFields.has(name) || name in fields || valueTruncated) {
+      reject(badRequest(ERROR_KEYS.invalidUpload));
+      return;
+    }
+    fields[name] = value;
+  });
+  parser.on('fieldsLimit', () => reject(badRequest(ERROR_KEYS.invalidUpload)));
+}
+
+function collectFirstFile(parser, { onFile, reject }) {
   parser.on('file', (_fieldName, fileStream, { filename, mimeType }) => {
     const chunks = [];
     // The stream is truncated from here on, so the partial buffer is unusable.
     fileStream.on('limit', () => reject(badRequest(ERROR_KEYS.fileSize)));
     fileStream.on('data', (chunk) => chunks.push(chunk));
-    fileStream.on('end', () => resolve({ filename, mimeType, buffer: Buffer.concat(chunks) }));
+    fileStream.on('end', () => onFile({ filename, mimeType, buffer: Buffer.concat(chunks) }));
     // busboy destroys the file with the parser's own error, which the parser's handler reports.
     fileStream.on('error', () => {});
   });
+}
+
+// busboy finishes only once every file stream has ended, so the fields around the file are in.
+function collectUpload(parser, { allowedFields, resolve, reject }) {
+  const fields = {};
+  let file;
+  collectFields(parser, { allowedFields, fields, reject });
+  collectFirstFile(parser, { onFile: (collected) => (file = collected), reject });
   parser.on('error', (error) => reject(malformedRequest(error)));
-  parser.on('finish', () => reject(badRequest(ERROR_KEYS.noFile)));
+  parser.on('finish', () =>
+    file ? resolve({ ...file, fields }) : reject(badRequest(ERROR_KEYS.noFile)),
+  );
 }
 
 /**
- * Streams the first file through busboy, so the size limit bounds memory; client errors get 400.
+ * Streams the first file through busboy, so the size limit bounds memory, with the text fields
+ * `fieldNames` allows (#579); client errors get 400.
  *
  * @param {import('@azure/functions').HttpRequest} request
- * @returns {Promise<{ filename: string, mimeType: string, buffer: Buffer }>}
+ * @param {{ fieldNames?: string[] }} [options]
+ * @returns {Promise<{ filename: string, mimeType: string, buffer: Buffer,
+ *   fields: Record<string, string> }>}
  */
-async function parseMultipart(request) {
+async function parseMultipart(request, { fieldNames } = {}) {
+  // new Set(undefined) is empty: no fields named, none accepted.
+  const allowedFields = new Set(fieldNames);
   const headers = Object.fromEntries(request.headers.entries());
 
   // A shortcut for honestly declared lengths only; the stream limit enforces.
@@ -63,14 +98,14 @@ async function parseMultipart(request) {
     throw badRequest(ERROR_KEYS.fileSize);
   }
 
-  const parser = createParser(headers);
+  const parser = createParser(headers, allowedFields);
   // Readable.fromWeb(null) throws a bare TypeError, which would become a 500.
   const webBody = request.body;
   if (!webBody) throw badRequest(ERROR_KEYS.noFile);
 
-  // A promise settles once, so whichever of file, finish or error comes first decides.
+  // A promise settles once, so whichever of finish or an error comes first decides.
   return new Promise((resolve, reject) => {
-    collectFirstFile(parser, { resolve, reject });
+    collectUpload(parser, { allowedFields, resolve, reject });
 
     const body = Readable.fromWeb(webBody);
     body.on('error', (error) => reject(malformedRequest(error)));

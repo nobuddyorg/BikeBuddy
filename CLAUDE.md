@@ -15,13 +15,14 @@ on a map, and attaches photos. Seven locales. Features:
   no build step. `frontend/src/`; logic in `lib/`, rendering in `ui/`.
 - **Backend**: Azure Functions (Node 24, Flex Consumption), one folder per
   function in `functions/src/<Name>/`, shared code in `functions/src/lib/`.
-- **Data**: Cosmos DB Serverless (`users` by `/id`, `tours` by `/userId`,
-  `deletions`), Blob Storage (private containers, short-lived SAS URLs).
+- **Data**: Cosmos DB Serverless (`users` by `/id`, `tours` and `tracks` by
+  `/userId`, `deletions`), Blob Storage (private containers, short-lived SAS
+  URLs).
 - **Authorization**: in the handlers, and nothing else. Entra External ID
   issues OIDC access tokens; `authMiddleware` validates them per request.
 - **Infrastructure**: OpenTofu in `infrastructure/`.
-- **Deploy**: `deploy.yml` applies infrastructure and publishes Functions and
-  frontend on every push to `main`. No staging.
+- **Deploy**: `deploy.yml` applies infrastructure and publishes Functions, then
+  frontend, for each commit CI Gate passed on `main` (#563). No staging.
 
 ## Read before you touch
 
@@ -108,9 +109,10 @@ security-critical.
 it purges each queued user's app data and deletes the directory user. A
 deletion cannot be undone from here. It must delete only ids the API queued and
 stay idempotent ("Account deletion (GDPR), out-of-band"). Never loosen what it
-accepts; #570 tracks the checks it still lacks (it cannot prove that the API,
-and not someone else holding the Cosmos key, queued an id). A change to it is
-security-relevant (see above).
+accepts: it deletes only entries that name an app user whose document is
+already gone (#570), and still cannot prove that the API, and not someone else
+holding the Cosmos key, queued an id. A change to it is security-relevant (see
+above).
 
 ## Infrastructure changes
 

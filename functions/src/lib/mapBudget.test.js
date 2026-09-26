@@ -1,6 +1,6 @@
 'use strict';
 
-const { budgetTracks } = require('./mapBudget');
+const { budgetTracks, budgetSegmentedTracks } = require('./mapBudget');
 
 const sine = (count) =>
   Array.from({ length: count }, (_, index) => [
@@ -71,5 +71,42 @@ describe('budgetTracks', () => {
     expect(pointsIn(tracks)).toBeLessThanOrEqual(4000);
     expect(pointsIn(tracks)).toBeGreaterThan(3950);
     expect(Math.min(...tracks.map((track) => track.length))).toBeGreaterThanOrEqual(20);
+  });
+});
+
+describe('budgetSegmentedTracks', () => {
+  const line = (latitude, count) =>
+    Array.from({ length: count }, (_, index) => [latitude, 11 + index * 0.0001]);
+
+  it('answers every track whole, breaks included, within the budget', () => {
+    const tracks = [
+      { heatmapData: [...line(48, 2), ...line(52, 3)], segmentStarts: [2] },
+      { heatmapData: line(47, 4), segmentStarts: [] },
+    ];
+
+    expect(budgetSegmentedTracks(tracks, { totalPointBudget: 100 })).toEqual(tracks);
+  });
+
+  it('shares the budget per segment, so each keeps its ends and its break', () => {
+    const tracks = [
+      { heatmapData: [...line(48, 300), ...line(52, 300)], segmentStarts: [300] },
+      { heatmapData: line(47, 300), segmentStarts: [] },
+    ];
+
+    const [first, second] = budgetSegmentedTracks(tracks, { totalPointBudget: 90 });
+
+    expect(first.heatmapData.length + second.heatmapData.length).toBe(90);
+    expect(first.segmentStarts).toEqual([30]);
+    expect(first.heatmapData[0]).toEqual([48, 11]);
+    expect(first.heatmapData[29]).toEqual(line(48, 300)[299]);
+    expect(first.heatmapData[30]).toEqual([52, 11]);
+    expect(first.heatmapData.at(-1)).toEqual(line(52, 300)[299]);
+    expect(second.segmentStarts).toEqual([]);
+  });
+
+  it('keeps an empty track empty', () => {
+    expect(
+      budgetSegmentedTracks([{ heatmapData: [], segmentStarts: [] }], { totalPointBudget: 10 }),
+    ).toEqual([{ heatmapData: [], segmentStarts: [] }]);
   });
 });

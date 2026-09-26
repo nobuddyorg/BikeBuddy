@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -15,6 +14,7 @@ async function deleteAccount(
     authenticate = authMiddleware.authenticate,
     usersContainer = db.usersContainer,
     toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
     deletionsContainer = db.deletionsContainer,
     gpxContainer = blobStorage.gpxContainer,
     imagesContainer = blobStorage.imagesContainer,
@@ -33,17 +33,23 @@ async function deleteAccount(
       requestedAt: now().toISOString(),
     });
   }
-  await purgeAccountData({ userId, toursContainer, usersContainer, gpxContainer, imagesContainer });
+  await purgeAccountData({
+    userId,
+    toursContainer,
+    tracksContainer,
+    usersContainer,
+    gpxContainer,
+    imagesContainer,
+  });
 
   return { status: 204 };
 }
 
-app.http('DeleteAccount', {
+apiRoute('DeleteAccount', {
   methods: ['delete'],
-  authLevel: 'anonymous',
   route: 'account',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => deleteAccount(request)),
+  handler: (request) => deleteAccount(request),
 });
 
 module.exports = { deleteAccount };

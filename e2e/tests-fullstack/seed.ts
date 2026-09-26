@@ -49,24 +49,22 @@ async function expectCreated(response: APIResponse, what: string) {
 export function createSeeder(request: APIRequestContext): Seeder {
   return {
     tour: async (tour) => {
-      const response = await request.post(
-        `/api/tours/upload?name=${encodeURIComponent(tour.name)}`,
-        {
-          multipart: {
-            file: {
-              name: 'ride.gpx',
-              mimeType: 'application/gpx+xml',
-              buffer: Buffer.from(gpx(tour)),
-            },
+      const response = await request.post('/api/v1/tours', {
+        multipart: {
+          name: tour.name,
+          file: {
+            name: 'ride.gpx',
+            mimeType: 'application/gpx+xml',
+            buffer: Buffer.from(gpx(tour)),
           },
         },
-      );
+      });
       await expectCreated(response, `tour "${tour.name}"`);
-      const { tourId } = (await response.json()) as { tourId: string };
-      return tourId;
+      const { id } = (await response.json()) as { id: string };
+      return id;
     },
     photo: async ({ tourId, path }) => {
-      const response = await request.post(`/api/tours/${tourId}/images`, {
+      const response = await request.post(`/api/v1/tours/${tourId}/images`, {
         multipart: {
           file: { name: basename(path), mimeType: 'image/jpeg', buffer: readFileSync(path) },
         },

@@ -31,6 +31,12 @@ cross-user data access, file-upload handling, and SAS URL exposure.
   gets 401 with nothing written (`functions/test/integration/`).
 - Uploads are validated by magic bytes and resized server-side; images are served
   via short-lived SAS URLs, not public containers.
+- User text (tour names and descriptions, profile names) is stored as typed,
+  only trimmed (#574). XSS is prevented where it is shown: the page writes it
+  through `textContent` or `value`, and the frontend ESLint config fails on every
+  HTML-parsing sink (`innerHTML` other than clearing, `insertAdjacentHTML`,
+  Leaflet's string tooltips and popups, ...). `e2e/tests/tour-name-markup.spec.ts`
+  shows a name with markup literally.
 
 ## Browser hardening
 
@@ -38,6 +44,17 @@ The frontend is deployed to GitHub Pages, which serves static files and offers n
 way to set response headers. The Content-Security-Policy therefore ships as a
 `<meta http-equiv>` tag in `frontend/src/index.html`, which browsers enforce for
 everything the document loads.
+
+The committed policy is the development one: it allows any
+`*.azurewebsites.net`, `*.blob.core.windows.net` and `*.ciamlogin.com` host,
+and Azurite at `http://127.0.0.1:10000`. The deploy narrows it in the published
+page (#560): `infrastructure tighten-csp` (`functions/scripts/lib/productionCsp.js`)
+replaces each wildcard with this deployment's exact API, storage and Entra
+hosts, and drops Azurite. It fails the deploy if a host is not a bare `https`
+origin, or if the development policy no longer contains what it replaces. The
+post-deploy smoke test checks the served page names the API and no development
+host. `style-src 'unsafe-inline'` stays: Leaflet positions its map elements
+with inline styles.
 
 Three protections cannot be delivered that way and are currently **not** in effect:
 

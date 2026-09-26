@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, fullstackTest } from './fullstack-test';
 import { PHOTOS } from './seed';
-import { DEV_USER_ID, devUserBlobNames, devUserTours } from './store';
+import { DEV_USER_ID, devUserBlobNames, devUserTours, devUserTracks } from './store';
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -18,7 +18,7 @@ const AFTER_UNDO_WINDOW = { timeout: 20_000 };
 
 fullstackTest('tour lifecycle: upload → list → detail → photo → delete', async ({ on, page }) => {
   await page.goto('/');
-  await expect(on(page).main.locators.userMenu).toBeVisible(); // real /api/me login
+  await expect(on(page).main.locators.userMenu).toBeVisible(); // real /api/v1/me login
 
   const tourName = 'CI E2E Tour';
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
@@ -28,6 +28,11 @@ fullstackTest('tour lifecycle: upload → list → detail → photo → delete',
   await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
 
   const [tour] = await devUserTours();
+  // The points live in the tour's track item, not in the tour (#615).
+  expect(tour).not.toHaveProperty('heatmapData');
+  expect((await devUserTracks()).map((track) => [track.id, track.heatmapData.length])).toEqual([
+    [tour.id, 3],
+  ]);
   const blobs = await devUserBlobNames();
   expect(blobs).toContain(`gpx-files/${DEV_USER_ID}/${tour.id}.gpx`);
   // The photo and its thumbnail.
@@ -39,6 +44,7 @@ fullstackTest('tour lifecycle: upload → list → detail → photo → delete',
   await expect(on(page).list.row(tourName)()).toHaveCount(0);
 
   await expect.poll(devUserTours, AFTER_UNDO_WINDOW).toEqual([]);
+  await expect.poll(devUserTracks, AFTER_UNDO_WINDOW).toEqual([]);
   await expect.poll(devUserBlobNames, AFTER_UNDO_WINDOW).toEqual([]);
 });
 
@@ -70,10 +76,57 @@ fullstackTest(
   },
 );
 
+fullstackTest(
+  'a list reloaded within the Undo window leaves the deleted tour out',
+  async ({ on, page }) => {
+    await page.clock.install();
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    await on(page).main.do.uploadGpx({ name: 'CI E2E Deleted', gpx: GPX });
+    await on(page).detail.do.deleteTour();
+    await expect(on(page).list.row('CI E2E Deleted')()).toHaveCount(0);
+
+    // Uploading reloads the list while the server still holds the deleted tour (#559).
+    await on(page).main.do.uploadGpx({ name: 'CI E2E Kept', gpx: GPX });
+
+    await expect(on(page).list.row('CI E2E Kept')()).toHaveCount(1);
+    await expect(on(page).list.row('CI E2E Deleted')()).toHaveCount(0);
+    await page.clock.runFor(10_000);
+    await expect
+      .poll(async () => (await devUserTours()).map((tour) => tour.name))
+      .toEqual(['CI E2E Kept']);
+  },
+);
+
+// Both travel as form fields of the upload (#579) and are stored as typed (#574).
+fullstackTest(
+  'an upload keeps the typed name and description, markup and all',
+  async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
+    const name = 'Pass <b>& back</b>';
+    const description = 'Steep, "really" <i>steep</i>';
+
+    await on(page).main.locators.buttons.upload.click();
+    await on(page).modal.upload.do.setName(name);
+    await on(page).modal.upload.do.setDescription(description);
+    await on(page).modal.upload.do.pickFile({
+      name: 'ride.gpx',
+      mimeType: 'application/gpx+xml',
+      buffer: Buffer.from(GPX),
+    });
+    await on(page).modal.upload.do.submit();
+
+    await expect(on(page).detail.locators.name).toHaveText(name);
+    await expect(on(page).detail.locators.description).toHaveText(description);
+    expect(await devUserTours()).toEqual([expect.objectContaining({ name, description })]);
+  },
+);
+
 fullstackTest.describe('a GPX file without track points', () => {
   // The refused upload's 400 is the expected answer, which the browser logs as a console error.
   fullstackTest.use({
-    allowedConsoleErrors: { matching: [/status of 400 .*\/api\/tours\/upload/] },
+    allowedConsoleErrors: { matching: [/status of 400 .*\/api\/v1\/tours/] },
   });
 
   fullstackTest('is refused, storing nothing', async ({ on, page }) => {

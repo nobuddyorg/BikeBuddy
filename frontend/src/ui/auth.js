@@ -53,7 +53,7 @@ function syncLanguageFromUser(user) {
 
 async function devSignIn() {
   try {
-    const response = await fetch(`${API_BASE}/api/me`);
+    const response = await fetch(`${API_BASE}/api/v1/me`);
     if (response.status === ACCOUNT_DELETED) return signOutDeletedAccount();
     state.user = response.ok ? await response.json() : SYNTHETIC_USER;
   } catch {
@@ -175,11 +175,11 @@ async function renderSignedIn() {
 
 // Token claims can lack the name right after sign-up; a failure keeps the token's values.
 export async function refreshUser() {
-  const { response, networkError } = await apiRequest('/api/me');
+  const { response, networkError } = await apiRequest('/api/v1/me');
   if (networkError) return;
   if (response.status === ACCOUNT_DELETED) return signOutDeletedAccount();
   if (!response.ok) {
-    console.warn(`GET /api/me answered ${response.status}`);
+    console.warn(`GET /api/v1/me answered ${response.status}`);
     return;
   }
   state.user = { ...state.user, ...(await response.json()) };

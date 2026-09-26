@@ -31,10 +31,7 @@ runs:
           echo "AzureWebJobsStorage=UseDevelopmentStorage=true"
         } >> "$GITHUB_ENV"
 
-    # 4.14.0's shrinkwrap resolves chalk from Microsoft's private feed (401 outside their network).
-    - name: Install Azure Functions Core Tools
-      shell: bash
-      run: npm install -g azure-functions-core-tools@4.13.0 # zizmor: ignore[adhoc-packages] global CLI, no lockfile; pinned above
+    - uses: ./.github/actions/install-core-tools
 
     - name: Install the Static Web Apps CLI
       if: inputs.swa-cli == 'true'

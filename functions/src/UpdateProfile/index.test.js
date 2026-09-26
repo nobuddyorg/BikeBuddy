@@ -47,10 +47,10 @@ describe('PATCH /api/me', () => {
     expect(users.stored('u1', 'u1').name).toBe('Ada Lovelace');
   });
 
-  it('strips HTML from the name', async () => {
+  it('stores a name with markup as typed (#574)', async () => {
     const { run, withBody } = setUp();
 
-    expect((await run(withBody({ name: '<b>Ada</b>' }))).jsonBody.name).toBe('bAda/b');
+    expect((await run(withBody({ name: ' <b>Ada</b> ' }))).jsonBody.name).toBe('<b>Ada</b>');
   });
 
   it('stores the language, leaving the name untouched', async () => {

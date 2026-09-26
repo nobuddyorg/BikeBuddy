@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -10,6 +9,7 @@ const { gpxBlobName, imageBlobName } = require('../lib/blobNames');
 const { toExportDocument, toExportTour } = require('../lib/exportDocument');
 const { gpxDownloadDisposition } = require('../lib/tourResponse');
 const { unauthorized } = require('../lib/http');
+const { readTracksByTour } = require('../lib/tourTrack');
 
 const ALL_OWN_TOURS_QUERY = 'SELECT * FROM c WHERE c.userId = @userId';
 
@@ -38,6 +38,7 @@ async function exportData(
     authenticate = authMiddleware.authenticate,
     usersContainer = db.usersContainer,
     toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
     gpxContainer = blobStorage.gpxContainer,
     imagesContainer = blobStorage.imagesContainer,
     now = system.currentTime,
@@ -48,10 +49,16 @@ async function exportData(
   const { userId } = user;
   const requestTime = now();
 
-  const [profile, tours] = await Promise.all([
+  const [profile, storedTours, tracksByTour] = await Promise.all([
     db.readItem(usersContainer(), { id: userId, partitionKey: userId }),
     db.queryUserItems(toursContainer(), { userId, query: ALL_OWN_TOURS_QUERY }),
+    readTracksByTour({ userId, toursContainer, tracksContainer }),
   ]);
+  // The export keeps one document per tour: its track goes back in, wherever it is stored.
+  const tours = storedTours.map((tour) => ({
+    ...tour,
+    ...(tracksByTour.get(tour.id) ?? { heatmapData: [], segmentStarts: [] }),
+  }));
   const signers = {
     userId,
     signGpx: blobStorage.readUrlSigner({ container: gpxContainer, now: requestTime }),
@@ -70,12 +77,11 @@ async function exportData(
   };
 }
 
-app.http('ExportData', {
+apiRoute('ExportData', {
   methods: ['get'],
-  authLevel: 'anonymous',
   route: 'me/export',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => exportData(request)),
+  handler: (request) => exportData(request),
 });
 
 module.exports = { exportData };

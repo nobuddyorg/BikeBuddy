@@ -1,4 +1,5 @@
 import { withImageRestored, withoutImage } from '../lib/images.js';
+import { isDeleted } from '../lib/tours.js';
 import * as i18n from './i18n.js';
 import { state } from './state.js';
 import { apiFetch } from './api.js';
@@ -34,10 +35,11 @@ export function scheduleImageRemoval(image, tourId) {
     revert: restore,
     commit: async () => {
       try {
-        const response = await apiFetch(`/api/tours/${tourId}/images/${image.id}`, {
+        const response = await apiFetch(`/api/v1/tours/${tourId}/images/${image.id}`, {
           method: 'DELETE',
+          keepalive: true,
         });
-        if (!response.ok) throw new Error('delete failed');
+        if (!isDeleted(response)) throw new Error('delete failed');
       } catch {
         restore();
         toast(t('toast.photoDeleteError'), { type: 'error' });

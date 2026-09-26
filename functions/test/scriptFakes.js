@@ -9,8 +9,9 @@ function notFound() {
 
 function applyPatch(document, operations) {
   for (const { op, path, value } of operations) {
-    if (op !== 'set') throw new Error(`Unsupported patch operation ${op}`);
-    document[path.slice(1)] = value;
+    if (op === 'set') document[path.slice(1)] = value;
+    else if (op === 'remove') delete document[path.slice(1)];
+    else throw new Error(`Unsupported patch operation ${op}`);
   }
 }
 
@@ -25,6 +26,13 @@ function fakeCosmosContainer({ documents, answerQuery, partitionKeyOf }) {
 
   const container = {
     items: {
+      async upsert(document) {
+        writes.push({ upsert: document.id, partitionKey: partitionKeyOf(document) });
+        const index = find(document.id, partitionKeyOf(document));
+        if (index === -1) documents.push(structuredClone(document));
+        else documents[index] = structuredClone(document);
+        return { resource: structuredClone(document) };
+      },
       query(query, options) {
         queries.push({ query, options });
         return {
@@ -50,8 +58,8 @@ function fakeCosmosContainer({ documents, answerQuery, partitionKeyOf }) {
           if (index === -1) throw notFound();
           documents.splice(index, 1);
         },
-        async patch(operations) {
-          writes.push({ patch: id, partitionKey, operations });
+        async patch(operations, options) {
+          writes.push({ patch: id, partitionKey, operations, ...(options && { options }) });
           const index = find(id, partitionKey);
           if (index === -1) throw notFound();
           applyPatch(documents[index], operations);
@@ -74,6 +82,10 @@ function fakeBlobContainer(blobs) {
         async downloadToBuffer() {
           if (!blobs.has(name)) throw Object.assign(new Error('BlobNotFound'), { statusCode: 404 });
           return blobs.get(name);
+        },
+        async getProperties() {
+          if (!blobs.has(name)) throw Object.assign(new Error('BlobNotFound'), { statusCode: 404 });
+          return { contentLength: blobs.get(name).length };
         },
         async uploadData(data, options) {
           writes.push({ upload: name, options });

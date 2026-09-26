@@ -2,6 +2,7 @@
 'use strict';
 
 const { simplifyToTarget } = require('./simplify');
+const { joinSegments, splitSegments } = require('./segments');
 
 // A hard cap on the points /api/map returns, whatever the rider's history.
 const TOTAL_POINT_BUDGET = 100000;
@@ -32,4 +33,24 @@ function budgetTracks(tours, { totalPointBudget }) {
   );
 }
 
-module.exports = { budgetTracks, TOTAL_POINT_BUDGET };
+/**
+ * budgetTracks over every segment of every track, so a break between two segments stays a break
+ * (#552): each segment keeps its own ends and floor.
+ *
+ * @param {{ heatmapData: [number, number][], segmentStarts: number[] }[]} tracks
+ * @returns {{ heatmapData: [number, number][], segmentStarts: number[] }[]} one per track, in order
+ */
+function budgetSegmentedTracks(tracks, budget) {
+  const segmentsPerTrack = tracks.map(splitSegments);
+  const budgeted = budgetTracks(
+    segmentsPerTrack.flat().map((heatmapData) => ({ heatmapData })),
+    budget,
+  );
+  let next = 0;
+  return segmentsPerTrack.map((segments) => {
+    next += segments.length;
+    return joinSegments(budgeted.slice(next - segments.length, next));
+  });
+}
+
+module.exports = { budgetTracks, budgetSegmentedTracks, TOTAL_POINT_BUDGET };

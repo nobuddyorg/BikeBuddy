@@ -21,6 +21,8 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const NOT_AN_IMAGE = Buffer.from('hello world');
 const FULL = Buffer.from('full-bytes');
 const THUMBNAIL = Buffer.from('thumbnail-bytes');
+// What the entry records: the two stored variants, never the original.
+const STORED_BYTES = FULL.length + THUMBNAIL.length;
 const FULL_BLOB = `u1/${TOUR_ID}/${IMAGE_ID}.jpg`;
 const THUMBNAIL_BLOB = `u1/${TOUR_ID}/${IMAGE_ID}_thumb.jpg`;
 // The SAS window's end: the close of the hour after the one NOW falls in.
@@ -55,6 +57,7 @@ function setUp({
         parseFile: fileOf(JPEG),
         resize: async () => ({ full: FULL, thumbnail: THUMBNAIL }),
         readGps: async () => null,
+        rateLimiter: { take: () => ({ allowed: true }) },
         newId: idsInOrder(IMAGE_ID),
         now: fixedClock,
         ...overrides,
@@ -65,7 +68,7 @@ function setUp({
   return { tours, images, run, storedImages };
 }
 
-describe('POST /api/tours/{tourId}/images', () => {
+describe('POST /api/v1/tours/{tourId}/images', () => {
   it('stores both sizes, appends the entry and returns 201 with signed URLs', async () => {
     const { images, run, storedImages } = setUp();
 
@@ -81,7 +84,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     const cached = { contentType: 'image/jpeg', cacheControl: 'private, max-age=3600, immutable' };
     expect(images.blob(FULL_BLOB)).toEqual({ data: FULL, ...cached });
     expect(images.blob(THUMBNAIL_BLOB)).toEqual({ data: THUMBNAIL, ...cached });
-    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB }]);
+    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES }]);
   });
 
   it("signs read-only, short-lived URLs for the new photo under the caller's prefix", async () => {
@@ -135,7 +138,7 @@ describe('POST /api/tours/{tourId}/images', () => {
 
     expect(response.jsonBody).toMatchObject({ lat: 48.137, lon: 11.575 });
     expect(storedImages()).toEqual([
-      { id: IMAGE_ID, blobName: FULL_BLOB, lat: 48.137, lon: 11.575 },
+      { id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES, lat: 48.137, lon: 11.575 },
     ]);
   });
 
@@ -186,7 +189,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     const response = await run();
 
     expect(response.status).toBe(201);
-    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB }]);
+    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES }]);
   });
 
   it('rolls both blobs back and rethrows when the entry cannot be written', async () => {
@@ -343,5 +346,59 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(response.status).toBe(401);
     expect([...tours.calls, ...images.calls]).toEqual([]);
     expect(parseFile).not.toHaveBeenCalled();
+  });
+
+  describe('limits (#549)', () => {
+    const GIGABYTE = 1024 ** 3;
+
+    it('answers 429 before reading the photo once the rider is over the rate', async () => {
+      const parseFile = vi.fn(fileOf(JPEG));
+      const rateLimiter = { take: vi.fn(() => ({ allowed: false, retryAfterSeconds: 5 })) };
+      const { images, run, storedImages } = setUp({ parseFile, rateLimiter });
+
+      const response = await run();
+
+      expect(response).toEqual({
+        status: 429,
+        headers: { 'Retry-After': '5' },
+        jsonBody: { error: 'errors.rateLimited' },
+      });
+      expect(rateLimiter.take).toHaveBeenCalledWith('u1', NOW.getTime());
+      expect(parseFile).not.toHaveBeenCalled();
+      expect(images.calls).toEqual([]);
+      expect(storedImages()).toEqual([]);
+    });
+
+    it('checks the rate only for a tour the caller owns', async () => {
+      const rateLimiter = { take: vi.fn(() => ({ allowed: true })) };
+      const { run } = setUp({ rateLimiter });
+
+      expect((await run(OTHER_TOUR_ID)).status).toBe(404);
+      expect(rateLimiter.take).not.toHaveBeenCalled();
+    });
+
+    it('counts the stored variants against the storage limit, storing nothing past it', async () => {
+      const room = 5 * GIGABYTE - STORED_BYTES;
+      const { run: fits } = setUp({ documents: [{ ...TOUR, gpxBytes: room }] });
+      const overflowing = setUp({ documents: [{ ...TOUR, gpxBytes: room + 1 }] });
+
+      expect((await fits()).status).toBe(201);
+      expect(await overflowing.run()).toEqual({
+        status: 400,
+        jsonBody: { error: 'errors.storageLimit' },
+      });
+      expect(overflowing.images.calls).toEqual([]);
+      expect(overflowing.storedImages()).toEqual([]);
+    });
+
+    it('lets a photo onto a rider at the tour limit', async () => {
+      const documents = [
+        TOUR,
+        ...Array.from({ length: 999 }, (_, index) => ({ id: `t${index}`, userId: 'u1' })),
+      ];
+      const { run } = setUp({ documents });
+
+      expect((await run()).status).toBe(201);
+    });
   });
 });

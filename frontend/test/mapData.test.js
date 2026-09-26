@@ -12,7 +12,11 @@ describe('ensureMapData', () => {
       ok([
         {
           id: 't1',
-          heatmapData: [[48, 11]],
+          heatmapData: [
+            [48, 11],
+            [52, 13],
+          ],
+          segmentStarts: [1],
           images: [{ id: 'i1', lat: 48, lon: 11 }],
         },
         { id: 't2', heatmapData: [], images: [] },
@@ -22,10 +26,15 @@ describe('ensureMapData', () => {
     await ensureMapData({ apiFetch, tours, now: NOW });
 
     expect(apiFetch).toHaveBeenCalledTimes(1);
-    expect(apiFetch).toHaveBeenCalledWith('/api/map');
-    expect(tours[0].heatmapData).toEqual([[48, 11]]);
+    expect(apiFetch).toHaveBeenCalledWith('/api/v1/map');
+    expect(tours[0].heatmapData).toEqual([
+      [48, 11],
+      [52, 13],
+    ]);
+    expect(tours[0].segmentStarts).toEqual([1]);
     expect(tours[0].images).toEqual([{ id: 'i1', lat: 48, lon: 11 }]);
     expect(tours[1].heatmapData).toEqual([]);
+    expect(tours[1].segmentStarts).toEqual([]);
   });
 
   it('makes no request when every tour already has fresh data', async () => {
@@ -90,7 +99,7 @@ describe('ensureMapData', () => {
 
     await expect(
       ensureMapData({ apiFetch: async () => ({ ok: false, status: 503 }), tours, now: NOW }),
-    ).rejects.toThrow('GET /api/map answered 503');
+    ).rejects.toThrow('GET /api/v1/map answered 503');
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
     expect(isStale(tours[0], NOW)).toBe(true);
@@ -220,10 +229,10 @@ describe('ensureMapData', () => {
     expect(stale.detailLoaded).toBe(false);
   });
 
-  it('tolerates a response body that is not a list', async () => {
+  it.each([null, {}])('tolerates a response body that is not a list: %j', async (body) => {
     const tours = [{ id: 't1' }];
 
-    await ensureMapData({ apiFetch: async () => ok(null), tours, now: NOW });
+    await ensureMapData({ apiFetch: async () => ok(body), tours, now: NOW });
 
     expect(tours[0]).toMatchObject({ id: 't1', heatmapData: [], images: [] });
   });
@@ -296,7 +305,7 @@ describe('queueMapDataLoads', () => {
     const failed = ensure({ apiFetch, tours, now: NOW });
     const retried = ensure({ apiFetch, tours, now: NOW });
 
-    await expect(failed).rejects.toThrow('GET /api/map answered 503');
+    await expect(failed).rejects.toThrow('GET /api/v1/map answered 503');
     await expect(retried).resolves.toBeUndefined();
     expect(apiFetch).toHaveBeenCalledTimes(2);
   });

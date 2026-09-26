@@ -175,6 +175,14 @@ describe('locale files', () => {
     for (const base of pluralBases) expect(keys).toContain(`${base}.other`);
   });
 
+  // applyI18n leaves a missing key on the page as the key itself.
+  it.each(['index.html', 'privacy.html'])('%s names only keys that exist', (page) => {
+    const html = readFileSync(resolve(here, `../src/${page}`), 'utf8');
+    const keys = [...html.matchAll(/data-i18n(?:-[a-z-]+)?="([^"]+)"/g)].map((match) => match[1]);
+    expect(keys.length).toBeGreaterThan(5);
+    expect(keys.filter((key) => !(key in en))).toEqual([]);
+  });
+
   it('isSupported reflects SUPPORTED_LOCALES', () => {
     expect(isSupported('en')).toBe(true);
     expect(isSupported('ja')).toBe(false);

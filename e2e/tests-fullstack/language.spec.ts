@@ -12,7 +12,7 @@ fullstackTest.describe('language preference', () => {
       await expect(on(page).modal.profile()).toBeVisible();
       await on(page).modal.profile.do.switchLanguage({ search: 'deu', code: 'de' });
 
-      // Selecting PATCHes /api/me and reloads; the UI comes back in German.
+      // Selecting PATCHes /api/v1/me and reloads; the UI comes back in German.
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
       await expect(on(page).main.locators.sidebarTitle).toHaveText('Meine Touren');
 
@@ -33,7 +33,7 @@ fullstackTest.describe('language preference', () => {
       await on(page).main.do.forgetLocalSettings();
       await page.reload();
 
-      // Browser detection first, then GET /api/me's saved language.
+      // Browser detection first, then GET /api/v1/me's saved language.
       await expect(on(page).main.locators.buttons.upload).toHaveText('GPX hochladen');
     },
   );

@@ -51,7 +51,7 @@ async function uploadOne({ job, tour }) {
     // Per attempt: a retry minutes later must not reuse an expired token.
     const token = await getAccessToken();
     const image = await xhrUpload({
-      url: `${API_BASE}/api/tours/${tour.id}/images`,
+      url: `${API_BASE}/api/v1/tours/${tour.id}/images`,
       file: job.file,
       token,
       onProgress: job.tile.setProgress,

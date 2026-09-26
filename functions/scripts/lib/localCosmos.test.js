@@ -17,7 +17,11 @@ function fakeClient(failures = []) {
   const pending = [...failures];
   const database = {
     containers: {
-      createIfNotExists: async (definition) => created.containers.push(definition),
+      // Like the SDK, creating rewrites the definition's partitionKey into an object.
+      createIfNotExists: async (definition) => {
+        created.containers.push(structuredClone(definition));
+        definition.partitionKey = { paths: [definition.partitionKey] };
+      },
     },
   };
   const client = {
@@ -70,12 +74,23 @@ describe('runInitCosmos', () => {
           excludedPaths: [{ path: '/heatmapData/*' }, { path: '/images/*' }],
         },
       },
+      {
+        id: 'tracks',
+        partitionKey: '/userId',
+        indexingPolicy: {
+          indexingMode: 'consistent',
+          automatic: true,
+          includedPaths: [{ path: '/*' }],
+          excludedPaths: [{ path: '/heatmapData/*' }],
+        },
+      },
     ]);
     expect(log.lines).toEqual([
       '✓ database "bikebuddy"',
       '✓ container "users" (partitionKey /id)',
       '✓ container "deletions" (partitionKey /id)',
       '✓ container "tours" (partitionKey /userId)',
+      '✓ container "tracks" (partitionKey /userId)',
       'Cosmos initialized.',
     ]);
   });

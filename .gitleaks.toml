@@ -28,3 +28,8 @@ keywords = ["sig="]
 description = "Cosmos DB emulator key: public by design"
 targetRules = ["generic-api-key", "azure-cosmos-connection-string", "azure-storage-connection-string"]
 regexes = ['''^C2y6yDjf5/R\+ob0N8A7Cgv30VRDJIWEHLM\+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw==$''']
+
+[[allowlists]]
+description = "Paging test fixture: base64url of the made-up Cosmos-style token '-RID:~ab#RT:1', not a key"
+targetRules = ["generic-api-key"]
+regexes = ['''^LVJJRDp-YWIjUlQ6MQ$''']

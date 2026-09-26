@@ -1,7 +1,6 @@
 'use strict';
 
-const { app } = require('../lib/functionsApp');
-const { withFailureResponse } = require('../lib/failureResponse');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
@@ -70,12 +69,11 @@ async function deleteImage(
   return { status: 204 };
 }
 
-app.http('DeleteImage', {
+apiRoute('DeleteImage', {
   methods: ['delete'],
-  authLevel: 'anonymous',
   route: 'tours/{tourId}/images/{imageId}',
   /* v8 ignore next */
-  handler: withFailureResponse((request) => deleteImage(request)),
+  handler: (request) => deleteImage(request),
 });
 
 module.exports = { deleteImage };

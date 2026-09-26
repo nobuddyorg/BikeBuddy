@@ -14,6 +14,27 @@ mock_provider "azurerm" {
       primary_blob_endpoint = "https://bikebuddyfilesabc123.blob.core.windows.net/"
     }
   }
+  mock_resource "azurerm_logic_app_workflow" {
+    defaults = { id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bikebuddy-rg/providers/Microsoft.Logic/workflows/bikebuddy-budget-stop" }
+  }
+  mock_resource "azurerm_monitor_action_group" {
+    defaults = { id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bikebuddy-rg/providers/Microsoft.Insights/actionGroups/bikebuddy-budget-stop" }
+  }
+  mock_resource "azurerm_logic_app_trigger_http_request" {
+    defaults = { callback_url = "https://prod-00.northeurope.logic.azure.com/workflows/mock/triggers/budget-exceeded/paths/invoke" }
+  }
+  mock_resource "azurerm_log_analytics_workspace" {
+    defaults = { id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bikebuddy-rg/providers/Microsoft.OperationalInsights/workspaces/bikebuddy-logs" }
+  }
+  mock_resource "azurerm_application_insights" {
+    defaults = {
+      id                = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bikebuddy-rg/providers/Microsoft.Insights/components/bikebuddy-insights"
+      connection_string = "InstrumentationKey=00000000-0000-0000-0000-000000000000"
+    }
+  }
+  mock_resource "azurerm_application_insights_standard_web_test" {
+    defaults = { id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bikebuddy-rg/providers/Microsoft.Insights/webTests/bikebuddy-health" }
+  }
 }
 
 mock_provider "random" {

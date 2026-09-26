@@ -4,7 +4,7 @@
 set -euo pipefail
 
 VERSION="v1.30.0"
-CONFIGS=(--config auto --config p/security-audit)
+CONFIGS=(--config auto --config p/security-audit --config scripts/quality/opengrep-rules.yml)
 PATHS=(functions/src functions/scripts frontend/src e2e load scripts infrastructure)
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
