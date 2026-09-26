@@ -32,6 +32,13 @@ function withoutSignedUrls(detail) {
   };
 }
 
+/** Every signed URL in a data export: each tour's GPX file and photos. */
+const exportUrlsOf = (exported) =>
+  exported.tours.flatMap((tour) => [
+    ...(tour.gpxFileUrl ? [tour.gpxFileUrl] : []),
+    ...tour.images.map((image) => image.url),
+  ]);
+
 const statusOf = async (url) => (await fetch(url)).status;
 
 /** What the owner sees of one tour and their account, and whether its blobs still read. */
@@ -46,9 +53,9 @@ async function ownerView(api, { tourId }) {
     tour: withoutSignedUrls(tour),
     tours,
     profile,
-    exportedTours: exported.tours,
+    exportedTours: exported.tours.map(withoutSignedUrls),
     blobStatuses: await Promise.all(signedUrlsOf(tour).map(statusOf)),
   };
 }
 
-module.exports = { blobNameOf, signedUrlsOf, mapUrlsOf, statusOf, ownerView };
+module.exports = { blobNameOf, signedUrlsOf, mapUrlsOf, exportUrlsOf, statusOf, ownerView };

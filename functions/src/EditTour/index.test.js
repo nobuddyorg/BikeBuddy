@@ -34,11 +34,12 @@ describe('PATCH /api/tours/{tourId}', () => {
     const response = await run(TOUR_ID, withBody({ name: 'New', description: 'new desc' }));
 
     expect(response.status).toBe(200);
-    expect(response.jsonBody).toMatchObject({
+    expect(response.jsonBody).toStrictEqual({
+      id: TOUR_ID,
       name: 'New',
       description: 'new desc',
       distance: 120,
-      heatmapData: TOUR.heatmapData,
+      createdAt: TOUR.createdAt,
     });
     expect(tours.stored(TOUR_ID, 'u1')).toMatchObject({ name: 'New', description: 'new desc' });
   });
@@ -49,7 +50,17 @@ describe('PATCH /api/tours/{tourId}', () => {
     const patched = await run(TOUR_ID, withBody({ name: 'New' }));
     const unchanged = await run(TOUR_ID, withBody({}));
 
-    for (const key of ['userId', 'images', 'gpxFileUrl', '_rid', '_self', '_etag', '_ts']) {
+    // The track too: an edit's answer must not grow with the ride.
+    for (const key of [
+      'userId',
+      'images',
+      'gpxFileUrl',
+      'heatmapData',
+      '_rid',
+      '_self',
+      '_etag',
+      '_ts',
+    ]) {
       expect(patched.jsonBody).not.toHaveProperty(key);
       expect(unchanged.jsonBody).not.toHaveProperty(key);
     }
@@ -147,7 +158,7 @@ describe('PATCH /api/tours/{tourId}', () => {
     const response = await run(OTHER_TOUR_ID, withBody({ name: 'Hijacked' }));
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
     expect(tours.stored(OTHER_TOUR_ID, 'u2').name).toBe('Not yours');
     expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
   });

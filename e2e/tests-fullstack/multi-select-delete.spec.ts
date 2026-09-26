@@ -1,4 +1,7 @@
-import { expect, fullstackTest } from './fullstack-test';
+import { AFTER_UNDO_WINDOW, expect, fullstackTest } from './fullstack-test';
+import { devUserTours } from './store';
+
+const storedNames = async () => (await devUserTours()).map((tour) => tour.name).sort();
 
 // Eleven tours over a page size of ten: Tour 01 (newest) leads page 1, Tour 11 is alone on page 2.
 const TOUR_COUNT = 11;
@@ -35,6 +38,8 @@ fullstackTest.describe('multi-select bulk delete', () => {
     await expect(on(page).list.row(tourName(11))()).toHaveCount(0);
     // Select mode auto-exits once every selected tour succeeds.
     await expect(on(page).list.locators.selection.bar).toBeHidden();
+    const kept = Array.from({ length: TOUR_COUNT - 2 }, (_, index) => tourName(index + 2));
+    await expect.poll(storedNames, AFTER_UNDO_WINDOW).toEqual(kept);
   });
 
   fullstackTest('cancel exits select mode without deleting anything', async ({ on, page }) => {

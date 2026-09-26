@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { authenticate, getOpenIdConfig, defaultJwksClient } = require('./authMiddleware');
+const { authenticate, getOpenIdConfig } = require('./authMiddleware');
 const { openIdConfigUrl } = require('../lib/oidcMetadataUrl');
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -18,6 +18,7 @@ const ISSUER = `https://${ENTRA_ENVIRONMENT.ENTRA_TENANT_ID}.ciamlogin.com/${ENT
 const NOW_MS = Date.UTC(2026, 0, 1, 12);
 const NOW_SECONDS = NOW_MS / 1000;
 const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 const signingKeys = () => ({
   getSigningKey: async () => ({ getPublicKey: () => publicKeyPem }),
@@ -43,6 +44,7 @@ function makeToken(overrides = {}) {
       aud: ENTRA_ENVIRONMENT.ENTRA_CLIENT_ID,
       iss: ISSUER,
       exp: NOW_SECONDS + 3600,
+      scp: 'access_as_user',
       ...overrides,
     },
     privateKeyPem,
@@ -114,6 +116,11 @@ describe('authenticate — success', () => {
     expect(user[field]).toBe(expected);
   });
 
+  test('accepts the scope among others', async () => {
+    const token = makeToken({ scp: 'User.Read access_as_user openid' });
+    expect(await authenticateWith(bearer(token))).not.toBeNull();
+  });
+
   test('checks expiry against the injected clock', async () => {
     const token = makeToken({ exp: NOW_SECONDS + 60 });
 
@@ -144,6 +151,11 @@ describe('authenticate — rejection (null)', () => {
     ['wrong issuer', bearer(makeToken({ iss: 'https://attacker.example.com/' }))],
     ['disallowed algorithm (HS256)', bearer(symmetricToken)],
     ['unknown signing key (kid not in JWKS)', bearer(makeToken()), unknownKeyId],
+    ['no scp claim', bearer(makeToken({ scp: undefined }))],
+    ['an ID token for the same client', bearer(makeToken({ scp: undefined, nonce: 'n-1' }))],
+    ['only another scope', bearer(makeToken({ scp: 'User.Read' }))],
+    ['a scope that merely contains the name', bearer(makeToken({ scp: 'access_as_user_admin' }))],
+    ['scp as a list instead of a string', bearer(makeToken({ scp: ['access_as_user'] }))],
   ])('returns null for %s', async (_label, request, jwksClientFactory = signingKeys) => {
     expect(await authenticateWith(request, { jwksClientFactory })).toBeNull();
   });
@@ -284,7 +296,17 @@ describe('getOpenIdConfig', () => {
     expect(first).toEqual({ issuer: metadata.issuer, jwksUri: metadata.jwks_uri });
     expect(second).toBe(first);
     expect(fetchMetadata).toHaveBeenCalledTimes(1);
-    expect(fetchMetadata).toHaveBeenCalledWith(openIdConfigUrl(ENTRA_ENVIRONMENT));
+    expect(fetchMetadata).toHaveBeenCalledWith(openIdConfigUrl(ENTRA_ENVIRONMENT), {
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  test('bounds the fetch with a timeout signal', async () => {
+    const fetchMetadata = fetchingMetadata();
+    await getOpenIdConfig({ fetchMetadata, now: freshClock().now, environment: ENTRA_ENVIRONMENT });
+
+    const { signal } = fetchMetadata.mock.calls[0][1];
+    expect(signal.aborted).toBe(false);
   });
 
   test('fetches a local override instead of the tenant metadata', async () => {
@@ -294,7 +316,7 @@ describe('getOpenIdConfig', () => {
 
     await getOpenIdConfig({ fetchMetadata, now: freshClock().now, environment });
 
-    expect(fetchMetadata).toHaveBeenCalledWith(override);
+    expect(fetchMetadata).toHaveBeenCalledWith(override, expect.anything());
   });
 
   // Thrown, so every signed-in request answers 5xx instead of trusting another issuer.
@@ -348,19 +370,78 @@ describe('getOpenIdConfig', () => {
     await getOpenIdConfig(options);
     expect(fetchMetadata).toHaveBeenCalledTimes(2);
   });
-});
 
-describe('defaultJwksClient', () => {
-  // A module-wide singleton, so this is the only test that sees it built.
-  test('builds one jwks-rsa client with caching and rate limiting, then reuses it', () => {
-    const first = defaultJwksClient('https://example.com/keys');
-    const second = defaultJwksClient('https://example.com/other-keys');
-    expect(typeof first.getSigningKey).toBe('function');
+  test('concurrent callers share one fetch', async () => {
+    const fetchMetadata = fetchingMetadata();
+    const options = { fetchMetadata, now: freshClock().now, environment: ENTRA_ENVIRONMENT };
+
+    const [first, second] = await Promise.all([getOpenIdConfig(options), getOpenIdConfig(options)]);
+
     expect(second).toBe(first);
-    expect(first.options).toMatchObject({
-      jwksUri: 'https://example.com/keys',
-      cache: true,
-      rateLimit: true,
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  // #571: an Entra blip at the one-hour mark used to fail every signed-in request.
+  describe('when a refresh fails', () => {
+    const refreshFailing = (fetchMetadata) => {
+      fetchMetadata.mockResolvedValue({ ok: false, status: 503 });
+      return fetchMetadata;
+    };
+
+    test('keeps serving the cached copy and logs why', async () => {
+      const fetchMetadata = fetchingMetadata();
+      const clock = freshClock();
+      const options = { fetchMetadata, now: clock.now, environment: ENTRA_ENVIRONMENT };
+      const cached = await getOpenIdConfig(options);
+      clock.advance(HOUR_MS);
+      refreshFailing(fetchMetadata);
+      const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        expect(await getOpenIdConfig(options)).toBe(cached);
+        expect(logError).toHaveBeenCalledWith(
+          'auth: OIDC metadata refresh failed, serving the cached copy (OIDC metadata fetch failed: 503)',
+        );
+      } finally {
+        logError.mockRestore();
+      }
+    });
+
+    test('tries again on the next call and caches what it gets', async () => {
+      const fetchMetadata = fetchingMetadata();
+      const clock = freshClock();
+      const options = { fetchMetadata, now: clock.now, environment: ENTRA_ENVIRONMENT };
+      await getOpenIdConfig(options);
+      clock.advance(HOUR_MS);
+      refreshFailing(fetchMetadata);
+      const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await getOpenIdConfig(options);
+      } finally {
+        logError.mockRestore();
+      }
+      fetchMetadata.mockResolvedValue({ ok: true, json: async () => metadata });
+
+      await getOpenIdConfig(options);
+      await getOpenIdConfig(options);
+      expect(fetchMetadata).toHaveBeenCalledTimes(3);
+    });
+
+    test('throws once the cached copy is a day old', async () => {
+      const fetchMetadata = fetchingMetadata();
+      const clock = freshClock();
+      const options = { fetchMetadata, now: clock.now, environment: ENTRA_ENVIRONMENT };
+      await getOpenIdConfig(options);
+      clock.advance(DAY_MS - 1);
+      refreshFailing(fetchMetadata);
+      const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await getOpenIdConfig(options);
+      } finally {
+        logError.mockRestore();
+      }
+
+      clock.advance(1);
+      await expect(getOpenIdConfig(options)).rejects.toThrow('OIDC metadata fetch failed: 503');
     });
   });
 });

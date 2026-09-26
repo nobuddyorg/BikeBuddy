@@ -35,6 +35,54 @@ describe('groupByProximity', () => {
   });
 });
 
+describe('groupByProximity across grid cells', () => {
+  // A 24px grid: each neighbour of (30, 30) lies in a different adjacent cell.
+  it.each([
+    ['left', { x: 10, y: 30 }],
+    ['right', { x: 50, y: 30 }],
+    ['above', { x: 30, y: 10 }],
+    ['below', { x: 30, y: 50 }],
+    ['up-left', { x: 20, y: 20 }],
+    ['down-right', { x: 40, y: 40 }],
+    ['up-right', { x: 40, y: 20 }],
+    ['down-left', { x: 20, y: 40 }],
+  ])('groups a near point in the cell %s', (_direction, neighbour) => {
+    const centre = { x: 30, y: 30 };
+    expect(groupByProximity([centre, neighbour], 24)).toEqual([[centre, neighbour]]);
+  });
+
+  it('keeps a point two cells away apart, even on the same row', () => {
+    const a = { x: 0, y: 0 };
+    const b = { x: 49, y: 0 };
+    expect(groupByProximity([a, b], 24)).toEqual([[a], [b]]);
+  });
+
+  it('joins the first group formed when members of two groups are near', () => {
+    const first = { x: 0, y: 0 };
+    const second = { x: 40, y: 0 };
+    const between = { x: 20, y: 0 };
+    expect(groupByProximity([second, first, between], 24)).toEqual([[second, between], [first]]);
+    expect(groupByProximity([first, second, between], 24)).toEqual([[first, between], [second]]);
+  });
+
+  it('matches the pairwise definition on a dense scatter', () => {
+    const points = Array.from({ length: 200 }, (_, index) => ({
+      x: (index * 37) % 311,
+      y: (index * 53) % 197,
+    }));
+    const pairwise = [];
+    for (const point of points) {
+      const group = pairwise.find((candidate) =>
+        candidate.some((member) => Math.hypot(member.x - point.x, member.y - point.y) <= 24),
+      );
+      if (group) group.push(point);
+      else pairwise.push([point]);
+    }
+
+    expect(groupByProximity(points, 24)).toEqual(pairwise);
+  });
+});
+
 describe('fanOffsets', () => {
   it('returns a single zero offset for n <= 1', () => {
     expect(fanOffsets(0, 16)).toEqual([[0, 0]]);

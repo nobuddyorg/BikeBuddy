@@ -91,7 +91,8 @@ it:
 
 ```bash
 ./buddy.sh quality check           # hooks, unit, frontend, static e2e: no services needed
-./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
+./buddy.sh development start-cosmos && node functions/scripts/init-cosmos.js
+SKIP_AUTH=true ./buddy.sh development start-backend
 ./buddy.sh quality check --stack   # the above, then integration, full-stack e2e, Lighthouse, ZAP
 ```
 
@@ -125,11 +126,17 @@ Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
 2. MSAL returns an **access token** (JWT) whose audience (`aud`) is the app's
    client id. MSAL caches the session in `localStorage` (survives refresh and
    tab close; moving it off the shared origin is #562).
-3. The frontend sends it as `Authorization: Bearer <token>` on every API call.
+3. The frontend sends it as `Authorization: Bearer <token>` on every API call
+   (`frontend/src/lib/session.js`). Tokens are only ever renewed silently, one
+   request at a time: a popup outside a click is blocked. A 401 gets one retry
+   with a freshly acquired token; a second 401, or a renewal that needs the
+   user, ends the session, and a toast offers **Sign In**, which opens the popup
+   from that click (#557). Each photo-upload attempt asks for its own token.
 4. `functions/src/middleware/authMiddleware.js` validates it: it reads the
    issuer + JWKS URI from the tenant's OIDC discovery document, verifies the
-   RS256 signature, and checks `aud == ENTRA_CLIENT_ID` and the issuer.
-5. On the first authenticated call, `GET /api/me` provisions the user's Cosmos doc.
+   RS256 signature, and checks `aud == ENTRA_CLIENT_ID`, the issuer and that
+   `scp` names `access_as_user` (an ID token for the same client has no `scp`).
+5. On the first authenticated call, `GET /api/v1/me` provisions the user's Cosmos doc.
 
 **Local no-auth mode:** set `SKIP_AUTH=true` (backend) + `devMode: true`
 (frontend) — the middleware returns a fixed dev user and the SPA skips MSAL.
@@ -143,11 +150,29 @@ To run against a **real** tenant locally, fill `ENTRA_*` in
 
 ## Deploy
 
-Push to `main` → `.github/workflows/deploy.yml` runs three jobs: OpenTofu apply,
-Functions publish (Flex, remote build), and GitHub Pages. Each job calls a
-`buddy.sh` script (`infrastructure provision`, `publish-functions`,
-`generate-config`); never run them against production by hand, the workflow is
-the only path there (see [Infrastructure](infrastructure.md)).
+`.github/workflows/deploy.yml` ships the commit a green **CI Gate** run
+tested on `main` (#563); it never runs beside the tests. It is triggered by
+that gate run (`workflow_run`), by hand from `main`, and daily by a drift check
+(#539). The drift check exists because a Dependabot merge starts no workflow:
+when production runs an older commit than `main`, it runs the gate on `main`,
+waits for it, and deploys only if it passed. `infrastructure pick-release`
+decides which commit ships.
+
+The jobs run in order:
+
+1. OpenTofu apply
+2. Functions publish (Flex, remote build)
+3. GitHub Pages, only after the API is live
+4. A smoke test (`infrastructure smoke-test`): `/api/v1/health` answers 200,
+   `/api/v1/me` answers 401 without a token, and the site and its privacy page
+   load.
+
+The apply and publish jobs run in the `production` environment, which records
+each release; Settings → Environments can require a reviewer there. Each job
+calls a `buddy.sh` script (`infrastructure provision`, `publish-functions`,
+`generate-config`). Never run them against production by hand: the workflow is
+the only path there (see [Infrastructure](infrastructure.md)). To roll back,
+revert the commit on `main`; the revert deploys like any change.
 
 `destroy.yml` (manual, typed confirmation) runs `tofu destroy`; the destroy
 guards make it fail on the data resources by design
@@ -175,6 +200,24 @@ with `targetRules` and matched by content, with a one-line reason. Never
 `--no-verify`, never a path-wide exclusion. **A real secret** that reached a
 commit is compromised: rotate it first (Azure portal / `az`), then remove it.
 
+## Supply chain (lockfile-lint)
+
+The `lockfile-lint` hook checks each `package-lock.json` (`functions/`,
+`frontend/`, `e2e/`): every package resolves from the npm registry over https,
+carries an integrity hash, and its resolved URL names the package it claims to
+be. A lockfile pointing at a git URL, a tarball, another registry or plain
+http fails.
+
+```bash
+prek run lockfile-lint --all-files
+```
+
+When it fails, replace the offending dependency with a registry release, or
+let `npm install <package>@<version>` rewrite its entry. Never hand-edit the
+lockfile or regenerate it from scratch. Which updates Dependabot may merge on
+its own, and how `npm audit` findings are handled, is the design decision
+[Dependency updates and npm audit](../explanation/design-decisions.md#dependency-updates-and-npm-audit).
+
 ## Workflow linting
 
 Two pre-commit hooks check `.github/workflows/` and `.github/actions/`:
@@ -196,12 +239,14 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
 `opengrep` job in `gate.yml` and as a pre-commit hook, both through one script:
 
 ```bash
-./buddy.sh quality opengrep   # installs the pinned version on first run
+./buddy.sh quality opengrep   # installs the pinned, checksum-verified release binary on first run
 ```
 
 - **Rule packs**: `--config auto` (the community rules for the languages
-  found) plus `--config p/security-audit` (the audit pack BikeBuddy used
-  before). The union is the gate; see the design decision "SAST rule packs".
+  found), `--config p/security-audit` (the audit pack BikeBuddy used before)
+  and [`scripts/quality/opengrep-rules.yml`](../../scripts/quality/opengrep-rules.yml)
+  (BikeBuddy's own error-severity rules). The union is the gate; see the design
+  decision "SAST rule packs".
 - **Gate**: CI fails only on **error**-severity findings, with an annotation
   per finding; warnings and infos are report-only. Every finding goes to the job
   summary and to the Security tab (code scanning, category `opengrep`), together
@@ -209,8 +254,9 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
 - **Suppressing**: a path goes into [`.semgrepignore`](../../.semgrepignore)
   with its reason (today only the vendored bundles and generated output). A
   single line gets `// nosemgrep: <rule-id> -- <reason>` on the same line; an
-  inline suppression without a reason is not merged. Suppressed findings stay
-  visible in code scanning as suppressed.
+  inline suppression without a reason is not merged. It passes the job, but
+  code scanning still raises an error-severity result as a new alert on the PR
+  (#595), so prefer fixing the code or scoping the repo rule's `paths`.
 - No `--autofix`: a fix made in CI is discarded, and a rewrite is reviewed like
   any other change.
 
@@ -219,11 +265,11 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
 ESLint runs with `--max-warnings 0` everywhere, as pre-commit hooks and in CI's
 `prek` job:
 
-| Package      | Config                                                                | Command                                                                                                                       |
-| ------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `functions/` | `functions/eslint.config.js`: recommended, `eslint-plugin-n`, SonarJS | `cd functions && npm run lint`                                                                                                |
-| `frontend/`  | `functions/eslint.frontend.config.js`: recommended, SonarJS           | `functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js --max-warnings 0 frontend/src frontend/test` |
-| `e2e/`       | `e2e/eslint.config.js`: typescript-eslint type-checked, Playwright    | `cd e2e && npm run lint`                                                                                                      |
+| Package      | Config                                                                     | Command                                                                                                                       |
+| ------------ | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `functions/` | `functions/eslint.config.js`: recommended, `eslint-plugin-n`, SonarJS      | `cd functions && npm run lint`                                                                                                |
+| `frontend/`  | `functions/eslint.frontend.config.js`: recommended, SonarJS, no HTML sinks | `functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js --max-warnings 0 frontend/src frontend/test` |
+| `e2e/`       | `e2e/eslint.config.js`: typescript-eslint type-checked, Playwright         | `cd e2e && npm run lint`                                                                                                      |
 
 - **SonarJS** (`eslint-plugin-sonarjs`, recommended) checks non-test source for
   code smells; tests are exempt (a test's job is to be exhaustive, not
@@ -336,6 +382,11 @@ used by the pre-commit hook and CI's `iac` job:
   exceptions".
 - CI uploads both SARIF files to code scanning (categories `iac`,
   `iac-tflint`) and puts both reports in the job summary.
+- **What no scanner checks**: Trivy has no check for the Flex Consumption
+  Function App, so `tofu test` (the `tofu-test` hook, mock providers) pins
+  it instead. `infrastructure/tests/transport.tftest.hcl` fails when the app
+  loses `https_only` or TLS 1.2, or when either CORS list gains a
+  non-HTTPS origin.
 
 ## Coverage
 
@@ -379,8 +430,8 @@ cd frontend && npm run mutate      # one package
 
 | Package      | Break threshold | Measured (full run) |
 | ------------ | --------------- | ------------------- |
-| `functions/` | 98 %            | 99.40 %             |
-| `frontend/`  | 98 %            | 99.80 %             |
+| `functions/` | 99 %            | 100 %               |
+| `frontend/`  | 99 %            | 100 %               |
 
 - **Incremental**: results are kept in `reports/stryker-incremental.json`; a
   rerun only tests mutants in changed code or covered by changed tests. CI
@@ -408,7 +459,7 @@ Vitest suites (`*.property.test.js` in `functions/src/lib/`,
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `functions/src/lib/parseGpx.js`          | finite, non-negative stats; in-order subset within the 5,000-point budget; only its own error on arbitrary text; 150k+ point tracks |
 | `functions/src/lib/simplify.js`          | ordered subset keeping first/last; idempotent; point budget respected                                                               |
-| `functions/src/lib/validation.js`        | accepted names are 1–200 chars without `<>`; `stripHtml` idempotent; valid DTOs round-trip; UUIDs                                   |
+| `functions/src/lib/validation.js`        | accepted names are 1–200 chars after trimming, stored trimmed; valid DTOs round-trip; UUIDs                                         |
 | `functions/src/lib/extractGps.js`        | coordinates in range or absent, never NaN; hemisphere sets the sign                                                                 |
 | `frontend/src/lib/stats.js`, `format.js` | totals are sums of parts; formatted values parse back within their rounding                                                         |
 | `frontend/src/lib/url.js`, `tours.js`    | URL state round-trips; sorting is a permutation; pages cover every item once                                                        |

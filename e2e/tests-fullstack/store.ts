@@ -23,6 +23,15 @@ export interface TourDocument {
   id: string;
   userId: string;
   name: string;
+  description?: string;
+  createdAt: string;
+}
+
+/** A tour's points, stored apart from the tour under its id (#615). */
+export interface TrackDocument {
+  id: string;
+  userId: string;
+  heatmapData: [number, number][];
 }
 
 let stores: { database: Database; blobService: BlobServiceClient } | undefined;
@@ -50,12 +59,15 @@ async function queryDevUserPartition<T>(container: string, query: string): Promi
   return resources;
 }
 
-// `users` is partitioned by /id, `tours` by /userId: both keyed by the dev user's id.
+// `users` is partitioned by /id, `tours` and `tracks` by /userId: all keyed by the dev user's id.
 export const devUserProfiles = () =>
   queryDevUserPartition<UserDocument>('users', 'SELECT * FROM c WHERE c.id = @userId');
 
 export const devUserTours = () =>
   queryDevUserPartition<TourDocument>('tours', 'SELECT * FROM c WHERE c.userId = @userId');
+
+export const devUserTracks = () =>
+  queryDevUserPartition<TrackDocument>('tracks', 'SELECT * FROM c WHERE c.userId = @userId');
 
 // The host creates a container on first use, so a fresh Azurite may not have it yet.
 async function existingBlobContainers(): Promise<ContainerClient[]> {
@@ -90,10 +102,13 @@ async function deleteDevUserDocument({ container, id }: { container: string; id:
   }
 }
 
-/** Deletes the dev user's profile, tours and blobs; nothing of any other user. */
+/** Deletes the dev user's profile, tours, tracks and blobs; nothing of any other user. */
 export async function resetDevUser(): Promise<void> {
-  const tours = await devUserTours();
-  await Promise.all(tours.map(({ id }) => deleteDevUserDocument({ container: 'tours', id })));
+  const [tours, tracks] = await Promise.all([devUserTours(), devUserTracks()]);
+  await Promise.all([
+    ...tours.map(({ id }) => deleteDevUserDocument({ container: 'tours', id })),
+    ...tracks.map(({ id }) => deleteDevUserDocument({ container: 'tracks', id })),
+  ]);
   await deleteDevUserDocument({ container: 'users', id: DEV_USER_ID });
   const blobs = await devUserBlobs();
   await Promise.all(

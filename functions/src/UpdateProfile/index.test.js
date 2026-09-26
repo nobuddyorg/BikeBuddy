@@ -4,17 +4,27 @@ const { updateProfile } = require('./index');
 const { fakeUsersContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
 const { signedInAs, signedOut, fixedClock, NOW } = require('../../test/fakes/collaborators');
 
-const INVALID = 'A name (1–200 characters) or a supported language is required.';
+const INVALID = 'errors.profileInvalid';
 const STORED = { id: 'u1', name: null, email: 'ada@example.com', createdAt: 'x' };
 const OTHER_USER = { id: 'u2', name: 'Grace', email: 'grace@example.com', createdAt: 'y' };
 
 function setUp({
   profiles = [STORED, OTHER_USER],
   authenticate = signedInAs('u1', { userEmail: 'ada@example.com' }),
+  queued = [],
 } = {}) {
   const users = fakeUsersContainer(profiles);
+  const deletions = fakeUsersContainer(queued);
   const run = (json) =>
-    updateProfile({ json }, { authenticate, usersContainer: () => users, now: fixedClock });
+    updateProfile(
+      { json },
+      {
+        authenticate,
+        usersContainer: () => users,
+        deletionsContainer: () => deletions,
+        now: fixedClock,
+      },
+    );
   const withBody = (body) => async () => body;
   const writes = () => users.calls.filter((call) => call.operation !== 'read');
   return { users, run, withBody, writes };
@@ -37,10 +47,10 @@ describe('PATCH /api/me', () => {
     expect(users.stored('u1', 'u1').name).toBe('Ada Lovelace');
   });
 
-  it('strips HTML from the name', async () => {
+  it('stores a name with markup as typed (#574)', async () => {
     const { run, withBody } = setUp();
 
-    expect((await run(withBody({ name: '<b>Ada</b>' }))).jsonBody.name).toBe('bAda/b');
+    expect((await run(withBody({ name: ' <b>Ada</b> ' }))).jsonBody.name).toBe('<b>Ada</b>');
   });
 
   it('stores the language, leaving the name untouched', async () => {
@@ -137,5 +147,18 @@ describe('PATCH /api/me', () => {
 
     expect(response.status).toBe(401);
     expect(users.calls).toEqual([]);
+  });
+
+  it('answers 410 and writes nothing while the account deletion is queued', async () => {
+    const { run, withBody, writes } = setUp({
+      profiles: [],
+      authenticate: signedInAs('u1', { userOid: 'oid-1' }),
+      queued: [{ id: 'oid-1', userId: 'u1' }],
+    });
+
+    const response = await run(withBody({ name: 'Ada' }));
+
+    expect(response).toEqual({ status: 410, jsonBody: { error: 'errors.accountDeleted' } });
+    expect(writes()).toEqual([]);
   });
 });

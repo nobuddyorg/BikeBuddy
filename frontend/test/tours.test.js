@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   fuzzyMatchIndices,
@@ -13,6 +13,8 @@ import {
   buildTourPatch,
   removeToursById,
   deletionFailureMessage,
+  isDeleted,
+  tourKey,
   SORT_OPTIONS,
   DEFAULT_SORT,
   PAGE_SIZE,
@@ -277,19 +279,167 @@ describe('toursInView', () => {
     const t = { id: 'a' };
     expect(toursInView([t], BOUNDS)).toEqual([]);
   });
+
+  it('treats a tour with an empty track as out of view', () => {
+    expect(toursInView([{ id: 'a', heatmapData: [] }], BOUNDS)).toEqual([]);
+  });
+
+  // The filter runs on every map move (#580): a tour wholly outside is dropped from its extent.
+  const unscanned = (points) =>
+    Object.assign([...points], {
+      some() {
+        throw new Error('scanned every point');
+      },
+    });
+
+  it('drops a tour wholly past any one edge without scanning its points', () => {
+    const tracks = [
+      [
+        [30, 10],
+        [39, 10],
+      ],
+      [
+        [51, 10],
+        [60, 10],
+      ],
+      [
+        [45, 0],
+        [45, 4],
+      ],
+      [
+        [45, 16],
+        [45, 20],
+      ],
+    ];
+    const tours = tracks.map((points, index) => ({
+      id: `${index}`,
+      heatmapData: unscanned(points),
+    }));
+    expect(toursInView(tours, BOUNDS)).toEqual([]);
+  });
+
+  it('keeps a tour that only touches the bounds from outside', () => {
+    const at = (points) => ({
+      id: JSON.stringify(points),
+      heatmapData: points,
+    });
+    const touching = [
+      at([
+        [30, 10],
+        [40, 10],
+      ]),
+      at([
+        [50, 10],
+        [60, 10],
+      ]),
+      at([
+        [45, 0],
+        [45, 5],
+      ]),
+      at([
+        [45, 15],
+        [45, 20],
+      ]),
+    ];
+    expect(toursInView(touching, BOUNDS)).toEqual(touching);
+  });
+
+  it('drops a tour that spans the bounds with every point just outside one edge', () => {
+    const at = (points) => ({ id: JSON.stringify(points), heatmapData: points });
+    const straddling = [
+      at([
+        [39.9, 10],
+        [50.1, 10],
+      ]),
+      at([
+        [45, 4.9],
+        [45, 15.1],
+      ]),
+      at([
+        [39.9, 4],
+        [50.1, 16],
+      ]),
+    ];
+    expect(toursInView(straddling, BOUNDS)).toEqual([]);
+  });
+
+  it("measures a track's extent once, and a replaced track again", () => {
+    const measured = (points) => {
+      const track = [...points];
+      track.reduce = vi.fn(Array.prototype.reduce);
+      return track;
+    };
+    const t = { id: 'a', heatmapData: measured([[42, 6]]) };
+    const first = t.heatmapData;
+
+    toursInView([t], BOUNDS);
+    toursInView([t], BOUNDS);
+    expect(first.reduce).toHaveBeenCalledTimes(1);
+
+    t.heatmapData = measured([[0, 0]]);
+    expect(toursInView([t], BOUNDS)).toEqual([]);
+    expect(t.heatmapData.reduce).toHaveBeenCalledTimes(1);
+  });
 });
 
+// The detail view shows the local date, so the editor must read and write the same one.
 describe('withUpdatedDate', () => {
   it('replaces the date but keeps the original time-of-day', () => {
-    expect(withUpdatedDate('2026-05-01T14:32:07.123Z', '2026-06-15')).toBe(
+    expect(withUpdatedDate('2026-05-01T14:32:07.123Z', '2026-06-15', 'UTC')).toBe(
       '2026-06-15T14:32:07.123Z',
     );
   });
 
   it('handles a leap-day target date', () => {
-    expect(withUpdatedDate('2026-01-01T00:00:00.000Z', '2028-02-29')).toBe(
+    expect(withUpdatedDate('2026-01-01T00:00:00.000Z', '2028-02-29', 'UTC')).toBe(
       '2028-02-29T00:00:00.000Z',
     );
+  });
+
+  it('sets the local date west of UTC, keeping the local time of day', () => {
+    // 17:30 on 1 May in Los Angeles is already 2 May in UTC.
+    expect(withUpdatedDate('2026-05-02T00:30:00.000Z', '2026-05-10', 'America/Los_Angeles')).toBe(
+      '2026-05-11T00:30:00.000Z',
+    );
+  });
+
+  it('sets the local date east of UTC, keeping the local time of day', () => {
+    // 08:00 on 2 May in Auckland is still 1 May in UTC.
+    expect(withUpdatedDate('2026-05-01T20:00:00.000Z', '2026-05-10', 'Pacific/Auckland')).toBe(
+      '2026-05-09T20:00:00.000Z',
+    );
+  });
+
+  it('keeps the local time of day across a daylight-saving change', () => {
+    // 10:00 PST in January is 10:00 PDT in July: one hour earlier in UTC.
+    expect(withUpdatedDate('2026-01-15T18:00:00.000Z', '2026-07-15', 'America/Los_Angeles')).toBe(
+      '2026-07-15T17:00:00.000Z',
+    );
+  });
+
+  it("settles on the answer's own offset when the date moves across the transition", () => {
+    // 06:00 PST on 1 March; on 8 March 06:00 is already PDT, one hour less from UTC.
+    expect(withUpdatedDate('2026-03-01T14:00:00.000Z', '2026-03-08', 'America/Los_Angeles')).toBe(
+      '2026-03-08T13:00:00.000Z',
+    );
+  });
+
+  it('lands on the next valid hour for a time the spring-forward gap skips', () => {
+    // 02:30 does not exist on 8 March 2026 in Los Angeles; the clock jumps from 02:00 to 03:00.
+    expect(withUpdatedDate('2026-03-01T10:30:00.000Z', '2026-03-08', 'America/Los_Angeles')).toBe(
+      '2026-03-08T10:30:00.000Z',
+    );
+  });
+
+  it('round-trips the value the editor shows', () => {
+    const createdAt = '2026-05-01T20:00:00.000Z';
+    const shown = toDateInputValue(createdAt, 'Pacific/Auckland');
+    expect(withUpdatedDate(createdAt, shown, 'Pacific/Auckland')).toBe(createdAt);
+  });
+
+  it("uses the browser's time zone when given none", () => {
+    const createdAt = '2026-05-01T20:00:00.000Z';
+    expect(withUpdatedDate(createdAt, toDateInputValue(createdAt))).toBe(createdAt);
   });
 });
 
@@ -428,8 +578,16 @@ describe('matchRuns', () => {
 });
 
 describe('toDateInputValue', () => {
-  it('keeps the calendar date of an ISO timestamp', () => {
-    expect(toDateInputValue('2026-05-01T23:30:00.000Z')).toBe('2026-05-01');
+  it('keeps the calendar date of an ISO timestamp in UTC', () => {
+    expect(toDateInputValue('2026-05-01T23:30:00.000Z', 'UTC')).toBe('2026-05-01');
+  });
+
+  it('shows the local date west of UTC', () => {
+    expect(toDateInputValue('2026-05-02T00:30:00.000Z', 'America/Los_Angeles')).toBe('2026-05-01');
+  });
+
+  it('shows the local date east of UTC, zero-padded', () => {
+    expect(toDateInputValue('2026-01-08T20:00:00.000Z', 'Pacific/Auckland')).toBe('2026-01-09');
   });
 
   it('is empty without a date', () => {
@@ -469,5 +627,22 @@ describe('deletionFailureMessage', () => {
       key: 'toast.toursDeletedPartial',
       params: { deleted: 2, count: 3 },
     });
+  });
+});
+
+describe('tourKey', () => {
+  it('files a tour under its id, apart from anything else pending', () => {
+    expect(tourKey('t1')).toBe('tour:t1');
+  });
+});
+
+describe('isDeleted', () => {
+  it.each([
+    [{ ok: true, status: 204 }, true],
+    [{ ok: false, status: 404 }, true],
+    [{ ok: false, status: 500 }, false],
+    [{ ok: false, status: 401 }, false],
+  ])('counts %j as deleted: %s', (response, deleted) => {
+    expect(isDeleted(response)).toBe(deleted);
   });
 });

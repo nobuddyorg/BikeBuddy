@@ -14,6 +14,7 @@ a monthly budget alert. Production changes reach Azure one way only: merge to
    cd infrastructure
    tofu fmt -recursive
    tofu init -backend=false && tofu validate
+   tofu test                            # plans against mock providers
    cd .. && ./buddy.sh quality iac      # TFLint + Trivy config scan
    ```
 
@@ -24,8 +25,10 @@ a monthly budget alert. Production changes reach Azure one way only: merge to
 3. In the PR, paste the plan's destroy/replace lines (or say there are none). A
    plan that destroys or replaces the Cosmos account or the storage account is
    a stop-and-ask: those hold every user's data.
-4. After the merge, `deploy.yml` runs `./buddy.sh infrastructure provision`
-   (`tofu apply -auto-approve` with the Entra variables), then publishes the
+4. Once CI Gate passes on `main`, `deploy.yml` runs `./buddy.sh infrastructure provision`:
+   `tofu plan` with the Entra variables, a check that fails the deploy when
+   the plan deletes or replaces any resource, then `tofu apply` of exactly
+   that saved plan. It then publishes the
    Functions code (`infrastructure publish-functions`, remote build so `sharp`
    compiles for Linux) and the frontend.
 
@@ -35,11 +38,17 @@ A new scanner exception goes in `.trivyignore.yaml` with its reason and in
 ## Destroy guards
 
 The resource group, the Cosmos account, its database and its `users`, `tours`
-and `deletions` containers, the storage account and its `gpx-files` container
-carry `lifecycle { prevent_destroy = true }` (#543). A change that would
+and `deletions` containers, the storage account and its `gpx-files` and
+`tour-images` containers carry `lifecycle { prevent_destroy = true }` (#543).
+The app created `tour-images` before OpenTofu managed it, so
+`./buddy.sh infrastructure provision` imports it into state once, before its
+apply (#568). A change that would
 replace or delete one fails at plan time instead of deleting user data. The
 guards are never removed; a change that needs one gone is redesigned, or raised
-with the maintainer first.
+with the maintainer first. A second guard covers every resource, guarded or
+not: `provision` refuses a plan with any `delete` action (a replace is
+delete+create) and lists what it would have removed, so a destructive change
+never reaches production unattended.
 
 ## State backend
 
@@ -56,11 +65,24 @@ az login && az account set --subscription <SUB_ID>
 
 then set `storage_account_name` in `main.tf`. The state resource group lives in
 `westeurope`, independent of the app's `location` variable (default
-`northeurope`).
+`northeurope`). The script also turns on versioning and 30-day soft delete for
+the state and puts a `CanNotDelete` lock on its resource group. It is
+idempotent: rerun it with the existing account's name to apply those to an
+environment set up before them.
 
 ## CI credentials
 
-CI authenticates with a service principal (#561 tracks narrowing it):
+CI authenticates with a service principal. Its secret and the state key reach
+only the jobs that use them (#561):
+
+- the `ARM_*` variables and `TF_BACKEND_ACCESS_KEY` reach only the OpenTofu job;
+- the Functions publish installs its pinned Core Tools before `azure/login`;
+- the deletion job installs its packages without install scripts, and before
+  `azure/login`.
+
+Still to do: federated OIDC credentials in place of the secret, and a
+principal scoped to the resource groups instead of the subscription. Both need
+changes in Entra and Azure first.
 
 ```bash
 az ad sp create-for-rbac --name bikebuddy-ci --role Contributor \
@@ -83,17 +105,103 @@ The full list, including the `ci` environment secrets, is in
 
 ## Auth (Microsoft Entra External ID)
 
-Optional repository **variables** wire real auth; leave them unset to run in
-no-auth mode: `ENTRA_SUBDOMAIN`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`.
-`SKIP_AUTH` flips off automatically once `entra_client_id` is set (#545 tracks
-keeping it out of the deployed settings entirely).
+The repository **variables** `ENTRA_SUBDOMAIN`, `ENTRA_TENANT_ID` and
+`ENTRA_CLIENT_ID` are required. A precondition on the Function App fails the
+plan while any of them is empty, so a missing or renamed variable stops the
+deploy rather than shipping an API without auth, and `SKIP_AUTH` is never part
+of the deployed app settings (#545). No-auth mode exists only locally
+(`SKIP_AUTH=true` in `functions/local.settings.json`).
+
+## Restore user data
+
+What stays recoverable, and for how long (#541; pinned by
+`infrastructure/tests/backup.tftest.hcl`):
+
+| Data                                    | Mechanism                                   | Window  |
+| --------------------------------------- | ------------------------------------------- | ------- |
+| Cosmos: `users`, `tours`, `deletions`   | Continuous backup, point-in-time restore    | 7 days  |
+| Blobs: GPX files, photos, thumbnails    | Soft delete, versioning (previous versions) | 14 days |
+| Blob containers                         | Container soft delete                       | 14 days |
+| OpenTofu state (`bikebuddy-tfstate-rg`) | Versioning, soft delete (`setup-state`)     | 30 days |
+
+Past the window the data is gone for good, which is also what bounds how long
+a deleted account's data lingers (design decisions, "Account deletion").
+
+**Cosmos.** A point-in-time restore creates a **new** account; it never
+overwrites the live one. Pick a timestamp just before the damage:
+
+```bash
+az cosmosdb restore --resource-group bikebuddy-rg \
+  --account-name <live-account> --target-database-account-name <live-account>-restore \
+  --restore-timestamp 2026-09-25T10:00:00Z --location northeurope
+```
+
+Read what you need from the restored account (the same database and
+container names) and write it back into the live one with a reviewed one-off
+script. The restored account is not in OpenTofu state: delete it once done.
+
+**Blobs.** Versioning is on, so a deleted or overwritten blob lives on as a
+previous version: in the portal, open the blob (list with **Show deleted
+blobs** and versions), pick the version and **Make current version**. From the
+CLI, `az storage blob list --include vd --prefix <userId>/` lists versions and
+deleted blobs. A deleted container comes back with
+`az storage container list --include-deleted` and
+`az storage container restore --name <container> --deleted-version <version>`.
+
+**State.** Restore the previous version of `tfstate/bikebuddy.tfstate` the same
+way, then `tofu plan` to check it matches Azure before anything is applied.
 
 ## Budget
 
 `budget.tf` creates a monthly consumption budget on the resource group
-(`budget_amount`, default 5; `budget_contact_email`, required, from the
-`BUDGET_CONTACT_EMAIL` repository variable in CI; `budget_start_date`) that
+(`budget_amount`, default 5; `budget_contact_email`; `budget_start_date`) that
 mails at 80 % forecast and 100 % actual spend. See the [cost report](../cost-report.md).
+
+### Monitoring
+
+`monitoring.tf` (#547) sends the API's requests, failures and log lines to
+Application Insights (`bikebuddy-insights`), capped at 0.1 GB a day. Each of
+these mails `budget_contact_email` through the `bikebuddy-ops` action group:
+
+- `/api/v1/health` fails its availability test;
+- more than 5 requests fail in 15 minutes;
+- a token cannot be verified at all (the OIDC metadata or keys are
+  unreachable), or more than 50 are rejected in 15 minutes.
+
+A failed scheduled run of `process-deletions.yml` opens an issue, or comments
+on the open one.
+
+### Budget stop
+
+At 100 % actual spend the budget also calls the action group
+`bikebuddy-budget-stop`, whose Logic App stops the Function App (#549): the
+site answers nothing until someone starts it again. Scale-out is capped
+separately by `maximum_instance_count` (10) in `functions.tf`.
+
+The Logic App calls Azure Resource Manager as its own system-assigned identity,
+which needs **Website Contributor** on the Function App. The deploy principal
+is only Contributor and cannot assign roles, so an Owner grants it once, after
+the first deploy that creates the Logic App:
+
+```bash
+cd infrastructure
+az role assignment create \
+  --assignee-object-id "$(tofu output -raw budget_stop_principal_id)" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Website Contributor" \
+  --scope "$(tofu output -raw functions_app_id)"
+```
+
+Until then the Logic App's run history shows the stop failing with 403, and only
+the emails go out. Replacing the Logic App gives it a new identity, which needs
+the grant again.
+
+After a stop, look at what spent the budget (Cost analysis, the Functions and
+Cosmos metrics) before starting the app again; the budget does not restart it:
+
+```bash
+az functionapp start -g bikebuddy-rg -n "$(cd infrastructure && tofu output -raw functions_app_name)"
+```
 
 ## Teardown
 

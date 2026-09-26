@@ -1,28 +1,17 @@
 'use strict';
 
 const fc = require('fast-check');
-const { nameSchema, tourMetaSchema, stripHtml, isUuid } = require('./validation');
+const { nameSchema, tourMetaSchema, isUuid } = require('./validation');
 const { toDecimal, gpsFromExifTags } = require('./extractGps');
 
 describe('validation (properties)', () => {
-  it('a name that passes contains no angle brackets and is 1-200 chars', () => {
+  it('a name passes exactly when its trimmed text is 1-200 chars, and is stored trimmed', () => {
     fc.assert(
       fc.property(fc.string({ maxLength: 400 }), (raw) => {
         const result = nameSchema.safeParse(raw);
-        const stripped = stripHtml(raw);
-        expect(result.success).toBe(stripped.length >= 1 && stripped.length <= 200);
-        if (result.success) {
-          expect(result.data).toBe(stripped);
-          expect(result.data).not.toMatch(/[<>]/);
-        }
-      }),
-    );
-  });
-
-  it('stripHtml is idempotent', () => {
-    fc.assert(
-      fc.property(fc.string(), (raw) => {
-        expect(stripHtml(stripHtml(raw))).toBe(stripHtml(raw));
+        const trimmed = raw.trim();
+        expect(result.success).toBe(trimmed.length >= 1 && trimmed.length <= 200);
+        if (result.success) expect(result.data).toBe(trimmed);
       }),
     );
   });
@@ -32,8 +21,8 @@ describe('validation (properties)', () => {
       {
         name: fc
           .string({ minLength: 1, maxLength: 200 })
-          .filter((text) => stripHtml(text) === text && text.length > 0),
-        description: fc.string({ maxLength: 2000 }).filter((text) => stripHtml(text) === text),
+          .filter((text) => text.trim() === text && text.length > 0),
+        description: fc.string({ maxLength: 2000 }).filter((text) => text.trim() === text),
         createdAt: fc
           .date({ min: new Date('1990-01-01'), max: new Date('2100-01-01'), noInvalidDate: true })
           .map((date) => date.toISOString()),

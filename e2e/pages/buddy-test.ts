@@ -9,8 +9,10 @@ import { initUploadModal } from './upload-modal';
 import { initProfileModal } from './profile-modal';
 import { initEditModal } from './edit-modal';
 import { initHelpModal } from './help-modal';
+import { initStatsModal } from './stats-modal';
 import { initConfirmModal } from './confirm-modal';
 import { initLightbox } from './lightbox';
+import { initPrivacyPage } from './privacy-page';
 
 // A transparent 1x1 PNG: map tiles never leave the machine.
 const BLANK_TILE = Buffer.from(
@@ -37,6 +39,9 @@ function createPageTree(page: Page) {
     get map() {
       return initMapView(page);
     },
+    get privacy() {
+      return initPrivacyPage(page);
+    },
     get modal() {
       return {
         get upload() {
@@ -50,6 +55,9 @@ function createPageTree(page: Page) {
         },
         get help() {
           return initHelpModal(page);
+        },
+        get stats() {
+          return initStatsModal(page);
         },
         get confirm() {
           return initConfirmModal(page);

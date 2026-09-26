@@ -1,17 +1,6 @@
 'use strict';
 
-const {
-  douglasPeucker,
-  simplifyToTarget,
-  distanceMeters,
-  perpendicularDistanceMeters,
-} = require('./simplify');
-
-describe('distanceMeters', () => {
-  it('measures a pure latitude difference with the latitude scale', () => {
-    expect(distanceMeters([0, 0], [1, 0])).toBeCloseTo(111320, 0);
-  });
-});
+const { simplifyToTarget, perpendicularDistanceMeters } = require('./simplify');
 
 describe('perpendicularDistanceMeters', () => {
   const segment = { start: [48.0, 11.0], end: [48.001, 11.002] };
@@ -27,109 +16,10 @@ describe('perpendicularDistanceMeters', () => {
   it('measures to the segment start for a point before it', () => {
     expect(perpendicularDistanceMeters([47.999, 10.999], segment)).toBeCloseTo(133.9, 1);
   });
-});
 
-describe('douglasPeucker', () => {
-  it('leaves short tracks untouched', () => {
-    const points = [
-      [48.1, 11.5],
-      [48.2, 11.6],
-    ];
-    expect(douglasPeucker(points, { epsilonMeters: 10 })).toEqual(points);
-  });
-
-  it('returns a single point unchanged rather than duplicating it', () => {
-    expect(douglasPeucker([[1, 2]], { epsilonMeters: 5 })).toEqual([[1, 2]]);
-  });
-
-  it('drops the middle of exactly three collinear points', () => {
-    const points = [
-      [48.0, 11.0],
-      [48.0, 11.001],
-      [48.0, 11.002],
-    ];
-    expect(douglasPeucker(points, { epsilonMeters: 50 })).toEqual([points[0], points[2]]);
-  });
-
-  it('picks the point with the largest perpendicular distance, not the last one scanned', () => {
-    const first = [0, 0];
-    const last = [0, 0.003];
-    const bigDeviation = [0.002, 0.001];
-    const smallDeviation = [0.0005, 0.002];
-    const result = douglasPeucker([first, bigDeviation, smallDeviation, last], {
-      epsilonMeters: 60,
-    });
-    expect(result).toEqual([first, bigDeviation, last]);
-  });
-
-  it('breaks a tie between two equally-distant points in favor of the first one scanned', () => {
-    const first = [0, 0];
-    const last = [0, 0.002];
-    const tiedFirst = [0.001, 0.0005];
-    const tiedSecond = [0.001, 0.0015];
-    const result = douglasPeucker([first, tiedFirst, tiedSecond, last], { epsilonMeters: 80 });
-    expect(result).toEqual([first, tiedFirst, last]);
-  });
-
-  it('does not split when the max perpendicular distance exactly equals epsilon', () => {
-    const first = [0, 0];
-    const last = [0, 0.002];
-    const mid = [0.001, 0.001];
-    const epsilonMeters = perpendicularDistanceMeters(mid, { start: first, end: last });
-    expect(douglasPeucker([first, mid, last], { epsilonMeters })).toEqual([first, last]);
-  });
-
-  it('collapses to the endpoints when the gap exactly equals maxGapMeters', () => {
-    const first = [0, 0];
-    const last = [0, 0.002];
-    const mid = [0.001, 0.001];
-    const maxGapMeters = distanceMeters(first, last);
-    expect(douglasPeucker([first, mid, last], { epsilonMeters: 100000, maxGapMeters })).toEqual([
-      first,
-      last,
-    ]);
-  });
-
-  it('collapses points that sit on a straight line', () => {
-    const points = [
-      [48.0, 11.0],
-      [48.0, 11.001],
-      [48.0, 11.002],
-      [48.0, 11.003],
-      [48.0, 11.004],
-    ];
-    const result = douglasPeucker(points, { epsilonMeters: 5 });
-    expect(result).toEqual([points[0], points[points.length - 1]]);
-  });
-
-  it('keeps a point that marks a real turn', () => {
-    const points = [
-      [48.0, 11.0],
-      [48.0, 11.001],
-      [48.01, 11.001],
-      [48.01, 11.002],
-    ];
-    const result = douglasPeucker(points, { epsilonMeters: 5 });
-    expect(result).toContainEqual(points[2]);
-  });
-
-  it('keeps consecutive points within maxGapMeters on a long straight run', () => {
-    const points = Array.from({ length: 200 }, (_, index) => [48.0, 11.0 + index * 0.0001]);
-    const result = douglasPeucker(points, { epsilonMeters: 5, maxGapMeters: 50 });
-    expect(result.length).toBeGreaterThan(2);
-    for (let index = 1; index < result.length; index++) {
-      expect(distanceMeters(result[index - 1], result[index])).toBeLessThanOrEqual(50);
-    }
-  });
-
-  it('keeps the outlying point of a loop back to its own start', () => {
-    const points = [
-      [48.0, 11.0],
-      [48.001, 11.0005],
-      [48.0, 11.0],
-    ];
-    const result = douglasPeucker(points, { epsilonMeters: 5 });
-    expect(result).toContainEqual(points[1]);
+  it('measures a pure latitude difference with the latitude scale for a zero-length segment', () => {
+    const point = { start: [0, 0], end: [0, 0] };
+    expect(perpendicularDistanceMeters([1, 0], point)).toBeCloseTo(111320, 0);
   });
 });
 
@@ -141,63 +31,114 @@ describe('simplifyToTarget', () => {
       [48.1, 11.5],
       [48.2, 11.6],
     ];
-    expect(simplifyToTarget(points, { targetCount: 10 })).toEqual(points);
+    expect(simplifyToTarget(points, { targetCount: 10 })).toBe(points);
   });
 
-  it('reduces a track to roughly the requested point count', () => {
-    const result = simplifyToTarget(straightLine, { targetCount: 20 });
-    expect(result.length).toBeLessThanOrEqual(20);
-    expect(result.length).toBeGreaterThan(0);
+  it('returns exactly the requested point count', () => {
+    expect(simplifyToTarget(straightLine, { targetCount: 20 })).toHaveLength(20);
   });
 
   it('always keeps the endpoints', () => {
-    const result = simplifyToTarget(straightLine, { targetCount: 20 });
-    expect(result[0]).toEqual(straightLine[0]);
-    expect(result[result.length - 1]).toEqual(straightLine[straightLine.length - 1]);
-  });
-
-  it('exceeds targetCount rather than violate maxGapMeters', () => {
-    const longStraightLine = Array.from({ length: 500 }, (_, index) => [
-      48.0,
-      11.0 + index * 0.0001,
-    ]);
-    const result = simplifyToTarget(longStraightLine, { targetCount: 5, maxGapMeters: 50 });
-    expect(result.length).toBeGreaterThan(5);
-    for (let index = 1; index < result.length; index++) {
-      expect(distanceMeters(result[index - 1], result[index])).toBeLessThanOrEqual(50);
-    }
+    const result = simplifyToTarget(straightLine, { targetCount: 3 });
+    expect(result[0]).toBe(straightLine[0]);
+    expect(result.at(-1)).toBe(straightLine.at(-1));
   });
 
   it('returns the input unchanged for a target below two points', () => {
-    const result = simplifyToTarget(straightLine, { targetCount: 1 });
-    expect(result).toEqual(straightLine);
+    expect(simplifyToTarget(straightLine, { targetCount: 1 })).toBe(straightLine);
   });
 
-  it('simplifies a straight track down to its two endpoints for a target of two', () => {
+  it('simplifies a track down to its two endpoints for a target of two', () => {
     const result = simplifyToTarget(straightLine, { targetCount: 2 });
-    expect(result.length).toBe(2);
+    expect(result).toEqual([straightLine[0], straightLine.at(-1)]);
   });
 
-  it('returns the input unchanged when it has exactly the target count', () => {
-    // Tiny deviations that simplification would drop if it ran.
+  it('picks the point with the largest perpendicular distance, not the last one scanned', () => {
+    const first = [0, 0];
+    const last = [0, 0.003];
+    const bigDeviation = [0.002, 0.001];
+    const smallDeviation = [0.0005, 0.002];
+    const result = simplifyToTarget([first, bigDeviation, smallDeviation, last], {
+      targetCount: 3,
+    });
+    expect(result).toEqual([first, bigDeviation, last]);
+  });
+
+  it('breaks a tie between two equally-distant points in favor of the first one scanned', () => {
+    const first = [0, 0];
+    const last = [0, 0.002];
+    const tiedFirst = [0.001, 0.0005];
+    const tiedSecond = [0.001, 0.0015];
+    const result = simplifyToTarget([first, tiedFirst, tiedSecond, last], { targetCount: 3 });
+    expect(result).toEqual([first, tiedFirst, last]);
+  });
+
+  it('keeps a real turn over points that sit on a straight line', () => {
     const points = [
-      [48, 11],
-      [48.0000001, 11.0005],
-      [48, 11.001],
-      [48.0000001, 11.0015],
-      [48, 11.002],
+      [48.0, 11.0],
+      [48.0, 11.001],
+      [48.0, 11.002],
+      [48.01, 11.002],
+      [48.01, 11.003],
     ];
-    expect(simplifyToTarget(points, { targetCount: points.length })).toEqual(points);
+    expect(simplifyToTarget(points, { targetCount: 3 })).toEqual([points[0], points[2], points[4]]);
   });
 
-  it('uses every iteration it is given to refine the epsilon search', () => {
-    const wiggly = Array.from({ length: 2000 }, (_, index) => [
-      48.0 + 0.01 * Math.sin(index * 0.05),
-      11.0 + index * 0.0002,
+  it('keeps the outlying point of a loop back to its own start', () => {
+    const points = [
+      [48.0, 11.0],
+      [48.0001, 11.0001],
+      [48.001, 11.0005],
+      [48.0, 11.0],
+    ];
+    expect(simplifyToTarget(points, { targetCount: 3 })).toContainEqual(points[2]);
+  });
+
+  // A point exposed by a split never outranks the split, so a kept point keeps its ancestors.
+  it('keeps the split over a point it exposed, even one farther from the smaller chord', () => {
+    const first = [0, 0];
+    const last = [0, 0.01];
+    // 11.1 m off the whole chord: the first split.
+    const split = [0.0001, 0.005];
+    // 10.0 m off the whole chord, but 12.2 m off the chord from split to last.
+    const exposed = [-0.00009, 0.009];
+    const result = simplifyToTarget([first, split, exposed, last], { targetCount: 3 });
+    expect(result).toEqual([first, split, last]);
+  });
+
+  it('ranks the single point between two kept points like any other', () => {
+    const [first, last] = [
+      [0, 0],
+      [0, 0.01],
+    ];
+    const peak = [0.003, 0.005]; // 334 m off the whole chord: the first split
+    // About 1 m off the chord from first to peak.
+    const nearlyOnLine = [
+      [0.00061, 0.001],
+      [0.00121, 0.002],
+    ];
+    // 48 m off the chord from peak to last, the only point between them.
+    const alone = [0.002, 0.0075];
+    const points = [first, ...nearlyOnLine, peak, alone, last];
+    expect(simplifyToTarget(points, { targetCount: 4 })).toEqual([first, peak, alone, last]);
+  });
+
+  it('keeps the earliest of equally ranked points', () => {
+    // A pause at the start: every interior point lies exactly on the chord, so all rank 0.
+    const paused = Array.from({ length: 6 }, () => [48, 11]);
+    const points = [...paused, [48, 11.01]];
+    const result = simplifyToTarget(points, { targetCount: 4 });
+    expect(result).toHaveLength(4);
+    result.slice(0, 3).forEach((point, index) => expect(point).toBe(points[index]));
+  });
+
+  it('keeps the recorded order of the points it keeps', () => {
+    const zigzag = Array.from({ length: 50 }, (_, index) => [
+      48.0 + (index % 2) * 0.001 * (index % 7),
+      11.0 + index * 0.0001,
     ]);
-    // After three halvings of [0, 1000] the search lands on 34 points; a fourth would give 98+.
-    expect(simplifyToTarget(wiggly, { targetCount: 100, maxIterations: 3 }).length).toBeLessThan(
-      50,
-    );
+    const result = simplifyToTarget(zigzag, { targetCount: 10 });
+    const positions = result.map((point) => zigzag.indexOf(point));
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
   });
 });

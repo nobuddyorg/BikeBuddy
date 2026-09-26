@@ -1,8 +1,8 @@
 import { groupByProximity, fanOffsets } from '../lib/pinLayout.js';
-import { geotaggedImages, indexOfImage } from '../lib/images.js';
+import { geotaggedImages, indexOfImage, photosWithin } from '../lib/images.js';
 import * as i18n from './i18n.js';
 import { state } from './state.js';
-import { map } from './map.js';
+import { map, mapBoundsPlain } from './map.js';
 import { setVisible, pinToggle } from './dom.js';
 import { openLightbox } from './lightbox.js';
 
@@ -13,6 +13,8 @@ const PIN_GROUP_THRESHOLD_PX = 24;
 const PIN_FAN_RADIUS_PX = 16;
 const PIN_MIN_ZOOM = 7;
 const PIN_SIZE_PX = 28;
+// Pins just off-screen are placed too, so a short pan shows them before the next render (#580).
+const PIN_VIEW_MARGIN = 0.25;
 
 const shownPhotos = () =>
   geotaggedImages({ tours: state.tours, selectedTourId: state.selectedTourId });
@@ -20,6 +22,9 @@ const shownPhotos = () =>
 // L.divIcon's element form: img.src is a property write, never parsed markup.
 function photoPinIcon({ thumbUrl, url }) {
   const image = document.createElement('img');
+  // Off-screen pins wait until they are panned into view; decoding never blocks a zoom frame.
+  image.loading = 'lazy';
+  image.decoding = 'async';
   image.src = thumbUrl || url;
   image.alt = t('lightbox.imgAlt');
   // Photos older than thumbnails have a signed thumbUrl to a missing blob.
@@ -83,7 +88,9 @@ export function renderPins() {
 
   const shownIds = new Set();
   const added = [];
-  for (const { photo, position } of pinPositions(photos)) {
+  for (const { photo, position } of pinPositions(
+    photosWithin(photos, mapBoundsPlain(PIN_VIEW_MARGIN)),
+  )) {
     shownIds.add(photo.id);
     const existing = pinMarkers.get(photo.id);
     if (existing) {

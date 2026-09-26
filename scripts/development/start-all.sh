@@ -55,11 +55,14 @@ echo "==> Installing function dependencies..."
 echo "==> Initializing Cosmos database + containers..."
 (cd "$FUNCTIONS_DIRECTORY" && node scripts/init-cosmos.js)
 
+# One SKIP_AUTH dev user for everything local, so its upload budget (#549) is raised; see start-backend.sh.
+export UPLOAD_RATE_LIMIT_PER_HOUR="${UPLOAD_RATE_LIMIT_PER_HOUR:-1000000}"
+
 echo "==> Starting Functions API (Node $(node --version))..."
 (cd "$FUNCTIONS_DIRECTORY" && npm run dev) &
 background_process_ids+=($!)
 echo "==> Waiting for API on http://localhost:7071..."
-wait_for http://localhost:7071/api/me "The Functions API"
+wait_for http://localhost:7071/api/v1/me "The Functions API"
 
 echo "==> Starting frontend on http://localhost:4280 (SWA CLI proxies /api to :7071)..."
 swa start "$REPO_ROOT/frontend/src" --api-devserver-url http://localhost:7071 &
@@ -70,7 +73,7 @@ open http://localhost:4280 2>/dev/null || true
 echo ""
 echo "BikeBuddy is running:"
 echo "  App            : http://localhost:4280"
-echo "  API            : http://localhost:7071/api"
+echo "  API            : http://localhost:7071/api/v1"
 echo "  Cosmos explorer: http://localhost:1234"
 echo "  Press Ctrl-C to stop (the emulator keeps running)."
 echo ""

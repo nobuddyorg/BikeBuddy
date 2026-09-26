@@ -145,6 +145,11 @@
     padding: 7px 10px;
   }
 
+  /* No room beside help, upload and sign-in; the help, sign-in prompt and profile link it. */
+  .navbar-privacy {
+    display: none;
+  }
+
   .modal {
     min-width: 0;
     width: calc(100vw - 32px);

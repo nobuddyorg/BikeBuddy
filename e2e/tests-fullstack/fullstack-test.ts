@@ -17,3 +17,6 @@ export const fullstackTest = buddyTest.extend<{ seed: Seeder }>({
 });
 
 export { expect } from '@playwright/test';
+
+// A delete request waits out the Undo window (frontend/src/ui/undoableAction.js) first.
+export const AFTER_UNDO_WINDOW = { timeout: 20_000 };

@@ -1,5 +1,10 @@
-import { expect, fullstackTest } from './fullstack-test';
+import { AFTER_UNDO_WINDOW, expect, fullstackTest } from './fullstack-test';
 import { PHOTOS } from './seed';
+import { devUserBlobNames } from './store';
+
+// A photo is stored as its full image and its thumbnail (functions/src/UploadImage).
+const storedPhotoBlobs = async () =>
+  (await devUserBlobNames()).filter((name) => name.startsWith('tour-images/'));
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -23,8 +28,12 @@ fullstackTest(
     await on(page).detail.do.addPhotos(PHOTOS.untagged);
     await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(2);
 
+    await expect.poll(storedPhotoBlobs).toHaveLength(4);
+
     await on(page).detail.do.deletePhoto(0);
     await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
+    // The deleted photo's blobs are gone, the other photo's stay (#567).
+    await expect.poll(storedPhotoBlobs, AFTER_UNDO_WINDOW).toHaveLength(2);
   },
 );
 
@@ -42,6 +51,7 @@ fullstackTest('opens and closes the lightbox for a photo', async ({ on, page }) 
   await on(page).detail.do.openPhoto(0);
   await expect(on(page).modal.lightbox()).toBeVisible();
   await expect(on(page).modal.lightbox.locators.image).toHaveAttribute('src', /.+/);
+  await on(page).a11y.check('lightbox');
 
   await on(page).modal.lightbox.do.close();
   await expect(on(page).modal.lightbox()).toBeHidden();
@@ -60,7 +70,7 @@ fullstackTest.describe('a failed photo upload', () => {
 
     // Only the first attempt fails; the retry goes to the real backend.
     let attempt = 0;
-    await page.route('**/api/tours/*/images', async (route) => {
+    await page.route('**/api/v1/tours/*/images', async (route) => {
       attempt++;
       if (attempt === 1) {
         await route.fulfill({ status: 500, body: 'Internal Server Error' });

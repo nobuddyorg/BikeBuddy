@@ -22,28 +22,28 @@ function expectStatus(response, { endpoint, status }) {
 }
 
 export function getMe() {
-  const response = http.get(`${API_URL}/api/me`, params('GET /me'));
+  const response = http.get(`${API_URL}/api/v1/me`, params('GET /me'));
   expectStatus(response, { endpoint: 'GET /me', status: 200 });
 }
 
 export function listTours() {
-  const response = http.get(`${API_URL}/api/tours`, params('GET /tours'));
+  const response = http.get(`${API_URL}/api/v1/tours`, params('GET /tours'));
   return expectStatus(response, { endpoint: 'GET /tours', status: 200 }) ? response.json() : [];
 }
 
 export function getTour(id) {
-  const response = http.get(`${API_URL}/api/tours/${id}`, params('GET /tours/{id}'));
+  const response = http.get(`${API_URL}/api/v1/tours/${id}`, params('GET /tours/{id}'));
   expectStatus(response, { endpoint: 'GET /tours/{id}', status: 200 });
 }
 
 export function getMap() {
-  const response = http.get(`${API_URL}/api/map`, params('GET /map'));
+  const response = http.get(`${API_URL}/api/v1/map`, params('GET /map'));
   expectStatus(response, { endpoint: 'GET /map', status: 200 });
 }
 
 export function exportData() {
   const response = http.get(
-    `${API_URL}/api/me/export`,
+    `${API_URL}/api/v1/me/export`,
     params('GET /me/export', { timeout: '120s' }),
   );
   expectStatus(response, { endpoint: 'GET /me/export', status: 200 });
@@ -51,18 +51,18 @@ export function exportData() {
 
 export function uploadTour(name, gpx) {
   const response = http.post(
-    `${API_URL}/api/tours/upload?name=${encodeURIComponent(name)}`,
-    { file: http.file(gpx, 'ride.gpx', 'application/gpx+xml') },
-    params('POST /tours/upload', { timeout: '120s' }),
+    `${API_URL}/api/v1/tours`,
+    { name, file: http.file(gpx, 'ride.gpx', 'application/gpx+xml') },
+    params('POST /tours', { timeout: '120s' }),
   );
-  return expectStatus(response, { endpoint: 'POST /tours/upload', status: 201 })
-    ? response.json().tourId
+  return expectStatus(response, { endpoint: 'POST /tours', status: 201 })
+    ? response.json().id
     : null;
 }
 
 export function uploadImage(tourId, jpeg) {
   const response = http.post(
-    `${API_URL}/api/tours/${tourId}/images`,
+    `${API_URL}/api/v1/tours/${tourId}/images`,
     { file: http.file(jpeg, 'photo.jpg', 'image/jpeg') },
     params('POST /tours/{id}/images'),
   );
@@ -73,7 +73,7 @@ export function uploadImage(tourId, jpeg) {
 
 export function editTour(tourId, body) {
   const response = http.patch(
-    `${API_URL}/api/tours/${tourId}`,
+    `${API_URL}/api/v1/tours/${tourId}`,
     JSON.stringify(body),
     params('PATCH /tours/{id}', { headers: { 'Content-Type': 'application/json' } }),
   );
@@ -82,7 +82,7 @@ export function editTour(tourId, body) {
 
 export function deleteImage(tourId, imageId) {
   const response = http.del(
-    `${API_URL}/api/tours/${tourId}/images/${imageId}`,
+    `${API_URL}/api/v1/tours/${tourId}/images/${imageId}`,
     null,
     params('DELETE /tours/{id}/images/{imageId}'),
   );
@@ -90,6 +90,10 @@ export function deleteImage(tourId, imageId) {
 }
 
 export function deleteTour(tourId) {
-  const response = http.del(`${API_URL}/api/tours/${tourId}`, null, params('DELETE /tours/{id}'));
+  const response = http.del(
+    `${API_URL}/api/v1/tours/${tourId}`,
+    null,
+    params('DELETE /tours/{id}'),
+  );
   expectStatus(response, { endpoint: 'DELETE /tours/{id}', status: 204 });
 }

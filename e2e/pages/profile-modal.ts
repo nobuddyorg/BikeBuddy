@@ -12,6 +12,10 @@ interface ProfileModal {
     exportData(): Promise<void>;
     logout(): Promise<void>;
     deleteAccount(): Promise<void>;
+    openDeleteAccount(): Promise<void>;
+    /** Types the confirmation phrase into the open delete-account dialog and confirms. */
+    confirmDeleteAccount(): Promise<void>;
+    openLanguageMenu(): Promise<void>;
     close(): Promise<void>;
   };
   /** Raw locators. */
@@ -21,6 +25,8 @@ interface ProfileModal {
     since: Locator;
     nameInput: Locator;
     nameError: Locator;
+    /** Opens the privacy notice in a new tab. */
+    privacyLink: Locator;
     lang: {
       button: Locator;
       menu: Locator;
@@ -35,6 +41,7 @@ interface ProfileModal {
       close: Locator;
     };
     deleteAccountModal: {
+      root: Locator;
       input: Locator;
       confirm: Locator;
     };
@@ -49,6 +56,7 @@ export function initProfileModal(page: Page): ProfileModal {
     since: page.locator('#profile-since'),
     nameInput: page.locator('#profile-name-input'),
     nameError: page.locator('#profile-name-error'),
+    privacyLink: page.locator('#link-privacy-profile'),
     lang: {
       button: page.locator('#btn-lang'),
       menu: page.locator('#lang-menu'),
@@ -63,6 +71,7 @@ export function initProfileModal(page: Page): ProfileModal {
       close: page.locator('#btn-close-profile'),
     },
     deleteAccountModal: {
+      root: page.locator('#delete-account-modal'),
       input: page.locator('#delete-account-input'),
       confirm: page.locator('#btn-delete-account-confirm'),
     },
@@ -79,9 +88,14 @@ export function initProfileModal(page: Page): ProfileModal {
     logout: async () => locators.buttons.logout.click(),
     deleteAccount: async () => {
       await locators.buttons.deleteAccount.click();
+      await interactions.confirmDeleteAccount();
+    },
+    confirmDeleteAccount: async () => {
       await locators.deleteAccountModal.input.fill('DELETE');
       await locators.deleteAccountModal.confirm.click();
     },
+    openDeleteAccount: async () => locators.buttons.deleteAccount.click(),
+    openLanguageMenu: async () => locators.lang.button.click(),
     close: async () => locators.buttons.close.click(),
   };
   return Object.assign(() => root, { locators, do: interactions });

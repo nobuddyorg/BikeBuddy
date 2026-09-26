@@ -28,9 +28,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # Before the login and without install scripts: nothing a dependency runs sees an Azure session (#561).
       - uses: ./.github/actions/setup-node-packages
         with:
           packages: functions
+          ignore-scripts: "true"
 
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
@@ -47,3 +49,28 @@ jobs:
           GRAPH_TENANT_ID: ${{ secrets.GRAPH_TENANT_ID }}
           GRAPH_CLIENT_ID: ${{ secrets.GRAPH_CLIENT_ID }}
           GRAPH_CLIENT_SECRET: ${{ secrets.GRAPH_CLIENT_SECRET }}
+
+  # A scheduled failure opens an issue (or adds to the open one), apart from the job holding the secret (#547).
+  report-failure:
+    needs: process
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Account deletion job failed"
+          open=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number // ""')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --title "$title" --body "The scheduled run failed: $RUN_URL
+
+          Every entry that failed or was rejected stays queued for the next run; the log names ids by hash only. See design-decisions.md, \"Account deletion (GDPR), out-of-band\"."
+          fi

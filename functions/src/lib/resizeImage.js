@@ -1,7 +1,9 @@
 // @ts-check
 'use strict';
 
-const sharp = require('sharp');
+// Required on first call: the worker loads every function, and sharp was 42 of its 434 ms of require (#578).
+/** @type {(...args: Parameters<typeof import('sharp')>) => import('sharp').Sharp} */
+const sharp = (...args) => require('sharp')(...args);
 
 const MAX_WIDTH = 2000;
 const FULL_QUALITY = 82;

@@ -1,4 +1,4 @@
-import { ensureMapData } from '../lib/mapData.js';
+import { queueMapDataLoads } from '../lib/mapData.js';
 import { hasNoPoints, routePointSets, selectionKey } from '../lib/routes.js';
 import { state } from './state.js';
 import { map } from './map.js';
@@ -18,20 +18,35 @@ const L = window.L;
 const ALL_TOURS_PADDING_PX = 40;
 export const SINGLE_TOUR_PADDING_PX = 60;
 
+const ensureMapData = queueMapDataLoads();
+
+// One line per point set while it is drawn, so a render adds and removes only what changed (#580).
+const drawnLines = new Map();
+
 export function clearRouteLayer() {
   if (state.routeLayer) {
     map.removeLayer(state.routeLayer);
     state.routeLayer = null;
   }
+  drawnLines.clear();
 }
 
 function drawRoutes(pointSets) {
-  clearRouteLayer();
-  const lines = pointSets
-    .filter((points) => points.length > 1)
-    .map((points) => L.polyline(points, { ...state.lineStyle, interactive: false }));
-  if (lines.length === 0) return;
-  state.routeLayer = L.layerGroup(lines).addTo(map);
+  const wanted = new Set(pointSets.filter((points) => points.length > 1));
+  if (!state.routeLayer) state.routeLayer = L.layerGroup().addTo(map);
+  for (const [points, line] of drawnLines) {
+    if (wanted.has(points)) continue;
+    state.routeLayer.removeLayer(line);
+    drawnLines.delete(points);
+  }
+  for (const points of wanted) {
+    if (drawnLines.has(points)) continue;
+    const line = L.polyline(points, { ...state.lineStyle, interactive: false });
+    drawnLines.set(points, line);
+    state.routeLayer.addLayer(line);
+  }
+  // Lines on the canvas renderer leave no element behind, so a test counts them here.
+  map.getContainer().dataset.routeLines = String(wanted.size);
 }
 
 // Restyles in place, so dragging a slider neither rebuilds the layers nor moves the camera.

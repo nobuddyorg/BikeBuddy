@@ -2,58 +2,50 @@
 
 const {
   partitionQueue,
-  maskId,
-  createGraphClient,
+  idHash,
   createDeletionQueue,
+  createAppUsers,
   planDeletions,
   processDeletions,
   runDeletionJob,
 } = require('./deletionJob');
+const { createGraphClient } = require('./graphClient');
 const { PAGE_SIZE } = require('./queryItems');
 const { fakeCosmosContainer } = require('../../test/scriptFakes');
+const { USER_A, USER_B, USER_C, CREDENTIALS, fakeGraphFetch } = require('../../test/fakeGraph');
 
-const USER_A = '11111111-1111-4111-8111-11111111aaaa';
-const USER_B = '22222222-2222-4222-8222-22222222bbbb';
-const USER_C = '33333333-3333-4333-8333-33333333cccc';
-const GRAPH_USERS_URL = 'https://graph.microsoft.com/v1.0/users/';
-const TOKEN_URL = 'https://login.microsoftonline.com/tenant-id/oauth2/v2.0/token';
-const CREDENTIALS = { tenantId: 'tenant-id', clientId: 'client-id', clientSecret: 'client-secret' };
 const COSMOS_ENVIRONMENT = {
   COSMOS_CONNECTION_STRING: 'AccountEndpoint=http://localhost:8081/;AccountKey=a2V5;',
   COSMOS_DATABASE: 'bikebuddy',
 };
 const ENVIRONMENT = {
   ...COSMOS_ENVIRONMENT,
+  BLOB_CONNECTION_STRING: 'UseDevelopmentStorage=true',
   GRAPH_TENANT_ID: 'tenant-id',
   GRAPH_CLIENT_ID: 'client-id',
   GRAPH_CLIENT_SECRET: 'client-secret',
 };
 
-function jsonResponse(status, body = {}) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
-}
+// As DeleteAccount queues it: the directory object id, with the app user (token sub) it belongs to.
+const queued = (id) => ({ id, userId: `sub-${id.slice(-4)}` });
 
-// A Graph stand-in: answers the token request, then each user DELETE with statusFor(id).
-function fakeGraphFetch(statusFor = () => 204) {
-  const calls = [];
-  const fetch = vi.fn(async (url, init) => {
-    calls.push({ url, init });
-    if (url === TOKEN_URL) return jsonResponse(200, { access_token: 'graph-token' });
-    const status = statusFor(decodeURIComponent(url.slice(GRAPH_USERS_URL.length)));
-    if (status instanceof Error) throw status;
-    return jsonResponse(status);
-  });
-  const deletedIds = () =>
-    calls
-      .filter(({ url }) => url.startsWith(GRAPH_USERS_URL))
-      .map(({ url }) => decodeURIComponent(url.slice(GRAPH_USERS_URL.length)));
-  return { fetch, calls, deletedIds };
-}
-
-function queueOf(ids) {
+// An entry is an id alone (queued before #538, no app user) or an object.
+function queueOf(entries) {
   return fakeCosmosContainer({
-    documents: ids.map((id) => ({ id, requestedAt: '2026-01-01T00:00:00.000Z' })),
+    documents: entries.map((entry) => ({
+      requestedAt: '2026-01-01T00:00:00.000Z',
+      ...(typeof entry === 'string' ? { id: entry } : entry),
+    })),
     answerQuery: (documents) => documents.map(({ id }) => ({ id })),
+    partitionKeyOf: (document) => document.id,
+  });
+}
+
+// The app users that still have a document, by their token sub.
+function usersOf(userIds = []) {
+  return fakeCosmosContainer({
+    documents: userIds.map((id) => ({ id })),
+    answerQuery: () => [],
     partitionKeyOf: (document) => document.id,
   });
 }
@@ -67,15 +59,23 @@ function recordingLog() {
   };
 }
 
-async function runReal({ ids, statusFor, log = recordingLog() }) {
-  const queue = queueOf(ids);
+async function runReal({
+  entries,
+  users = [],
+  statusFor,
+  log = recordingLog(),
+  purgeAccount = vi.fn(),
+}) {
+  const queue = queueOf(entries);
   const graph = fakeGraphFetch(statusFor);
   const outcome = await processDeletions({
     queue: createDeletionQueue(queue.container),
+    appUsers: createAppUsers(usersOf(users).container),
     graph: createGraphClient({ fetch: graph.fetch, ...CREDENTIALS }),
+    purgeAccount,
     log,
   });
-  return { outcome, queue, graph, log };
+  return { outcome, queue, graph, log, purgeAccount };
 }
 
 describe('partitionQueue', () => {
@@ -89,96 +89,11 @@ describe('partitionQueue', () => {
   });
 });
 
-describe('maskId', () => {
-  it('shows only the last four characters', () => {
-    expect(maskId(USER_A)).toBe('…aaaa');
-  });
-});
-
-describe('createGraphClient', () => {
-  it('deletes the user by its encoded id with a client-credentials token', async () => {
-    const graph = fakeGraphFetch();
-    const client = createGraphClient({ fetch: graph.fetch, ...CREDENTIALS });
-
-    await expect(client.deleteUser(USER_A)).resolves.toBe('deleted');
-
-    const [tokenCall, deleteCall] = graph.calls;
-    expect(tokenCall.url).toBe(TOKEN_URL);
-    expect(tokenCall.init.method).toBe('POST');
-    expect(Object.fromEntries(tokenCall.init.body)).toEqual({
-      client_id: 'client-id',
-      client_secret: 'client-secret',
-      scope: 'https://graph.microsoft.com/.default',
-      grant_type: 'client_credentials',
-    });
-    expect(deleteCall).toEqual({
-      url: `${GRAPH_USERS_URL}${USER_A}`,
-      init: { method: 'DELETE', headers: { Authorization: 'Bearer graph-token' } },
-    });
-  });
-
-  it('encodes the tenant id into the token URL', async () => {
-    const graph = fakeGraphFetch();
-    const client = createGraphClient({ fetch: graph.fetch, ...CREDENTIALS, tenantId: 'a/b' });
-
-    await client.deleteUser(USER_A).catch(() => {});
-
-    expect(graph.calls[0].url).toBe('https://login.microsoftonline.com/a%2Fb/oauth2/v2.0/token');
-  });
-
-  it('requests one token for the whole run', async () => {
-    const graph = fakeGraphFetch();
-    const client = createGraphClient({ fetch: graph.fetch, ...CREDENTIALS });
-
-    await client.deleteUser(USER_A);
-    await client.deleteUser(USER_B);
-
-    expect(graph.calls.filter(({ url }) => url === TOKEN_URL)).toHaveLength(1);
-  });
-
-  it('treats 404 as already gone', async () => {
-    const graph = fakeGraphFetch(() => 404);
-    const client = createGraphClient({ fetch: graph.fetch, ...CREDENTIALS });
-
-    await expect(client.deleteUser(USER_A)).resolves.toBe('alreadyGone');
-  });
-
-  it.each([429, 500, 503, 200, 400])('fails on status %i', async (status) => {
-    const graph = fakeGraphFetch(() => status);
-    const client = createGraphClient({ fetch: graph.fetch, ...CREDENTIALS });
-
-    await expect(client.deleteUser(USER_A)).rejects.toThrow(
-      `Graph delete failed with status ${status}`,
-    );
-  });
-
-  it.each(['../groups/11111111-1111-4111-8111-111111111111', 'a/b', '..', '', 42])(
-    'never calls Graph for %j',
-    async (id) => {
-      const graph = fakeGraphFetch();
-      const client = createGraphClient({ fetch: graph.fetch, ...CREDENTIALS });
-
-      await expect(client.deleteUser(id)).rejects.toThrow('not a GUID');
-      expect(graph.fetch).not.toHaveBeenCalled();
-    },
-  );
-
-  it('fails when the token request is refused, without calling the users endpoint', async () => {
-    const fetch = vi.fn(async () => jsonResponse(401));
-    const client = createGraphClient({ fetch, ...CREDENTIALS });
-
-    await expect(client.deleteUser(USER_A)).rejects.toThrow(
-      'Graph token request failed with status 401',
-    );
-    expect(fetch).toHaveBeenCalledTimes(1);
-  });
-
-  it('fails when the token response carries no access token', async () => {
-    const fetch = vi.fn(async () => jsonResponse(200, { error: 'nope' }));
-    const client = createGraphClient({ fetch, ...CREDENTIALS });
-
-    await expect(client.deleteUser(USER_A)).rejects.toThrow('no access_token');
-    expect(fetch).toHaveBeenCalledTimes(1);
+describe('idHash', () => {
+  it('names an id by eight hex digits of its SHA-256, holding none of the id', () => {
+    expect(idHash(USER_A)).toBe('id#19629c4e');
+    expect(idHash(USER_A)).not.toContain('aaaa');
+    expect(idHash(USER_B)).not.toBe(idHash(USER_A));
   });
 });
 
@@ -191,6 +106,31 @@ describe('createDeletionQueue', () => {
     expect(queue.queries).toEqual([
       { query: 'SELECT c.id FROM c', options: { maxItemCount: PAGE_SIZE } },
     ]);
+  });
+
+  it('reads the app user an entry was queued for, by its id as partition key', async () => {
+    const queue = queueOf([{ id: USER_A, userId: 'sub-a' }, USER_B]);
+    const adapter = createDeletionQueue(queue.container);
+
+    await expect(adapter.appUserOf(USER_A)).resolves.toBe('sub-a');
+    await expect(adapter.appUserOf(USER_B)).resolves.toBeUndefined();
+    await expect(adapter.appUserOf(USER_C)).resolves.toBeUndefined();
+  });
+
+  it('reads no app user when the SDK answers a missing entry without throwing', async () => {
+    const container = { item: () => ({ read: async () => ({ resource: undefined }) }) };
+
+    await expect(createDeletionQueue(container).appUserOf(USER_A)).resolves.toBeUndefined();
+  });
+
+  it('rethrows a failed read that is not a 404', async () => {
+    const container = {
+      item: () => ({
+        read: async () => Promise.reject(Object.assign(new Error('throttled'), { code: 429 })),
+      }),
+    };
+
+    await expect(createDeletionQueue(container).appUserOf(USER_A)).rejects.toThrow('throttled');
   });
 
   it('removes an entry by its id as partition key', async () => {
@@ -216,10 +156,35 @@ describe('createDeletionQueue', () => {
   });
 });
 
+describe('createAppUsers', () => {
+  it('reads a user document by the sub as id and partition key', async () => {
+    const users = createAppUsers(usersOf(['sub-a']).container);
+
+    await expect(users.exists('sub-a')).resolves.toBe(true);
+    await expect(users.exists('sub-b')).resolves.toBe(false);
+  });
+
+  it('reads a missing document the emulator answers without throwing as gone', async () => {
+    const container = { item: () => ({ read: async () => ({ resource: undefined }) }) };
+
+    await expect(createAppUsers(container).exists('sub-a')).resolves.toBe(false);
+  });
+
+  it('rethrows a failed read that is not a 404', async () => {
+    const container = {
+      item: () => ({
+        read: async () => Promise.reject(Object.assign(new Error('throttled'), { code: 429 })),
+      }),
+    };
+
+    await expect(createAppUsers(container).exists('sub-a')).rejects.toThrow('throttled');
+  });
+});
+
 describe('processDeletions', () => {
   it('deletes each queued user and removes its entry on 204 and on 404', async () => {
     const { outcome, queue, graph, log } = await runReal({
-      ids: [USER_A, USER_B],
+      entries: [queued(USER_A), queued(USER_B)],
       statusFor: (id) => (id === USER_A ? 204 : 404),
     });
 
@@ -227,26 +192,75 @@ describe('processDeletions', () => {
     expect(queue.documents).toEqual([]);
     expect(outcome).toEqual({ deleted: 1, alreadyGone: 1, failed: 0, rejected: 0 });
     expect(log.lines).toEqual([
-      '…aaaa: deleted',
-      '…bbbb: already gone',
+      `${idHash(USER_A)}: deleted`,
+      `${idHash(USER_B)}: already gone`,
       'Done: 1 deleted, 1 already gone, 0 failed, 0 rejected.',
     ]);
   });
 
   it('never sends a non-GUID id to Graph and leaves it queued', async () => {
-    const hostile = ['../groups/x', 'a/b', '..', 'not-a-guid'];
-    const { outcome, queue, graph } = await runReal({ ids: [...hostile, USER_A] });
+    const hostile = ['../groups/x', 'a/b', '..', 'not-a-guid'].map((id) => ({ id, userId: 's' }));
+    const { outcome, queue, graph } = await runReal({ entries: [...hostile, queued(USER_A)] });
 
     expect(graph.deletedIds()).toEqual([USER_A]);
-    expect(queue.documents.map(({ id }) => id)).toEqual(hostile);
+    expect(queue.documents.map(({ id }) => id)).toEqual(hostile.map(({ id }) => id));
     expect(outcome).toEqual({ deleted: 1, alreadyGone: 0, failed: 0, rejected: 4 });
   });
+
+  // Anyone who can write the queue could otherwise name any identity in the tenant (#570).
+  it('rejects an entry that names no app user, deleting and purging nothing', async () => {
+    const { outcome, queue, graph, purgeAccount, log } = await runReal({
+      entries: [USER_A, queued(USER_B)],
+    });
+
+    expect(graph.deletedIds()).toEqual([USER_B]);
+    expect(purgeAccount).toHaveBeenCalledTimes(1);
+    expect(queue.documents.map(({ id }) => id)).toEqual([USER_A]);
+    expect(outcome).toEqual({ deleted: 1, alreadyGone: 0, failed: 0, rejected: 1 });
+    expect(log.lines).toContain(
+      `${idHash(USER_A)}: rejected, stays queued ` +
+        '(it names no app user, so nothing shows the API queued it)',
+    );
+  });
+
+  it('rejects an entry whose app user still has a document: the API never deleted it', async () => {
+    const { outcome, queue, graph, purgeAccount, log } = await runReal({
+      entries: [queued(USER_A)],
+      users: [queued(USER_A).userId],
+    });
+
+    expect(graph.calls).toEqual([]);
+    expect(purgeAccount).not.toHaveBeenCalled();
+    expect(queue.documents).toHaveLength(1);
+    expect(outcome).toEqual({ deleted: 0, alreadyGone: 0, failed: 0, rejected: 1 });
+    expect(log.lines).toContain(
+      `${idHash(USER_A)}: rejected, stays queued ` +
+        '(its app user still has a document, so the API did not delete it)',
+    );
+  });
+
+  // An empty or path-like userId would widen the blob prefix past one user.
+  it.each([[''], ['a/b'], ['../x'], [42], [null]])(
+    'rejects the queued userId %j before any purge or Graph call',
+    async (userId) => {
+      const { outcome, purgeAccount, graph, log } = await runReal({
+        entries: [{ id: USER_A, userId }],
+      });
+
+      expect(log.lines).toContain(
+        `${idHash(USER_A)}: rejected, stays queued (its app user id is not a token subject)`,
+      );
+      expect(purgeAccount).not.toHaveBeenCalled();
+      expect(graph.calls).toEqual([]);
+      expect(outcome.rejected).toBe(1);
+    },
+  );
 
   it.each([429, 500, 503])(
     'keeps the entry on %i and carries on with the next id',
     async (status) => {
       const { outcome, queue, graph } = await runReal({
-        ids: [USER_A, USER_B],
+        entries: [queued(USER_A), queued(USER_B)],
         statusFor: (id) => (id === USER_A ? status : 204),
       });
 
@@ -258,7 +272,7 @@ describe('processDeletions', () => {
 
   it('counts a network error as a failure and carries on', async () => {
     const { outcome, queue } = await runReal({
-      ids: [USER_A, USER_B],
+      entries: [queued(USER_A), queued(USER_B)],
       statusFor: (id) => (id === USER_A ? new TypeError('fetch failed') : 204),
     });
 
@@ -266,17 +280,45 @@ describe('processDeletions', () => {
     expect(outcome).toEqual({ deleted: 1, alreadyGone: 0, failed: 1, rejected: 0 });
   });
 
+  it('counts a failed check of the app user as a failure, deleting nothing', async () => {
+    const queue = queueOf([queued(USER_A)]);
+    const graph = fakeGraphFetch();
+    const throttled = Object.assign(new Error('throttled'), { code: 429 });
+    const log = recordingLog();
+
+    const outcome = await processDeletions({
+      queue: createDeletionQueue(queue.container),
+      appUsers: { exists: async () => Promise.reject(throttled) },
+      graph: createGraphClient({ fetch: graph.fetch, ...CREDENTIALS }),
+      purgeAccount: vi.fn(),
+      log,
+    });
+
+    expect(outcome).toEqual({ deleted: 0, alreadyGone: 0, failed: 1, rejected: 0 });
+    expect(graph.calls).toEqual([]);
+    expect(log.lines).toContain(
+      `${idHash(USER_A)}: failed, stays queued for the next run (throttled)`,
+    );
+  });
+
   it('carries on when a queue entry vanished before its removal', async () => {
-    const queue = queueOf([USER_A, USER_B]);
+    const queue = queueOf([queued(USER_A), queued(USER_B)]);
+    const adapter = createDeletionQueue(queue.container);
+    // Another run removed it first: the removal meets a 404.
     const remove = vi.fn(async (id) => {
-      queue.documents.splice(0, queue.documents.length);
-      await createDeletionQueue(queue.container).remove(id);
+      queue.documents.splice(
+        queue.documents.findIndex((document) => document.id === id),
+        1,
+      );
+      await adapter.remove(id);
     });
     const graph = fakeGraphFetch();
 
     const outcome = await processDeletions({
-      queue: { listIds: createDeletionQueue(queue.container).listIds, remove },
+      queue: { listIds: adapter.listIds, appUserOf: adapter.appUserOf, remove },
+      appUsers: createAppUsers(usersOf().container),
       graph: createGraphClient({ fetch: graph.fetch, ...CREDENTIALS }),
+      purgeAccount: vi.fn(),
       log: recordingLog(),
     });
 
@@ -284,79 +326,134 @@ describe('processDeletions', () => {
     expect(outcome).toEqual({ deleted: 2, alreadyGone: 0, failed: 0, rejected: 0 });
   });
 
-  it('counts a failed queue removal as a failure and carries on', async () => {
-    const queue = queueOf([USER_A, USER_B]);
+  it('counts a failed queue removal as a failure, logging neither id', async () => {
+    const queue = queueOf([queued(USER_A), queued(USER_B)]);
     const adapter = createDeletionQueue(queue.container);
     const log = recordingLog();
+    const { userId } = queued(USER_A);
     const remove = async (id) => {
-      if (id === USER_A) throw new Error(`Request to docs/${USER_A} timed out`);
+      if (id === USER_A) throw new Error(`Request to docs/${USER_A} for ${userId} timed out`);
       await adapter.remove(id);
     };
 
     const outcome = await processDeletions({
-      queue: { listIds: adapter.listIds, remove },
+      queue: { listIds: adapter.listIds, appUserOf: adapter.appUserOf, remove },
+      appUsers: createAppUsers(usersOf().container),
       graph: createGraphClient({ fetch: fakeGraphFetch().fetch, ...CREDENTIALS }),
+      purgeAccount: vi.fn(),
       log,
     });
 
     expect(outcome).toEqual({ deleted: 1, alreadyGone: 0, failed: 1, rejected: 0 });
     expect(log.lines).toContain(
-      '…aaaa: failed, stays queued for the next run (Request to docs/…aaaa timed out)',
+      `${idHash(USER_A)}: failed, stays queued for the next run ` +
+        `(Request to docs/${idHash(USER_A)} for ${idHash(userId)} timed out)`,
     );
   });
 
+  it("purges the queued app user's data before deleting the identity", async () => {
+    const order = [];
+    const purgeAccount = vi.fn(async (userId) => order.push(`purge ${userId}`));
+    const graph = fakeGraphFetch();
+    const queue = queueOf([{ id: USER_A, userId: 'sub-a_1' }]);
+    const deleteUser = createGraphClient({ fetch: graph.fetch, ...CREDENTIALS }).deleteUser;
+
+    const outcome = await processDeletions({
+      queue: createDeletionQueue(queue.container),
+      appUsers: createAppUsers(usersOf().container),
+      graph: { deleteUser: async (id) => (order.push(`graph ${id}`), deleteUser(id)) },
+      purgeAccount,
+      log: recordingLog(),
+    });
+
+    expect(order).toEqual(['purge sub-a_1', `graph ${USER_A}`]);
+    expect(outcome.deleted).toBe(1);
+    expect(queue.documents).toEqual([]);
+  });
+
+  it('keeps the identity and the entry when the purge fails, for the next run', async () => {
+    const purgeAccount = vi.fn(async () => {
+      throw new Error(
+        'The documents of the account are gone, but some of its blobs were not deleted',
+      );
+    });
+    const { outcome, queue, graph } = await runReal({ entries: [queued(USER_A)], purgeAccount });
+
+    expect(outcome).toEqual({ deleted: 0, alreadyGone: 0, failed: 1, rejected: 0 });
+    expect(graph.deletedIds()).toEqual([]);
+    expect(queue.documents.map(({ id }) => id)).toEqual([USER_A]);
+  });
+
   it('is idempotent: a second run finds nothing left to do', async () => {
-    const first = await runReal({ ids: [USER_A] });
+    const first = await runReal({ entries: [queued(USER_A)] });
     const graph = fakeGraphFetch();
 
     const outcome = await processDeletions({
       queue: createDeletionQueue(first.queue.container),
+      appUsers: createAppUsers(usersOf().container),
       graph: createGraphClient({ fetch: graph.fetch, ...CREDENTIALS }),
+      purgeAccount: vi.fn(),
       log: recordingLog(),
     });
 
     expect(outcome).toEqual({ deleted: 0, alreadyGone: 0, failed: 0, rejected: 0 });
-    expect(graph.fetch).not.toHaveBeenCalled();
+    expect(graph.calls).toEqual([]);
   });
 
-  it('logs counts and masked ids, never a full object id', async () => {
+  it('logs counts and hashes, never an object id or a part of one', async () => {
     const { log } = await runReal({
-      ids: [USER_A, USER_B, USER_C, '../groups/x'],
+      entries: [queued(USER_A), queued(USER_B), queued(USER_C), { id: '../groups/x' }],
       statusFor: (id) => ({ [USER_A]: 204, [USER_B]: 404 })[id] ?? 500,
     });
 
     expect(log.lines).toEqual([
       '1 queued id(s) are not GUIDs: left in the queue, never sent to Graph.',
-      '…aaaa: deleted',
-      '…bbbb: already gone',
-      '…cccc: failed, stays queued for the next run (Graph delete failed with status 500)',
+      `${idHash(USER_A)}: deleted`,
+      `${idHash(USER_B)}: already gone`,
+      `${idHash(USER_C)}: failed, stays queued for the next run (Graph delete failed with status 500)`,
       'Done: 1 deleted, 1 already gone, 1 failed, 1 rejected.',
     ]);
+    for (const id of [USER_A, USER_B, USER_C]) {
+      expect(log.lines.join('\n')).not.toContain(id.slice(-4));
+    }
   });
 });
 
 describe('planDeletions', () => {
-  it('lists what a run would delete and changes nothing', async () => {
-    const queue = queueOf([USER_A, 'a/b', USER_B]);
+  it('lists what a run would delete and reject, and changes nothing', async () => {
+    const queue = queueOf([queued(USER_A), 'a/b', USER_B, queued(USER_C)]);
+    const users = usersOf([queued(USER_C).userId]);
     const log = recordingLog();
 
-    const outcome = await planDeletions({ queue: createDeletionQueue(queue.container), log });
+    const outcome = await planDeletions({
+      queue: createDeletionQueue(queue.container),
+      appUsers: createAppUsers(users.container),
+      log,
+    });
 
     expect(queue.writes).toEqual([]);
-    expect(queue.documents).toHaveLength(3);
-    expect(outcome).toEqual({ deleted: 0, alreadyGone: 0, failed: 0, rejected: 1 });
+    expect(users.writes).toEqual([]);
+    expect(outcome).toEqual({ deleted: 0, alreadyGone: 0, failed: 0, rejected: 3 });
     expect(log.lines).toEqual([
       '1 queued id(s) are not GUIDs: left in the queue, never sent to Graph.',
-      'Would delete …aaaa',
-      'Would delete …bbbb',
-      'Dry run, nothing changed: 2 would be deleted, 1 rejected.',
+      `Would purge the app data of and delete ${idHash(USER_A)}`,
+      `Would reject ${idHash(USER_B)}: it names no app user, so nothing shows the API queued it`,
+      `Would reject ${idHash(USER_C)}: ` +
+        'its app user still has a document, so the API did not delete it',
+      'Dry run, nothing changed: 1 would be deleted, 3 rejected.',
     ]);
   });
 });
 
 describe('runDeletionJob', () => {
-  function run({ argv = [], environment = ENVIRONMENT, ids = [USER_A], statusFor } = {}) {
-    const queue = queueOf(ids);
+  function run({
+    argv = [],
+    environment = ENVIRONMENT,
+    entries = [queued(USER_A)],
+    statusFor,
+  } = {}) {
+    const queue = queueOf(entries);
+    const users = usersOf();
     const graph = fakeGraphFetch(statusFor);
     const log = recordingLog();
     const openDeletionsContainer = vi.fn(() => queue.container);
@@ -365,13 +462,15 @@ describe('runDeletionJob', () => {
       environment,
       fetch: graph.fetch,
       openDeletionsContainer,
+      openUsersContainer: () => users.container,
+      purgeAccount: vi.fn(),
       log,
     });
     return { exitCode, queue, graph, log, openDeletionsContainer };
   }
 
   it('drains the queue and exits 0', async () => {
-    const { exitCode, queue, graph } = run({ ids: [USER_A, USER_B] });
+    const { exitCode, queue, graph } = run({ entries: [queued(USER_A), queued(USER_B)] });
 
     await expect(exitCode).resolves.toBe(0);
     expect(graph.deletedIds()).toEqual([USER_A, USER_B]);
@@ -384,8 +483,11 @@ describe('runDeletionJob', () => {
     await expect(exitCode).resolves.toBe(1);
   });
 
-  it('exits 1 when any queued id was rejected', async () => {
-    const { exitCode } = run({ ids: [USER_A, '../x'] });
+  it.each([
+    ['a queued id that is not a GUID', { id: '../x', userId: 's' }],
+    ['an entry that names no app user', USER_B],
+  ])('exits 1 for %s', async (_label, entry) => {
+    const { exitCode } = run({ entries: [queued(USER_A), entry] });
 
     await expect(exitCode).resolves.toBe(1);
   });
@@ -397,12 +499,12 @@ describe('runDeletionJob', () => {
     });
 
     await expect(exitCode).resolves.toBe(0);
-    expect(graph.fetch).not.toHaveBeenCalled();
+    expect(graph.calls).toEqual([]);
     expect(queue.writes).toEqual([]);
   });
 
-  it('exits 1 on a dry run that finds a rejected id', async () => {
-    const { exitCode, queue } = run({ argv: ['--dry-run'], ids: ['../x'] });
+  it('exits 1 on a dry run that finds an entry it would reject', async () => {
+    const { exitCode, queue } = run({ argv: ['--dry-run'], entries: [USER_A] });
 
     await expect(exitCode).resolves.toBe(1);
     expect(queue.writes).toEqual([]);
@@ -413,7 +515,7 @@ describe('runDeletionJob', () => {
 
     await expect(exitCode).resolves.toBe(1);
     expect(openDeletionsContainer).not.toHaveBeenCalled();
-    expect(graph.fetch).not.toHaveBeenCalled();
+    expect(graph.calls).toEqual([]);
     expect(log.lines.join('\n')).toContain("Unknown option '--dryrun'");
   });
 
@@ -427,13 +529,23 @@ describe('runDeletionJob', () => {
     );
   });
 
+  it('needs the Storage connection string to purge, and says so before calling Graph', async () => {
+    const { exitCode, graph, log } = run({
+      environment: { ...ENVIRONMENT, BLOB_CONNECTION_STRING: '' },
+    });
+
+    await expect(exitCode).resolves.toBe(1);
+    expect(graph.calls).toEqual([]);
+    expect(log.lines.join('\n')).toContain('Missing environment variables: BLOB_CONNECTION_STRING');
+  });
+
   it('names the missing Graph variables before calling Graph', async () => {
     const { exitCode, graph, queue, log } = run({
       environment: { ...ENVIRONMENT, GRAPH_CLIENT_SECRET: '' },
     });
 
     await expect(exitCode).resolves.toBe(1);
-    expect(graph.fetch).not.toHaveBeenCalled();
+    expect(graph.calls).toEqual([]);
     expect(queue.writes).toEqual([]);
     expect(log.lines.join('\n')).toContain('Missing environment variables: GRAPH_CLIENT_SECRET');
   });

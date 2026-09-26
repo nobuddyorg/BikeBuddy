@@ -1,13 +1,13 @@
 'use strict';
 
-// Deterministic guard (load-testing.md): ~20 km tracks only, longer ones exceed it (#546).
+// Deterministic guard (load-testing.md): 100 km tracks, 50 m apart, which a gap rule could not merge (#546).
 const { connectHarness } = require('./harness');
 
 const TOURS = 60;
 const POINTS_PER_TOUR = 2000;
-const TRACK_METERS = 20_000;
-// GetMapData's TOTAL_POINT_BUDGET plus the slack its 50 m gap rule may add back.
-const MAX_POINTS = 110_000;
+const TRACK_METERS = 100_000;
+// GetMapData's TOTAL_POINT_BUDGET, a hard cap.
+const MAX_POINTS = 100_000;
 const MAX_BYTES = 4 * 1024 * 1024;
 
 function gpx(index) {
@@ -49,5 +49,20 @@ describe('GET /api/map budget', () => {
     expect(Buffer.byteLength(body)).toBeLessThanOrEqual(MAX_BYTES);
     // Every seeded tour is still on the map, however much it was simplified.
     expect(tours.map((tour) => tour.id).sort()).toEqual([...created].sort());
+  });
+
+  // Through the real host: it must pass the worker's encoding on untouched (#578).
+  it.each([
+    ['br', 'br'],
+    ['gzip', 'gzip'],
+    ['identity', null],
+  ])('answers Accept-Encoding %s with Content-Encoding %s', async (accepted, coding) => {
+    const response = await rider.api.request('/map', { headers: { 'Accept-Encoding': accepted } });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-encoding')).toBe(coding);
+    expect(response.headers.get('vary')).toMatch(/accept-encoding/i);
+    // fetch decodes the body, so it reads as the same map either way.
+    expect((await response.json()).map((tour) => tour.id).sort()).toEqual([...created].sort());
   });
 });

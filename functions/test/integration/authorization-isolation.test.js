@@ -5,7 +5,7 @@
 const { randomUUID } = require('node:crypto');
 const { connectHarness } = require('./harness');
 const { TOUR_SCOPED_ENDPOINTS, named } = require('./endpoints');
-const { blobNameOf, mapUrlsOf, ownerView, signedUrlsOf } = require('./views');
+const { blobNameOf, exportUrlsOf, mapUrlsOf, ownerView, signedUrlsOf } = require('./views');
 const { geotaggedJpeg } = require('../fixtures/jpegs');
 
 let alice;
@@ -101,15 +101,22 @@ describe('what each rider can see', () => {
     ['bob', () => bob],
   ])('every signed URL %s is handed names a blob under their own prefix', async (_name, rider) => {
     const self = rider();
-    const [detail, map] = await Promise.all([
+    const [detail, map, exported] = await Promise.all([
       self.api.readJson(`/tours/${self.target.tourId}`),
       self.api.readJson('/map'),
+      self.api.readJson('/me/export'),
     ]);
     const uploaded = await self.api.addPhoto({ tourId: self.target.tourId, jpeg });
     try {
-      const urls = [...signedUrlsOf(detail), ...mapUrlsOf(map), uploaded.url, uploaded.thumbUrl];
+      const urls = [
+        ...signedUrlsOf(detail),
+        ...mapUrlsOf(map),
+        ...exportUrlsOf(exported),
+        uploaded.url,
+        uploaded.thumbUrl,
+      ];
 
-      expect(urls).toHaveLength(7);
+      expect(urls).toHaveLength(9);
       for (const url of urls) expect(blobNameOf(url).split('/')[0]).toBe(self.userId);
     } finally {
       const removed = await self.api.request(`/tours/${self.target.tourId}/images/${uploaded.id}`, {

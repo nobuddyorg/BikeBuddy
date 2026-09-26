@@ -144,7 +144,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     const response = await run(TOUR_ID, IMAGE_ID);
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
     expect(images.names()).toEqual([...DELETED_BLOBS, ...SURVIVING_BLOBS].sort());
   });
 
@@ -166,7 +166,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     const response = await run(OTHER_TOUR_ID, IMAGE_ID);
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
     expect(imageIdsOf(OTHER_TOUR_ID, 'u2')).toEqual([IMAGE_ID]);
     expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
     expect(images.calls).toEqual([]);
@@ -178,7 +178,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     const response = await run(TOUR_ID, UNKNOWN_IMAGE_ID);
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Image not found');
+    expect(response.jsonBody.error).toBe('errors.imageNotFound');
     expect(replaces()).toEqual([]);
     expect(images.calls).toEqual([]);
   });
@@ -189,7 +189,7 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     const response = await run(TOUR_ID, IMAGE_ID);
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Image not found');
+    expect(response.jsonBody.error).toBe('errors.imageNotFound');
   });
 
   it('returns 400 before any read when an id is not a UUID', async () => {
@@ -199,8 +199,8 @@ describe('DELETE /api/tours/{tourId}/images/{imageId}', () => {
     const badTour = await run('bad', IMAGE_ID);
 
     expect(badImage.status).toBe(400);
-    expect(badImage.jsonBody.error).toBe('Invalid imageId');
-    expect(badTour.jsonBody.error).toBe('Invalid tourId');
+    expect(badImage.jsonBody.error).toBe('errors.invalidId');
+    expect(badTour.jsonBody.error).toBe('errors.invalidId');
     expect(tours.calls).toEqual([]);
   });
 

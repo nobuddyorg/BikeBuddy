@@ -1,7 +1,7 @@
 'use strict';
 
 const fc = require('fast-check');
-const { douglasPeucker, simplifyToTarget } = require('./simplify');
+const { simplifyToTarget } = require('./simplify');
 
 // Tracks in a band where the flat-earth metric holds, with duplicates and back-and-forth.
 const point = fc.tuple(
@@ -9,7 +9,7 @@ const point = fc.tuple(
   fc.double({ min: -179, max: 179, noNaN: true }),
 );
 const track = fc.array(point, { minLength: 0, maxLength: 300 });
-const epsilonMeters = fc.double({ min: 0, max: 2000, noNaN: true });
+const target = fc.integer({ min: 2, max: 200 });
 
 // The output is a subsequence of the input: same points, same order.
 function isSubsequence(output, input) {
@@ -22,52 +22,12 @@ function isSubsequence(output, input) {
   return true;
 }
 
-describe('douglasPeucker (properties)', () => {
-  it('keeps an ordered subset that starts and ends where the track does', () => {
-    fc.assert(
-      fc.property(track, epsilonMeters, (points, epsilon) => {
-        const simplified = douglasPeucker(points, { epsilonMeters: epsilon });
-        expect(simplified.length).toBeLessThanOrEqual(points.length);
-        expect(isSubsequence(simplified, points)).toBe(true);
-        if (points.length > 0) {
-          expect(simplified[0]).toBe(points[0]);
-          expect(simplified.at(-1)).toBe(points.at(-1));
-        }
-      }),
-    );
-  });
-
-  it('is idempotent at the same tolerance', () => {
-    fc.assert(
-      fc.property(track, epsilonMeters, (points, epsilon) => {
-        const once = douglasPeucker(points, { epsilonMeters: epsilon });
-        expect(douglasPeucker(once, { epsilonMeters: epsilon })).toEqual(once);
-      }),
-    );
-  });
-
-  it('keeps every point at tolerance 0 unless it is exactly on the line', () => {
-    fc.assert(
-      fc.property(track, (points) => {
-        expect(douglasPeucker(points, { epsilonMeters: 0 }).length).toBeLessThanOrEqual(
-          points.length,
-        );
-        expect(douglasPeucker(points, { epsilonMeters: Infinity }).length).toBeLessThanOrEqual(2);
-      }),
-    );
-  });
-});
-
 describe('simplifyToTarget (properties)', () => {
-  const target = fc.integer({ min: 2, max: 200 });
-
-  it('respects the point budget when no gap constraint applies', () => {
+  it('returns exactly the budget, or the whole track when it fits', () => {
     fc.assert(
       fc.property(track, target, (points, budget) => {
         const simplified = simplifyToTarget(points, { targetCount: budget });
-        // A budget that needs an epsilon above the 1 km cap gets the coarsest result instead.
-        const coarsest = douglasPeucker(points, { epsilonMeters: 1000 });
-        expect(simplified.length).toBeLessThanOrEqual(Math.max(budget, coarsest.length));
+        expect(simplified).toHaveLength(Math.min(budget, points.length));
         expect(isSubsequence(simplified, points)).toBe(true);
       }),
     );
@@ -89,6 +49,18 @@ describe('simplifyToTarget (properties)', () => {
         const simplified = simplifyToTarget(points, { targetCount: budget });
         expect(simplified[0]).toBe(points[0]);
         expect(simplified.at(-1)).toBe(points.at(-1));
+      }),
+    );
+  });
+
+  it('keeps every point a smaller budget keeps', () => {
+    fc.assert(
+      fc.property(track, target, target, (points, first, second) => {
+        const [smaller, larger] = [first, second].sort((left, right) => left - right);
+        const kept = new Set(simplifyToTarget(points, { targetCount: larger }));
+        for (const point of simplifyToTarget(points, { targetCount: smaller })) {
+          expect(kept.has(point)).toBe(true);
+        }
       }),
     );
   });

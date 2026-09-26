@@ -53,5 +53,3 @@ jobs:
       - name: OpenTofu Destroy
         run: tofu destroy -auto-approve
         working-directory: infrastructure
-        env:
-          TF_VAR_budget_contact_email: ${{ vars.BUDGET_CONTACT_EMAIL }}

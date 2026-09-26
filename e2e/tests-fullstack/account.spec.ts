@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { expect, fullstackTest } from './fullstack-test';
-import { DEV_USER_ID, devUserBlobNames, devUserProfiles, devUserTours } from './store';
+import {
+  DEV_USER_ID,
+  devUserBlobNames,
+  devUserProfiles,
+  devUserTours,
+  devUserTracks,
+} from './store';
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -26,17 +32,23 @@ fullstackTest('export downloads the account; delete removes all of it', async ({
   expect(download.suggestedFilename()).toBe('bikebuddy-export.json');
   const exported = JSON.parse(readFileSync(await download.path(), 'utf8')) as {
     user: { id: string };
-    tours: { name: string }[];
+    tours: { name: string; gpxFileUrl: string }[];
   };
   expect(exported.user.id).toBe(DEV_USER_ID);
   expect(exported.tours.map((tour) => tour.name)).toEqual(['Account Tour']);
+  // The export links the uploaded file itself, not only its parsed track.
+  expect(await (await fetch(exported.tours[0].gpxFileUrl)).text()).toBe(GPX);
 
   expect(await devUserBlobNames()).not.toEqual([]);
-  await on(page).modal.profile.do.deleteAccount();
+  await on(page).modal.profile.do.openDeleteAccount();
+  await expect(on(page).modal.profile.locators.deleteAccountModal.root).toBeVisible();
+  await on(page).a11y.check('delete-account dialog');
+  await on(page).modal.profile.do.confirmDeleteAccount();
   await expect(on(page).main.locators.buttons.login).toBeVisible();
   await expect(on(page).main.locators.userMenu).toBeHidden();
 
   expect(await devUserProfiles()).toEqual([]);
   expect(await devUserTours()).toEqual([]);
+  expect(await devUserTracks()).toEqual([]);
   expect(await devUserBlobNames()).toEqual([]);
 });

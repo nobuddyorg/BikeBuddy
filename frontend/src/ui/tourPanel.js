@@ -12,6 +12,7 @@ import { state } from './state.js';
 import { apiRequest } from './api.js';
 import { toast } from './toast.js';
 import { redrawAllRoutesInPlace, renderRoutes, SINGLE_TOUR_PADDING_PX } from './routes.js';
+import { routePointSets } from '../lib/routes.js';
 import { renderPins } from './pins.js';
 import { ensureDetail } from './tourData.js';
 import { resetImageSection, renderGallery } from './gallery.js';
@@ -25,6 +26,7 @@ import {
 import {
   showElement,
   hideElement,
+  isHidden,
   mapEmptyOverlay,
   mobileMapButton,
   detailPanel,
@@ -42,7 +44,7 @@ import {
   editError,
 } from './dom.js';
 import { openModal, closeModal } from './modal.js';
-import { pushLayer, syncUrl } from './router.js';
+import { pushLayer, releaseLayer, syncUrl } from './router.js';
 
 const t = i18n.t;
 
@@ -54,7 +56,7 @@ async function focusTourOnMap(tour) {
   if (state.selectedTourId !== tour.id) return false;
   if (!loaded) toast(t('toast.tourDetailError'), { type: 'error' });
   hideElement(mapEmptyOverlay);
-  renderRoutes([tour.heatmapData || []], SINGLE_TOUR_PADDING_PX);
+  renderRoutes(routePointSets([tour]), SINGLE_TOUR_PADDING_PX);
   renderPins();
   return true;
 }
@@ -63,11 +65,13 @@ export async function selectTour(tourId) {
   const tour = state.tours.find((candidate) => candidate.id === tourId);
   if (!tour) return;
 
+  const panelWasOpen = !isHidden(detailPanel);
   state.selectedTourId = tourId;
   announce(TOURS_CHANGED);
   renderDetailPanel(tour);
   // Pushed after the URL shows the tour, so Back closes the panel and keeps the selection.
-  pushLayer(closeDetailPanel);
+  // Switching tours in an open panel reuses its entry, so one Back always closes it.
+  if (!panelWasOpen) pushLayer(closeDetailPanel);
   state.detailLoading = focusTourOnMap(tour).then((stillSelected) => {
     if (!stillSelected) return;
     renderDetailMeta(tour); // these metrics arrive only with the detail
@@ -79,6 +83,7 @@ export async function selectTour(tourId) {
 // Only "Show all tours" (desktop) or reopening the map (mobile) singles out a tour again.
 export function closeDetailPanel() {
   hideElement(detailPanel);
+  releaseLayer(closeDetailPanel);
   const wasMobile = isMobileLayout();
   if (wasMobile) restoreMapToAppLayout();
   state.selectedTourId = null;
@@ -115,7 +120,7 @@ export async function submitEdit(event) {
   if (!tour) return;
 
   hideElement(editError);
-  const { response, networkError } = await apiRequest(`/api/tours/${tour.id}`, {
+  const { response, networkError } = await apiRequest(`/api/v1/tours/${tour.id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(

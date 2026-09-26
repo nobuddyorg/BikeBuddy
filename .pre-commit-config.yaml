@@ -157,6 +157,13 @@ repos:
   # Prettier check (load/, the k6 scripts) — reuses functions' prettier.
   - repo: local
     hooks:
+      - id: eslint-load
+        name: ESLint (load)
+        entry: functions/node_modules/.bin/eslint --config functions/eslint.load.config.js --max-warnings 0 load
+        language: system
+        pass_filenames: false
+        files: ^(load/.*\.(js|mjs)|functions/eslint\.load\.config\.js)$
+        stages: [pre-commit]
       - id: prettier-load
         name: Prettier (load)
         entry: bash -c "cd functions && npx prettier --check --config .prettierrc.json '../load/**/*.{js,mjs}'"
@@ -253,6 +260,13 @@ repos:
         language: system
         pass_filenames: false
         files: ^infrastructure/.*\.tf$
+        stages: [pre-commit]
+      - id: tofu-test
+        name: OpenTofu test (mock providers)
+        entry: bash -c 'cd infrastructure && tofu init -backend=false -input=false >/dev/null && tofu test'
+        language: system
+        pass_filenames: false
+        files: ^infrastructure/.*\.(tf|tftest\.hcl)$
         stages: [pre-commit]
 
   # TFLint + Trivy over infrastructure/; CI's prek job skips it for its own iac job.

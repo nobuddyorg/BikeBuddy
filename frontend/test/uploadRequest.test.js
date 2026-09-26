@@ -18,8 +18,9 @@ function makeRequest({ status = 201, responseText = '{}', event = 'load' } = {})
     setRequestHeader(name, value) {
       calls.headers[name] = value;
     }
-    send() {
+    send(body) {
       calls.sent = true;
+      calls.body = body;
       // Deliver the terminal event asynchronously, as a real XHR would.
       queueMicrotask(() => this[`on${event}`]?.());
     }
@@ -27,10 +28,11 @@ function makeRequest({ status = 201, responseText = '{}', event = 'load' } = {})
   return { FakeRequest, calls };
 }
 
-const upload = ({ RequestConstructor, token = '', onProgress = () => {} }) =>
+const upload = ({ RequestConstructor, token = '', onProgress = () => {}, fields }) =>
   xhrUpload({
     url: '/api/x',
     file: new File(['<gpx/>'], 'tour.gpx', { type: 'application/gpx+xml' }),
+    fields,
     token,
     onProgress,
     RequestConstructor,
@@ -46,6 +48,28 @@ describe('xhrUpload', () => {
     expect(calls.method).toBe('POST');
     expect(calls.url).toBe('/api/x');
     expect(calls.headers.Authorization).toBe('Bearer tok');
+  });
+
+  it('sends the fields as form fields before the file (#579)', async () => {
+    const { FakeRequest, calls } = makeRequest();
+
+    await upload({
+      RequestConstructor: FakeRequest,
+      fields: { name: 'Alps <b>', description: 'Steep' },
+    });
+
+    const parts = [...calls.body.entries()];
+    expect(parts.map(([name]) => name)).toEqual(['name', 'description', 'file']);
+    expect(calls.body.get('name')).toBe('Alps <b>');
+    expect(calls.body.get('file').name).toBe('tour.gpx');
+  });
+
+  it('sends the file alone without fields', async () => {
+    const { FakeRequest, calls } = makeRequest();
+
+    await upload({ RequestConstructor: FakeRequest });
+
+    expect([...calls.body.keys()]).toEqual(['file']);
   });
 
   it('omits the Authorization header when there is no token', async () => {

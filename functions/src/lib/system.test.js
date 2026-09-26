@@ -1,6 +1,6 @@
 'use strict';
 
-const { currentTime, newId } = require('./system');
+const { currentTime, newId, uploadRateLimiter } = require('./system');
 
 describe('system', () => {
   it('reads the current time', () => {
@@ -15,5 +15,11 @@ describe('system', () => {
     const first = newId();
     expect(first).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(newId()).not.toBe(first);
+  });
+
+  it('holds one upload budget per rider for this instance', () => {
+    const rider = `rider-${newId()}`;
+    const outcome = uploadRateLimiter.take(rider, Date.now());
+    expect(outcome).toEqual({ allowed: true });
   });
 });

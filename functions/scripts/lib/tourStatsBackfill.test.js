@@ -30,18 +30,46 @@ const GPX_WITHOUT_ELEVATION = Buffer.from(`<?xml version="1.0"?>
   <trk><trkseg><trkpt lat="48.1351" lon="11.582"/><trkpt lat="48.1361" lon="11.583"/></trkseg></trk>
 </gpx>`);
 
+// Two rides a day and 500 km apart: before #552 the hop between them counted as riding.
+const GPX_TWO_SEGMENTS = Buffer.from(`<?xml version="1.0"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="48.1351" lon="11.582"><time>2024-06-01T10:00:00Z</time></trkpt>
+    <trkpt lat="48.1451" lon="11.592"><time>2024-06-01T10:10:00Z</time></trkpt>
+  </trkseg><trkseg>
+    <trkpt lat="52.52" lon="13.405"><time>2024-06-02T10:00:00Z</time></trkpt>
+    <trkpt lat="52.53" lon="13.415"><time>2024-06-02T10:10:00Z</time></trkpt>
+  </trkseg></trk>
+</gpx>`);
+
 // Tours stored before the stats existed carry none of the stat fields.
 function oldShapeTour(id, userId = 'user-1') {
-  return { id, userId, name: `Tour ${id}`, distanceKm: 3.2, heatmapData: [[48.1, 11.5]] };
+  return { id, userId, name: `Tour ${id}`, distance: 3.2, heatmapData: [[48.1, 11.5]] };
 }
+
+const STAT_FIELDS = [
+  'distance',
+  'elevationGain',
+  'elevationLoss',
+  'minElevation',
+  'maxElevation',
+  'durationSeconds',
+  'movingSeconds',
+  'avgSpeed',
+];
 
 function stores({ tours, gpxBlobs }) {
   const toursStore = fakeCosmosContainer({
     documents: tours,
+    // The projection: a field the document lacks is absent from the row too.
     answerQuery: (documents) =>
-      documents
-        .filter((document) => document.elevationGain === undefined)
-        .map(({ id, userId }) => ({ id, userId })),
+      documents.map((document) =>
+        Object.fromEntries(
+          ['id', 'userId', ...STAT_FIELDS]
+            .filter((field) => field in document)
+            .map((field) => [field, document[field]]),
+        ),
+      ),
     partitionKeyOf: (document) => document.userId,
   });
   const gpxStore = fakeBlobContainer(new Map(Object.entries(gpxBlobs)));
@@ -62,27 +90,73 @@ function containersOf({ toursStore, gpxStore }, log = recordingLog()) {
 }
 
 describe('statPatchOperations', () => {
-  it('sets every stat field from the parsed GPX', () => {
-    const stats = parseGpx(GPX_WITH_ELEVATION);
+  it('sets every stat a tour from before the stats lacks, from the parsed GPX', () => {
+    const parsed = parseGpx(GPX_WITH_ELEVATION);
 
-    expect(statPatchOperations(stats)).toEqual([
-      { op: 'set', path: '/elevationGain', value: stats.elevationGain },
-      { op: 'set', path: '/elevationLoss', value: stats.elevationLoss },
+    expect(statPatchOperations({ stored: { distance: parsed.distanceKm }, parsed })).toEqual([
+      { op: 'set', path: '/elevationGain', value: parsed.elevationGain },
+      { op: 'set', path: '/elevationLoss', value: parsed.elevationLoss },
       { op: 'set', path: '/minElevation', value: 500 },
       { op: 'set', path: '/maxElevation', value: 560 },
       { op: 'set', path: '/durationSeconds', value: 1200 },
-      { op: 'set', path: '/movingSeconds', value: stats.movingSeconds },
-      { op: 'set', path: '/avgSpeed', value: stats.avgSpeed },
+      { op: 'set', path: '/movingSeconds', value: parsed.movingSeconds },
+      { op: 'set', path: '/avgSpeed', value: parsed.avgSpeed },
     ]);
+  });
+
+  it('corrects only what counted the gap between two segments (#552)', () => {
+    const parsed = parseGpx(GPX_TWO_SEGMENTS);
+    const stored = {
+      distance: parsed.distanceKm + 504,
+      elevationGain: null,
+      elevationLoss: null,
+      minElevation: null,
+      maxElevation: null,
+      durationSeconds: parsed.durationSeconds,
+      movingSeconds: parsed.movingSeconds + 86_400,
+      avgSpeed: 20.4,
+    };
+
+    expect(statPatchOperations({ stored, parsed })).toEqual([
+      { op: 'set', path: '/distance', value: parsed.distanceKm },
+      { op: 'set', path: '/movingSeconds', value: 1200 },
+      { op: 'set', path: '/avgSpeed', value: parsed.avgSpeed },
+    ]);
+    expect(parsed.distanceKm).toBeLessThan(3);
+  });
+
+  it('has nothing to set for a tour that matches its GPX', () => {
+    const parsed = parseGpx(GPX_WITH_ELEVATION);
+    const stored = {
+      distance: parsed.distanceKm,
+      elevationGain: parsed.elevationGain,
+      elevationLoss: parsed.elevationLoss,
+      minElevation: parsed.minElevation,
+      maxElevation: parsed.maxElevation,
+      durationSeconds: parsed.durationSeconds,
+      movingSeconds: parsed.movingSeconds,
+      avgSpeed: parsed.avgSpeed,
+    };
+
+    expect(statPatchOperations({ stored, parsed })).toEqual([]);
   });
 });
 
 describe('applyTourStatsBackfill', () => {
-  it('patches the stats onto old-shape tours only, by their partition key', async () => {
-    const migrated = { ...oldShapeTour('t-done'), elevationGain: null };
+  it('patches the tours whose stats differ from their GPX, by their partition key', async () => {
+    const parsed = parseGpx(GPX_WITHOUT_ELEVATION);
+    const upToDate = {
+      ...oldShapeTour('t-done'),
+      ...Object.fromEntries(STAT_FIELDS.map((field) => [field, null])),
+      distance: parsed.distanceKm,
+    };
     const state = stores({
-      tours: [oldShapeTour('t-1', 'user-1'), migrated, oldShapeTour('t-2', 'user-2')],
-      gpxBlobs: { 'user-1/t-1.gpx': GPX_WITH_ELEVATION, 'user-2/t-2.gpx': GPX_WITHOUT_ELEVATION },
+      tours: [oldShapeTour('t-1', 'user-1'), upToDate, oldShapeTour('t-2', 'user-2')],
+      gpxBlobs: {
+        'user-1/t-1.gpx': GPX_WITH_ELEVATION,
+        'user-1/t-done.gpx': GPX_WITHOUT_ELEVATION,
+        'user-2/t-2.gpx': GPX_WITHOUT_ELEVATION,
+      },
     });
 
     const tally = await applyTourStatsBackfill(containersOf(state));
@@ -107,7 +181,9 @@ describe('applyTourStatsBackfill', () => {
 
     expect(state.toursStore.queries).toEqual([
       {
-        query: 'SELECT c.id, c.userId FROM c WHERE NOT IS_DEFINED(c.elevationGain)',
+        query:
+          'SELECT c.id, c.userId, c.distance, c.elevationGain, c.elevationLoss, c.minElevation, ' +
+          'c.maxElevation, c.durationSeconds, c.movingSeconds, c.avgSpeed FROM c',
         options: { maxItemCount: PAGE_SIZE },
       },
     ]);
@@ -130,7 +206,7 @@ describe('applyTourStatsBackfill', () => {
     expect(log.lines).toEqual([
       'Tour t-missing: BlobNotFound',
       'Tour t-broken: Not a valid GPX file',
-      'Backfilled tour t-ok',
+      'Set distance, elevationGain, elevationLoss, minElevation, maxElevation, durationSeconds, movingSeconds, avgSpeed on tour t-ok',
       'Done: 1 tour(s) backfilled, 2 failed.',
     ]);
   });
@@ -184,7 +260,7 @@ describe('planTourStatsBackfill', () => {
     expect(state.gpxStore.writes).toEqual([]);
     expect(state.toursStore.documents).toEqual(before);
     expect(log.lines).toEqual([
-      'Would backfill tour t-1',
+      'Would set distance, elevationGain, elevationLoss, minElevation, maxElevation, durationSeconds, movingSeconds, avgSpeed on tour t-1',
       'Tour t-missing: BlobNotFound',
       'Dry run, nothing changed: 1 tour(s) would be backfilled, 1 failed.',
     ]);

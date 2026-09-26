@@ -22,7 +22,8 @@ staticTest.use({
           [48.3, 11.8],
           [48.4, 11.9],
         ],
-        images: [mockPhoto({ id: '44444444-4444-4444-8444-444444444444', lat: 48.3, lon: 11.8 })],
+        // Taken within Alpine Loop's view, so only the selection, not the camera, hides its pin.
+        images: [mockPhoto({ id: '44444444-4444-4444-8444-444444444444', lat: 48.2, lon: 11.6 })],
       }),
     ],
   },

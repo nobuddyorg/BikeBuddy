@@ -1,7 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
 
 interface MapView {
-  /** Points to self (the Leaflet map; carries data-tiles and data-zoom). */
+  /** Points to self (the Leaflet map; carries data-tiles, data-zoom and data-route-lines). */
   (): Locator;
   /** High-level interactions. */
   do: {
@@ -11,11 +11,15 @@ interface MapView {
     zoomOut(steps: number): Promise<void>;
     /** Up to `steps` levels, fewer at Leaflet's maximum zoom. */
     zoomIn(steps: number): Promise<void>;
+    retryLoad(): Promise<void>;
   };
   /** Raw locators. */
   locators: {
     empty: Locator;
     loadError: Locator;
+    buttons: {
+      retry: Locator;
+    };
     pins: {
       toggle: Locator;
       toggleInput: Locator;
@@ -29,6 +33,9 @@ export function initMapView(page: Page): MapView {
   const locators = {
     empty: page.locator('#map-empty'),
     loadError: page.locator('#map-load-error'),
+    buttons: {
+      retry: page.locator('#btn-retry-map'),
+    },
     pins: {
       toggle: page.locator('#pin-toggle'),
       toggleInput: page.locator('#pin-toggle-input'),
@@ -57,6 +64,7 @@ export function initMapView(page: Page): MapView {
     hidePins: async () => locators.pins.toggleInput.uncheck(),
     zoomOut: async (steps: number) => zoom({ button: zoomButtons.out, steps }),
     zoomIn: async (steps: number) => zoom({ button: zoomButtons.in, steps }),
+    retryLoad: async () => locators.buttons.retry.click(),
   };
   return Object.assign(() => root, { locators, do: interactions });
 }

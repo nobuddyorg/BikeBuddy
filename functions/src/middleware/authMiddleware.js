@@ -5,40 +5,68 @@ const jwt = require('jsonwebtoken');
 const jwksRsa = require('jwks-rsa');
 
 const { openIdConfigUrl } = require('../lib/oidcMetadataUrl');
+const { createSigningKeyCache } = require('../lib/signingKeyCache');
 
 const verifyJwt = promisify(jwt.verify);
 const BEARER_PREFIX = 'Bearer ';
 const DEV_USER = { userId: 'local-dev-user', userEmail: 'dev@localhost', userName: 'Local Dev' };
+// The frontend requests api://<client id>/access_as_user; an ID token for the same client has no scp.
+const REQUIRED_SCOPE = 'access_as_user';
 
 // Read from the metadata (the issuer host varies by Entra surface), refreshed on warm instances.
 const CONFIG_TTL_MS = 60 * 60 * 1000;
+// A failed refresh keeps serving the last document this long, so an Entra blip is no outage.
+const CONFIG_MAX_STALENESS_MS = 24 * 60 * 60 * 1000;
+// Both outbound calls: a hung Entra endpoint must not hold every request open.
+const FETCH_TIMEOUT_MS = 5000;
+
+async function fetchOpenIdConfig(fetchMetadata, environment) {
+  const response = await fetchMetadata(openIdConfigUrl(environment), {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`OIDC metadata fetch failed: ${response.status}`);
+  const metadata = await response.json();
+  return { issuer: metadata.issuer, jwksUri: metadata.jwks_uri };
+}
 
 let cachedConfig;
 let cachedConfigAt = 0;
+let pendingConfig;
 async function getOpenIdConfig({
   fetchMetadata = fetch,
   now = Date.now,
   environment = process.env,
 } = {}) {
-  if (cachedConfig && now() - cachedConfigAt < CONFIG_TTL_MS) return cachedConfig;
-  const response = await fetchMetadata(openIdConfigUrl(environment));
-  if (!response.ok) throw new Error(`OIDC metadata fetch failed: ${response.status}`);
-  const metadata = await response.json();
-  cachedConfig = { issuer: metadata.issuer, jwksUri: metadata.jwks_uri };
-  cachedConfigAt = now();
+  const age = now() - cachedConfigAt;
+  if (cachedConfig && age < CONFIG_TTL_MS) return cachedConfig;
+  // Concurrent callers share one fetch.
+  pendingConfig ??= fetchOpenIdConfig(fetchMetadata, environment).finally(() => {
+    pendingConfig = undefined;
+  });
+  try {
+    cachedConfig = await pendingConfig;
+    cachedConfigAt = now();
+  } catch (error) {
+    if (!cachedConfig || age >= CONFIG_MAX_STALENESS_MS) throw error;
+    console.error(`auth: OIDC metadata refresh failed, serving the cached copy (${error.message})`);
+  }
   return cachedConfig;
 }
 
-let cachedJwksClient;
+const defaultSigningKeys = createSigningKeyCache({
+  fetchSigningKeys: (jwksUri) => jwksRsa({ jwksUri, timeout: FETCH_TIMEOUT_MS }).getSigningKeys(),
+  now: () => Date.now(),
+});
 function defaultJwksClient(jwksUri) {
-  cachedJwksClient ??= jwksRsa({ jwksUri, cache: true, rateLimit: true });
-  return cachedJwksClient;
+  return { getSigningKey: (kid) => defaultSigningKeys.getSigningKey({ jwksUri, kid }) };
 }
 
 // External ID sends `email` or `preferred_username`; `emails` is B2C's shape.
 const resolveEmail = (payload) =>
   payload.email || payload.preferred_username || payload.emails?.[0] || null;
 const resolveName = (payload) => payload.name || payload.given_name || null;
+const hasRequiredScope = (payload) =>
+  typeof payload.scp === 'string' && payload.scp.split(' ').includes(REQUIRED_SCOPE);
 
 // A configured tenant means deployed: the bypass throws there instead of silently falling back.
 function isDevBypassActive(environment) {
@@ -66,6 +94,9 @@ async function verifyToken(token, { kid, jwksClientFactory, configLoader, enviro
     algorithms: ['RS256'],
     clockTimestamp: Math.floor(now() / 1000),
   });
+  if (!hasRequiredScope(payload)) {
+    throw new jwt.JsonWebTokenError(`token lacks the ${REQUIRED_SCOPE} scope`);
+  }
   return {
     userId: payload.sub,
     // The directory object id: the out-of-band deletion job deletes by it.
@@ -118,4 +149,4 @@ async function authenticate(
   }
 }
 
-module.exports = { authenticate, getOpenIdConfig, defaultJwksClient };
+module.exports = { authenticate, getOpenIdConfig };

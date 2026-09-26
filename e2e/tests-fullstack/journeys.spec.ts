@@ -1,4 +1,5 @@
 import { expect, fullstackTest } from './fullstack-test';
+import { devUserTours } from './store';
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -29,6 +30,12 @@ fullstackTest.describe('user journeys', () => {
     await expect(on(page).detail.locators.description).toHaveText('Now with a description');
     await expect(on(page).list.locators.container).toContainText('Renamed Tour');
     await expect(on(page).list.locators.container).not.toContainText('Original Name');
+    // Stored, not only shown (#567).
+    await expect
+      .poll(async () =>
+        (await devUserTours()).map(({ name, description }) => ({ name, description })),
+      )
+      .toEqual([{ name: 'Renamed Tour', description: 'Now with a description' }]);
   });
 
   fullstackTest(
@@ -49,6 +56,15 @@ fullstackTest.describe('user journeys', () => {
 
       await expect(on(page).modal.edit()).toBeHidden();
       await expect(on(page).detail.locators.date).toHaveText('15 Jun 2026');
+      // Stored as the browser's own calendar day, whatever the runner's time zone.
+      const storedDays = async () => {
+        const stored = (await devUserTours()).map(({ createdAt }) => createdAt);
+        return page.evaluate(
+          (dates) => dates.map((iso) => new Date(iso).toLocaleDateString('en-CA')),
+          stored,
+        );
+      };
+      await expect.poll(storedDays).toEqual(['2026-06-15']);
     },
   );
 
@@ -66,7 +82,7 @@ fullstackTest.describe('user journeys', () => {
       // Avatar shows first+last initials: "Alpine Rider" → "AR".
       await expect(on(page).main.locators.buttons.profile).toHaveText('AR');
 
-      // After a reload, GET /api/me must return the chosen name, not the token's name claim.
+      // After a reload, GET /api/v1/me must return the chosen name, not the token's name claim.
       await page.reload();
       await expect(on(page).main.locators.buttons.profile).toHaveText('AR');
       await on(page).main.do.openProfile();

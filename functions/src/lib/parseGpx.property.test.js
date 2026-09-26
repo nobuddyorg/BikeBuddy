@@ -10,7 +10,7 @@ const trackpoint = fc.record({
   ele: fc.option(fc.double({ min: -500, max: 9000, noNaN: true }), { nil: undefined }),
 });
 
-// Timestamps only move forward, as a recording does; out-of-order times are not a property yet.
+// Timestamps move forward, as a recording does; `shuffledRecording` drops that.
 function withTimes(points, { startMs, stepSeconds }) {
   let timestampMs = startMs;
   return points.map((point, index) => {
@@ -34,13 +34,28 @@ function toGpx(points, name) {
 
 const recording = fc
   .tuple(
-    fc.array(trackpoint, { maxLength: 200 }),
+    fc.array(trackpoint, { minLength: 1, maxLength: 200 }),
     fc.integer({ min: 0, max: 4_000_000_000_000 }),
     fc.array(fc.option(fc.integer({ min: 0, max: 3600 }), { nil: undefined }), {
       maxLength: 200,
     }),
   )
   .map(([points, startMs, stepSeconds]) => withTimes(points, { startMs, stepSeconds }));
+
+// Any timestamps in any order, as a merged or hand-edited file can hold.
+const shuffledRecording = fc
+  .array(
+    fc.tuple(
+      trackpoint,
+      fc.option(fc.integer({ min: 0, max: 4_000_000_000_000 }), { nil: undefined }),
+    ),
+    { minLength: 1, maxLength: 200 },
+  )
+  .map((pairs) =>
+    pairs.map(([point, timestampMs]) =>
+      timestampMs === undefined ? point : { ...point, time: new Date(timestampMs).toISOString() },
+    ),
+  );
 
 describe('parseGpx (properties)', () => {
   it('returns finite, non-negative stats for any well-formed recording', () => {
@@ -63,17 +78,27 @@ describe('parseGpx (properties)', () => {
     );
   });
 
+  it('never reports a negative duration, whatever order the timestamps are in', () => {
+    fc.assert(
+      fc.property(shuffledRecording, (points) => {
+        const stats = parseGpx(toGpx(points));
+        if (stats.durationSeconds !== null) expect(stats.durationSeconds).toBeGreaterThanOrEqual(0);
+        if (stats.movingSeconds !== null) expect(stats.movingSeconds).toBeGreaterThanOrEqual(0);
+        if (stats.date !== null) expect(Number.isFinite(Date.parse(stats.date))).toBe(true);
+      }),
+    );
+  });
+
   it('keeps an in-order subset of the points, first and last included, within the budget', () => {
     fc.assert(
       fc.property(recording, (points) => {
         const { heatmapData } = parseGpx(toGpx(points));
-        // As written to the file: `${-0}` is "0", so the sign of zero does not survive.
-        const asWritten = (point) => [Number(String(point.lat)), Number(String(point.lon))];
+        // As written to the file, then rounded to five decimals: `${-0}` is "0", so no sign of zero.
+        const rounded = (degrees) => Number(Number(String(degrees)).toFixed(5));
+        const asWritten = (point) => [rounded(point.lat), rounded(point.lon)];
         expect(heatmapData.length).toBeLessThanOrEqual(Math.min(points.length, 5001));
-        if (points.length > 0) {
-          expect(heatmapData[0]).toEqual(asWritten(points[0]));
-          expect(heatmapData.at(-1)).toEqual(asWritten(points.at(-1)));
-        }
+        expect(heatmapData[0]).toEqual(asWritten(points[0]));
+        expect(heatmapData.at(-1)).toEqual(asWritten(points.at(-1)));
       }),
     );
   });
@@ -85,7 +110,7 @@ describe('parseGpx (properties)', () => {
           parseGpx(text);
         } catch (error) {
           expect(error).toBeInstanceOf(InvalidGpxError);
-          expect(error.message).toBe('Not a valid GPX file');
+          expect(['Not a valid GPX file', 'GPX file has no track points']).toContain(error.message);
         }
       }),
     );

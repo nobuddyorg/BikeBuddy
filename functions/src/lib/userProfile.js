@@ -1,7 +1,8 @@
 // @ts-check
 'use strict';
 
-const { nameSchema, stripHtml } = require('./validation');
+const { nameSchema } = require('./validation');
+const { USER_SCHEMA_VERSION } = require('./schemaVersion');
 
 const MAX_PROFILE_TEXT_LENGTH = 200;
 
@@ -13,7 +14,7 @@ const MAX_PROFILE_TEXT_LENGTH = 200;
  */
 function profileTextFromClaim(claim) {
   if (typeof claim !== 'string') return null;
-  const parsed = nameSchema.safeParse(stripHtml(claim).slice(0, MAX_PROFILE_TEXT_LENGTH));
+  const parsed = nameSchema.safeParse(claim.trim().slice(0, MAX_PROFILE_TEXT_LENGTH));
   return parsed.success ? parsed.data : null;
 }
 
@@ -39,6 +40,7 @@ function missingProfileFields({ stored, claims }) {
 /** @param {{ userId: string, profile: { name: string | null, email: string | null }, createdAt: Date }} values */
 const newUserDocument = ({ userId, profile, createdAt }) => ({
   id: userId,
+  schemaVersion: USER_SCHEMA_VERSION,
   name: profile.name,
   email: profile.email,
   createdAt: createdAt.toISOString(),

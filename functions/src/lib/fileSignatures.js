@@ -6,6 +6,8 @@ const JPEG_SIGNATURE = Buffer.from([0xff, 0xd8, 0xff]);
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 const XML_DECLARATION = Buffer.from('<?xml');
 const GPX_ROOT = Buffer.from('<gpx');
+// XML whitespace and comments, which some exporters write before the root element.
+const LEADING_WHITESPACE_AND_COMMENTS = /^(?:[ \t\r\n]|<!--[\s\S]*?-->)*/;
 const MINIMUM_IMAGE_BYTES = 4;
 
 /** @param {Buffer} buffer @param {Buffer} signature */
@@ -17,12 +19,16 @@ function isJpegOrPng(buffer) {
   return startsWith(buffer, JPEG_SIGNATURE) || startsWith(buffer, PNG_SIGNATURE);
 }
 
-/** "<?xml" or "<gpx", optionally behind a UTF-8 byte order mark. @param {Buffer} buffer */
+/** "<?xml" or "<gpx", optionally behind a UTF-8 byte order mark, whitespace and comments. @param {Buffer} buffer */
 function looksLikeXml(buffer) {
-  const text = startsWith(buffer, UTF8_BYTE_ORDER_MARK)
+  const withoutMark = startsWith(buffer, UTF8_BYTE_ORDER_MARK)
     ? buffer.subarray(UTF8_BYTE_ORDER_MARK.length)
     : buffer;
-  return startsWith(text, XML_DECLARATION) || startsWith(text, GPX_ROOT);
+  // latin1 maps each byte to one character, so string offsets are byte offsets.
+  const text = withoutMark.toString('latin1');
+  const [leading] = /** @type {RegExpExecArray} */ (LEADING_WHITESPACE_AND_COMMENTS.exec(text));
+  const content = withoutMark.subarray(leading.length);
+  return startsWith(content, XML_DECLARATION) || startsWith(content, GPX_ROOT);
 }
 
 module.exports = { isJpegOrPng, looksLikeXml };

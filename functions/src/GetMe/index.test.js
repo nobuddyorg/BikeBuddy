@@ -13,9 +13,23 @@ const STORED = {
 };
 const OTHER_USER = { id: 'u2', name: 'Grace', email: 'grace@example.com', createdAt: 'x' };
 
-function setUp({ profiles = [STORED, OTHER_USER], authenticate = signedInAs('u1', CLAIMS) } = {}) {
+function setUp({
+  profiles = [STORED, OTHER_USER],
+  authenticate = signedInAs('u1', CLAIMS),
+  queued = [],
+} = {}) {
   const users = fakeUsersContainer(profiles);
-  const run = () => getMe({}, { authenticate, usersContainer: () => users, now: fixedClock });
+  const deletions = fakeUsersContainer(queued);
+  const run = () =>
+    getMe(
+      {},
+      {
+        authenticate,
+        usersContainer: () => users,
+        deletionsContainer: () => deletions,
+        now: fixedClock,
+      },
+    );
   const writes = () => users.calls.filter((call) => call.operation !== 'read');
   return { users, run, writes };
 }
@@ -89,7 +103,7 @@ describe('GET /api/me', () => {
 
     await run();
 
-    expect(users.stored('u1', 'u1')).toMatchObject({ name: `b${'a'.repeat(199)}`, email: null });
+    expect(users.stored('u1', 'u1')).toMatchObject({ name: `<b>${'a'.repeat(197)}`, email: null });
   });
 
   it('backfills an empty name and email once the token carries them', async () => {
@@ -175,5 +189,19 @@ describe('GET /api/me', () => {
 
     expect(response.status).toBe(401);
     expect(users.calls).toEqual([]);
+  });
+
+  // Signing in again before the deletion job ran must not recreate what nothing would delete.
+  it('answers 410 and creates no profile while the account deletion is queued', async () => {
+    const { run, writes } = setUp({
+      profiles: [],
+      authenticate: signedInAs('u1', { ...CLAIMS, userOid: 'oid-1' }),
+      queued: [{ id: 'oid-1', userId: 'u1' }],
+    });
+
+    const response = await run();
+
+    expect(response).toEqual({ status: 410, jsonBody: { error: 'errors.accountDeleted' } });
+    expect(writes()).toEqual([]);
   });
 });
