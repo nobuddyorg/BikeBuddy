@@ -81,7 +81,13 @@ Full docs live in [`docs/`](docs/README.md), organised by [Diátaxis](https://di
 - **Reference** — [Architecture](docs/reference/architecture.md) · [Configuration](docs/reference/configuration.md) · [Testing](docs/reference/testing.md)
 - **Explanation** — [Design decisions](docs/explanation/design-decisions.md) · [Security](docs/explanation/security.md) · [Cost report](docs/cost-report.md)
 
-Contributor conventions: [Contributing guide](CONTRIBUTING.md); for AI assistants, [CLAUDE.md](CLAUDE.md).
+Development conventions: [Contributing guide](CONTRIBUTING.md); for AI assistants, [CLAUDE.md](CLAUDE.md).
+
+## Contributing
+
+BikeBuddy is a personal hobby project and doesn't accept outside pull requests,
+issues or feature requests; they are closed without review. Want to change
+something? Fork it: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Screenshot
 
