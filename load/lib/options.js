@@ -13,7 +13,7 @@ const P95_MS = {
   upload_tour: 800,
   upload_image: 300,
   edit: 400,
-  export: 11700,
+  export: 9650,
 };
 
 /** Failures, timeouts and checks per named scenario, with no latency limit. */

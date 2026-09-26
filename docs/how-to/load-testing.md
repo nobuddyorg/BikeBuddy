@@ -83,28 +83,30 @@ and a p95 per scenario.
 ### Thresholds
 
 Calibrated at the `normal` profile as **3× the worse p95 of two runs, at least
-100 ms, rounded up to 50**. `smoke` keeps every threshold except the p95s.
-peak and stress are meant to cross them.
+100 ms, rounded up to 50**, and never loosened: where that gives more than the
+current threshold, the current one stays. `smoke` keeps every threshold except
+the p95s. peak and stress are meant to cross them.
 
-| Scenario       | Run 1 p50 / p95 | Run 2 p50 / p95 | p95 threshold |
-| -------------- | --------------- | --------------- | ------------- |
-| `list`         | 15.8 / 78.4     | 16.0 / 80.9     | 250           |
-| `detail`       | 17.1 / 82.7     | 19.6 / 85.0     | 300           |
-| `map`          | 88.3 / 102.0    | 88.3 / 104.8    | 350           |
-| `upload_tour`  | 95 / 263        | 79 / 262        | 800           |
-| `upload_image` | 63 / 91         | 64 / 97         | 300           |
-| `edit`         | 60 / 106        | 67 / 126        | 400           |
-| `export`       | 3,675 / 3,892   | 3,636 / 3,828   | 11,700        |
+| Scenario       | Run 1 p50 / p95   | Run 2 p50 / p95   | p95 threshold |
+| -------------- | ----------------- | ----------------- | ------------- |
+| `list`         | 15.8 / 78.4       | 16.0 / 80.9       | 250           |
+| `detail`       | 17.1 / 82.7       | 19.6 / 85.0       | 300           |
+| `map`          | 88.3 / 102.0      | 88.3 / 104.8      | 350           |
+| `upload_tour`  | 196.1 / 404.6     | 115.8 / 270.2     | 800 (kept)    |
+| `upload_image` | 33.3 / 206.2      | 26.4 / 145.8      | 300 (kept)    |
+| `edit`         | 11.1 / 141.0      | 14.3 / 173.2      | 400 (kept)    |
+| `export`       | 2,770.6 / 2,800.5 | 3,078.6 / 3,206.6 | 9,650         |
 
-All values in ms, `normal` profile, no failed requests in any run. The
-`browse` rows were measured while every query over a user's partition loaded
-each tour document whole, track included; the worked example below measures
-it. The track now lives in its own item (#615), so they are due for a
-remeasurement (#621).
+All values in ms: two `workflow_dispatch` runs per flow of
+`.github/workflows/k6-load-test.yml` on `ubuntu-latest` against the local stack
+(2026-09-26, `main` at e7d2715; `browse` run 1 at b068b76), no failed requests
+in any run. Two identical runs can differ by half: `upload_tour` measured 405
+and 270 ms.
 
-These were measured in a development container running the whole stack; the
-workflow can only run once it is on `main`, so recalibrate from two `normal`
-runs on a runner then and update the table and `options.js` together (#621).
+The **kept** rows would come out higher by the rule (1,250, 650 and 550 ms) and
+still pass with room. Their p95 is the GPX upload: each file starts a fresh
+parse worker, and the `edit` scenario uploads the tours it deletes. #654 has
+the numbers and the leads, should they ever be worth the work.
 
 ## Backend report
 

@@ -67,7 +67,7 @@ when a change makes room, never lowered.
 | Lighthouse, signed out | Lighthouse CI       | performance ≥ 0.8, accessibility = 1, best practices ≥ 0.9, SEO ≥ 0.9, LCP ≤ 5000 ms, TBT ≤ 300 ms, CLS ≤ 0.1, median of 3                            | `e2e/lighthouse/lighthouserc.signed-out.json`                                     |
 | Lighthouse, signed in  | Lighthouse CI       | the same as signed out, from runner measurements (developer guide, "Run Lighthouse")                                                                  | `e2e/lighthouse/lighthouserc.signed-in.json`                                      |
 | DAST                   | OWASP ZAP (passive) | FAIL only on the listed rules (error disclosure, permissive CORS, cookie flags); header rules the static host cannot meet are IGNORE with a reason    | `.zap/rules-frontend.tsv`, `.zap/rules-api.tsv`                                   |
-| Load                   | k6                  | not a gate; per-scenario p95 limits at the `normal` profile, calibrated in the guide; recalibrated on a runner (#621)                                 | `load/lib/options.js`, [load-testing guide](../how-to/load-testing.md#thresholds) |
+| Load                   | k6                  | not a gate; per-scenario p95 limits at the `normal` profile, calibrated from two runs per flow on a GitHub runner (#621)                              | `load/lib/options.js`, [load-testing guide](../how-to/load-testing.md#thresholds) |
 | Cost guards            | Vitest integration  | tour list: caller's partition on every page, `ceil(n / MAX_ITEMS_PER_REQUEST)` round trips; map: point budget, ≤ 4 MiB                                | `functions/test/integration/query-cost.test.js`, `map-budget.test.js`             |
 
 ## Risk table
