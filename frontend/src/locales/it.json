@@ -234,7 +234,7 @@
   "privacy.purposeNone": "BikeBuddy non usa pubblicità, tracciamento né strumenti di analisi, e non vende i tuoi dati né li usa per altro.",
   "privacy.recipientsHeading": "Chi riceve i dati",
   "privacy.recipientsMicrosoft": "<strong>Microsoft</strong> ospita il servizio nei suoi data center Azure della regione Europa settentrionale (Irlanda): l'API, il database e l'archiviazione dei file. L'accesso avviene tramite Microsoft Entra External ID. Microsoft tratta questi dati per nostro conto.",
-  "privacy.recipientsCarto": "<strong>CARTO</strong> fornisce le immagini della mappa. Per disegnare la mappa, il tuo browser carica dai server di CARTO le immagini della zona che stai guardando, rivelando a CARTO il tuo indirizzo IP e quella zona, spesso intorno a casa tua o ai tuoi giri. I dati della mappa provengono da OpenStreetMap.",
+  "privacy.recipientsMapTiles": "La <strong>OpenStreetMap Foundation</strong> fornisce le immagini della mappa. Per disegnare la mappa, il tuo browser carica dai server di OpenStreetMap le immagini della zona che stai guardando, rivelando alla OpenStreetMap Foundation il tuo indirizzo IP e quella zona, spesso intorno a casa tua o ai tuoi giri. I dati della mappa provengono da OpenStreetMap.",
   "privacy.recipientsGithub": "<strong>GitHub</strong> (una società di Microsoft) ospita questo sito su GitHub Pages e vede il tuo indirizzo IP quando il tuo browser lo carica.",
   "privacy.recipientsTransfer": "Questi fornitori possono trattare dati anche al di fuori dell'UE, ad esempio negli Stati Uniti. In tal caso si basano sulle garanzie previste dal GDPR, come le clausole contrattuali tipo dell'UE.",
   "privacy.retentionHeading": "Per quanto tempo vengono conservati i dati",

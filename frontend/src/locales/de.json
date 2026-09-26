@@ -234,7 +234,7 @@
   "privacy.purposeNone": "BikeBuddy nutzt keine Werbung, kein Tracking und keine Analysedienste und verkauft deine Daten nicht und nutzt sie für nichts anderes.",
   "privacy.recipientsHeading": "Wer Daten erhält",
   "privacy.recipientsMicrosoft": "<strong>Microsoft</strong> betreibt den Dienst in seinen Azure-Rechenzentren in der Region Nordeuropa (Irland): die API, die Datenbank und den Dateispeicher. Die Anmeldung läuft über Microsoft Entra External ID. Microsoft verarbeitet diese Daten in unserem Auftrag.",
-  "privacy.recipientsCarto": "<strong>CARTO</strong> liefert die Kartenbilder. Um die Karte zu zeichnen, lädt dein Browser die Bilder für den Bereich, den du ansiehst, von den Servern von CARTO. Dadurch erfährt CARTO deine IP-Adresse und diesen Bereich, oft rund um dein Zuhause oder deine Fahrten. Die Kartendaten stammen von OpenStreetMap.",
+  "privacy.recipientsMapTiles": "Die <strong>OpenStreetMap Foundation</strong> liefert die Kartenbilder. Um die Karte zu zeichnen, lädt dein Browser die Bilder für den Bereich, den du ansiehst, von den Servern von OpenStreetMap. Dadurch erfährt die OpenStreetMap Foundation deine IP-Adresse und diesen Bereich, oft rund um dein Zuhause oder deine Fahrten. Die Kartendaten stammen von OpenStreetMap.",
   "privacy.recipientsGithub": "<strong>GitHub</strong> (ein Unternehmen von Microsoft) stellt diese Website über GitHub Pages bereit und sieht deine IP-Adresse, wenn dein Browser sie lädt.",
   "privacy.recipientsTransfer": "Diese Anbieter können Daten auch außerhalb der EU verarbeiten, zum Beispiel in den USA. Dann stützen sie sich auf die Garantien, die die DSGVO dafür vorsieht, etwa die EU-Standardvertragsklauseln.",
   "privacy.retentionHeading": "Wie lange Daten gespeichert werden",

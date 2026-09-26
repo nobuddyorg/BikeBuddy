@@ -529,15 +529,15 @@ cd e2e && npm run lighthouse:summary         # the table CI puts in the job summ
 Baseline: three CI runs on `ubuntu-latest` (2026-09-26, PR #650), each the
 median of three Lighthouse runs.
 
-| Assertion      | Signed out, measured | Signed in, measured | Threshold (both) | Why this threshold                                                          |
-| -------------- | -------------------- | ------------------- | ---------------- | --------------------------------------------------------------------------- |
-| Performance    | 87–90                | 87–89               | ≥ 80             | about 7 points under the worst run; the score moves a few points run to run |
-| Accessibility  | 100                  | 100                 | = 100            | any axe-detectable regression fails                                         |
-| Best practices | 100                  | 100                 | ≥ 90             | one audit's worth of room: map tiles come from a third-party CDN (CARTO)    |
-| SEO            | 100                  | 100                 | ≥ 90             | one audit's worth of room                                                   |
-| LCP            | 3.5–3.9 s            | 3.6–3.9 s           | ≤ 5,000 ms       | about 1.1 s over the worst run (runner CPU varies)                          |
-| TBT            | 0–14 ms              | 0–26 ms             | ≤ 300 ms         | TBT is the noisiest metric on shared runners; still 2× under the old 600 ms |
-| CLS            | 0.000                | 0.001               | ≤ 0.1            | Google's "good" bound, far above both measurements                          |
+| Assertion      | Signed out, measured | Signed in, measured | Threshold (both) | Why this threshold                                                           |
+| -------------- | -------------------- | ------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| Performance    | 87–90                | 87–89               | ≥ 80             | about 7 points under the worst run; the score moves a few points run to run  |
+| Accessibility  | 100                  | 100                 | = 100            | any axe-detectable regression fails                                          |
+| Best practices | 100                  | 100                 | ≥ 90             | one audit's worth of room: map tiles come from a third party (OpenStreetMap) |
+| SEO            | 100                  | 100                 | ≥ 90             | one audit's worth of room                                                    |
+| LCP            | 3.5–3.9 s            | 3.6–3.9 s           | ≤ 5,000 ms       | about 1.1 s over the worst run (runner CPU varies)                           |
+| TBT            | 0–14 ms              | 0–26 ms             | ≤ 300 ms         | TBT is the noisiest metric on shared runners; still 2× under the old 600 ms  |
+| CLS            | 0.000                | 0.001               | ≤ 0.1            | Google's "good" bound, far above both measurements                           |
 
 Signed in was provisional (performance ≥ 60, LCP ≤ 8 s, CLS ≤ 0.25) until these
 runs; it now holds the same bar as signed out (#621).
