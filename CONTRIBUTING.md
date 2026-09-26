@@ -1,7 +1,20 @@
 # Contributing to BikeBuddy
 
-Thanks for helping out! BikeBuddy is a small, free-tier project. Start with the
-[documentation index](docs/README.md) to see how everything fits together.
+## No outside contributions
+
+BikeBuddy is a personal hobby project. I don't accept pull requests, issues or
+feature requests from outside the project; they are closed without review.
+
+Want to change something? **Fork it.** The [MIT License](LICENSE) lets you
+use, change and redistribute the code in your own fork, no need to ask. There
+is no support for forks.
+
+Found a security vulnerability? Report it privately as described in the
+[security policy](SECURITY.md).
+
+The rest of this guide is how the project itself is worked on; it applies
+equally to a fork. Start with the [documentation index](docs/README.md) to see
+how everything fits together.
 
 ## Getting started
 
@@ -28,8 +41,3 @@ stack. Each command is explained in
 [Run the checks CI runs, locally](docs/how-to/developer-guide.md#run-the-checks-ci-runs-locally).
 Which layer a new test belongs in: [TEST_STRATEGY.md](TEST_STRATEGY.md) and
 [testing.md](docs/reference/testing.md).
-
-## Reporting issues
-
-Use the issue templates. For security problems, follow the
-[security policy](SECURITY.md) instead of opening a public issue.
