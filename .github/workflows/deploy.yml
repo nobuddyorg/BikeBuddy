@@ -91,9 +91,11 @@ jobs:
       - name: Capture outputs
         id: output
         run: |
-          echo "functions_url=$(tofu output -raw functions_url)" >> "$GITHUB_OUTPUT"
-          echo "functions_app_name=$(tofu output -raw functions_app_name)" >> "$GITHUB_OUTPUT"
-          echo "storage_url=$(tofu output -raw storage_url)" >> "$GITHUB_OUTPUT"
+          {
+            echo "functions_url=$(tofu output -raw functions_url)"
+            echo "functions_app_name=$(tofu output -raw functions_app_name)"
+            echo "storage_url=$(tofu output -raw storage_url)"
+          } >> "$GITHUB_OUTPUT"
         working-directory: infrastructure
 
   deploy-functions:
@@ -181,9 +183,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # The workflow's own commit on main, not the release's: its checks are black-box, and a job
+      # without an environment should run no code taken from another job's output.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release.outputs.sha }}
           persist-credentials: false
 
       - name: Check the API and the site answer
