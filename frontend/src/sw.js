@@ -1,7 +1,7 @@
 'use strict';
 
-// Bump on any change to the precached shell: only a new name invalidates an installed cache.
-const CACHE_NAME = 'bikebuddy-shell-v16';
+// Every file is fetched network-first, so a deploy needs no bump; a new name only drops the old cache.
+const CACHE_NAME = 'bikebuddy-shell-v17';
 
 const PRECACHE_URLS = [
   './',
@@ -31,6 +31,7 @@ const PRECACHE_URLS = [
   'vendor/leaflet/images/marker-shadow.png',
   'vendor/msal-browser.min.js',
   'vendor/fonts/archivo-700.woff2',
+  'lib/apiErrors.js',
   'lib/authConfig.js',
   'lib/concurrency.js',
   'lib/debounce.js',
@@ -42,10 +43,12 @@ const PRECACHE_URLS = [
   'lib/layout.js',
   'lib/lineStyle.js',
   'lib/mapData.js',
+  'lib/pendingActions.js',
   'lib/markup.js',
   'lib/pinLayout.js',
   'lib/routes.js',
   'lib/sasCache.js',
+  'lib/session.js',
   'lib/sidebarView.js',
   'lib/stats.js',
   'lib/tourDetail.js',
@@ -100,10 +103,12 @@ self.addEventListener('install', (event) => {
       .open(CACHE_NAME)
       .then((cache) =>
         Promise.all(
-          PRECACHE_URLS.map((url) =>
+          PRECACHE_URLS.map((url) => {
+            // 'reload' skips the HTTP cache, which could hand back the previous deploy's file.
+            const added = cache.add(new Request(url, { cache: 'reload' }));
             // config.js is generated per deployment and gitignored, so a dev checkout may lack it.
-            url === 'config.js' ? cache.add(url).catch(() => {}) : cache.add(url),
-          ),
+            return url === 'config.js' ? added.catch(() => {}) : added;
+          }),
         ),
       )
       .then(() => self.skipWaiting()),
@@ -131,7 +136,6 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
-    // Network-first: the cached shell is only for offline.
     event.respondWith(
       fetch(request).catch(() =>
         caches.match('index.html').then((cached) => cached || caches.match('./')),
@@ -140,5 +144,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
+  // Network-first, so the page and its modules come from one deploy; the cache is the offline copy.
+  event.respondWith(
+    fetch(request).then(
+      (response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)));
+        }
+        return response;
+      },
+      (networkError) =>
+        caches.match(request).then((cached) => cached || Promise.reject(networkError)),
+    ),
+  );
 });

@@ -23,6 +23,7 @@ function actionButton({ action, onDone }) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'toast-action';
+  button.dataset.testid = 'toast-action';
   button.textContent = action.label;
   button.addEventListener('click', (event) => {
     event.stopPropagation();

@@ -4,7 +4,8 @@
 set -euo pipefail
 
 CONTAINER="bikebuddy-cosmos"
-IMAGE="mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview"
+# Pinned by digest (multi-arch index): the tag moves, and every run must test against the same build.
+IMAGE="mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview@sha256:2db1f9e74c506bcf6fc347aa937aea1c00fa756061296a5a9efba530ce86ec02"
 
 if ! docker info >/dev/null 2>&1; then
   echo "ERROR: Docker daemon is not running. Start Docker Desktop and retry." >&2

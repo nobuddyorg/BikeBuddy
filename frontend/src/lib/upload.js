@@ -21,10 +21,12 @@ export function readUploadResponse({ status, responseText }) {
   }
 }
 
-// Blank fields are left out, so the backend applies its own defaults.
-export function buildUploadQuery({ name, description }) {
-  const params = new URLSearchParams();
-  if (name.trim()) params.set('name', name.trim());
-  if (description.trim()) params.set('description', description.trim());
-  return params.toString();
+// Sent as form fields beside the file (#579); blank ones are left out, so the backend applies its
+// own defaults.
+export function uploadFields({ name, description }) {
+  return Object.fromEntries(
+    Object.entries({ name, description })
+      .map(([field, value]) => [field, value.trim()])
+      .filter(([, value]) => value !== ''),
+  );
 }

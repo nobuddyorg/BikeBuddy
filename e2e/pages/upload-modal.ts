@@ -8,6 +8,7 @@ interface UploadModal {
   /** High-level interactions. */
   do: {
     setName(name: string): Promise<void>;
+    setDescription(description: string): Promise<void>;
     pickFile(file: FileInput): Promise<void>;
     submit(): Promise<void>;
     close(): Promise<void>;
@@ -15,6 +16,7 @@ interface UploadModal {
   /** Raw locators. */
   locators: {
     name: Locator;
+    description: Locator;
     file: Locator;
     dropzoneFilename: Locator;
     error: Locator;
@@ -29,6 +31,7 @@ export function initUploadModal(page: Page): UploadModal {
   const root = page.locator('#upload-modal');
   const locators = {
     name: page.locator('#upload-name'),
+    description: page.locator('#upload-description'),
     file: page.locator('#upload-file'),
     dropzoneFilename: page.locator('#dropzone-filename'),
     error: page.locator('#upload-error'),
@@ -39,6 +42,7 @@ export function initUploadModal(page: Page): UploadModal {
   };
   const interactions = {
     setName: async (name: string) => locators.name.fill(name),
+    setDescription: async (description: string) => locators.description.fill(description),
     pickFile: async (file: FileInput) => locators.file.setInputFiles(file),
     submit: async () => locators.buttons.submit.click(),
     close: async () => locators.buttons.close.click(),

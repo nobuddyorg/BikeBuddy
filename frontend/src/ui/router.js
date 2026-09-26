@@ -4,6 +4,8 @@ import { parseAppUrl, buildAppUrl } from '../lib/url.js';
 // One entry per pushState, so popstate knows how many layers to close to reach its depth.
 const layerStack = [];
 let pendingTourId = '';
+// history.back() calls of our own, whose popstate must close nothing.
+let ownBacks = 0;
 
 function currentUrl() {
   return buildAppUrl(
@@ -19,6 +21,8 @@ function currentUrl() {
 
 // The deep-linked tour opens only once the tours have loaded (consumeDeepLinkTourId).
 export function readInitialUrl() {
+  // A reload keeps the entry's depth but not the layers, so the depth starts over.
+  if (history.state?.depth) history.replaceState({ depth: 0 }, '');
   const parsed = parseAppUrl(location.search, location.hash);
   if (parsed.sort) state.sort = parsed.sort;
   if (parsed.search) state.search = parsed.search;
@@ -43,8 +47,22 @@ export function pushLayer(close) {
   history.pushState({ depth: layerStack.length }, '', currentUrl());
 }
 
+// A close by button or Escape takes its entry back too, so Back never lands on a closed layer.
+export function releaseLayer(close) {
+  if (layerStack.at(-1) !== close) return;
+  layerStack.pop();
+  ownBacks++;
+  history.back();
+}
+
 export function initHistory() {
   window.addEventListener('popstate', () => {
+    if (ownBacks > 0) {
+      ownBacks--;
+      // The entry Back lands on still shows the URL from before the layer closed.
+      syncUrl();
+      return;
+    }
     const depth = history.state?.depth ?? 0;
     while (layerStack.length > depth) layerStack.pop()();
   });

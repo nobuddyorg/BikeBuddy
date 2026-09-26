@@ -1,7 +1,7 @@
 // @ts-check
 'use strict';
 
-const { unauthorized, error } = require('./http');
+const { ERROR_KEYS, unauthorized, error } = require('./http');
 const { readItem } = require('./db');
 const { invalidIdParams } = require('./validation');
 
@@ -16,10 +16,10 @@ async function loadOwnedTour(request, { authenticate, toursContainer, otherIdPar
 
   const { tourId } = request.params;
   const [invalidParam] = invalidIdParams({ tourId, ...otherIdParams });
-  if (invalidParam) return { response: error(400, `Invalid ${invalidParam}`) };
+  if (invalidParam) return { response: error(400, ERROR_KEYS.invalidId) };
 
   const tour = await readItem(toursContainer(), { id: tourId, partitionKey: user.userId });
-  if (!tour) return { response: error(404, 'Tour not found') };
+  if (!tour) return { response: error(404, ERROR_KEYS.tourNotFound) };
 
   return { user, tour };
 }

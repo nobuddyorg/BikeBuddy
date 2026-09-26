@@ -8,7 +8,7 @@ const { startOidcProvider } = require('./oidcProvider');
 
 // Its own port: a dev host on :7071 (often SKIP_AUTH) is never reused or disturbed.
 const HOST_PORT = 7072;
-const API_BASE_URL = `http://localhost:${HOST_PORT}/api`;
+const API_BASE_URL = `http://localhost:${HOST_PORT}/api/v1`;
 const HEALTH_URL = `${API_BASE_URL}/health`;
 const HOST_START_TIMEOUT_MS = 150_000;
 const functionsDirectory = resolve(__dirname, '..', '..');

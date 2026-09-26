@@ -51,6 +51,16 @@ describe('signed blob URLs', () => {
     expect(photo.headers.get('content-type')).toBe('image/jpeg');
   });
 
+  it('reads the GPX file and photo a data export links, which the stored references cannot (#540)', async () => {
+    const exported = await rider.api.readJson('/me/export');
+    const [tour] = exported.tours;
+
+    expect(blobNameOf(tour.gpxFileUrl)).toBe(`${rider.userId}/${tour.id}.gpx`);
+    expect(await (await fetch(tour.gpxFileUrl)).text()).toBe(SAMPLE_GPX);
+    expect((await fetch(tour.images[0].url)).headers.get('content-type')).toBe('image/jpeg');
+    expect(tour.images[0]).not.toHaveProperty('blobName');
+  });
+
   it('refuses a write to the blob it names', async () => {
     const response = await fetch(rider.tour.gpxFileUrl, {
       method: 'PUT',
@@ -86,5 +96,23 @@ describe('signed blob URLs', () => {
 
     expect(deleted.status).toBe(204);
     for (const url of urls) expect(await statusOf(url)).toBe(404);
+  }, 60_000);
+
+  it('stops reading a deleted photo and its thumbnail, and only those (#567)', async () => {
+    const tour = await createTourWithPhoto(rider);
+    await rider.api.addPhoto({ tourId: tour.id, jpeg });
+    const [doomed, kept] = (await rider.api.readJson(`/tours/${tour.id}`)).images;
+
+    const deleted = await rider.api.request(`/tours/${tour.id}/images/${doomed.id}`, {
+      method: 'DELETE',
+    });
+
+    expect(deleted.status).toBe(204);
+    expect(await statusOf(doomed.url)).toBe(404);
+    expect(await statusOf(doomed.thumbUrl)).toBe(404);
+    expect(await statusOf(kept.url)).toBe(200);
+    expect(await statusOf(kept.thumbUrl)).toBe(200);
+    const remaining = (await rider.api.readJson(`/tours/${tour.id}`)).images;
+    expect(remaining.map((image) => image.id)).toEqual([kept.id]);
   }, 60_000);
 });

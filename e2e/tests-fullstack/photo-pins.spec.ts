@@ -30,13 +30,16 @@ fullstackTest.describe('photo pins', () => {
 
       await on(page).map.do.showPins();
       await expect(on(page).map.locators.pins.markers).toHaveCount(2);
+      const zoomOf = async () => Number(await on(page).map().getAttribute('data-zoom'));
+      const startZoom = await zoomOf();
 
       // Below the region-level cutoff pins hide rather than crowd unrelated places together.
       await on(page).map.do.zoomOut(15);
       await expect(on(page).map.locators.pins.markers).toHaveCount(0);
 
-      // Back in past the cutoff: zoomend re-runs the grouping.
-      await on(page).map.do.zoomIn(15);
+      // Back to where it started, past the cutoff: the view's pins are placed again. Zooming in
+      // further would leave the photo, at the track's edge, outside the view and unpinned (#580).
+      await on(page).map.do.zoomIn(startZoom - (await zoomOf()));
       await expect(on(page).map.locators.pins.markers).toHaveCount(2);
 
       await on(page).map.do.hidePins();
@@ -97,10 +100,12 @@ fullstackTest.describe('photo pins scoped to selected tour', () => {
       await expect(on(page).detail.locators.name).toHaveText('Tour C (no photos)');
       await expect(on(page).map.locators.pins.toggle).toBeHidden();
 
-      // Closing drops the selection, so pins widen straight back to every tour's.
+      // Closing drops the selection, so pins widen back to every tour's. The camera stays on
+      // Tour A, so zooming out brings Tour B's photo into view, where pins are placed (#580).
       await on(page).list.row('Tour A').do.click();
       await on(page).detail.do.close();
       await expect(on(page).map.locators.pins.toggle).toBeVisible();
+      await on(page).map.do.zoomOut(3);
       await expect(on(page).map.locators.pins.markers).toHaveCount(2);
     },
   );

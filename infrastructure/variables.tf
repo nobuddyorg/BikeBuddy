@@ -4,7 +4,7 @@ variable "location" {
   default     = "northeurope"
 }
 
-# Microsoft Entra External ID; deploy.yml passes the repository variables, empty means no-auth mode.
+# Microsoft Entra External ID; deploy.yml passes the repository variables. The Function App refuses empty ones.
 variable "entra_tenant_subdomain" {
   description = "External ID tenant subdomain, e.g. \"bikebuddy\" for bikebuddy.ciamlogin.com."
   type        = string
@@ -30,12 +30,13 @@ variable "budget_amount" {
 }
 
 variable "budget_contact_email" {
-  description = "Email that receives budget threshold alerts; CI passes the BUDGET_CONTACT_EMAIL repository variable."
+  description = "Email that receives budget threshold alerts."
   type        = string
+  default     = "nobuddyorgcloud@outlook.com"
 
   validation {
     condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.budget_contact_email))
-    error_message = "budget_contact_email must be an email address (set the BUDGET_CONTACT_EMAIL repository variable)."
+    error_message = "budget_contact_email must be an email address."
   }
 }
 

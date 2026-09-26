@@ -1,6 +1,12 @@
 import * as i18n from './ui/i18n.js';
 import { state } from './ui/state.js';
-import { map, refreshMapSize, moveMapIntoDetailPanel, restoreMapToAppLayout } from './ui/map.js';
+import {
+  map,
+  refreshMapSize,
+  moveMapIntoDetailPanel,
+  restoreMapToAppLayout,
+  whenLeavingMobileLayout,
+} from './ui/map.js';
 import * as dom from './ui/dom.js';
 import { signIn, signOut, initAuth } from './ui/auth.js';
 import {
@@ -94,7 +100,10 @@ function wireMapEvents() {
     if (state.filterInView) renderSidebar();
   }, DEBOUNCE_MS);
   map.on('moveend', renderInViewList);
-  map.on('zoomend', renderPins);
+  // Pins are placed for the view alone (#580), so a pan needs them as much as a zoom.
+  map.on('moveend', debounce(renderPins, DEBOUNCE_MS));
+  // The phone layout left the routes unloaded until its map opened.
+  whenLeavingMobileLayout(renderSelectedToursRoutes);
 }
 
 function wireAccount() {
@@ -263,7 +272,7 @@ function handleEscape(openModalElement) {
 
 function handleModalKey(event) {
   const openModalElement = currentOpenModal();
-  if (!openModalElement) return;
+  if (!openModalElement || event.defaultPrevented) return;
   if (event.key === 'Escape') return handleEscape(openModalElement);
   if (openModalElement === dom.lightboxModal && event.key === 'ArrowLeft')
     return showPreviousPhoto();

@@ -1,22 +1,31 @@
-import { expect, fullstackTest } from './fullstack-test';
+import { expect, mockTour, staticTest } from '../fixtures/api-mocks';
 
 // The empty-map overlay is the proxy for the map showing exactly the checked tours.
+// Static, not full stack: the API refuses a GPX without a track, so only a tour stored before that has none.
 
-fullstackTest.describe('selecting tours drives the map', () => {
-  fullstackTest.beforeEach(async ({ seed }) => {
-    await seed.tour({
-      name: 'MapSelect Tour With Data',
-      time: '2026-06-02T08:00:00Z',
-      points: [
-        [48.1, 11.5],
-        [48.11, 11.51],
+staticTest.describe('selecting tours drives the map', () => {
+  staticTest.use({
+    mockAccount: {
+      tours: [
+        mockTour({
+          id: '77777777-7777-4777-8777-777777777777',
+          name: 'MapSelect Tour With Data',
+          createdAt: '2026-06-02T08:00:00.000Z',
+          heatmapData: [
+            [48.1, 11.5],
+            [48.11, 11.51],
+          ],
+        }),
+        mockTour({
+          id: '88888888-8888-4888-8888-888888888888',
+          name: 'MapSelect Tour No Data',
+          createdAt: '2026-06-01T08:00:00.000Z',
+        }),
       ],
-    });
-    // A GPX without track points: a tour with nothing to draw.
-    await seed.tour({ name: 'MapSelect Tour No Data', time: '2026-06-01T08:00:00Z' });
+    },
   });
 
-  fullstackTest('map reflects exactly the checked tours', async ({ on, page }) => {
+  staticTest('map reflects exactly the checked tours', async ({ on, page }) => {
     await page.goto('/');
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).list.locators.count).toHaveText('2');
@@ -53,5 +62,26 @@ fullstackTest.describe('selecting tours drives the map', () => {
     await on(page).list.do.cancelSelect();
     await expect(on(page).list.locators.selection.bar).toBeHidden();
     await expect(on(page).map.locators.empty).toBeHidden();
+  });
+
+  staticTest('a selection made while the map loads waits for that load', async ({ on, page }) => {
+    const mapRequests: string[] = [];
+    let releaseMap = () => {};
+    const mapHeld = new Promise<void>((resolve) => (releaseMap = resolve));
+    await page.route('**/api/v1/map', async (route) => {
+      mapRequests.push(route.request().url());
+      await mapHeld;
+      await route.fallback();
+    });
+
+    await page.goto('/');
+    await expect(on(page).list.locators.count).toHaveText('2');
+    await on(page).list.do.enterSelectMode();
+    await on(page).list.row('MapSelect Tour With Data').do.click();
+    await expect(on(page).list.locators.selection.count).toHaveText('1 selected');
+    releaseMap();
+
+    await expect(on(page).map.locators.empty).toBeHidden();
+    expect(mapRequests).toHaveLength(1);
   });
 });

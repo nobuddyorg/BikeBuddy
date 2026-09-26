@@ -1,6 +1,7 @@
 'use strict';
 
-// Every route the host registers, as the authorization matrix calls it; test/unit keeps it complete.
+// Every route the host registers under /api/v1/, as the authorization matrix calls it; test/unit
+// keeps it complete and holds each unversioned alias to the same handler (#579).
 
 const PUBLIC_ENDPOINTS = [{ method: 'GET', route: 'health' }];
 
@@ -12,7 +13,7 @@ const AUTHENTICATED_ENDPOINTS = [
   { method: 'GET', route: 'tours', send: (api) => api.request('/tours') },
   {
     method: 'POST',
-    route: 'tours/upload',
+    route: 'tours',
     send: (api) => api.uploadTour({ name: 'Uploaded by the wrong caller' }),
   },
   {
@@ -66,7 +67,7 @@ const TOUR_SCOPED_ENDPOINTS = AUTHENTICATED_ENDPOINTS.filter(({ route }) =>
 );
 // Rows for test.each('%s …'): its `$property` titles would quote every string.
 const named = (endpoints) =>
-  endpoints.map((endpoint) => [`${endpoint.method} /api/${endpoint.route}`, endpoint]);
+  endpoints.map((endpoint) => [`${endpoint.method} /api/v1/${endpoint.route}`, endpoint]);
 
 module.exports = {
   PUBLIC_ENDPOINTS,

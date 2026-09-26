@@ -17,8 +17,19 @@ import { SIZES, gpxTrack } from './gpx.js';
 const THINK_SECONDS = 1;
 // The e2e suite's photo fixture: a real JPEG, so sharp does real work.
 const PHOTO = open('../../e2e/fixtures/sample.jpg', 'b');
-// Built once per VU at init: generating a 10k-point file per iteration would load k6, not the API.
-const TRACKS = { typical: gpxTrack(900001, SIZES.typical), long: gpxTrack(900002, SIZES.long) };
+// Built once per VU at init: generating a large file per iteration would load k6, not the API.
+const TRACKS = {
+  typical: gpxTrack(900001, SIZES.typical),
+  long: gpxTrack(900002, SIZES.long),
+  huge: gpxTrack(900003, SIZES.huge),
+};
+
+// One upload in twenty is a 100k-point ride, three in twenty a 10k-point one.
+function uploadMix(roll) {
+  if (roll < 0.05) return TRACKS.huge;
+  if (roll < 0.2) return TRACKS.long;
+  return TRACKS.typical;
+}
 
 const pick = (values) => values[Math.floor(Math.random() * values.length)];
 
@@ -38,8 +49,7 @@ export function openDetail(tourIds) {
 }
 
 export function addTour() {
-  const long = Math.random() < 0.2;
-  uploadTour(`Load ride ${crypto.randomUUID().slice(0, 8)}`, long ? TRACKS.long : TRACKS.typical);
+  uploadTour(`Load ride ${crypto.randomUUID().slice(0, 8)}`, uploadMix(Math.random()));
   sleep(THINK_SECONDS);
 }
 

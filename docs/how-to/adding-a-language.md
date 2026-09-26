@@ -39,9 +39,15 @@ Add the categories your language needs (`few`, `many`, … per
 
 ## 2. Register the locale
 
-Add an entry to `SUPPORTED_LOCALES` in `frontend/src/lib/i18n.js`. That single
-list drives the language switcher, browser-language detection, and number,
-date and unit formatting — nothing else needs wiring:
+Add an entry to `SUPPORTED_LOCALES` in `frontend/src/lib/i18n.js`. That list
+drives the language switcher, browser-language detection, and number, date and
+unit formatting. Two more lists name every language, and a test fails until all
+three agree with the files in `frontend/src/locales/`:
+
+- `SUPPORTED_LANGUAGE_CODES` in `functions/src/lib/validation.js`, or the API
+  refuses to save the new language to a signed-in user's profile;
+- `PRECACHE_URLS` in `frontend/src/sw.js` (`locales/<code>.json`), so the
+  language also loads offline.
 
 ```js
 export const SUPPORTED_LOCALES = [
@@ -64,18 +70,21 @@ export const SUPPORTED_LOCALES = [
 | `short`      | Two-letter badge on the language button.     |
 | `intlLocale` | BCP-47 tag passed to every `Intl` formatter. |
 
-Some keys are also produced by the API: `TOUR_META_ERROR_KEYS` in
-`functions/src/lib/validation.js` answers a failed validation with a key rather
-than prose, which `tApi` then resolves. They are ordinary locale keys — the
-parity test below covers them like any other.
+Some keys are also produced by the API: every error body is one of the
+`ERROR_KEYS` in `functions/src/lib/http.js`, a key rather than prose, which
+`tApi` then resolves (filling the limits it names from
+`frontend/src/lib/apiErrors.js`). They are ordinary locale keys, which the
+parity test below covers like any other.
 
 ## 3. Verify
 
-The unit test enforces key parity and non-empty values across every locale in
-`SUPPORTED_LOCALES`, so a missing or blank key fails the build:
+The unit tests enforce key parity and non-empty values across every locale in
+`SUPPORTED_LOCALES`, and that every API error key and all three language lists
+match the locale files (`functions/test/unit/frontendContract.test.js`), so a
+missing or blank key or a forgotten list fails the build:
 
 ```bash
-cd frontend && npm test
+./buddy.sh test frontend && ./buddy.sh test unit
 ```
 
 Then start the app (`./buddy.sh development start-all`) and pick the new language

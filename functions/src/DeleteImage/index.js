@@ -1,13 +1,13 @@
 'use strict';
 
-const { app } = require('@azure/functions');
+const { apiRoute } = require('../lib/functionsApp');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
 const { loadOwnedTour } = require('../lib/ownedTour');
 const { imageBlobName, thumbnailBlobName } = require('../lib/blobNames');
 const { settleAll } = require('../lib/settle');
-const { error } = require('../lib/http');
+const { ERROR_KEYS, error } = require('../lib/http');
 
 const MAX_REPLACE_ATTEMPTS = 3;
 
@@ -52,10 +52,10 @@ async function deleteImage(
   const { userId } = guard.user;
 
   if (!tour.images?.some((image) => image.id === imageId)) {
-    return error(404, 'Image not found');
+    return error(404, ERROR_KEYS.imageNotFound);
   }
   const removed = await removeImageEntry({ container: toursContainer(), tour, imageId, userId });
-  if (!removed) return error(404, 'Tour not found');
+  if (!removed) return error(404, ERROR_KEYS.tourNotFound);
 
   const blobName = imageBlobName({ userId, tourId: tour.id, imageId });
   const container = await imagesContainer();
@@ -69,9 +69,8 @@ async function deleteImage(
   return { status: 204 };
 }
 
-app.http('DeleteImage', {
+apiRoute('DeleteImage', {
   methods: ['delete'],
-  authLevel: 'anonymous',
   route: 'tours/{tourId}/images/{imageId}',
   /* v8 ignore next */
   handler: (request) => deleteImage(request),

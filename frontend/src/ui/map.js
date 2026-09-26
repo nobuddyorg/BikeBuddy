@@ -4,7 +4,8 @@ const L = window.L;
 
 const INITIAL_VIEW = { center: [48.5, 10.5], zoom: 6 };
 
-export const map = L.map('map', INITIAL_VIEW);
+// One canvas for every route: SVG keeps a DOM path per tour and re-projects each on every zoom.
+export const map = L.map('map', { ...INITIAL_VIEW, preferCanvas: true });
 
 // iOS Safari pinch-zooms through gesture events that ignore touch-action; keep it off the page.
 const leafletContainer = map.getContainer();
@@ -42,8 +43,9 @@ const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 applyMapTheme(themeOf(darkMediaQuery));
 darkMediaQuery.addEventListener('change', (event) => applyMapTheme(themeOf(event)));
 
-export function mapBoundsPlain() {
-  const bounds = map.getBounds();
+// margin: a fraction of the view added on every side (Leaflet's LatLngBounds.pad).
+export function mapBoundsPlain(margin = 0) {
+  const bounds = map.getBounds().pad(margin);
   return {
     south: bounds.getSouth(),
     west: bounds.getWest(),
@@ -66,6 +68,13 @@ const MOBILE_LAYOUT_QUERY = '(max-width: 768px)';
 
 export function isMobileLayout() {
   return window.matchMedia(MOBILE_LAYOUT_QUERY).matches;
+}
+
+// A phone turned to landscape can cross into the desktop layout, whose map is always shown.
+export function whenLeavingMobileLayout(callback) {
+  window.matchMedia(MOBILE_LAYOUT_QUERY).addEventListener('change', (event) => {
+    if (!event.matches) callback();
+  });
 }
 
 // On mobile the one Leaflet map moves into the detail panel as the tour's preview.

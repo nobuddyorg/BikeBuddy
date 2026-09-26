@@ -45,11 +45,13 @@ function showImageError(message) {
   showElement(imageError);
 }
 
-async function uploadOne({ job, tour, token }) {
+async function uploadOne({ job, tour }) {
   job.tile.showPending();
   try {
+    // Per attempt: a retry minutes later must not reuse an expired token.
+    const token = await getAccessToken();
     const image = await xhrUpload({
-      url: `${API_BASE}/api/tours/${tour.id}/images`,
+      url: `${API_BASE}/api/v1/tours/${tour.id}/images`,
       file: job.file,
       token,
       onProgress: job.tile.setProgress,
@@ -64,14 +66,14 @@ async function uploadOne({ job, tour, token }) {
   }
 }
 
-function queueUploads({ files, tour, token }) {
+function queueUploads({ files, tour }) {
   const jobs = [];
   for (const { file, problems } of planImageUploads({
     files,
     existingCount: tour.images?.length || 0,
   })) {
     const job = { file };
-    job.tile = createPendingImageTile({ file, onRetry: () => uploadOne({ job, tour, token }) });
+    job.tile = createPendingImageTile({ file, onRetry: () => uploadOne({ job, tour }) });
     imageGrid.appendChild(job.tile.element);
     const [problem] = problems;
     if (problem) job.tile.setError(t(problem.key, problem.params));
@@ -95,11 +97,10 @@ export async function uploadImages(files) {
     return;
   }
 
-  const token = await getAccessToken();
-  const jobs = queueUploads({ files, tour, token });
+  const jobs = queueUploads({ files, tour });
   await runWithConcurrency({
     items: jobs,
     limit: UPLOAD_CONCURRENCY,
-    worker: (job) => uploadOne({ job, tour, token }),
+    worker: (job) => uploadOne({ job, tour }),
   });
 }

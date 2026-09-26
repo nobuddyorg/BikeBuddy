@@ -16,8 +16,15 @@ export function wirePopover({ trigger, panel, container, onOpen = () => {} }) {
   document.addEventListener('click', (event) => {
     if (!container.contains(event.target)) close();
   });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !isHidden(panel)) close();
-  });
+  // Capture phase, before app.js's dialog handler, which skips an Escape a menu has used.
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Escape' || isHidden(panel)) return;
+      event.preventDefault();
+      close();
+    },
+    { capture: true },
+  );
   return { close };
 }

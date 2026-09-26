@@ -30,6 +30,8 @@ module.exports = {
           '^e2e/(playwright(\\.fullstack)?\\.config|global-setup|serve)\\.(ts|mjs)$',
           // Lighthouse CI tooling, started by name (lhci, npm scripts).
           '^e2e/lighthouse/',
+          // k6 flows and their Node runner, started as `k6 run load/<flow>.js` / `node load/run.mjs`.
+          '^load/[^/]+\\.(js|mjs)$',
           '(^|/)(vitest|stryker)[^/]*\\.(c|m)?js$',
           // Classic scripts loaded by index.html (see vendor-is-script-tags-only).
           '^frontend/src/vendor/',
@@ -40,9 +42,11 @@ module.exports = {
     {
       name: 'not-to-unresolvable',
       severity: 'error',
-      comment: 'An import that cannot be resolved is a typo or a missing dependency.',
+      comment:
+        'An import that cannot be resolved is a typo or a missing dependency. The k6 runtime ' +
+        'provides k6 and k6/* to the load scripts itself.',
       from: {},
-      to: { couldNotResolve: true },
+      to: { couldNotResolve: true, pathNot: ['^k6(/|$)'] },
     },
     {
       name: 'cosmos-only-in-db',
@@ -62,6 +66,15 @@ module.exports = {
         ],
       },
       to: { dependencyTypes: ['npm', 'npm-dev', 'npm-no-pkg'], path: '@azure/cosmos' },
+    },
+    {
+      name: 'handlers-register-through-functions-app',
+      severity: 'error',
+      comment:
+        'Handlers take `app` from functions/src/lib/functionsApp.js, which turns on HTTP ' +
+        'streaming before any route exists; without it the host buffers every upload whole.',
+      from: { path: '^functions/src/[^/]+/index\\.js$' },
+      to: { dependencyTypes: ['npm', 'npm-dev', 'npm-no-pkg'], path: '@azure/functions' },
     },
     {
       name: 'blob-only-in-blob-storage',

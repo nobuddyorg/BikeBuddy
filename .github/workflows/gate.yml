@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: ["main"]
+  # Deploy's daily drift check runs it on main when production lags (#539).
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -40,7 +42,8 @@ jobs:
           # opengrep and the architecture checks have their own jobs below.
           SKIP: no-commit-to-branch,opengrep,depcruise,knip,iac
 
-  # A push to main (the deploying event) forces every job; skipped jobs report success to required checks.
+  # A run on main (a push or Deploy's dispatch, both deploying) forces every job; skipped jobs report
+  # success to required checks.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -55,9 +58,9 @@ jobs:
       sast: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.sast == 'true' }}
       code: ${{ steps.force.outputs.value == 'true' || steps.filter.outputs.code == 'true' }}
     steps:
-      - name: Force a full run on pushes to main
+      - name: Force a full run on main
         id: force
-        run: echo "value=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}" >> "$GITHUB_OUTPUT"
+        run: echo "value=${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,7 +68,9 @@ jobs:
           fetch-depth: 2
 
       # The workflow and its composite actions are in every filter, so a CI change exercises what it changed.
+      # Nothing to select on main, and a dispatched run has no push range to compare.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        if: steps.force.outputs.value != 'true'
         id: filter
         with:
           filters: |
@@ -263,9 +268,7 @@ jobs:
         with:
           packages: e2e
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-        working-directory: e2e
+      - uses: ./.github/actions/install-playwright
 
       - name: Run static UI tests (Playwright)
         run: npm run test:ci
@@ -356,8 +359,7 @@ jobs:
           start-backend: "true"
           swa-cli: "true"
 
-      - run: npx playwright install --with-deps chromium
-        working-directory: e2e
+      - uses: ./.github/actions/install-playwright
 
       - run: npm run test:fullstack
         working-directory: e2e
@@ -398,8 +400,7 @@ jobs:
         with:
           start-backend: "true"
 
-      - run: npx playwright install --with-deps chromium
-        working-directory: e2e
+      - uses: ./.github/actions/install-playwright
 
       - name: Run Lighthouse CI
         run: npm run lighthouse

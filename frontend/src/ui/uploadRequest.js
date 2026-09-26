@@ -3,12 +3,14 @@ import { readUploadResponse } from '../lib/upload.js';
 export function xhrUpload({
   url,
   file,
+  fields = {},
   token,
   onProgress,
   RequestConstructor = globalThis.XMLHttpRequest,
 }) {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
+    for (const [name, value] of Object.entries(fields)) formData.append(name, value);
     formData.append('file', file, file.name);
     const request = new RequestConstructor();
     request.open('POST', url);

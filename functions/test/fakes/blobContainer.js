@@ -26,7 +26,12 @@ function createFakeBlobContainer({ containerName, blobs = [] }) {
     url: `https://fake.blob/${containerName}/${blobName}`,
     uploadData: (data, options) =>
       perform('upload', blobName, () => {
-        stored.set(blobName, { data, contentType: options.blobHTTPHeaders.blobContentType });
+        const { blobContentType, blobCacheControl } = options.blobHTTPHeaders;
+        stored.set(blobName, {
+          data,
+          contentType: blobContentType,
+          ...(blobCacheControl && { cacheControl: blobCacheControl }),
+        });
         return {};
       }),
     deleteIfExists: () =>

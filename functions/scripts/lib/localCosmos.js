@@ -24,6 +24,16 @@ const CONTAINERS = [
       excludedPaths: [{ path: '/heatmapData/*' }, { path: '/images/*' }],
     },
   },
+  {
+    id: 'tracks',
+    partitionKey: '/userId',
+    indexingPolicy: {
+      indexingMode: 'consistent',
+      automatic: true,
+      includedPaths: [{ path: '/*' }],
+      excludedPaths: [{ path: '/heatmapData/*' }],
+    },
+  },
 ];
 
 // The client is built from these parts, so the endpoint checked is the one it connects to.
@@ -73,7 +83,8 @@ async function createDatabaseAndContainers({ client, databaseId, log }) {
   const { database } = await client.databases.createIfNotExists({ id: databaseId });
   log.info(`✓ database "${databaseId}"`);
   for (const definition of CONTAINERS) {
-    await database.containers.createIfNotExists(definition);
+    // A copy: creating a container rewrites the definition's partitionKey into an object.
+    await database.containers.createIfNotExists({ ...definition });
     log.info(`✓ container "${definition.id}" (partitionKey ${definition.partitionKey})`);
   }
 }

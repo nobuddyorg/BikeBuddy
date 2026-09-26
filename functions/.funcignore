@@ -1,0 +1,21 @@
+# What `func azure functionapp publish` leaves out of the package: nothing here is loaded at runtime.
+.funcignore
+.gitignore
+.prettierignore
+.prettierrc.json
+.stryker-tmp/
+coverage/
+reports/
+scripts/
+test/
+**/*.test.js
+eslint.config.js
+eslint.frontend.config.js
+knip.jsonc
+local.settings.json
+local.settings.json.example
+stryker.config.mjs
+tsconfig.json
+vitest.config.js
+vitest.integration.config.js
+vitest.mutation.config.js

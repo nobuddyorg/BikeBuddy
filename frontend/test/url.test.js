@@ -10,6 +10,15 @@ describe('parseAppUrl', () => {
     expect(parseAppUrl('', '#/tour/a%20b')).toMatchObject({ tourId: 'a b' });
   });
 
+  // A truncated or hand-edited link must not stop the app from starting.
+  it('returns an empty tourId for a malformed escape instead of throwing', () => {
+    expect(parseAppUrl('', '#/tour/%E0%A4%A').tourId).toBe('');
+    expect(parseAppUrl('?sort=name-asc', '#/tour/%')).toMatchObject({
+      tourId: '',
+      sort: 'name-asc',
+    });
+  });
+
   it('returns an empty tourId for an unrelated or empty hash', () => {
     expect(parseAppUrl('', '')).toMatchObject({ tourId: '' });
     expect(parseAppUrl('', '#something-else')).toMatchObject({ tourId: '' });

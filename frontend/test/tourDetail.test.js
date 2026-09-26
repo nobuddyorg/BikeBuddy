@@ -11,6 +11,7 @@ describe('ensureDetail', () => {
     const apiFetch = vi.fn(async () =>
       ok({
         heatmapData: [[48, 11]],
+        segmentStarts: [],
         images: [{ id: 'i1' }],
         gpxFileUrl: 'https://blob/t1.gpx',
         elevationGain: 0,
@@ -21,10 +22,11 @@ describe('ensureDetail', () => {
 
     await ensureDetail({ apiFetch, tour, now: NOW });
 
-    expect(apiFetch).toHaveBeenCalledWith('/api/tours/t1');
+    expect(apiFetch).toHaveBeenCalledWith('/api/v1/tours/t1');
     expect(tour).toEqual({
       id: 't1',
       heatmapData: [[48, 11]],
+      segmentStarts: [],
       images: [{ id: 'i1' }],
       gpxFileUrl: 'https://blob/t1.gpx',
       elevationGain: 0,
@@ -42,6 +44,7 @@ describe('ensureDetail', () => {
 
     expect(tour).toMatchObject({
       heatmapData: [],
+      segmentStarts: [],
       images: [],
       elevationGain: null,
       durationSeconds: null,
@@ -72,7 +75,7 @@ describe('ensureDetail', () => {
 
     await expect(
       ensureDetail({ apiFetch: async () => ({ ok: false, status: 500 }), tour, now: NOW }),
-    ).rejects.toThrow('GET /api/tours/t1 answered 500');
+    ).rejects.toThrow('GET /api/v1/tours/t1 answered 500');
 
     expect(tour).toEqual({ id: 't1', heatmapData: [], images: [] });
   });

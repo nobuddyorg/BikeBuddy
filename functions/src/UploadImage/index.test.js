@@ -21,9 +21,12 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const NOT_AN_IMAGE = Buffer.from('hello world');
 const FULL = Buffer.from('full-bytes');
 const THUMBNAIL = Buffer.from('thumbnail-bytes');
+// What the entry records: the two stored variants, never the original.
+const STORED_BYTES = FULL.length + THUMBNAIL.length;
 const FULL_BLOB = `u1/${TOUR_ID}/${IMAGE_ID}.jpg`;
 const THUMBNAIL_BLOB = `u1/${TOUR_ID}/${IMAGE_ID}_thumb.jpg`;
-const ONE_HOUR_LATER = new Date(NOW.getTime() + 60 * 60 * 1000).toISOString();
+// The SAS window's end: the close of the hour after the one NOW falls in.
+const SAS_EXPIRES_AT = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString();
 
 const TOUR = { id: TOUR_ID, userId: 'u1', name: 'Alps', images: [] };
 const OTHER_USERS_TOUR = { id: OTHER_TOUR_ID, userId: 'u2', name: 'Not yours', images: [] };
@@ -54,6 +57,7 @@ function setUp({
         parseFile: fileOf(JPEG),
         resize: async () => ({ full: FULL, thumbnail: THUMBNAIL }),
         readGps: async () => null,
+        rateLimiter: { take: () => ({ allowed: true }) },
         newId: idsInOrder(IMAGE_ID),
         now: fixedClock,
         ...overrides,
@@ -64,7 +68,7 @@ function setUp({
   return { tours, images, run, storedImages };
 }
 
-describe('POST /api/tours/{tourId}/images', () => {
+describe('POST /api/v1/tours/{tourId}/images', () => {
   it('stores both sizes, appends the entry and returns 201 with signed URLs', async () => {
     const { images, run, storedImages } = setUp();
 
@@ -76,12 +80,14 @@ describe('POST /api/tours/{tourId}/images', () => {
       url: expect.any(String),
       thumbUrl: expect.any(String),
     });
-    expect(images.blob(FULL_BLOB)).toEqual({ data: FULL, contentType: 'image/jpeg' });
-    expect(images.blob(THUMBNAIL_BLOB)).toEqual({ data: THUMBNAIL, contentType: 'image/jpeg' });
-    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB }]);
+    // Never rewritten under their names, so a browser may cache both while the URL works.
+    const cached = { contentType: 'image/jpeg', cacheControl: 'private, max-age=3600, immutable' };
+    expect(images.blob(FULL_BLOB)).toEqual({ data: FULL, ...cached });
+    expect(images.blob(THUMBNAIL_BLOB)).toEqual({ data: THUMBNAIL, ...cached });
+    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES }]);
   });
 
-  it("signs read-only, one-hour URLs for the new photo under the caller's prefix", async () => {
+  it("signs read-only, short-lived URLs for the new photo under the caller's prefix", async () => {
     const { run } = setUp();
 
     const { url, thumbUrl } = (await run()).jsonBody;
@@ -90,7 +96,7 @@ describe('POST /api/tours/{tourId}/images', () => {
       path: `/tour-images/${FULL_BLOB}`,
       permissions: 'r',
       resource: 'b',
-      expiresOn: ONE_HOUR_LATER,
+      expiresOn: SAS_EXPIRES_AT,
     });
     expect(signedUrlParts(thumbUrl).path).toBe(`/tour-images/${THUMBNAIL_BLOB}`);
   });
@@ -132,7 +138,7 @@ describe('POST /api/tours/{tourId}/images', () => {
 
     expect(response.jsonBody).toMatchObject({ lat: 48.137, lon: 11.575 });
     expect(storedImages()).toEqual([
-      { id: IMAGE_ID, blobName: FULL_BLOB, lat: 48.137, lon: 11.575 },
+      { id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES, lat: 48.137, lon: 11.575 },
     ]);
   });
 
@@ -151,21 +157,21 @@ describe('POST /api/tours/{tourId}/images', () => {
     const response = await run();
 
     expect(response.status).toBe(400);
-    expect(response.jsonBody.error).toBe('Only JPEG or PNG images are accepted');
+    expect(response.jsonBody.error).toBe('errors.imageType');
     expect(images.calls).toEqual([]);
     expect(tours.calls.map((call) => call.operation)).toEqual(['read']);
   });
 
   it('returns the parser message for an upload the client got wrong', async () => {
     const parseFile = async () => {
-      throw clientError('File exceeds 10 MB limit');
+      throw clientError('errors.fileSize');
     };
     const { run } = setUp({ parseFile });
 
     const response = await run();
 
     expect(response.status).toBe(400);
-    expect(response.jsonBody.error).toBe('File exceeds 10 MB limit');
+    expect(response.jsonBody.error).toBe('errors.fileSize');
   });
 
   it('rethrows a parser failure that is not the client’s fault', async () => {
@@ -183,7 +189,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     const response = await run();
 
     expect(response.status).toBe(201);
-    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB }]);
+    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES }]);
   });
 
   it('rolls both blobs back and rethrows when the entry cannot be written', async () => {
@@ -194,16 +200,6 @@ describe('POST /api/tours/{tourId}/images', () => {
 
     expect(images.names()).toEqual([]);
     expect(storedImages()).toEqual([]);
-  });
-
-  it('rolls both blobs back when the fallback write for an old tour fails too', async () => {
-    const { tours, images, run } = setUp({ documents: [{ ...TOUR, images: undefined }] });
-    tours.failOn('patch', { error: cosmosError(400, 'not an array') });
-    tours.failOn('patch', { error: cosmosError(503, 'service unavailable') });
-
-    await expect(run()).rejects.toThrow('service unavailable');
-
-    expect(images.names()).toEqual([]);
   });
 
   it('surfaces both errors when the entry write and the rollback fail', async () => {
@@ -245,9 +241,79 @@ describe('POST /api/tours/{tourId}/images', () => {
     const refused = await twenty.run();
 
     expect(refused.status).toBe(400);
-    expect(refused.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
+    expect(refused.jsonBody.error).toBe('errors.tourImageLimit');
     expect(parseFile).not.toHaveBeenCalled();
     expect(twenty.images.calls).toEqual([]);
+  });
+
+  // Two uploads can both read 19 photos; the conditional append lets only one become the 20th.
+  it('refuses the photo and rolls its blobs back when a concurrent upload filled the tour', async () => {
+    const entries = (count) =>
+      Array.from({ length: count }, (_, index) => ({ id: `image-${index}` }));
+    const { tours, images, run, storedImages } = setUp({
+      documents: [{ ...TOUR, images: entries(19) }],
+    });
+    tours.beforeNext('patch', () => tours.seed({ ...TOUR, images: entries(20) }));
+
+    const response = await run();
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.error).toBe('errors.tourImageLimit');
+    expect(images.names()).toEqual([]);
+    expect(storedImages()).toHaveLength(20);
+  });
+
+  it('appends only if the tour still carries the ETag it counted', async () => {
+    const { tours, run } = setUp();
+    const { _etag } = tours.stored(TOUR_ID, 'u1');
+
+    await run();
+
+    const patch = tours.calls.find((call) => call.operation === 'patch');
+    expect(patch.options).toEqual({ accessCondition: { type: 'IfMatch', condition: _etag } });
+  });
+
+  it('creates the array when a concurrent upload has not, and appends when it has', async () => {
+    const { tours, run, storedImages } = setUp({ documents: [{ ...TOUR, images: undefined }] });
+    const concurrent = { id: 'concurrent', blobName: `u1/${TOUR_ID}/concurrent.jpg` };
+    tours.beforeNext('patch', () => tours.seed({ ...TOUR, images: [concurrent] }));
+
+    expect((await run()).status).toBe(201);
+
+    expect(storedImages().map((entry) => entry.id)).toEqual(['concurrent', IMAGE_ID]);
+  });
+
+  it('answers 404 and rolls its blobs back when the tour is deleted during the upload', async () => {
+    const { tours, images, run } = setUp();
+    tours.beforeNext('patch', () => tours.item(TOUR_ID, 'u1').delete());
+
+    const response = await run();
+
+    expect(response.status).toBe(404);
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
+    expect(images.names()).toEqual([]);
+  });
+
+  it('answers 404 when the tour is deleted between a conflict and the second count', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('patch', { error: cosmosError(412, 'Precondition failed') });
+    tours.beforeNext('read', () => {});
+    tours.beforeNext('read', () => tours.item(TOUR_ID, 'u1').delete());
+
+    const response = await run();
+
+    expect(response.status).toBe(404);
+    expect(images.names()).toEqual([]);
+  });
+
+  it('gives up after ten conflicting writes, rolling its blobs back', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('patch', { error: cosmosError(412, 'Precondition failed'), times: 10 });
+
+    await expect(run()).rejects.toThrow('Precondition failed');
+
+    expect(tours.calls.filter((call) => call.operation === 'patch')).toHaveLength(10);
+    expect(images.names()).toEqual([]);
   });
 
   it("returns 404 for another user's tour that exists, storing nothing", async () => {
@@ -256,7 +322,7 @@ describe('POST /api/tours/{tourId}/images', () => {
     const response = await run(OTHER_TOUR_ID);
 
     expect(response.status).toBe(404);
-    expect(response.jsonBody.error).toBe('Tour not found');
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
     expect(storedImages(OTHER_TOUR_ID, 'u2')).toEqual([]);
     expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
     expect(images.calls).toEqual([]);
@@ -280,5 +346,59 @@ describe('POST /api/tours/{tourId}/images', () => {
     expect(response.status).toBe(401);
     expect([...tours.calls, ...images.calls]).toEqual([]);
     expect(parseFile).not.toHaveBeenCalled();
+  });
+
+  describe('limits (#549)', () => {
+    const GIGABYTE = 1024 ** 3;
+
+    it('answers 429 before reading the photo once the rider is over the rate', async () => {
+      const parseFile = vi.fn(fileOf(JPEG));
+      const rateLimiter = { take: vi.fn(() => ({ allowed: false, retryAfterSeconds: 5 })) };
+      const { images, run, storedImages } = setUp({ parseFile, rateLimiter });
+
+      const response = await run();
+
+      expect(response).toEqual({
+        status: 429,
+        headers: { 'Retry-After': '5' },
+        jsonBody: { error: 'errors.rateLimited' },
+      });
+      expect(rateLimiter.take).toHaveBeenCalledWith('u1', NOW.getTime());
+      expect(parseFile).not.toHaveBeenCalled();
+      expect(images.calls).toEqual([]);
+      expect(storedImages()).toEqual([]);
+    });
+
+    it('checks the rate only for a tour the caller owns', async () => {
+      const rateLimiter = { take: vi.fn(() => ({ allowed: true })) };
+      const { run } = setUp({ rateLimiter });
+
+      expect((await run(OTHER_TOUR_ID)).status).toBe(404);
+      expect(rateLimiter.take).not.toHaveBeenCalled();
+    });
+
+    it('counts the stored variants against the storage limit, storing nothing past it', async () => {
+      const room = 5 * GIGABYTE - STORED_BYTES;
+      const { run: fits } = setUp({ documents: [{ ...TOUR, gpxBytes: room }] });
+      const overflowing = setUp({ documents: [{ ...TOUR, gpxBytes: room + 1 }] });
+
+      expect((await fits()).status).toBe(201);
+      expect(await overflowing.run()).toEqual({
+        status: 400,
+        jsonBody: { error: 'errors.storageLimit' },
+      });
+      expect(overflowing.images.calls).toEqual([]);
+      expect(overflowing.storedImages()).toEqual([]);
+    });
+
+    it('lets a photo onto a rider at the tour limit', async () => {
+      const documents = [
+        TOUR,
+        ...Array.from({ length: 999 }, (_, index) => ({ id: `t${index}`, userId: 'u1' })),
+      ];
+      const { run } = setUp({ documents });
+
+      expect((await run()).status).toBe(201);
+    });
   });
 });

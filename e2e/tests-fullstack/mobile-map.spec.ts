@@ -43,6 +43,7 @@ fullstackTest.describe('mobile map access', () => {
 
     await expect(on(page).map()).toBeVisible();
     await expect(on(page).main.locators.sidebar).toBeHidden();
+    await on(page).a11y.check('mobile map full-screen');
 
     // Closing (the same expand/restore toggle) returns to the list.
     await on(page).main.do.toggleSidebar();

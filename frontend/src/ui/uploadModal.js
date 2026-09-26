@@ -1,6 +1,6 @@
 import * as i18n from './i18n.js';
 import { defaultTourName, validateGpxUpload } from '../lib/files.js';
-import { buildUploadQuery } from '../lib/upload.js';
+import { uploadFields } from '../lib/upload.js';
 import { xhrUpload } from './uploadRequest.js';
 import { state } from './state.js';
 import { getAccessToken, API_BASE } from './api.js';
@@ -79,11 +79,10 @@ export async function submitUpload(event) {
   const [file] = selectedFiles;
   if (!file) return;
 
-  const query = buildUploadQuery({
+  const fields = uploadFields({
     name: uploadNameInput.value,
     description: uploadDescriptionInput.value,
   });
-  const token = await getAccessToken();
   submitUploadButton.disabled = true;
   hideElement(uploadError);
   showElement(uploadProgress);
@@ -91,9 +90,11 @@ export async function submitUpload(event) {
 
   let created;
   try {
+    const token = await getAccessToken();
     created = await xhrUpload({
-      url: `${API_BASE}/api/tours/upload?${query}`,
+      url: `${API_BASE}/api/v1/tours`,
       file,
+      fields,
       token,
       onProgress: (percent) => {
         uploadProgressBar.style.width = `${percent}%`;
@@ -107,5 +108,5 @@ export async function submitUpload(event) {
   closeUpload();
   toast(t('toast.tourUploaded'), { type: 'success' });
   await loadTours();
-  await selectTour(created.tourId);
+  await selectTour(created.id);
 }

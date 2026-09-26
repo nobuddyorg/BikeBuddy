@@ -15,14 +15,19 @@ describe('profileFromClaims', () => {
     });
   });
 
-  it('strips HTML and surrounding whitespace like a typed name', () => {
+  it('keeps markup as typed, trimming only the surrounding whitespace (#574)', () => {
     expect(
       profileFromClaims({ userName: '  <b>Ada</b> ', userEmail: '<ada@example.com>' }),
-    ).toEqual({ name: 'bAda/b', email: 'ada@example.com' });
+    ).toEqual({ name: '<b>Ada</b>', email: '<ada@example.com>' });
   });
 
   it('cuts an over-long claim to 200 characters instead of refusing it', () => {
     const { name } = profileFromClaims({ userName: 'a'.repeat(250), userEmail: null });
+    expect(name).toBe('a'.repeat(200));
+  });
+
+  it('trims leading whitespace before the cut, keeping 200 characters of text', () => {
+    const { name } = profileFromClaims({ userName: `   ${'a'.repeat(250)}`, userEmail: null });
     expect(name).toBe('a'.repeat(200));
   });
 
@@ -37,7 +42,7 @@ describe('profileFromClaims', () => {
       name: null,
       email: null,
     });
-    expect(profileFromClaims({ userName: '<>', userEmail: '   ' })).toEqual({
+    expect(profileFromClaims({ userName: '', userEmail: '   ' })).toEqual({
       name: null,
       email: null,
     });
@@ -79,7 +84,13 @@ describe('newUserDocument', () => {
         profile: { name: 'Ada', email: null },
         createdAt: new Date('2026-03-01T12:00:00.000Z'),
       }),
-    ).toEqual({ id: 'u1', name: 'Ada', email: null, createdAt: '2026-03-01T12:00:00.000Z' });
+    ).toEqual({
+      id: 'u1',
+      schemaVersion: 1,
+      name: 'Ada',
+      email: null,
+      createdAt: '2026-03-01T12:00:00.000Z',
+    });
   });
 });
 

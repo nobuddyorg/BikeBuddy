@@ -31,7 +31,8 @@ if (!PROFILES.includes(values.profile)) fail(`--profile must be one of ${PROFILE
 const confirmed = values['confirm-production'];
 let apiUrl;
 if (values.target === 'local-stack') {
-  apiUrl = process.env.LOAD_API_URL ?? 'http://127.0.0.1:7071';
+  // k6-load-test.yml passes an empty LOAD_API_URL for this target: empty means the default.
+  apiUrl = process.env.LOAD_API_URL || 'http://127.0.0.1:7071';
   if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(apiUrl)) {
     fail(`--target local-stack refuses a non-local LOAD_API_URL (${apiUrl})`);
   }

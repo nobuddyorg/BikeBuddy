@@ -15,13 +15,14 @@ on a map, and attaches photos. Seven locales. Features:
   no build step. `frontend/src/`; logic in `lib/`, rendering in `ui/`.
 - **Backend**: Azure Functions (Node 24, Flex Consumption), one folder per
   function in `functions/src/<Name>/`, shared code in `functions/src/lib/`.
-- **Data**: Cosmos DB Serverless (`users` by `/id`, `tours` by `/userId`,
-  `deletions`), Blob Storage (private containers, short-lived SAS URLs).
+- **Data**: Cosmos DB Serverless (`users` by `/id`, `tours` and `tracks` by
+  `/userId`, `deletions`), Blob Storage (private containers, short-lived SAS
+  URLs).
 - **Authorization**: in the handlers, and nothing else. Entra External ID
   issues OIDC access tokens; `authMiddleware` validates them per request.
 - **Infrastructure**: OpenTofu in `infrastructure/`.
-- **Deploy**: `deploy.yml` applies infrastructure and publishes Functions and
-  frontend on every push to `main`. No staging.
+- **Deploy**: `deploy.yml` applies infrastructure and publishes Functions, then
+  frontend, for each commit CI Gate passed on `main` (#563). No staging.
 
 ## Read before you touch
 
@@ -46,12 +47,13 @@ design-decisions.md and the linked issues, not here.
   `/api/health` authenticates through `authMiddleware`; every tour-scoped
   endpoint loads the tour through `loadOwnedTour`. The partition key comes
   **from the token, never from the request** (security.md, "Posture").
-- Token checks (signature, issuer, audience) live in `authMiddleware` and are
-  only ever tightened. It does not yet reject an ID token for the same client
-  id (#569); never add code that relies on the audience check alone.
+- Token checks (signature, issuer, audience, the `access_as_user` scope) live
+  in `authMiddleware` and are only ever tightened; the scope is what refuses an
+  ID token for the same client id, so never rely on the audience check alone.
 - `SKIP_AUTH` is local-only and fails closed: the middleware refuses it when
-  Entra is configured. Never widen it (no per-request user override). #545
-  tracks keeping it out of the deployed app settings.
+  Entra is configured, and the deployed app never gets it: the Function App's
+  precondition refuses empty Entra variables (#545). Never widen it (no
+  per-request user override).
 - Responses are projected DTOs (`lib/tourResponse.js`), never raw Cosmos
   documents. `heatmapData` stays out of list responses and out of the index
   ("Cosmos partitioning & payload hygiene").
@@ -94,20 +96,23 @@ security-critical.
   `functions/test/integration/endpoints.js` (a unit test fails while a
   registered route is missing there), which runs it with real test-signed
   tokens as owner, another user and every rejected credential.
-- A document-shape change states how existing documents are read (there is no
-  schema version yet, #577) and ships or updates a backfill with a dry run.
+- A document-shape change states how existing documents are read, bumps
+  `functions/src/lib/schemaVersion.js`, and ships or updates a backfill with a
+  dry run (design-decisions.md, "Backfills").
 - Call out any change to auth, ownership, partitioning or SAS scope in the
   commit message and PR description as security-relevant, with one line on
   what it now allows or denies.
 
 ## Destructive jobs
 
-`process-deletions.yml` holds a tenant-wide Graph credential and deletes
-directory users on a daily cron; a deletion cannot be undone from here. It
-must delete only ids the API queued and stay idempotent ("Account deletion
-(GDPR), out-of-band"). Never loosen what it accepts; #570 tracks the checks it
-still lacks (the id is not validated before the Graph call) and #538 the data
-it leaves behind. A change to it is security-relevant (see above).
+`process-deletions.yml` holds a tenant-wide Graph credential; on a daily cron
+it purges each queued user's app data and deletes the directory user. A
+deletion cannot be undone from here. It must delete only ids the API queued and
+stay idempotent ("Account deletion (GDPR), out-of-band"). Never loosen what it
+accepts: it deletes only entries that name an app user whose document is
+already gone (#570), and still cannot prove that the API, and not someone else
+holding the Cosmos key, queued an id. A change to it is security-relevant (see
+above).
 
 ## Infrastructure changes
 
@@ -153,8 +158,9 @@ iac`. Never `tofu apply` against production by hand; `deploy.yml` does it.
   (`./buddy.sh test load`, the backend report, the coverage tables).
 - **i18n:** every user-facing string goes through the i18n layer and exists in
   **all seven** locales (`frontend/src/locales/{de,en,es,fr,it,nl,pt}.json`)
-  in the same change. English is the default locale. API error messages are
-  English strings today; localizing them is #587.
+  in the same change. English is the default locale. An API error body is one
+  of the i18n keys in `functions/src/lib/http.js` (`ERROR_KEYS`), never prose;
+  a unit test holds each to all seven locales.
 - **Tests:** a UI change gets an e2e case for its journey; a functional change
   gets a unit test asserting behavior, not implementation; an authorization
   change gets its integration case. E2E specs reach the app only through the
@@ -192,7 +198,8 @@ steps 1–4; `./buddy.sh quality check --stack` also runs 6–9.
 ./buddy.sh test frontend          # 3. frontend lib, same floor
 E2E_COVERAGE=1 ./buddy.sh test e2e   # 4. static UI journeys, axe, e2e coverage floor
 ./buddy.sh test mutation          # 5. if you changed a file in mutation-targets.mjs
-./buddy.sh development start-cosmos && SKIP_AUTH=true ./buddy.sh development start-backend
+./buddy.sh development start-cosmos && node functions/scripts/init-cosmos.js
+SKIP_AUTH=true ./buddy.sh development start-backend
 ./buddy.sh test integration       # 6. own host on :7072 with test-signed tokens, Cosmos, Azurite
 E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack   # 7. full-stack journeys
 (cd e2e && npm run lighthouse -- signed-out && npm run lighthouse -- signed-in)

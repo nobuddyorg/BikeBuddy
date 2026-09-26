@@ -1,7 +1,7 @@
 'use strict';
 
 // authenticate() with nothing injected but its environment, against the harness's issuer over HTTP:
-// the real metadata fetch, the real jwks-rsa client, the loopback override.
+// the real metadata fetch, the real key set fetch, the loopback override.
 
 const { authenticate } = require('../../src/middleware/authMiddleware');
 const { startOidcProvider } = require('../integration/oidcProvider');
@@ -61,6 +61,17 @@ describe('the local issuer', () => {
 });
 
 describe('authenticate through the loopback override', () => {
+  // First, so the key set is cold: 10 of these used to exhaust jwks-rsa's rate limiter (#537).
+  test('a burst of unknown key ids on a cold instance does not lock out a valid token', async () => {
+    const junk = tokens.unknownKeyTokenFor({ userId: USER_ID });
+    for (let index = 0; index < 20; index += 1) {
+      expect(await quietly(() => authenticate(bearer(junk), { environment }))).toBeNull();
+    }
+
+    const token = tokens.tokenFor({ userId: USER_ID });
+    expect(await authenticate(bearer(token), { environment })).toMatchObject({ userId: USER_ID });
+  });
+
   test('accepts a harness token as the user it names', async () => {
     const token = tokens.tokenFor({ userId: USER_ID, claims: { name: 'Rider' } });
 

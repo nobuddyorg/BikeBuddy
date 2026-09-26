@@ -15,8 +15,9 @@ on the map. No Azure account needed — everything runs against local emulators.
 ```
 
 This interactively installs Node 24, Azure Functions Core Tools v4, Azurite,
-the SWA CLI, OpenTofu, and `prek`, pulls the Cosmos emulator image, and copies
-the config templates. The defaults run in **no-auth mode** (`SKIP_AUTH=true`,
+the SWA CLI, OpenTofu, `prek`, the npm dependencies of `functions/`,
+`frontend/` and `e2e/`, and Playwright's Chromium, pulls the Cosmos emulator
+image, and copies the config templates. The defaults run in **no-auth mode** (`SKIP_AUTH=true`,
 `devMode`), so you can skip filling in any secrets for now.
 
 ## 2. Start the stack

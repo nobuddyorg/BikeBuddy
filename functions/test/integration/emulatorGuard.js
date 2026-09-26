@@ -53,7 +53,7 @@ function emulatorSettings({ environment, localSettings }) {
 
 function readLocalSettings(path = LOCAL_SETTINGS_PATH) {
   try {
-    return JSON.parse(readFileSync(path, 'utf8')).Values ?? {};
+    return JSON.parse(readFileSync(path).toString()).Values ?? {};
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     return {};

@@ -13,8 +13,9 @@ const SAMPLE_GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-function fileForm({ content, type, filename }) {
+function fileForm({ content, type, filename, fields = {} }) {
   const form = new FormData();
+  for (const [name, value] of Object.entries(fields)) form.append(name, value);
   form.append('file', new Blob([content], { type }), filename);
   return form;
 }
@@ -25,8 +26,13 @@ function fileForm({ content, type, filename }) {
  * @param {{ baseUrl: string, headers: Record<string, string> }} caller
  */
 function apiClient({ baseUrl, headers }) {
-  const request = (path, init = {}) =>
-    fetch(`${baseUrl}${path}`, { ...init, headers: { ...headers, ...init.headers } });
+  const requestAt =
+    (root) =>
+    (path, init = {}) =>
+      fetch(`${root}${path}`, { ...init, headers: { ...headers, ...init.headers } });
+  const request = requestAt(baseUrl);
+  // The paths pages loaded before /api/v1/ still call (#579).
+  const requestUnversioned = requestAt(baseUrl.replace(/\/v1$/, ''));
 
   const sendJson = (path, { method, body }) =>
     request(path, {
@@ -35,10 +41,17 @@ function apiClient({ baseUrl, headers }) {
       body: JSON.stringify(body),
     });
 
+  const gpxForm = ({ gpx, fields }) =>
+    fileForm({ content: gpx, type: 'application/gpx+xml', filename: 'ride.gpx', fields });
+
   const uploadTour = ({ name, gpx = SAMPLE_GPX }) =>
-    request(`/tours/upload?name=${encodeURIComponent(name)}`, {
+    request('/tours', { method: 'POST', body: gpxForm({ gpx, fields: { name } }) });
+
+  // As pages from before /api/v1/ upload: the old path, the name in the query string.
+  const uploadTourUnversioned = ({ name, gpx = SAMPLE_GPX }) =>
+    requestUnversioned(`/tours/upload?name=${encodeURIComponent(name)}`, {
       method: 'POST',
-      body: fileForm({ content: gpx, type: 'application/gpx+xml', filename: 'ride.gpx' }),
+      body: gpxForm({ gpx, fields: {} }),
     });
 
   const uploadImage = ({ tourId, jpeg }) =>
@@ -60,9 +73,9 @@ function apiClient({ baseUrl, headers }) {
   async function createTour({ name, gpx = SAMPLE_GPX }) {
     const created = await expectJson(await uploadTour({ name, gpx }), {
       status: 201,
-      call: 'POST /tours/upload',
+      call: 'POST /tours',
     });
-    return created.tourId;
+    return created.id;
   }
 
   /** Seeds a photo through the API; the signed image the upload answers with. */
@@ -80,8 +93,10 @@ function apiClient({ baseUrl, headers }) {
 
   return {
     request,
+    requestUnversioned,
     sendJson,
     uploadTour,
+    uploadTourUnversioned,
     uploadImage,
     readJson,
     createTour,

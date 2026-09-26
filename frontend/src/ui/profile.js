@@ -59,7 +59,7 @@ function showNameError(message) {
 }
 
 const patchMe = (changes) =>
-  apiRequest('/api/me', {
+  apiRequest('/api/v1/me', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(changes),
@@ -99,7 +99,7 @@ export async function selectLanguage(code) {
 }
 
 export async function downloadMyData() {
-  const { response, networkError } = await apiRequest('/api/me/export');
+  const { response, networkError } = await apiRequest('/api/v1/me/export');
   if (networkError || !response.ok) {
     toast(t('toast.exportError'), { type: 'error' });
     return;
@@ -132,7 +132,7 @@ export function updateDeleteAccountConfirmState() {
 
 // Only reachable once the typed phrase has enabled the button.
 export async function deleteMyAccount() {
-  const { response, networkError } = await apiRequest('/api/account', { method: 'DELETE' });
+  const { response, networkError } = await apiRequest('/api/v1/account', { method: 'DELETE' });
   if (networkError || !response.ok) {
     toast(t('toast.accountDeleteError'), { type: 'error' });
     return;
