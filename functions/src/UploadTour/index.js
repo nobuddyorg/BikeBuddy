@@ -12,12 +12,13 @@ const { InvalidGpxError, NoTrackPointsError } = require('../lib/parseGpx');
 const { parseGpxOffThread } = require('../lib/parseGpxOffThread');
 const { looksLikeXml } = require('../lib/fileSignatures');
 const { gpxBlobName } = require('../lib/blobNames');
-const { withRollback } = require('../lib/settle');
+const { settleAll, withRollback } = require('../lib/settle');
 const { nameSchema, tourMetaSchema, tourMetaError } = require('../lib/validation');
 const { toCreatedTourResponse } = require('../lib/tourResponse');
 const { ERROR_KEYS, unauthorized, error } = require('../lib/http');
 const { TOUR_SCHEMA_VERSION } = require('../lib/schemaVersion');
 const { storedTrackStats } = require('../lib/tourStats');
+const { newTrackDocument } = require('../lib/tourTrack');
 
 async function readGpxUpload(request, { parseFile, parseTrack }) {
   let file;
@@ -54,20 +55,22 @@ function newTourDocument({ tourId, userId, metadata, track, gpxFileUrl, uploaded
     name: metadata.name ?? trackName(track.name),
     description: metadata.description ?? '',
     gpxFileUrl,
-    heatmapData: track.heatmapData,
+    pointCount: track.heatmapData.length,
     images: [],
     createdAt: track.date ?? uploadedAt.toISOString(),
     ...storedTrackStats(track),
   };
 }
 
-// Blob first, rolled back if the create fails: a tour never points at a missing GPX.
+// Blob, then track, then tour, each rolled back if a later write fails: a tour never points at a
+// missing GPX or track.
 async function uploadTour(
   request,
   {
     authenticate = authMiddleware.authenticate,
     deletionsContainer = db.deletionsContainer,
     toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
     gpxContainer = blobStorage.gpxContainer,
     parseFile = parseMultipart,
     parseTrack = parseGpxOffThread,
@@ -107,9 +110,19 @@ async function uploadTour(
     data: upload.file.buffer,
     contentType: 'application/gpx+xml',
   });
+  const deleteBlob = () => blobStorage.deleteBlobIfExists(container, blobName);
+  const trackDocument = newTrackDocument({ tourId, userId, heatmapData: upload.track.heatmapData });
+  await withRollback(() => db.createItem(tracksContainer(), trackDocument), deleteBlob);
   await withRollback(
     () => db.createItem(toursContainer(), tour),
-    () => blobStorage.deleteBlobIfExists(container, blobName),
+    () =>
+      settleAll(
+        [
+          db.deleteItemIfExists(tracksContainer(), { id: tourId, partitionKey: userId }),
+          deleteBlob(),
+        ],
+        `Tour ${tourId} was not created, and its track or GPX was not rolled back`,
+      ),
   );
 
   return { status: 201, jsonBody: toCreatedTourResponse(tour) };

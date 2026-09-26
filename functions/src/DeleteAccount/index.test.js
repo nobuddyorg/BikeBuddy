@@ -4,6 +4,7 @@ const { deleteAccount } = require('./index');
 const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
 const {
   fakeToursContainer,
+  fakeTracksContainer,
   fakeUsersContainer,
   cosmosError,
 } = require('../../test/fakes/cosmosContainer');
@@ -18,12 +19,15 @@ const USERS = [
   { id: 'u1x', name: 'Lin' },
 ];
 const TOURS = [tourOf('u1', 't1'), tourOf('u1', 't2'), tourOf('u2', 't3'), tourOf('u1x', 't4')];
+// t9's tour is gone already: a track a failed delete left behind is purged too.
+const TRACKS = [...TOURS, tourOf('u1', 't9')].map(({ id, userId }) => ({ id, userId }));
 const GPX_BLOBS = ['u1/t1.gpx', 'u1/t2.gpx', 'u2/t3.gpx', 'u1x/t4.gpx'];
 const IMAGE_BLOBS = ['u1/t1/p.jpg', 'u1/t1/p_thumb.jpg', 'u2/t3/q.jpg', 'u1x/t4/r.jpg'];
 
 function setUp({ authenticate = signedInAs('u1') } = {}) {
   const users = fakeUsersContainer(USERS);
   const tours = fakeToursContainer(TOURS);
+  const tracks = fakeTracksContainer(TRACKS);
   const deletions = fakeUsersContainer();
   const gpx = fakeGpxContainer(GPX_BLOBS);
   const images = fakeImagesContainer(IMAGE_BLOBS);
@@ -34,35 +38,38 @@ function setUp({ authenticate = signedInAs('u1') } = {}) {
         authenticate,
         usersContainer: () => users,
         toursContainer: () => tours,
+        tracksContainer: () => tracks,
         deletionsContainer: () => deletions,
         gpxContainer: async () => gpx,
         imagesContainer: async () => images,
         now: fixedClock,
       },
     );
-  return { users, tours, deletions, gpx, images, run };
+  return { users, tours, tracks, deletions, gpx, images, run };
 }
 
 describe('DELETE /api/account', () => {
   it('deletes every document and blob of the caller and returns 204', async () => {
-    const { users, tours, gpx, images, run } = setUp();
+    const { users, tours, tracks, gpx, images, run } = setUp();
 
     const response = await run();
 
     expect(response.status).toBe(204);
     expect(users.stored('u1', 'u1')).toBeUndefined();
     expect(tours.all().filter((tour) => tour.userId === 'u1')).toEqual([]);
+    expect(tracks.all().filter((track) => track.userId === 'u1')).toEqual([]);
     expect(gpx.names().filter((name) => name.startsWith('u1/'))).toEqual([]);
     expect(images.names().filter((name) => name.startsWith('u1/'))).toEqual([]);
   });
 
   it("leaves every other user's documents and blobs alone, even under a similar prefix", async () => {
-    const { users, tours, gpx, images, run } = setUp();
+    const { users, tours, tracks, gpx, images, run } = setUp();
 
     await run();
 
     expect(users.all().map((user) => user.id)).toEqual(['u2', 'u1x']);
     expect(tours.all().map((tour) => tour.id)).toEqual(['t3', 't4']);
+    expect(tracks.all().map((track) => track.id)).toEqual(['t3', 't4']);
     expect(gpx.names()).toEqual(['u1x/t4.gpx', 'u2/t3.gpx']);
     expect(images.names()).toEqual(['u1x/t4/r.jpg', 'u2/t3/q.jpg']);
   });

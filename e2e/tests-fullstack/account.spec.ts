@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { expect, fullstackTest } from './fullstack-test';
-import { DEV_USER_ID, devUserBlobNames, devUserProfiles, devUserTours } from './store';
+import {
+  DEV_USER_ID,
+  devUserBlobNames,
+  devUserProfiles,
+  devUserTours,
+  devUserTracks,
+} from './store';
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -43,5 +49,6 @@ fullstackTest('export downloads the account; delete removes all of it', async ({
 
   expect(await devUserProfiles()).toEqual([]);
   expect(await devUserTours()).toEqual([]);
+  expect(await devUserTracks()).toEqual([]);
   expect(await devUserBlobNames()).toEqual([]);
 });

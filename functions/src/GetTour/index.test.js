@@ -1,7 +1,11 @@
 'use strict';
 
 const { getTour } = require('./index');
-const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const {
+  fakeToursContainer,
+  fakeTracksContainer,
+  cosmosError,
+} = require('../../test/fakes/cosmosContainer');
 const { fakeImagesContainer, fakeGpxContainer } = require('../../test/fakes/blobContainer');
 const {
   signedInAs,
@@ -16,6 +20,10 @@ const OTHER_TOUR_ID = '99999999-9999-4999-8999-999999999999';
 // The SAS window's end: the close of the hour after the one NOW falls in.
 const SAS_EXPIRES_AT = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString();
 
+const POINTS = [
+  [48.1, 11.5],
+  [48.2, 11.6],
+];
 const TOUR = {
   id: TOUR_ID,
   userId: 'u1',
@@ -23,10 +31,7 @@ const TOUR = {
   description: 'Nice ride',
   distance: 120,
   createdAt: '2026-01-01T00:00:00.000Z',
-  heatmapData: [
-    [48.1, 11.5],
-    [48.2, 11.6],
-  ],
+  pointCount: 2,
   images: [
     { id: 'img1', blobName: `u1/${TOUR_ID}/img1.jpg`, lat: 48.1, lon: 11.5 },
     { id: 'img2', blobName: `u1/${TOUR_ID}/img2.jpg` },
@@ -36,8 +41,15 @@ const TOUR = {
 };
 const OTHER_USERS_TOUR = { ...TOUR, id: OTHER_TOUR_ID, userId: 'u2', name: 'Not yours' };
 
-function setUp({ documents = [TOUR, OTHER_USERS_TOUR], authenticate = signedInAs('u1') } = {}) {
+const trackOf = ({ id, userId }) => ({ id, userId, schemaVersion: 1, heatmapData: POINTS });
+
+function setUp({
+  documents = [TOUR, OTHER_USERS_TOUR],
+  trackDocuments = documents.map(trackOf),
+  authenticate = signedInAs('u1'),
+} = {}) {
   const tours = fakeToursContainer(documents);
+  const tracks = fakeTracksContainer(trackDocuments);
   const images = fakeImagesContainer();
   const gpx = fakeGpxContainer();
   const run = (tourId, request = {}) =>
@@ -46,15 +58,45 @@ function setUp({ documents = [TOUR, OTHER_USERS_TOUR], authenticate = signedInAs
       {
         authenticate,
         toursContainer: () => tours,
+        tracksContainer: () => tracks,
         imagesContainer: async () => images,
         gpxContainer: async () => gpx,
         now: fixedClock,
       },
     );
-  return { tours, images, gpx, run };
+  return { tours, tracks, images, gpx, run };
 }
 
 describe('GET /api/tours/{tourId}', () => {
+  it("reads the track by the tour's id in the caller's partition only", async () => {
+    const { tracks, run } = setUp();
+
+    await run(TOUR_ID);
+
+    expect(tracks.calls).toEqual([{ operation: 'read', id: TOUR_ID, partitionKey: 'u1' }]);
+  });
+
+  it('answers the points a tour from before #615 still holds itself, reading no track', async () => {
+    const { tracks, run } = setUp({
+      documents: [{ ...TOUR, heatmapData: [[47, 10]] }],
+      trackDocuments: [],
+    });
+
+    const response = await run(TOUR_ID);
+
+    expect(response.jsonBody.heatmapData).toEqual([[47, 10]]);
+    expect(tracks.calls).toEqual([]);
+  });
+
+  it('answers an empty track when the track item is missing', async () => {
+    const { run } = setUp({ trackDocuments: [] });
+
+    const response = await run(TOUR_ID);
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.heatmapData).toEqual([]);
+  });
+
   it('returns the tour with its track and stats, and no storage fields', async () => {
     const { run } = setUp();
 
@@ -67,7 +109,7 @@ describe('GET /api/tours/{tourId}', () => {
       description: 'Nice ride',
       distance: 120,
       createdAt: TOUR.createdAt,
-      heatmapData: TOUR.heatmapData,
+      heatmapData: POINTS,
       elevationGain: 340,
       elevationLoss: null,
     });
@@ -144,14 +186,14 @@ describe('GET /api/tours/{tourId}', () => {
     expect(tours.calls).toEqual([{ operation: 'read', id: TOUR_ID, partitionKey: 'u1' }]);
   });
 
-  it("returns 404 for another user's tour that exists, and signs nothing", async () => {
-    const { images, gpx, run } = setUp();
+  it("returns 404 for another user's tour that exists, reading no track and signing nothing", async () => {
+    const { tracks, images, gpx, run } = setUp();
 
     const response = await run(OTHER_TOUR_ID);
 
     expect(response.status).toBe(404);
     expect(response.jsonBody.error).toBe('errors.tourNotFound');
-    expect([...images.calls, ...gpx.calls]).toEqual([]);
+    expect([...tracks.calls, ...images.calls, ...gpx.calls]).toEqual([]);
   });
 
   it('returns 404 when the read throws a 404, as real Cosmos does', async () => {

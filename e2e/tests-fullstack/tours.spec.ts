@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, fullstackTest } from './fullstack-test';
 import { PHOTOS } from './seed';
-import { DEV_USER_ID, devUserBlobNames, devUserTours } from './store';
+import { DEV_USER_ID, devUserBlobNames, devUserTours, devUserTracks } from './store';
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -28,6 +28,11 @@ fullstackTest('tour lifecycle: upload → list → detail → photo → delete',
   await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
 
   const [tour] = await devUserTours();
+  // The points live in the tour's track item, not in the tour (#615).
+  expect(tour).not.toHaveProperty('heatmapData');
+  expect((await devUserTracks()).map((track) => [track.id, track.heatmapData.length])).toEqual([
+    [tour.id, 3],
+  ]);
   const blobs = await devUserBlobNames();
   expect(blobs).toContain(`gpx-files/${DEV_USER_ID}/${tour.id}.gpx`);
   // The photo and its thumbnail.
@@ -39,6 +44,7 @@ fullstackTest('tour lifecycle: upload → list → detail → photo → delete',
   await expect(on(page).list.row(tourName)()).toHaveCount(0);
 
   await expect.poll(devUserTours, AFTER_UNDO_WINDOW).toEqual([]);
+  await expect.poll(devUserTracks, AFTER_UNDO_WINDOW).toEqual([]);
   await expect.poll(devUserBlobNames, AFTER_UNDO_WINDOW).toEqual([]);
 });
 

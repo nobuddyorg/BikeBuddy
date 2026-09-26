@@ -16,6 +16,7 @@ runDeletionJob({
     purgeAccountData({
       userId,
       toursContainer: db.toursContainer,
+      tracksContainer: db.tracksContainer,
       usersContainer: db.usersContainer,
       gpxContainer: blobStorage.gpxContainer,
       imagesContainer: blobStorage.imagesContainer,

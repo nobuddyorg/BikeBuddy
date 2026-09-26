@@ -15,7 +15,7 @@ real paths, numbers and issues live here. Commands are in the
 | Serverless API            | Azure Functions (Flex Consumption), one handler per folder in `functions/src/`                                                          |
 | Auth middleware           | `functions/src/middleware/authMiddleware.js`, Entra External ID; `SKIP_AUTH` dev bypass, `ENTRA_OIDC_METADATA_URL` loopback test issuer |
 | Partition-scoped read     | `functions/src/lib/ownedTour.js`: reads the tour from the caller's `/userId` partition                                                  |
-| Document DB               | Cosmos DB: `tours` by `/userId`, `users` by `/id`, `deletions` queue                                                                    |
+| Document DB               | Cosmos DB: `tours` and `tracks` by `/userId`, `users` by `/id`, `deletions` queue                                                       |
 | Blob store + signed URLs  | Azure Blob, `${userId}/` prefixes, read-only SAS from `functions/src/lib/blobStorage.js`                                                |
 | Out-of-band deletion job  | `.github/workflows/process-deletions.yml` → `functions/scripts/process-deletions.js`                                                    |
 | Local stack (integration) | Cosmos emulator + Azurite (`.github/actions/start-local-stack`); the suite starts its own `func` host on :7072 with a local OIDC issuer |

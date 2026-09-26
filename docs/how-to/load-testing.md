@@ -93,9 +93,10 @@ peak and stress are meant to cross them.
 | `export`       | 3,675 / 3,892   | 3,636 / 3,828   | 11,700        |
 
 All values in ms, `normal` profile, no failed requests in any run. The
-`browse` rows are slow because every query over a user's partition loads each
-tour document whole, track included; the worked example below measures it. They
-tighten when the track moves out of the tour document (#615).
+`browse` rows were measured while every query over a user's partition loaded
+each tour document whole, track included; the worked example below measures
+it. The track now lives in its own item (#615), so they are due for a
+remeasurement (#621).
 
 These were measured in a development container running the whole stack; the
 workflow can only run once it is on `main`, so recalibrate from two `normal`

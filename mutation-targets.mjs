@@ -38,6 +38,7 @@ export const FUNCTIONS_TARGETS = [
   'src/lib/tourImages.js',
   'src/lib/tourResponse.js',
   'src/lib/tourStats.js',
+  'src/lib/tourTrack.js',
   'src/lib/userProfile.js',
   'src/lib/validation.js',
   'src/middleware/authMiddleware.js',
@@ -49,6 +50,7 @@ export const FUNCTIONS_TARGETS = [
   'scripts/lib/schemaVersionBackfill.js',
   'scripts/lib/thumbnailBackfill.js',
   'scripts/lib/tourStatsBackfill.js',
+  'scripts/lib/trackBackfill.js',
   'test/integration/emulatorGuard.js',
   'test/integration/tokens.js',
 ];

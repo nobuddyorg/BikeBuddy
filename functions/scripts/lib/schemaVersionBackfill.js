@@ -1,8 +1,10 @@
 'use strict';
 
-const { TOUR_SCHEMA_VERSION } = require('../../src/lib/schemaVersion');
 const { queryItems } = require('./queryItems');
 const { runBackfill } = require('./cli');
+
+// Version 1 (images and stats); scripts/backfillTracks.js takes a tour from 1 to 2.
+const STATS_SCHEMA_VERSION = 1;
 
 // Flags, not the fields: a tour's images and track can be large.
 const UNVERSIONED_TOURS_QUERY =
@@ -13,7 +15,7 @@ const UNVERSIONED_TOURS_QUERY =
 function upgradeOperations({ hasImages }) {
   return [
     ...(hasImages ? [] : [{ op: 'set', path: '/images', value: [] }]),
-    { op: 'set', path: '/schemaVersion', value: TOUR_SCHEMA_VERSION },
+    { op: 'set', path: '/schemaVersion', value: STATS_SCHEMA_VERSION },
   ];
 }
 
@@ -41,7 +43,7 @@ async function planSchemaVersionBackfill({ toursContainer, log }) {
     toursContainer,
     log,
     handleTour: async (tour) =>
-      log.info(`Would mark tour ${tour.id} as version ${TOUR_SCHEMA_VERSION}`),
+      log.info(`Would mark tour ${tour.id} as version ${STATS_SCHEMA_VERSION}`),
   });
   log.info(
     `Dry run, nothing changed: ${tally.changed} tour(s) would be marked, ` +
@@ -56,7 +58,7 @@ async function applySchemaVersionBackfill({ toursContainer, log }) {
     log,
     handleTour: async (tour, operations) => {
       await toursContainer.item(tour.id, tour.userId).patch(operations);
-      log.info(`Marked tour ${tour.id} as version ${TOUR_SCHEMA_VERSION}`);
+      log.info(`Marked tour ${tour.id} as version ${STATS_SCHEMA_VERSION}`);
     },
   });
   log.info(

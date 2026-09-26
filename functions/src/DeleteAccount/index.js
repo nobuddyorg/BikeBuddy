@@ -15,6 +15,7 @@ async function deleteAccount(
     authenticate = authMiddleware.authenticate,
     usersContainer = db.usersContainer,
     toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
     deletionsContainer = db.deletionsContainer,
     gpxContainer = blobStorage.gpxContainer,
     imagesContainer = blobStorage.imagesContainer,
@@ -33,7 +34,14 @@ async function deleteAccount(
       requestedAt: now().toISOString(),
     });
   }
-  await purgeAccountData({ userId, toursContainer, usersContainer, gpxContainer, imagesContainer });
+  await purgeAccountData({
+    userId,
+    toursContainer,
+    tracksContainer,
+    usersContainer,
+    gpxContainer,
+    imagesContainer,
+  });
 
   return { status: 204 };
 }

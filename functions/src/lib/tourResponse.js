@@ -20,14 +20,14 @@ function tourName(name, fallback = 'Untitled Tour') {
 }
 
 // A projection, never a copy: system properties, userId and blob names stay server-side.
-function toTourResponse(tour) {
+function toTourResponse(tour, heatmapData) {
   return {
     id: tour.id,
     name: tourName(tour.name),
     description: tour.description,
     distance: tour.distance,
     createdAt: tour.createdAt,
-    heatmapData: tour.heatmapData ?? [],
+    heatmapData,
     ...Object.fromEntries(STAT_FIELDS.map((field) => [field, tour[field] ?? null])),
   };
 }
@@ -44,10 +44,11 @@ function toTourSummaryResponse(tour) {
 }
 
 /**
- * @param {{ tour: object, images: object[], gpxFileUrl?: string }} detail signed URLs only
+ * @param {{ tour: object, heatmapData: [number, number][], images: object[], gpxFileUrl?: string }}
+ *   detail the track read apart from the tour (#615), and signed URLs only
  */
-function toTourDetailResponse({ tour, images, gpxFileUrl }) {
-  return { ...toTourResponse(tour), images, ...(gpxFileUrl && { gpxFileUrl }) };
+function toTourDetailResponse({ tour, heatmapData, images, gpxFileUrl }) {
+  return { ...toTourResponse(tour, heatmapData), images, ...(gpxFileUrl && { gpxFileUrl }) };
 }
 
 // The frontend reads `tourId` from the upload response.

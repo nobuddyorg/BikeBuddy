@@ -3,6 +3,7 @@
 const { uploadTour } = require('./index');
 const {
   fakeToursContainer,
+  fakeTracksContainer,
   fakeUsersContainer,
   cosmosError,
 } = require('../../test/fakes/cosmosContainer');
@@ -40,6 +41,7 @@ const clientError = (message) => Object.assign(new Error(message), { status: 400
 
 function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queued = [] } = {}) {
   const tours = fakeToursContainer();
+  const tracks = fakeTracksContainer();
   const gpx = fakeGpxContainer();
   const deletions = fakeUsersContainer(queued);
   const run = (query = {}) =>
@@ -49,6 +51,7 @@ function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queue
         authenticate,
         deletionsContainer: () => deletions,
         toursContainer: () => tours,
+        tracksContainer: () => tracks,
         gpxContainer: async () => gpx,
         parseFile,
         newId: idsInOrder(TOUR_ID),
@@ -56,12 +59,13 @@ function setUp({ authenticate = signedInAs('u1'), parseFile = fileOf(GPX), queue
       },
     );
   const storedTour = () => tours.stored(TOUR_ID, 'u1');
-  return { tours, gpx, run, storedTour };
+  const storedTrack = () => tracks.stored(TOUR_ID, 'u1');
+  return { tours, tracks, gpx, run, storedTour, storedTrack };
 }
 
 describe('POST /api/tours/upload', () => {
-  it('stores the GPX and the tour, and returns 201 with the new tour id', async () => {
-    const { gpx, run, storedTour } = setUp();
+  it('stores the GPX, the track and the tour, and returns 201 with the new tour id', async () => {
+    const { gpx, run, storedTour, storedTrack } = setUp();
 
     const response = await run();
 
@@ -79,11 +83,19 @@ describe('POST /api/tours/upload', () => {
     expect(storedTour()).toMatchObject({
       id: TOUR_ID,
       userId: 'u1',
-      schemaVersion: 1,
+      schemaVersion: 2,
       name: 'Test Tour',
       description: '',
       images: [],
       gpxFileUrl: `https://fake.blob/gpx-files/${GPX_BLOB}`,
+      pointCount: 2,
+    });
+    // The points live in the track item only, so no tour query ever loads them (#615).
+    expect(storedTour()).not.toHaveProperty('heatmapData');
+    expect(storedTrack()).toMatchObject({
+      id: TOUR_ID,
+      userId: 'u1',
+      schemaVersion: 1,
       heatmapData: [
         [48.1351, 11.582],
         [48.1361, 11.583],
@@ -99,12 +111,13 @@ describe('POST /api/tours/upload', () => {
     expect(JSON.stringify(response.jsonBody)).not.toContain('fake.blob');
   });
 
-  it('files the tour and its blob under the token user, whatever the request says', async () => {
-    const { tours, gpx, run } = setUp();
+  it('files the tour, its track and its blob under the token user, whatever the request says', async () => {
+    const { tours, tracks, gpx, run } = setUp();
 
     await run({ userId: 'u2', name: 'Mine' });
 
     expect(tours.all().map((stored) => stored.userId)).toEqual(['u1']);
+    expect(tracks.all().map((stored) => stored.userId)).toEqual(['u1']);
     expect(gpx.names()).toEqual([GPX_BLOB]);
   });
 
@@ -175,16 +188,31 @@ describe('POST /api/tours/upload', () => {
     expect(withoutStats.storedTour()).toMatchObject({ elevationGain: null, durationSeconds: null });
   });
 
-  it('writes the blob before the document', async () => {
-    const { tours, gpx, run } = setUp();
-    let blobsWhenCreated = [];
+  it('writes the blob, then the track, then the tour', async () => {
+    const { tours, tracks, gpx, run } = setUp();
+    let blobsWhenTrackCreated = [];
+    let tracksWhenTourCreated = [];
+    tracks.beforeNext('create', () => {
+      blobsWhenTrackCreated = gpx.names();
+    });
     tours.beforeNext('create', () => {
-      blobsWhenCreated = gpx.names();
+      tracksWhenTourCreated = tracks.all().map((track) => track.id);
     });
 
     await run();
 
-    expect(blobsWhenCreated).toEqual([GPX_BLOB]);
+    expect(blobsWhenTrackCreated).toEqual([GPX_BLOB]);
+    expect(tracksWhenTourCreated).toEqual([TOUR_ID]);
+  });
+
+  it('rolls the blob back and writes no tour when the track create fails', async () => {
+    const { tours, tracks, gpx, run } = setUp();
+    tracks.failOn('create', { error: cosmosError(503, 'cosmos down') });
+
+    await expect(run()).rejects.toThrow('cosmos down');
+
+    expect(gpx.names()).toEqual([]);
+    expect(tours.all()).toEqual([]);
   });
 
   it('writes no document when the blob upload fails', async () => {
@@ -196,12 +224,13 @@ describe('POST /api/tours/upload', () => {
     expect(tours.all()).toEqual([]);
   });
 
-  it('rolls the blob back and rethrows when the document create fails', async () => {
-    const { tours, gpx, run } = setUp();
+  it('rolls the track and the blob back and rethrows when the tour create fails', async () => {
+    const { tours, tracks, gpx, run } = setUp();
     tours.failOn('create', { error: cosmosError(503, 'cosmos down') });
 
     await expect(run()).rejects.toThrow('cosmos down');
 
+    expect(tracks.all()).toEqual([]);
     expect(gpx.names()).toEqual([]);
   });
 
@@ -213,7 +242,12 @@ describe('POST /api/tours/upload', () => {
     const error = await run().catch((failure) => failure);
 
     expect(error).toBeInstanceOf(AggregateError);
-    expect(error.errors.map((failure) => failure.message)).toEqual(['cosmos down', 'storage down']);
+    const [createError, rollbackError] = error.errors;
+    expect(createError.message).toBe('cosmos down');
+    expect(rollbackError.message).toBe(
+      `Tour ${TOUR_ID} was not created, and its track or GPX was not rolled back`,
+    );
+    expect(rollbackError.errors.map((failure) => failure.message)).toEqual(['storage down']);
   });
 
   it.each([

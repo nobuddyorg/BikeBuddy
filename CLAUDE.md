@@ -15,8 +15,9 @@ on a map, and attaches photos. Seven locales. Features:
   no build step. `frontend/src/`; logic in `lib/`, rendering in `ui/`.
 - **Backend**: Azure Functions (Node 24, Flex Consumption), one folder per
   function in `functions/src/<Name>/`, shared code in `functions/src/lib/`.
-- **Data**: Cosmos DB Serverless (`users` by `/id`, `tours` by `/userId`,
-  `deletions`), Blob Storage (private containers, short-lived SAS URLs).
+- **Data**: Cosmos DB Serverless (`users` by `/id`, `tours` and `tracks` by
+  `/userId`, `deletions`), Blob Storage (private containers, short-lived SAS
+  URLs).
 - **Authorization**: in the handlers, and nothing else. Entra External ID
   issues OIDC access tokens; `authMiddleware` validates them per request.
 - **Infrastructure**: OpenTofu in `infrastructure/`.

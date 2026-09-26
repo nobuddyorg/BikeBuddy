@@ -1,7 +1,11 @@
 'use strict';
 
 const { deleteTour } = require('./index');
-const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const {
+  fakeToursContainer,
+  fakeTracksContainer,
+  cosmosError,
+} = require('../../test/fakes/cosmosContainer');
 const { fakeImagesContainer, fakeGpxContainer } = require('../../test/fakes/blobContainer');
 const { signedInAs, signedOut } = require('../../test/fakes/collaborators');
 const { withFailureResponse } = require('../lib/failureResponse');
@@ -40,6 +44,9 @@ const SURVIVING_BLOBS = {
 
 function setUp({ authenticate = signedInAs('u1') } = {}) {
   const tours = fakeToursContainer([TOUR, SIBLING, OTHER_USERS_TOUR]);
+  const tracks = fakeTracksContainer(
+    [TOUR, SIBLING, OTHER_USERS_TOUR].map(({ id, userId }) => ({ id, userId, heatmapData: [] })),
+  );
   const gpx = fakeGpxContainer([...TOUR_BLOBS.gpx, ...SURVIVING_BLOBS.gpx]);
   const images = fakeImagesContainer([...TOUR_BLOBS.images, ...SURVIVING_BLOBS.images]);
   const run = (tourId) =>
@@ -48,21 +55,23 @@ function setUp({ authenticate = signedInAs('u1') } = {}) {
       {
         authenticate,
         toursContainer: () => tours,
+        tracksContainer: () => tracks,
         gpxContainer: async () => gpx,
         imagesContainer: async () => images,
       },
     );
-  return { tours, gpx, images, run };
+  return { tours, tracks, gpx, images, run };
 }
 
 describe('DELETE /api/tours/{tourId}', () => {
-  it('deletes the document, its GPX and every photo with its thumbnail, and returns 204', async () => {
-    const { tours, gpx, images, run } = setUp();
+  it('deletes the document, its track, its GPX and every photo with its thumbnail, and returns 204', async () => {
+    const { tours, tracks, gpx, images, run } = setUp();
 
     const response = await run(TOUR_ID);
 
     expect(response.status).toBe(204);
     expect(tours.stored(TOUR_ID, 'u1')).toBeUndefined();
+    expect(tracks.stored(TOUR_ID, 'u1')).toBeUndefined();
     expect(gpx.names()).toEqual([...SURVIVING_BLOBS.gpx].sort());
     expect(images.names()).toEqual([...SURVIVING_BLOBS.images].sort());
   });
@@ -83,33 +92,40 @@ describe('DELETE /api/tours/{tourId}', () => {
   });
 
   it("leaves the caller's other tours and every other user's data alone", async () => {
-    const { tours, run } = setUp();
+    const { tours, tracks, run } = setUp();
 
     await run(TOUR_ID);
 
     expect(tours.stored(SIBLING_ID, 'u1')).toMatchObject({ name: 'Kept' });
     expect(tours.stored(OTHER_TOUR_ID, 'u2')).toMatchObject({ name: 'Not yours' });
+    expect(tracks.all().map((track) => track.id)).toEqual([SIBLING_ID, OTHER_TOUR_ID]);
   });
 
-  it('deletes the document before any blob', async () => {
-    const { tours, gpx, images, run } = setUp();
-    let blobsWhenDocumentDeleted = [];
+  it('deletes the document before its track or any blob', async () => {
+    const { tours, tracks, gpx, images, run } = setUp();
+    let leftWhenDocumentDeleted = [];
     tours.beforeNext('delete', () => {
-      blobsWhenDocumentDeleted = [...gpx.names(), ...images.names()];
+      leftWhenDocumentDeleted = [
+        ...tracks.all().map((track) => track.id),
+        ...gpx.names(),
+        ...images.names(),
+      ];
     });
 
     await run(TOUR_ID);
 
-    expect(blobsWhenDocumentDeleted).toEqual(
-      expect.arrayContaining([...TOUR_BLOBS.gpx, ...TOUR_BLOBS.images]),
+    expect(leftWhenDocumentDeleted).toEqual(
+      expect.arrayContaining([TOUR_ID, ...TOUR_BLOBS.gpx, ...TOUR_BLOBS.images]),
     );
   });
 
-  it('deletes no blob when the document delete fails', async () => {
-    const { tours, gpx, images, run } = setUp();
+  it('deletes no track and no blob when the document delete fails', async () => {
+    const { tours, tracks, gpx, images, run } = setUp();
     tours.failOn('delete', { error: cosmosError(503, 'cosmos down') });
 
     await expect(run(TOUR_ID)).rejects.toThrow('cosmos down');
+
+    expect(tracks.stored(TOUR_ID, 'u1')).toBeDefined();
 
     expect(gpx.names()).toContain(`u1/${TOUR_ID}.gpx`);
     expect(images.names()).toEqual([...TOUR_BLOBS.images, ...SURVIVING_BLOBS.images].sort());
@@ -122,14 +138,17 @@ describe('DELETE /api/tours/{tourId}', () => {
     const error = await run(TOUR_ID).catch((failure) => failure);
 
     expect(error).toBeInstanceOf(AggregateError);
-    expect(error.message).toBe(`Tour ${TOUR_ID} was deleted, but some of its blobs were not`);
+    expect(error.message).toBe(
+      `Tour ${TOUR_ID} was deleted, but its track or some of its blobs were not`,
+    );
     expect(error.errors.map((failure) => failure.message)).toEqual(['storage down']);
     expect(tours.stored(TOUR_ID, 'u1')).toBeUndefined();
     expect(images.names()).toEqual([...SURVIVING_BLOBS.images].sort());
   });
 
-  it('succeeds when some of its blobs are already gone', async () => {
-    const { gpx, images, run } = setUp();
+  it('succeeds when its track or some of its blobs are already gone', async () => {
+    const { tracks, gpx, images, run } = setUp();
+    await tracks.item(TOUR_ID, 'u1').delete();
     await gpx.getBlockBlobClient(`u1/${TOUR_ID}.gpx`).deleteIfExists();
     await images.getBlockBlobClient(`u1/${TOUR_ID}/img2_thumb.jpg`).deleteIfExists();
 
@@ -140,14 +159,14 @@ describe('DELETE /api/tours/{tourId}', () => {
   });
 
   it("returns 404 for another user's tour that exists, deleting nothing", async () => {
-    const { tours, gpx, images, run } = setUp();
+    const { tours, tracks, gpx, images, run } = setUp();
 
     const response = await run(OTHER_TOUR_ID);
 
     expect(response.status).toBe(404);
     expect(tours.stored(OTHER_TOUR_ID, 'u2')).toBeDefined();
     expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
-    expect([...gpx.calls, ...images.calls]).toEqual([]);
+    expect([...tracks.calls, ...gpx.calls, ...images.calls]).toEqual([]);
   });
 
   it('re-throws read errors other than 404', async () => {

@@ -7,11 +7,15 @@ const db = require('../lib/db');
 const blobStorage = require('../lib/blobStorage');
 const { unauthorized } = require('../lib/http');
 const { createHeatmapCache } = require('../lib/heatmapCache');
+const { readPointsByTour } = require('../lib/tourTrack');
 const { budgetTracks, TOTAL_POINT_BUDGET } = require('../lib/mapBudget');
 const { geotaggedImages, toSignedImage } = require('../lib/tourImages');
 const system = require('../lib/system');
 
-const MAP_QUERY = 'SELECT c.id, c.heatmapData, c.images FROM c WHERE c.userId = @userId';
+// Tours from before #615 have no pointCount yet; counting their inline points is still cheaper.
+const MAP_QUERY =
+  'SELECT c.id, c.images, c.pointCount, ARRAY_LENGTH(c.heatmapData) AS inlinePointCount ' +
+  'FROM c WHERE c.userId = @userId';
 const defaultHeatmapCache = createHeatmapCache();
 
 // A photo without coordinates cannot become a pin, so it gets no signed URL here.
@@ -20,6 +24,7 @@ async function getMapData(
   {
     authenticate = authMiddleware.authenticate,
     toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
     imagesContainer = blobStorage.imagesContainer,
     now = system.currentTime,
     heatmapCache = defaultHeatmapCache,
@@ -30,11 +35,20 @@ async function getMapData(
   if (!user) return unauthorized();
   const { userId } = user;
 
-  const tours = await db.queryUserItems(toursContainer(), { userId, query: MAP_QUERY });
-  const heatmapDataByTour = heatmapCache.getOrCompute({
+  const tours = (await db.queryUserItems(toursContainer(), { userId, query: MAP_QUERY })).map(
+    ({ inlinePointCount, ...tour }) => ({
+      ...tour,
+      pointCount: tour.pointCount ?? inlinePointCount,
+    }),
+  );
+  const heatmapDataByTour = await heatmapCache.getOrCompute({
     userId,
     tours,
-    compute: () => budgetTracks(tours, budget),
+    compute: async () => {
+      const points = await readPointsByTour({ userId, toursContainer, tracksContainer });
+      const tracks = tours.map((tour) => ({ heatmapData: points.get(tour.id) ?? [] }));
+      return budgetTracks(tracks, budget);
+    },
   });
   const signUrl = blobStorage.readUrlSigner({ container: imagesContainer, now: now() });
 

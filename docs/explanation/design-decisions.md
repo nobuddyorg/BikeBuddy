@@ -42,10 +42,23 @@ A failed refresh keeps serving the last good copy for up to a day (#571). See th
 
 ## Cosmos partitioning & payload hygiene
 
-`users` is partitioned by `/id`, `tours` by `/userId`, so a user's tours live in
-one partition (no cross-partition queries). `heatmapData` is large and never
-queried, so it's excluded from indexing and from list responses, and GPX tracks
-over 5,000 points are downsampled to keep documents under Cosmos's 2 MB limit.
+`users` is partitioned by `/id`, `tours` and `tracks` by `/userId`, so a user's
+tours and their tracks live in one partition each (no cross-partition queries).
+A tour's points (`heatmapData`) are the large part, so they live apart from the
+tour, in the `tracks` container under the tour's id (#615): every query over the
+tours reads small documents, and only the detail view (one point read) and the
+map (one query, on a cache miss) read points. The tour keeps their number in
+`pointCount`. Points are excluded from indexing and from list responses, and GPX
+tracks over 5,000 points are downsampled to keep documents under Cosmos's 2 MB
+limit.
+
+Writes and deletes keep the tour whole: an upload writes the GPX blob, then the
+track, then the tour, and rolls the earlier writes back if a later one fails; a
+delete removes the tour first, then its track and blobs. An account purge lists
+the tracks on their own, so a track a failed delete left behind still goes. A
+tour stored before #615 (schema version 1 or none) still holds its points
+inline and is read the same way until `backfillTracks.js` moves them (see
+"Backfills").
 
 ## Images
 
@@ -116,9 +129,9 @@ to its share in one Douglas-Peucker pass that ranks every point by the largest
 tolerance that still keeps it, and keeps the top of that ranking (#546). The
 map draws polylines, so there is no gap rule: a straight 5 km stretch can be
 two points. A per-tour overview computed at upload would move this cost off
-the request path; it waits on where the track is stored (#615). The expensive
-part is that simplification, so an LRU cache keys it on tour id and point count
-(`heatmapData` is set once at upload); it holds at most 1,000,000 points (about
+the request path. The expensive part is that simplification, so an LRU cache
+keys it on tour id and `pointCount` (a track is set once at upload): a warm map
+reads the small tour documents and no track at all. It holds at most 1,000,000 points (about
 75 MB, measured), so a warm instance cannot grow past that (#578). The frontend
 fetches `/api/map` in parallel with `/api/tours`, so a cold start is paid once,
 and overlapping renders queue behind the load in flight instead of each
@@ -236,7 +249,11 @@ Runbook, from a machine with `az login` to the subscription:
    ([infrastructure.md](../how-to/infrastructure.md)).
 2. `./buddy.sh maintenance backfill tour-stats`, read the dry run, then again
    with `--apply`.
-3. The same for `thumbnails`, then `schema-version`.
+3. The same for `thumbnails`, then `schema-version`, then `tracks`.
+   `tracks` (`backfillTracks.js`) writes each inline track to its own item
+   first, then removes the points from the tour, sets `pointCount` and takes a
+   version-1 tour to 2; a failure between the two writes leaves the points in
+   both places, and a rerun finishes it.
 4. Put the dry-run and apply summaries in the PR or issue that needed the
    backfill: that is the record that it ran.
 
