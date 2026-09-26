@@ -13,7 +13,7 @@ function signatureFor(tours) {
 const pointCountOf = (tracks) => tracks.reduce((sum, track) => sum + track.length, 0);
 
 // Per-user memo of the budgeted map, so a warm map reads no track; past maxPoints in total the
-// oldest entries are evicted.
+// least recently used entries are evicted.
 function createHeatmapCache({ maxPoints = DEFAULT_MAX_POINTS } = {}) {
   const entries = new Map();
   let cachedPoints = 0;
@@ -26,7 +26,12 @@ function createHeatmapCache({ maxPoints = DEFAULT_MAX_POINTS } = {}) {
   async function getOrCompute({ userId, tours, compute }) {
     const signature = signatureFor(tours);
     const cached = entries.get(userId);
-    if (cached && cached.signature === signature) return cached.result;
+    if (cached && cached.signature === signature) {
+      // Re-inserted, so the Map's insertion order is the order of use.
+      entries.delete(userId);
+      entries.set(userId, cached);
+      return cached.result;
+    }
 
     const result = await compute();
     const points = pointCountOf(result);

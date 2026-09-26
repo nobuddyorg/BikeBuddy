@@ -16,6 +16,7 @@ export const FUNCTIONS_TARGETS = [
   'src/UploadTour/index.js',
   'src/lib/accountPurge.js',
   'src/lib/blobNames.js',
+  'src/lib/compression.js',
   'src/lib/exportDocument.js',
   'src/lib/extractGps.js',
   'src/lib/failureResponse.js',

@@ -3,6 +3,7 @@
 
 const { app } = require('@azure/functions');
 const { withFailureResponse } = require('./failureResponse');
+const { withCompression } = require('./compression');
 
 // Without it the host buffers every request body whole, so parseMultipart's size limit bounds nothing.
 app.setup({ enableHttpStream: true });
@@ -21,7 +22,7 @@ function apiRoute(name, { methods, route, unversionedRoute = route, handler }) {
   const registration = {
     methods,
     authLevel: /** @type {const} */ ('anonymous'),
-    handler: withFailureResponse(handler),
+    handler: withCompression(withFailureResponse(handler)),
   };
   app.http(name, { ...registration, route: `${API_VERSION}/${route}` });
   app.http(`${name}Unversioned`, { ...registration, route: unversionedRoute });

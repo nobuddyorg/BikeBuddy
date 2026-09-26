@@ -132,10 +132,29 @@ two points. A per-tour overview computed at upload would move this cost off
 the request path. The expensive part is that simplification, so an LRU cache
 keys it on tour id and `pointCount` (a track is set once at upload): a warm map
 reads the small tour documents and no track at all. It holds at most 1,000,000 points (about
-75 MB, measured), so a warm instance cannot grow past that (#578). The frontend
+75 MB, measured), so a warm instance cannot grow past that; a read refreshes an entry, so the
+least recently used rider goes first (#578). The frontend
 fetches `/api/v1/map` in parallel with `/api/v1/tours`, so a cold start is paid once,
 and overlapping renders queue behind the load in flight instead of each
 fetching it again (#580).
+
+## Response size and cold start (#578)
+
+- **Compression.** `apiRoute` compresses any JSON response of 32 KB or more for a client that
+  accepts it: brotli at quality 4, else gzip at level 1, with `Vary: Accept-Encoding`
+  (`functions/src/lib/compression.js`). On a 1.9 MB `/map` body those settings took about 60 ms
+  and 25 ms, off the event loop, against 80 to 90 ms for the defaults. Smaller bodies go out
+  as they are: the saving would be a few kilobytes.
+- **The export stays one response.** It is built in memory, not streamed. The upload limits
+  bound it: at most 1,000 tours of at most 5,000 stored points each. That worst case measured
+  about 410 MB of heap and 107 MB of JSON, inside the Function App's 2,048 MB. It runs once per
+  request for one's own data, so streaming it would add moving parts to a GDPR endpoint for no
+  everyday gain.
+- **Ownership reads stay.** `EditTour`, `DeleteTour` and `DeleteImage` read the tour before they
+  write, because every tour-scoped handler loads the tour through `loadOwnedTour` (security.md,
+  "Posture"). Since the track moved out (#615) that read is a small document.
+- **sharp loads on first use.** Every function shares one worker, and `sharp` was 42 of its
+  434 ms of `require` at cold start, paid by every function but only used by uploads.
 
 ## Upload limits (#549)
 
