@@ -1,5 +1,3 @@
-# Cosmos DB encrypts data at rest by default with Microsoft-managed keys (no CMK
-# configured); see docs/explanation/design-decisions.md.
 resource "azurerm_cosmosdb_account" "main" {
   name                = "bikebuddy-cosmos-${random_string.suffix.result}"
   location            = azurerm_resource_group.main.location
@@ -14,22 +12,34 @@ resource "azurerm_cosmosdb_account" "main" {
   geo_location {
     location          = azurerm_resource_group.main.location
     failover_priority = 0
-    # West Europe is capacity-constrained for zone-redundant accounts; not needed here.
-    zone_redundant = false
+    zone_redundant    = false
   }
 
-  # Serverless: pay per request, no idle cost.
   capabilities {
     name = "EnableServerless"
   }
 
+  # Point-in-time restore for 7 days, free at this tier. Periodic -> Continuous is one-way, in place.
+  backup {
+    type = "Continuous"
+    tier = "Continuous7Days"
+  }
+
   tags = local.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "azurerm_cosmosdb_sql_database" "main" {
   name                = "bikebuddy"
   resource_group_name = azurerm_resource_group.main.name
   account_name        = azurerm_cosmosdb_account.main.name
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "azurerm_cosmosdb_sql_container" "users" {
@@ -43,10 +53,13 @@ resource "azurerm_cosmosdb_sql_container" "users" {
     indexing_mode = "consistent"
     included_path { path = "/*" }
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# Queue of Entra directory object ids to delete out-of-band (GDPR), written by
-# the API on account deletion and drained by the scheduled deletion job.
+# Entra object ids queued by DeleteAccount and drained by process-deletions.yml.
 resource "azurerm_cosmosdb_sql_container" "deletions" {
   name                = "deletions"
   resource_group_name = azurerm_resource_group.main.name
@@ -57,6 +70,10 @@ resource "azurerm_cosmosdb_sql_container" "deletions" {
   indexing_policy {
     indexing_mode = "consistent"
     included_path { path = "/*" }
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -70,9 +87,32 @@ resource "azurerm_cosmosdb_sql_container" "tours" {
   indexing_policy {
     indexing_mode = "consistent"
     included_path { path = "/*" }
-    # heatmapData and images are never queried — exclude from index to
-    # keep document write cost low and stay under the 2 MB Cosmos limit.
+    # Never queried; indexing them would only raise the write RU.
     excluded_path { path = "/heatmapData/*" }
     excluded_path { path = "/images/*" }
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# One track per tour, keyed by the tour id in the rider's partition: tour queries never load points (#615).
+resource "azurerm_cosmosdb_sql_container" "tracks" {
+  name                = "tracks"
+  resource_group_name = azurerm_resource_group.main.name
+  account_name        = azurerm_cosmosdb_account.main.name
+  database_name       = azurerm_cosmosdb_sql_database.main.name
+  partition_key_paths = ["/userId"]
+
+  indexing_policy {
+    indexing_mode = "consistent"
+    included_path { path = "/*" }
+    # Read by id only; indexing the points would only raise the write RU.
+    excluded_path { path = "/heatmapData/*" }
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Description: Start only the Cosmos DB emulator (Docker) and wait until ready
-# vnext-preview serves the gateway over plain HTTP on :8081 (no TLS/cert) and a
-# data explorer on :1234, which is why no cert setup is needed on macOS/Linux.
+# vnext-preview serves plain HTTP on :8081, so no emulator certificate is needed.
 set -euo pipefail
 
 CONTAINER="bikebuddy-cosmos"
-IMAGE="mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview"
+# Pinned by digest (multi-arch index): the tag moves, and every run must test against the same build.
+IMAGE="mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview@sha256:2db1f9e74c506bcf6fc347aa937aea1c00fa756061296a5a9efba530ce86ec02"
 
 if ! docker info >/dev/null 2>&1; then
   echo "ERROR: Docker daemon is not running. Start Docker Desktop and retry." >&2
@@ -27,9 +27,7 @@ else
 fi
 
 echo "==> Waiting for emulator gateway on http://localhost:8081 (up to 2 min)..."
-# Probe the gateway endpoint directly rather than grepping container logs: the
-# vnext-preview image's log wording is not stable across releases, but a 2xx/4xx
-# response on :8081 reliably means the gateway is accepting requests.
+# The image's log wording changes between releases; any HTTP answer on :8081 means ready.
 for _ in $(seq 1 60); do
   if curl -sS -o /dev/null http://localhost:8081/ 2>/dev/null; then
     echo "==> Emulator is ready. Data explorer: http://localhost:1234"

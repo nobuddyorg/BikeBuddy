@@ -1,11 +1,10 @@
 'use strict';
 
 const {
-  stripHtml,
   tourMetaSchema,
   tourMetaError,
   isUuid,
-  uuidParamError,
+  invalidIdParams,
   isImageContentType,
   languageSchema,
   SUPPORTED_LANGUAGE_CODES,
@@ -14,35 +13,29 @@ const {
 const UUID = '11111111-1111-4111-8111-111111111111';
 
 describe('validation helpers', () => {
-  describe('stripHtml', () => {
-    it('removes angle brackets and trims', () => {
-      expect(stripHtml('  <b>hi</b> there <script>x</script>  ')).toBe(
-        'bhi/b there scriptx/script',
-      );
-    });
-
-    it('defeats the nested-tag bypass that CodeQL flags', () => {
-      expect(stripHtml('<<script>script>')).not.toContain('<');
-      expect(stripHtml('<<script>script>')).not.toContain('>');
-    });
-  });
-
   describe('tourMetaSchema', () => {
-    it('strips angle brackets from name and description', () => {
-      const r = tourMetaSchema.safeParse({ name: '<b>Alps</b>', description: '<i>nice</i>' });
-      expect(r.success).toBe(true);
-      expect(r.data.name).toBe('bAlps/b');
-      expect(r.data.description).toBe('inice/i');
+    it('keeps markup in name and description as typed, trimmed (#574)', () => {
+      const result = tourMetaSchema.safeParse({
+        name: ' <b>Alps</b> ',
+        description: '\t<script>x</script>\n',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data.name).toBe('<b>Alps</b>');
+      expect(result.data.description).toBe('<script>x</script>');
     });
 
-    it('rejects an over-long name (after stripping)', () => {
-      const r = tourMetaSchema.safeParse({ name: 'a'.repeat(201) });
-      expect(r.success).toBe(false);
+    it('limits the trimmed name to 200 characters', () => {
+      expect(tourMetaSchema.safeParse({ name: 'a'.repeat(201) }).success).toBe(false);
+      expect(tourMetaSchema.safeParse({ name: ` ${'a'.repeat(200)} ` }).success).toBe(true);
     });
 
-    it('rejects a name that is empty after stripping', () => {
-      const r = tourMetaSchema.safeParse({ name: '<>' });
-      expect(r.success).toBe(false);
+    it('limits the trimmed description to 2000 characters', () => {
+      expect(tourMetaSchema.safeParse({ description: 'a'.repeat(2001) }).success).toBe(false);
+      expect(tourMetaSchema.safeParse({ description: ` ${'a'.repeat(2000)} ` }).success).toBe(true);
+    });
+
+    it('rejects a name that is empty after trimming', () => {
+      expect(tourMetaSchema.safeParse({ name: '   ' }).success).toBe(false);
     });
 
     it('allows omitting both fields', () => {
@@ -50,9 +43,9 @@ describe('validation helpers', () => {
     });
 
     it('accepts a valid ISO datetime createdAt', () => {
-      const r = tourMetaSchema.safeParse({ createdAt: '2026-05-01T10:00:00.000Z' });
-      expect(r.success).toBe(true);
-      expect(r.data.createdAt).toBe('2026-05-01T10:00:00.000Z');
+      const result = tourMetaSchema.safeParse({ createdAt: '2026-05-01T10:00:00.000Z' });
+      expect(result.success).toBe(true);
+      expect(result.data.createdAt).toBe('2026-05-01T10:00:00.000Z');
     });
 
     it('rejects a createdAt that is not a full ISO datetime', () => {
@@ -70,26 +63,24 @@ describe('validation helpers', () => {
     });
 
     it('rejects a non-string that would coerce to a matching pattern', () => {
-      // A single-element array stringifies to just its element — [UUID].toString()
-      // === UUID — so the regex alone can't tell them apart; the typeof check must.
+      // [UUID].toString() === UUID, so only the type check tells them apart.
       expect(isUuid([UUID])).toBe(false);
     });
   });
 
-  describe('uuidParamError', () => {
-    it('returns null when all params are valid UUIDs', () => {
-      expect(uuidParamError({ tourId: UUID })).toBeNull();
+  describe('invalidIdParams', () => {
+    it('returns no names when every param is a UUID', () => {
+      expect(invalidIdParams({ tourId: UUID, imageId: UUID })).toEqual([]);
     });
 
-    it('returns a 400 response naming the bad param', () => {
-      const res = uuidParamError({ tourId: 'bad' });
-      expect(res.status).toBe(400);
-      expect(res.jsonBody.error).toContain('tourId');
+    it('names each param that is not a UUID, in order', () => {
+      expect(invalidIdParams({ tourId: 'bad', imageId: UUID, otherId: '' })).toEqual([
+        'tourId',
+        'otherId',
+      ]);
     });
   });
 
-  // The client renders these verbatim, so they must be i18n keys and never
-  // Zod's own English, schema-shaped wording.
   describe('tourMetaError', () => {
     const keyFor = (input) => tourMetaError(tourMetaSchema.safeParse(input).error).jsonBody.error;
 
@@ -104,28 +95,14 @@ describe('validation helpers', () => {
     });
 
     it('answers 400 and leaks no Zod wording', () => {
-      const res = tourMetaError(tourMetaSchema.safeParse({ name: '' }).error);
+      const response = tourMetaError(tourMetaSchema.safeParse({ name: '' }).error);
 
-      expect(res.status).toBe(400);
-      expect(res.jsonBody.error).not.toMatch(/expected|characters|Too small/i);
+      expect(response.status).toBe(400);
+      expect(response.jsonBody.error).not.toMatch(/expected|characters|Too small/i);
     });
 
-    // stripHtml turns "<<>>" into "", so the user typed four characters and is
-    // told the name is required — the message has to explain the rule itself.
-    it('reports a name stripped down to nothing as a name problem', () => {
-      expect(keyFor({ name: '<<>>' })).toBe('errors.tourName');
-    });
-
-    // Both `?.` steps guard against a shape that's not a real ZodError — an
-    // empty issues array, or an issue with no path — rather than throwing.
-    it('falls back to the generic key without throwing when issues is empty', () => {
-      expect(tourMetaError({ issues: [] }).jsonBody.error).toBe('errors.tourInvalid');
-    });
-
-    it('falls back to the generic key without throwing when an issue has no path', () => {
-      expect(tourMetaError({ issues: [{ message: 'bad' }] }).jsonBody.error).toBe(
-        'errors.tourInvalid',
-      );
+    it('reports a name trimmed down to nothing as a name problem', () => {
+      expect(keyFor({ name: ' \n ' })).toBe('errors.tourName');
     });
   });
 

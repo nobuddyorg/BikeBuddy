@@ -1,5 +1,4 @@
-// Which API a run talks to. The wrapper (load/run.mjs) checks the same things;
-// they are repeated here so a bare `k6 run` cannot reach production either.
+// load/run.mjs checks the same; repeated so a bare `k6 run` cannot reach production either.
 const LOCAL_HOSTS = ['127.0.0.1', 'localhost'];
 
 function required(name) {
@@ -24,8 +23,7 @@ if (TARGET === 'hosted' && __ENV.LOAD_CONFIRM_PRODUCTION !== 'true') {
   );
 }
 
-// Locally the Functions host runs with SKIP_AUTH (every request is the local dev
-// user); hosted needs a real access token of the dedicated load-test account.
+// The local stack runs with SKIP_AUTH; hosted needs the load-test account's access token.
 const TOKEN = __ENV.LOAD_ACCESS_TOKEN;
 if (TARGET === 'hosted' && !TOKEN) throw new Error('LOAD_TARGET=hosted needs LOAD_ACCESS_TOKEN');
 

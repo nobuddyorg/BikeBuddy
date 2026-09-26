@@ -1,37 +1,40 @@
 // @ts-check
 'use strict';
 
-const sharp = require('sharp');
+// Required on first call: the worker loads every function, and sharp was 42 of its 434 ms of require (#578).
+/** @type {(...args: Parameters<typeof import('sharp')>) => import('sharp').Sharp} */
+const sharp = (...args) => require('sharp')(...args);
 
 const MAX_WIDTH = 2000;
+const FULL_QUALITY = 82;
 
-// Wide enough for the largest place a thumbnail is shown (the detail panel's
-// photo grid tile) at typical device pixel ratios, small enough that a grid
-// full of them — or a map full of pins — doesn't quietly cost the same
-// bytes as the full-size gallery (#466).
-const THUMB_WIDTH = 320;
-const THUMB_QUALITY = 70;
+// Sized for the detail panel's photo grid tile at typical device pixel ratios.
+const THUMBNAIL_WIDTH = 320;
+const THUMBNAIL_QUALITY = 70;
 
-// Comfortably above any real camera's output, but far below sharp's default
-// ~268 megapixel ceiling — bounds worst-case decode memory for a crafted or
-// corrupted upload instead of relying on the generic default.
+// Bounds the decode memory of a crafted upload, far below sharp's ~268 megapixel default.
 const MAX_INPUT_PIXELS = 100_000_000;
 
-// Originals are never stored — see docs/explanation/design-decisions.md.
 async function resizeImage(buffer, maxInputPixels = MAX_INPUT_PIXELS) {
   return sharp(buffer, { limitInputPixels: maxInputPixels })
     .rotate()
     .resize({ width: MAX_WIDTH, withoutEnlargement: true })
-    .jpeg({ quality: 82 })
+    .jpeg({ quality: FULL_QUALITY })
     .toBuffer();
 }
 
 async function resizeThumbnail(buffer, maxInputPixels = MAX_INPUT_PIXELS) {
   return sharp(buffer, { limitInputPixels: maxInputPixels })
     .rotate()
-    .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
-    .jpeg({ quality: THUMB_QUALITY })
+    .resize({ width: THUMBNAIL_WIDTH, withoutEnlargement: true })
+    .jpeg({ quality: THUMBNAIL_QUALITY })
     .toBuffer();
 }
 
-module.exports = { resizeImage, resizeThumbnail };
+// Both from the original, so the thumbnail never compounds a second lossy encode.
+async function resizeVariants(buffer) {
+  const [full, thumbnail] = await Promise.all([resizeImage(buffer), resizeThumbnail(buffer)]);
+  return { full, thumbnail };
+}
+
+module.exports = { resizeImage, resizeThumbnail, resizeVariants };

@@ -1,37 +1,80 @@
 name: Deploy
 
-on:
-  push:
+# Every deploy is gated (#563): it ships the commit a green CI Gate run tested on main. A bot merge
+# starts no workflow (#539), so the daily run re-runs the gate on main when production lags it.
+# The release logic is scripts/infrastructure/pick-release.sh.
+on: # zizmor: ignore[dangerous-triggers] acts only on a push run on main in this repo (release job), uses no artifact of it
+  workflow_run:
+    workflows: ["CI Gate"]
+    types: [completed]
     branches: ["main"]
   workflow_dispatch:
+  schedule:
+    - cron: "37 4 * * *" # daily at 04:37 UTC, after the account deletions
 
 permissions:
   contents: read
 
-# Serialise deploys so two pushes can't run `tofu apply` concurrently and race
-# the remote state lock. Never cancel an in-flight deploy mid-apply.
+# One apply at a time on the shared state (destroy.yml joins this group), never cancelled mid-apply.
 concurrency:
   group: deploy
   cancel-in-progress: false
 
-env:
-  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
-  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-  ARM_ACCESS_KEY: ${{ secrets.TF_BACKEND_ACCESS_KEY }}
-
 jobs:
-  infrastructure:
-    name: OpenTofu Apply
+  release:
+    name: Pick the release
+    # A gate run on main after a push only: the ones the schedule dispatches are awaited below.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: write # dispatches CI Gate on main and watches it (schedule only)
+      deployments: read # the commit production runs (schedule only)
     outputs:
-      functions_url: ${{ steps.output.outputs.functions_url }}
-      functions_app_name: ${{ steps.output.outputs.functions_app_name }}
+      sha: ${{ steps.pick.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+
+      - name: Pick the commit to deploy
+        id: pick
+        run: ./buddy.sh infrastructure pick-release
+        env:
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+
+  infrastructure:
+    name: OpenTofu Apply
+    needs: release
+    if: needs.release.outputs.sha != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Settings > Environments can add reviewers and a main-only rule; it also records what shipped.
+    environment: production
+    # The subscription credential and the state key reach this job only (#561).
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_ACCESS_KEY: ${{ secrets.TF_BACKEND_ACCESS_KEY }}
+    outputs:
+      functions_url: ${{ steps.output.outputs.functions_url }}
+      functions_app_name: ${{ steps.output.outputs.functions_app_name }}
+      storage_url: ${{ steps.output.outputs.storage_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release.outputs.sha }}
           persist-credentials: false
 
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
@@ -48,23 +91,31 @@ jobs:
       - name: Capture outputs
         id: output
         run: |
-          echo "functions_url=$(tofu output -raw functions_url)" >> "$GITHUB_OUTPUT"
-          echo "functions_app_name=$(tofu output -raw functions_app_name)" >> "$GITHUB_OUTPUT"
+          {
+            echo "functions_url=$(tofu output -raw functions_url)"
+            echo "functions_app_name=$(tofu output -raw functions_app_name)"
+            echo "storage_url=$(tofu output -raw storage_url)"
+          } >> "$GITHUB_OUTPUT"
         working-directory: infrastructure
 
   deploy-functions:
     name: Deploy Functions (Flex, remote build)
-    needs: infrastructure
+    needs: [release, infrastructure]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: production
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.release.outputs.sha }}
           persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # zizmor: ignore[cache-poisoning]
         with:
           node-version: "24"
+
+      # Installed before the login, so no install script runs next to an Azure session (#561).
+      - uses: ./.github/actions/install-core-tools
 
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
@@ -74,20 +125,15 @@ jobs:
              "subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}",
              "tenantId":"${{ secrets.ARM_TENANT_ID }}"}
 
-      # Flex Consumption deploys from its package container via the publish API.
-      # functions-action's Kudu/zip path targets wwwroot and doesn't register on
-      # Flex, so use Core Tools with a remote build (compiles sharp for Linux).
-      - name: Install Azure Functions Core Tools
-        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
-
       - name: Publish (remote build)
         run: ./buddy.sh infrastructure publish-functions
         env:
           FUNCTIONS_APP_NAME: ${{ needs.infrastructure.outputs.functions_app_name }}
 
+  # After the API, so a page never ships ahead of the API it calls (#563).
   deploy-frontend:
     name: Deploy Frontend (GitHub Pages)
-    needs: infrastructure
+    needs: [release, infrastructure, deploy-functions]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -97,9 +143,12 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.release.outputs.sha }}
           persist-credentials: false
 
       - name: Configure Pages
@@ -112,6 +161,13 @@ jobs:
           ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
         run: ./buddy.sh infrastructure generate-config
 
+      - name: Narrow the CSP to this deployment's hosts
+        env:
+          FUNCTIONS_URL: ${{ needs.infrastructure.outputs.functions_url }}
+          STORAGE_URL: ${{ needs.infrastructure.outputs.storage_url }}
+          ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
+        run: ./buddy.sh infrastructure tighten-csp
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
@@ -120,3 +176,21 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  smoke-test:
+    name: Smoke test
+    needs: [release, infrastructure, deploy-frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The workflow's own commit on main, not the release's: its checks are black-box, and a job
+      # without an environment should run no code taken from another job's output.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the API and the site answer
+        run: ./buddy.sh infrastructure smoke-test
+        env:
+          FUNCTIONS_URL: ${{ needs.infrastructure.outputs.functions_url }}
+          PAGES_URL: ${{ needs.deploy-frontend.outputs.page_url }}

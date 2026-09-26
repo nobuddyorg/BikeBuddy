@@ -1,99 +1,127 @@
 'use strict';
 
-const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer, queryUserItems } = require('../lib/db');
-const { imagesContainer, readSasUrl } = require('../lib/blobStorage');
-const { thumbBlobName } = require('../lib/thumbBlobName');
-const { unauthorized } = require('../lib/http');
-const { simplifyToTarget } = require('../lib/simplify');
+const { apiRoute } = require('../lib/functionsApp');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const blobStorage = require('../lib/blobStorage');
+const { ERROR_KEYS, error, unauthorized } = require('../lib/http');
 const { createHeatmapCache } = require('../lib/heatmapCache');
+const { readTracksByTour, readTracksOfTours } = require('../lib/tourTrack');
+const { budgetSegmentedTracks, TOTAL_POINT_BUDGET } = require('../lib/mapBudget');
+const { geotaggedImages, toSignedImage } = require('../lib/tourImages');
+const system = require('../lib/system');
+const { pageRequest, pageBody } = require('../lib/paging');
 
+// Tours from before #615 have no pointCount yet; counting their inline points is still cheaper.
+const MAP_QUERY =
+  'SELECT c.id, c.images, c.pointCount, ARRAY_LENGTH(c.heatmapData) AS inlinePointCount ' +
+  'FROM c WHERE c.userId = @userId';
 const defaultHeatmapCache = createHeatmapCache();
 
-const isGeotagged = (img) => typeof img.lat === 'number' && typeof img.lon === 'number';
-const pinnedImages = (tour) => (tour.images || []).filter(isGeotagged);
+const NO_TRACK = { heatmapData: [], segmentStarts: [] };
 
-// Every tour's full (up to 5,000-point) track is combined into one heat
-// layer client-side; above this many combined points, tracks are simplified
-// down to a share of the budget proportional to their own size so the
-// response stays bounded regardless of tour count.
-const TOTAL_POINT_BUDGET = 100000;
-const MIN_POINTS_PER_TOUR = 20;
+// An inline count keys apart from a moved one: the backfill adds segment breaks (#552) that a warm
+// cache must not hide.
+const withPointCount = ({ inlinePointCount, ...tour }) => ({
+  ...tour,
+  pointCount: tour.pointCount ?? `${inlinePointCount} inline`,
+});
 
-// Under the heat layer's dot footprint even at max zoom (see
-// heatmapZoom.js), so simplified straight stretches still read as a
-// continuous trail instead of breaking into dots.
-const MAX_GAP_METERS = 50;
-
-function budgetHeatmapData(tours, totalPointBudget, maxGapMeters) {
-  const totalPoints = tours.reduce((sum, tour) => sum + (tour.heatmapData?.length || 0), 0);
-  if (totalPoints <= totalPointBudget) return tours.map((tour) => tour.heatmapData || []);
-
-  return tours.map((tour) => {
-    const points = tour.heatmapData || [];
-    const target = Math.max(
-      MIN_POINTS_PER_TOUR,
-      Math.round((totalPointBudget * points.length) / totalPoints),
-    );
-    return simplifyToTarget(points, target, maxGapMeters);
+// The whole map, budgeted across every tour and memoised per rider.
+async function wholeMap({ userId, toursContainer, tracksContainer, heatmapCache, budget }) {
+  const tours = (await db.queryUserItems(toursContainer(), { userId, query: MAP_QUERY })).map(
+    withPointCount,
+  );
+  const tracks = await heatmapCache.getOrCompute({
+    userId,
+    tours,
+    compute: async () => {
+      const tracksByTour = await readTracksByTour({ userId, toursContainer, tracksContainer });
+      return budgetSegmentedTracks(
+        tours.map((tour) => tracksByTour.get(tour.id) ?? NO_TRACK),
+        budget,
+      );
+    },
   });
+  return { tours, tracks };
 }
 
-// GET /api/map — every tour's track points and pinnable photos in one query,
-// instead of a detail fetch each. Photos without coordinates can't be
-// pinned, so they cost no signature here; the gallery still gets them all.
-async function getMapData(
-  request,
-  auth = authenticate,
-  getContainer = toursContainer,
-  getImagesContainer = imagesContainer,
-  totalPointBudget = TOTAL_POINT_BUDGET,
-  maxGapMeters = MAX_GAP_METERS,
-  heatmapCache = defaultHeatmapCache,
-) {
-  const user = await auth(request);
-  if (!user) return unauthorized();
-
-  const tours = await queryUserItems(
-    getContainer(),
-    user.userId,
-    'SELECT c.id, c.heatmapData, c.images FROM c WHERE c.userId = @userId',
+// One page (#579), budgeted on its own and never cached: only the whole map is read repeatedly.
+// Positions need an order that holds between requests, as the list's does.
+async function mapPage({ userId, page, toursContainer, tracksContainer, budget }) {
+  const { items: tours, more } = await db.queryUserPage(toursContainer(), {
+    userId,
+    query: `${MAP_QUERY} ORDER BY c.createdAt DESC`,
+    offset: page.offset,
+    limit: page.limit,
+  });
+  const tracksByTour = await readTracksOfTours({
+    userId,
+    tourIds: tours.map((tour) => tour.id),
+    toursContainer,
+    tracksContainer,
+  });
+  const tracks = budgetSegmentedTracks(
+    tours.map((tour) => tracksByTour.get(tour.id) ?? NO_TRACK),
+    budget,
   );
+  return { tours, tracks, more };
+}
 
-  const container = tours.some((tour) => pinnedImages(tour).length > 0)
-    ? await getImagesContainer()
-    : null;
-
-  const heatmapDataByTour = heatmapCache.getOrCompute(user.userId, tours, () =>
-    budgetHeatmapData(tours, totalPointBudget, maxGapMeters),
-  );
-
-  const jsonBody = await Promise.all(
-    tours.map(async (tour, i) => ({
+// A photo without coordinates cannot become a pin, so it gets no signed URL here.
+function mapEntries({ userId, tours, tracks, signUrl }) {
+  return Promise.all(
+    tours.map(async (tour, index) => ({
       id: tour.id,
-      heatmapData: heatmapDataByTour[i],
+      ...tracks[index],
       images: await Promise.all(
-        pinnedImages(tour).map(async (img) => {
-          const [url, thumbUrl] = await Promise.all([
-            readSasUrl(container.getBlockBlobClient(img.blobName)),
-            readSasUrl(container.getBlockBlobClient(thumbBlobName(img.blobName))),
-          ]);
-          return { id: img.id, url, thumbUrl, lat: img.lat, lon: img.lon };
-        }),
+        geotaggedImages(tour).map((image) =>
+          toSignedImage(image, { userId, tourId: tour.id, signUrl }),
+        ),
       ),
     })),
   );
-
-  return { status: 200, jsonBody };
 }
 
-app.http('GetMapData', {
+async function getMapData(
+  request,
+  {
+    authenticate = authMiddleware.authenticate,
+    toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
+    imagesContainer = blobStorage.imagesContainer,
+    now = system.currentTime,
+    heatmapCache = defaultHeatmapCache,
+    budget = { totalPointBudget: TOTAL_POINT_BUDGET },
+  } = {},
+) {
+  const user = await authenticate(request);
+  if (!user) return unauthorized();
+  const page = pageRequest(request.query);
+  if (page.kind === 'invalid') return error(400, ERROR_KEYS.pageInvalid);
+  const { userId } = user;
+  const signUrl = blobStorage.readUrlSigner({ container: imagesContainer, now: now() });
+
+  if (page.kind === 'all') {
+    const map = await wholeMap({ userId, toursContainer, tracksContainer, heatmapCache, budget });
+    return { status: 200, jsonBody: await mapEntries({ userId, ...map, signUrl }) };
+  }
+  const { more, ...map } = await mapPage({
+    userId,
+    page,
+    toursContainer,
+    tracksContainer,
+    budget,
+  });
+  const items = await mapEntries({ userId, ...map, signUrl });
+  return { status: 200, jsonBody: pageBody({ items, page, more }) };
+}
+
+apiRoute('GetMapData', {
   methods: ['get'],
-  authLevel: 'anonymous',
   route: 'map',
   /* v8 ignore next */
   handler: (request) => getMapData(request),
 });
 
-module.exports = { getMapData, isGeotagged, budgetHeatmapData };
+module.exports = { getMapData };

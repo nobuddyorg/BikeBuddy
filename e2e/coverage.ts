@@ -11,7 +11,7 @@ export const coverageEnabled = () => process.env.E2E_COVERAGE === '1';
 // Measured on CI (docs/how-to/developer-guide.md, "E2E coverage"); raised when
 // the journeys grow, never lowered.
 const FLOORS: Record<Suite, { lines: number; functions: number }> = {
-  // Measured 57.86 % lines / 49.58 % functions; the margin absorbs a retried test.
+  // Measured 57.86 % lines / 49.58 % functions on CI (60.56 % / 53.46 % locally).
   static: { lines: 55, functions: 47 },
   // Measured 76.48 % lines / 75.49 % functions on CI (run 36062531313).
   fullstack: { lines: 73, functions: 72 },

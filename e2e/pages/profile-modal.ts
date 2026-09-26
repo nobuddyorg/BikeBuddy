@@ -7,9 +7,15 @@ interface ProfileModal {
   do: {
     setName(name: string): Promise<void>;
     saveName(): Promise<void>;
-    switchLanguage(opts: { search: string; pick: string }): Promise<void>;
+    /** Filters the language menu by `search`, then picks the locale `code` (e.g. 'de'). */
+    switchLanguage(language: { search: string; code: string }): Promise<void>;
     exportData(): Promise<void>;
+    logout(): Promise<void>;
     deleteAccount(): Promise<void>;
+    openDeleteAccount(): Promise<void>;
+    /** Types the confirmation phrase into the open delete-account dialog and confirms. */
+    confirmDeleteAccount(): Promise<void>;
+    openLanguageMenu(): Promise<void>;
     close(): Promise<void>;
   };
   /** Raw locators. */
@@ -19,19 +25,23 @@ interface ProfileModal {
     since: Locator;
     nameInput: Locator;
     nameError: Locator;
+    /** Opens the privacy notice in a new tab. */
+    privacyLink: Locator;
     lang: {
       button: Locator;
       menu: Locator;
       search: Locator;
-      options: Locator;
+      option(code: string): Locator;
     };
     buttons: {
       saveName: Locator;
+      logout: Locator;
       exportData: Locator;
       deleteAccount: Locator;
       close: Locator;
     };
     deleteAccountModal: {
+      root: Locator;
       input: Locator;
       confirm: Locator;
     };
@@ -46,19 +56,22 @@ export function initProfileModal(page: Page): ProfileModal {
     since: page.locator('#profile-since'),
     nameInput: page.locator('#profile-name-input'),
     nameError: page.locator('#profile-name-error'),
+    privacyLink: page.locator('#link-privacy-profile'),
     lang: {
       button: page.locator('#btn-lang'),
       menu: page.locator('#lang-menu'),
       search: page.locator('#lang-search'),
-      options: page.locator('.lang-option'),
+      option: (code: string) => page.locator(`#lang-option-${code}`),
     },
     buttons: {
-      saveName: page.locator('#profile-name-form button[type="submit"]'),
+      saveName: page.locator('#btn-save-profile-name'),
+      logout: page.locator('#btn-logout'),
       exportData: page.locator('#btn-export-data'),
       deleteAccount: page.locator('#btn-delete-account'),
       close: page.locator('#btn-close-profile'),
     },
     deleteAccountModal: {
+      root: page.locator('#delete-account-modal'),
       input: page.locator('#delete-account-input'),
       confirm: page.locator('#btn-delete-account-confirm'),
     },
@@ -66,17 +79,23 @@ export function initProfileModal(page: Page): ProfileModal {
   const interactions = {
     setName: async (name: string) => locators.nameInput.fill(name),
     saveName: async () => locators.buttons.saveName.click(),
-    switchLanguage: async ({ search, pick }: { search: string; pick: string }) => {
+    switchLanguage: async ({ search, code }: { search: string; code: string }) => {
       await locators.lang.button.click();
       await locators.lang.search.fill(search);
-      await locators.lang.options.filter({ hasText: pick }).click();
+      await locators.lang.option(code).click();
     },
     exportData: async () => locators.buttons.exportData.click(),
+    logout: async () => locators.buttons.logout.click(),
     deleteAccount: async () => {
       await locators.buttons.deleteAccount.click();
+      await interactions.confirmDeleteAccount();
+    },
+    confirmDeleteAccount: async () => {
       await locators.deleteAccountModal.input.fill('DELETE');
       await locators.deleteAccountModal.confirm.click();
     },
+    openDeleteAccount: async () => locators.buttons.deleteAccount.click(),
+    openLanguageMenu: async () => locators.lang.button.click(),
     close: async () => locators.buttons.close.click(),
   };
   return Object.assign(() => root, { locators, do: interactions });

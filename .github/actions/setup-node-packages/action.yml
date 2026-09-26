@@ -5,6 +5,10 @@ inputs:
   packages:
     description: Space-separated package directories to install (functions, frontend, e2e).
     required: true
+  ignore-scripts:
+    description: "\"true\" skips every package's install scripts: for a job that holds credentials and needs no native build."
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -32,9 +36,14 @@ runs:
       working-directory: ${{ github.workspace }}
       env:
         PACKAGES: ${{ inputs.packages }}
+        IGNORE_SCRIPTS: ${{ inputs.ignore-scripts }}
       run: |
         for package in $PACKAGES; do
           echo "::group::npm ci ($package)"
-          npm ci --prefix "$package"
+          if [ "$IGNORE_SCRIPTS" = "true" ]; then
+            npm ci --prefix "$package" --ignore-scripts
+          else
+            npm ci --prefix "$package"
+          fi
           echo "::endgroup::"
         done

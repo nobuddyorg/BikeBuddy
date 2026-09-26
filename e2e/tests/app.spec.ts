@@ -1,25 +1,15 @@
-import { buddyTest, expect } from '../pages/buddy-test';
+import { expect, staticTest } from '../fixtures/api-mocks';
 
-// These run against the static frontend (no backend): devMode falls back to a
-// synthetic local user, so auth/list/empty-state UI is deterministic.
+// The static frontend in devMode against the mocked API of an account with no tours.
 
-const emptyToursRoute = (route: import('@playwright/test').Route) =>
-  route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-
-buddyTest.describe('BikeBuddy static UI', () => {
-  buddyTest.beforeEach(async ({ page }) => {
-    // The static server 404s every /api/* path (see serve.mjs), which
-    // loadTours() now treats as a failed load rather than an empty account
-    // (#435) — mock a real empty response so these tests exercise the
-    // genuinely-empty state, not the load-error one.
-    await page.route('**/api/tours', emptyToursRoute);
-    await page.route('**/api/map', emptyToursRoute);
+staticTest.describe('BikeBuddy static UI', () => {
+  staticTest.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
-  buddyTest('loads and auto signs in (dev mode)', async ({ on, page }) => {
+  staticTest('loads and auto signs in (dev mode)', async ({ on, page }) => {
     await expect(page).toHaveTitle(/BikeBuddy/);
-    await expect(on(page).main.locators.map).toBeVisible();
+    await expect(on(page).map()).toBeVisible();
     await expect(on(page).main.locators.userMenu).toBeVisible();
     await expect(on(page).main.locators.buttons.login).toBeHidden();
     await expect(on(page).main.locators.buttons.upload).toBeEnabled();
@@ -27,33 +17,37 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await on(page).a11y.check('signed in, empty list');
   });
 
-  buddyTest('shows the empty state when there are no tours', async ({ on, page }) => {
-    await expect(on(page).main.locators.list.empty).toBeVisible();
-    await expect(on(page).main.locators.list.count).toHaveText('0');
+  staticTest('shows the empty state when there are no tours', async ({ on, page }) => {
+    await expect(on(page).list.locators.empty).toBeVisible();
+    await expect(on(page).list.locators.count).toHaveText('0');
   });
 
-  buddyTest(
-    'shows a retry-able error when the tour load fails, and recovers',
-    async ({ on, page }) => {
-      await page.route('**/api/tours', (route) =>
-        route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
+  staticTest.describe('when the tour load fails', () => {
+    staticTest.use({ allowedConsoleErrors: { matching: [/status of 500/] } });
+
+    staticTest('shows a retry-able error, and recovers', async ({ on, page }) => {
+      let failing = true;
+      await page.route('**/api/v1/tours', (route) =>
+        failing
+          ? route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+          : route.fallback(),
       );
       await page.reload();
 
-      await expect(on(page).main.locators.list.loadError).toBeVisible();
-      await expect(on(page).main.locators.list.empty).toBeHidden();
-      await expect(on(page).main.locators.mapLoadError).toBeVisible();
+      await expect(on(page).list.locators.loadError).toBeVisible();
+      await expect(on(page).list.locators.empty).toBeHidden();
+      await expect(on(page).map.locators.loadError).toBeVisible();
       await on(page).a11y.check('tour load error');
 
-      await page.route('**/api/tours', emptyToursRoute);
-      await on(page).main.locators.list.retryButton.click();
+      failing = false;
+      await on(page).list.do.retryLoad();
 
-      await expect(on(page).main.locators.list.loadError).toBeHidden();
-      await expect(on(page).main.locators.list.empty).toBeVisible();
-    },
-  );
+      await expect(on(page).list.locators.loadError).toBeHidden();
+      await expect(on(page).list.locators.empty).toBeVisible();
+    });
+  });
 
-  buddyTest('upload modal opens, rejects a non-GPX file, and closes', async ({ on, page }) => {
+  staticTest('upload modal opens, rejects a non-GPX file, and closes', async ({ on, page }) => {
     await on(page).main.do.openUpload();
     await expect(on(page).modal.upload()).toBeVisible();
 
@@ -70,7 +64,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).modal.upload()).toBeHidden();
   });
 
-  buddyTest('upload modal accepts a .gpx file (enables submit)', async ({ on, page }) => {
+  staticTest('upload modal accepts a .gpx file (enables submit)', async ({ on, page }) => {
     await on(page).main.do.openUpload();
     await on(page).modal.upload.do.pickFile({
       name: 'ride.gpx',
@@ -82,7 +76,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).modal.upload.locators.error).toBeHidden();
   });
 
-  buddyTest('profile modal shows the signed-in user and closes', async ({ on, page }) => {
+  staticTest('profile modal shows the signed-in user and closes', async ({ on, page }) => {
     await on(page).main.do.openProfile();
     await expect(on(page).modal.profile()).toBeVisible();
     await expect(on(page).modal.profile.locators.email).toContainText('@');
@@ -91,7 +85,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).modal.profile()).toBeHidden();
   });
 
-  buddyTest('sign out returns to the signed-out state', async ({ on, page }) => {
+  staticTest('sign out returns to the signed-out state', async ({ on, page }) => {
     await on(page).main.do.logout();
     await expect(on(page).main.locators.buttons.login).toBeVisible();
     await expect(on(page).main.locators.userMenu).toBeHidden();
@@ -99,7 +93,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await on(page).a11y.check('signed out');
   });
 
-  buddyTest('help modal explains the app and closes', async ({ on, page }) => {
+  staticTest('help modal explains the app and closes', async ({ on, page }) => {
     await on(page).main.do.openHelp();
     await expect(on(page).modal.help()).toBeVisible();
     await expect(on(page).modal.help()).toContainText('How to use BikeBuddy');
@@ -109,7 +103,7 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).modal.help()).toBeHidden();
   });
 
-  buddyTest('modals close on Escape and restore focus to the opener', async ({ on, page }) => {
+  staticTest('modals close on Escape and restore focus to the opener', async ({ on, page }) => {
     await on(page).main.locators.buttons.help.focus();
     await on(page).main.do.openHelp();
     await expect(on(page).modal.help()).toBeVisible();
@@ -118,10 +112,9 @@ buddyTest.describe('BikeBuddy static UI', () => {
     await expect(on(page).main.locators.buttons.help).toBeFocused();
   });
 
-  buddyTest(
-    'profile button is a compact avatar; expand toggle collapses the sidebar',
+  staticTest(
+    'profile button shows the initials; expand toggle collapses the sidebar',
     async ({ on, page }) => {
-      await expect(on(page).main.locators.buttons.profile).toHaveClass(/btn-avatar/);
       await expect(on(page).main.locators.buttons.profile).toHaveText('LD'); // "Local Dev" initials
 
       await expect(on(page).main.locators.sidebar).toBeVisible();
@@ -132,16 +125,14 @@ buddyTest.describe('BikeBuddy static UI', () => {
     },
   );
 
-  buddyTest(
+  staticTest(
     'mobile viewport: layout stays usable with no horizontal overflow',
     async ({ on, page }) => {
       await page.setViewportSize({ width: 375, height: 720 });
       await page.goto('/');
-      // The list (here, its empty state — this describe block mocks no
-      // tours) is the mobile home screen now; the map lives off-screen
-      // behind the FAB until opened.
+      // On a phone the list is the home screen; the map waits behind the FAB.
       await expect(on(page).main.locators.sidebar).toBeVisible();
-      await expect(on(page).main.locators.list.empty).toBeVisible();
+      await expect(on(page).list.locators.empty).toBeVisible();
       await expect(on(page).main.locators.userMenu).toBeVisible();
       const overflows = await page.evaluate(
         () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,

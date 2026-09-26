@@ -1,7 +1,12 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { clearUsers, clearTours, listUsers } from './usersDb';
-
-// GDPR account export + deletion against the real backend.
+import { readFileSync } from 'node:fs';
+import { expect, fullstackTest } from './fullstack-test';
+import {
+  DEV_USER_ID,
+  devUserBlobNames,
+  devUserProfiles,
+  devUserTours,
+  devUserTracks,
+} from './store';
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -12,32 +17,38 @@ const GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-buddyTest.describe('account data (GDPR)', () => {
-  buddyTest.beforeEach(async () => {
-    await clearUsers();
-    await clearTours();
-  });
+fullstackTest('export downloads the account; delete removes all of it', async ({ on, page }) => {
+  await page.goto('/');
+  await expect(on(page).main.locators.userMenu).toBeVisible();
+  await on(page).main.do.uploadGpx({ name: 'Account Tour', gpx: GPX });
 
-  buddyTest('export downloads JSON; delete removes all user data', async ({ on, page }) => {
-    await page.goto('/');
-    await expect(on(page).main.locators.userMenu).toBeVisible();
-    await on(page).main.do.uploadGpx({ name: 'Account Tour', gpx: GPX });
+  await on(page).main.do.openProfile();
+  await expect(on(page).modal.profile()).toBeVisible();
+  await on(page).a11y.check('profile modal with data');
 
-    await on(page).main.do.openProfile();
-    await expect(on(page).modal.profile()).toBeVisible();
-    await on(page).a11y.check('profile modal with data');
+  const downloadPromise = page.waitForEvent('download');
+  await on(page).modal.profile.do.exportData();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('bikebuddy-export.json');
+  const exported = JSON.parse(readFileSync(await download.path(), 'utf8')) as {
+    user: { id: string };
+    tours: { name: string; gpxFileUrl: string }[];
+  };
+  expect(exported.user.id).toBe(DEV_USER_ID);
+  expect(exported.tours.map((tour) => tour.name)).toEqual(['Account Tour']);
+  // The export links the uploaded file itself, not only its parsed track.
+  expect(await (await fetch(exported.tours[0].gpxFileUrl)).text()).toBe(GPX);
 
-    // Export → a JSON file download.
-    const downloadPromise = page.waitForEvent('download');
-    await on(page).modal.profile.do.exportData();
-    const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe('bikebuddy-export.json');
+  expect(await devUserBlobNames()).not.toEqual([]);
+  await on(page).modal.profile.do.openDeleteAccount();
+  await expect(on(page).modal.profile.locators.deleteAccountModal.root).toBeVisible();
+  await on(page).a11y.check('delete-account dialog');
+  await on(page).modal.profile.do.confirmDeleteAccount();
+  await expect(on(page).main.locators.buttons.login).toBeVisible();
+  await expect(on(page).main.locators.userMenu).toBeHidden();
 
-    // Delete account (types the confirmation phrase) → signed out, DB emptied.
-    await on(page).modal.profile.do.deleteAccount();
-    await expect(on(page).main.locators.buttons.login).toBeVisible();
-    await expect(on(page).main.locators.userMenu).toBeHidden();
-
-    expect(await listUsers()).toHaveLength(0);
-  });
+  expect(await devUserProfiles()).toEqual([]);
+  expect(await devUserTours()).toEqual([]);
+  expect(await devUserTracks()).toEqual([]);
+  expect(await devUserBlobNames()).toEqual([]);
 });

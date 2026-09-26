@@ -2,188 +2,293 @@
 'use strict';
 
 const { XMLParser } = require('fast-xml-parser');
+const { joinSegments } = require('./segments');
 
 const MAX_POINTS = 5000;
+const EARTH_RADIUS_KM = 6371;
+// Five decimals is about a metre: finer than any consumer GPS, and half the digits of a raw float.
+const COORDINATE_DECIMALS = 5;
 
-// Haversine distance in km between two lat/lon points.
-function haversineKm([lat1, lon1], [lat2, lon2]) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+const roundCoordinate = (degrees) => Number(degrees.toFixed(COORDINATE_DECIMALS));
 
-// One pass: distance and downsampling together.
-function processPoints(points) {
-  if (points.length === 0) return { distanceKm: 0, heatmapData: [] };
-  const step = points.length > MAX_POINTS ? Math.ceil(points.length / MAX_POINTS) : 1;
-  let distanceKm = 0;
-  const heatmapData = [];
-  for (let i = 0; i < points.length; i++) {
-    if (i > 0) distanceKm += haversineKm(points[i - 1], points[i]);
-    if (i % step === 0) heatmapData.push(points[i]);
+class InvalidGpxError extends Error {
+  /**
+   * @param {string} message
+   * @param {{ cause?: unknown }} [options]
+   */
+  constructor(message, options) {
+    super(message, options);
+    this.name = 'InvalidGpxError';
   }
-  const last = points[points.length - 1];
-  if (heatmapData[heatmapData.length - 1] !== last) heatmapData.push(last);
-  return { distanceKm, heatmapData };
 }
 
-// Elevation deltas below this are GPS/barometric noise, not real climbing —
-// the usual rule of thumb for consumer GPS altimeters.
+// Well-formed GPX, but not one valid track or route point to show.
+class NoTrackPointsError extends InvalidGpxError {
+  constructor() {
+    super('GPX file has no track points');
+    this.name = 'NoTrackPointsError';
+  }
+}
+
+const toRadians = (degrees) => (degrees * Math.PI) / 180;
+
+function haversineKm(from, to) {
+  const deltaLatitude = toRadians(to.latitude - from.latitude);
+  const deltaLongitude = toRadians(to.longitude - from.longitude);
+  const halfChordSquared =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(toRadians(from.latitude)) *
+      Math.cos(toRadians(to.latitude)) *
+      Math.sin(deltaLongitude / 2) ** 2;
+  return (
+    EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(halfChordSquared), Math.sqrt(1 - halfChordSquared))
+  );
+}
+
+const sum = (values) => values.reduce((total, value) => total + value, 0);
+
+function pathLengthKm(points) {
+  let distanceKm = 0;
+  for (let index = 1; index < points.length; index++) {
+    distanceKm += haversineKm(points[index - 1], points[index]);
+  }
+  return distanceKm;
+}
+
+/**
+ * Every step-th point plus the last, so the line still ends where the ride did.
+ *
+ * @param {{ latitude: number, longitude: number }[]} points
+ * @returns {[number, number][]}
+ */
+// Beyond this many segments the breaks are dropped, so their end points cannot outgrow the cap.
+const MAX_SEGMENTS = 500;
+
+// Every step-th point and the last one, so the line still reaches its end.
+function thinned(line, step) {
+  const kept = [];
+  for (let index = 0; index < line.length; index += step) kept.push(line[index]);
+  const last = line[line.length - 1];
+  if (kept[kept.length - 1] !== last) kept.push(last);
+  return kept;
+}
+
+/**
+ * At most MAX_POINTS points, thinned per segment so each keeps its first and last point and the
+ * map can break the line between two (#552). A segment adds at most two points to the even share.
+ *
+ * @returns {{ heatmapData: [number, number][], segmentStarts: number[] }} where each segment after
+ *   the first begins in heatmapData
+ */
+function downsampleTrack(segments) {
+  const lines = segments.length > MAX_SEGMENTS ? [segments.flat()] : segments;
+  const total = sum(lines.map((line) => line.length));
+  const step = total <= MAX_POINTS ? 1 : Math.ceil(total / (MAX_POINTS - 2 * lines.length));
+  return joinSegments(
+    lines.map((line) =>
+      thinned(line, step).map(({ latitude, longitude }) => [
+        roundCoordinate(latitude),
+        roundCoordinate(longitude),
+      ]),
+    ),
+  );
+}
+
+// Rule of thumb for consumer GPS altimeters: smaller deltas are noise.
 const ELEVATION_NOISE_THRESHOLD_M = 3;
 
-// Below this speed a point counts as a stop, not riding — excluded from
-// "moving time" and the average-speed figure it feeds.
+// Below this speed a leg is a stop, excluded from moving time and average speed.
 const MOVING_SPEED_FLOOR_KMH = 1;
 
-// A loop, not Math.min(...values): spreading 100k+ values overflows the stack (#575).
-function minMax(values) {
-  let min = values[0];
-  let max = values[0];
-  for (const v of values) {
-    if (v < min) min = v;
-    if (v > max) max = v;
-  }
-  return [min, max];
+const emptyRange = () => ({ count: 0, minimum: Infinity, maximum: -Infinity });
+
+// Compared one by one: Math.min(...values) overflows the stack past about 130k values.
+function widen(range, value) {
+  if (!Number.isFinite(value)) return;
+  range.count += 1;
+  range.minimum = Math.min(range.minimum, value);
+  range.maximum = Math.max(range.maximum, value);
 }
 
-// Cumulative gain/loss with a noise floor: only counts a delta once it moves
-// ELEVATION_NOISE_THRESHOLD_M away from the last accepted elevation, so GPS
-// jitter around a plateau doesn't accumulate into fake climbing.
-function computeElevationStats(points, thresholdM = ELEVATION_NOISE_THRESHOLD_M) {
-  const elevations = points.map((p) => p.ele).filter(Number.isFinite);
-  if (elevations.length === 0) {
-    return { elevationGain: null, elevationLoss: null, minElevation: null, maxElevation: null };
+// Elevation and time ranges in one pass over the whole track.
+function rangesOf(points) {
+  const ranges = { elevation: emptyRange(), time: emptyRange() };
+  for (const point of points) {
+    widen(ranges.elevation, point.elevation);
+    widen(ranges.time, point.time);
   }
-  const [minElevation, maxElevation] = minMax(elevations);
-  if (elevations.length < 2) {
-    return { elevationGain: null, elevationLoss: null, minElevation, maxElevation };
-  }
+  return ranges;
+}
 
+// A delta counts once it is past the threshold from the last counted elevation.
+function gainAndLoss(segment) {
   let gain = 0;
   let loss = 0;
-  let baseline = elevations[0];
-  for (let i = 1; i < elevations.length; i++) {
-    const diff = elevations[i] - baseline;
-    if (Math.abs(diff) >= thresholdM) {
-      if (diff > 0) gain += diff;
-      else loss += -diff;
-      baseline = elevations[i];
-    }
+  let baseline;
+  for (const { elevation } of segment) {
+    if (!Number.isFinite(elevation)) continue;
+    baseline ??= elevation;
+    const difference = elevation - baseline;
+    if (Math.abs(difference) < ELEVATION_NOISE_THRESHOLD_M) continue;
+    gain += Math.max(difference, 0);
+    loss += Math.max(-difference, 0);
+    baseline = elevation;
   }
-  return { elevationGain: gain, elevationLoss: loss, minElevation, maxElevation };
+  return { gain, loss };
 }
 
-// Elapsed = first to last timestamp. Moving = elapsed minus time spent below
-// MOVING_SPEED_FLOOR_KMH, so a lunch stop doesn't count as riding time or
-// drag down the average speed.
-function computeDurationStats(points, movingSpeedFloorKmh = MOVING_SPEED_FLOOR_KMH) {
-  const timed = points.filter((p) => Number.isFinite(p.time));
-  if (timed.length < 2) {
+// Per segment: the climb between two segments was not ridden.
+function elevationStats(segments, range) {
+  if (range.count === 0) {
+    return { elevationGain: null, elevationLoss: null, minElevation: null, maxElevation: null };
+  }
+  const extremes = { minElevation: range.minimum, maxElevation: range.maximum };
+  if (range.count < 2) return { elevationGain: null, elevationLoss: null, ...extremes };
+  const perSegment = segments.map(gainAndLoss);
+  return {
+    elevationGain: sum(perSegment.map(({ gain }) => gain)),
+    elevationLoss: sum(perSegment.map(({ loss }) => loss)),
+    ...extremes,
+  };
+}
+
+function addLeg(totals, from, to) {
+  const seconds = (to.time - from.time) / 1000;
+  if (seconds <= 0) return;
+  const kilometres = haversineKm(from, to);
+  if (kilometres / (seconds / 3600) < MOVING_SPEED_FLOOR_KMH) return;
+  totals.seconds += seconds;
+  totals.kilometres += kilometres;
+}
+
+// Legs join consecutive timed points of one segment; untimed points in between are skipped.
+function movingTotals(segment) {
+  const totals = { seconds: 0, kilometres: 0 };
+  let previous;
+  for (const point of segment) {
+    if (!Number.isFinite(point.time)) continue;
+    if (previous) addLeg(totals, previous, point);
+    previous = point;
+  }
+  return totals;
+}
+
+// Elapsed spans the earliest to the latest time, whatever order the file lists them in.
+function durationStats(segments, range) {
+  if (range.count < 2) {
     return { durationSeconds: null, movingSeconds: null, avgSpeed: null };
   }
-
-  const elapsedSeconds = (timed[timed.length - 1].time - timed[0].time) / 1000;
-  let movingSeconds = 0;
-  let movingDistanceKm = 0;
-  for (let i = 1; i < timed.length; i++) {
-    const prev = timed[i - 1];
-    const curr = timed[i];
-    const dtSec = (curr.time - prev.time) / 1000;
-    if (dtSec <= 0) continue;
-    const segKm = haversineKm([prev.lat, prev.lon], [curr.lat, curr.lon]);
-    const speedKmh = segKm / (dtSec / 3600);
-    if (speedKmh >= movingSpeedFloorKmh) {
-      movingSeconds += dtSec;
-      movingDistanceKm += segKm;
-    }
-  }
+  const perSegment = segments.map(movingTotals);
+  const movingSeconds = sum(perSegment.map(({ seconds }) => seconds));
+  const movingDistanceKm = sum(perSegment.map(({ kilometres }) => kilometres));
 
   return {
-    durationSeconds: Math.round(elapsedSeconds),
+    durationSeconds: Math.round((range.maximum - range.minimum) / 1000),
     movingSeconds: Math.round(movingSeconds),
     avgSpeed: movingSeconds > 0 ? movingDistanceKm / (movingSeconds / 3600) : null,
   };
 }
 
-const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+// Text stays text: `<name>20240512</name>` must not become a number.
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  parseTagValue: false,
+});
 
-// One <trkpt> with a missing or non-numeric lat/lon poisons the whole tour: NaN
-// flows into the distance accumulator and reaches Leaflet's fitBounds as
-// [null, null], breaking the map. Bounds match the EXIF check in extractGps.js.
-const isValidPoint = ([lat, lon]) =>
-  Number.isFinite(lat) &&
-  Number.isFinite(lon) &&
-  lat >= -90 &&
-  lat <= 90 &&
-  lon >= -180 &&
-  lon <= 180;
+// Also rejects NaN, which would poison the distance; bounds match extractGps.js.
+const isValidPoint = ({ latitude, longitude }) =>
+  latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 
-// fast-xml-parser yields an object, an array, or undefined for a repeated
-// element.
-function toArray(v) {
-  if (Array.isArray(v)) return v;
-  return v == null ? [] : [v];
+// fast-xml-parser yields an object for one element, an array for several, undefined for none.
+function toArray(value) {
+  if (Array.isArray(value)) return value;
+  return [value].filter((element) => element != null);
+}
+
+// An element with attributes or children parses to an object holding its text as '#text'.
+function textOf(value) {
+  if (typeof value === 'string') return value;
+  if (typeof value?.['#text'] === 'string') return value['#text'];
+  return '';
+}
+
+function toPoint(element) {
+  return {
+    latitude: parseFloat(element['@_lat']),
+    longitude: parseFloat(element['@_lon']),
+    elevation: parseFloat(textOf(element.ele)),
+    time: Date.parse(textOf(element.time)),
+  };
+}
+
+const validPoints = (elements) => toArray(elements).map(toPoint).filter(isValidPoint);
+const nonEmpty = (segment) => segment.length > 0;
+
+// A planner's export holds only <rte>; a track, when there is one, is what was ridden.
+function pointSegments(gpx) {
+  const trackSegments = toArray(gpx.trk)
+    .flatMap((track) => toArray(track.trkseg).map((segment) => validPoints(segment.trkpt)))
+    .filter(nonEmpty);
+  if (trackSegments.length > 0) return trackSegments;
+  const routes = toArray(gpx.rte)
+    .map((route) => validPoints(route.rtept))
+    .filter(nonEmpty);
+  if (routes.length > 0) return routes;
+  throw new NoTrackPointsError();
+}
+
+// One unreadable <time> leaves the date to the points instead of rejecting the file.
+function tourDate(gpx, timeRange) {
+  const metadataTime = Date.parse(textOf(gpx.metadata?.time));
+  if (Number.isFinite(metadataTime)) return new Date(metadataTime).toISOString();
+  if (timeRange.count === 0) return null;
+  return new Date(timeRange.minimum).toISOString();
+}
+
+function parseDocument(input) {
+  let document;
+  try {
+    document = parser.parse(input);
+  } catch (error) {
+    throw new InvalidGpxError('Not a valid GPX file', { cause: error });
+  }
+  if (document.gpx === undefined) throw new InvalidGpxError('Not a valid GPX file');
+  // An empty <gpx/> parses to '', which has no elements to read, like any text.
+  return document.gpx;
 }
 
 /**
- * Parse a GPX string or Buffer and return tour metadata + heatmap points.
- * Handles multiple <trk> and <trkseg> elements; downsamples to ≤ 5,000 points.
- * Elevation and duration fields are null (not 0) when the file carries no
- * <ele>/<time> — that distinction is the point, not just a fallback.
+ * Elevation and duration are null, not 0, without <ele>/<time>: the frontend shows "unknown".
+ * Distance, moving time and climb add up within each segment, never across the gap between two.
  *
- * @param {string|Buffer} gpxInput
+ * @param {string|Buffer} input
  * @returns {{
  *   name: string|null, date: string|null,
- *   distanceKm: number, heatmapData: [number,number][],
+ *   distanceKm: number, heatmapData: [number,number][], segmentStarts: number[],
  *   elevationGain: number|null, elevationLoss: number|null,
  *   minElevation: number|null, maxElevation: number|null,
  *   durationSeconds: number|null, movingSeconds: number|null,
  *   avgSpeed: number|null,
  * }}
  */
-function parseGpx(gpxInput) {
-  if (Buffer.isBuffer(gpxInput)) gpxInput = gpxInput.toString('utf8');
-  // Malformed markup surfaces as the same validation error as a non-GPX document,
-  // never as the XML parser's internal message.
-  let doc;
-  try {
-    doc = parser.parse(gpxInput);
-  } catch {
-    throw new Error('Not a valid GPX file');
-  }
-  const gpx = doc?.gpx;
-  if (!gpx) throw new Error('Not a valid GPX file');
+function parseGpx(input) {
+  const gpx = parseDocument(input);
+  const [firstTrack] = toArray(gpx.trk);
+  const name = textOf(gpx.metadata?.name) || textOf(firstTrack?.name) || null;
 
-  // GPX allows multiple <trk>, <trkseg> and <trkpt> elements.
-  const tracks = toArray(gpx.trk);
-  const name = gpx.metadata?.name || tracks[0]?.name || null;
+  const segments = pointSegments(gpx);
+  const points = segments.flat();
+  const ranges = rangesOf(points);
 
-  const firstPt = toArray(toArray(tracks[0]?.trkseg)[0]?.trkpt)[0];
-  const time = gpx.metadata?.time || firstPt?.time || null;
-  const date = time ? new Date(time).toISOString() : null;
-
-  const validPoints = tracks
-    .flatMap((trk) =>
-      toArray(trk.trkseg).flatMap((seg) =>
-        toArray(seg.trkpt).map((pt) => ({
-          lat: parseFloat(pt['@_lat']),
-          lon: parseFloat(pt['@_lon']),
-          ele: pt.ele !== undefined ? parseFloat(pt.ele) : NaN,
-          time: pt.time ? Date.parse(pt.time) : NaN,
-        })),
-      ),
-    )
-    .filter((p) => isValidPoint([p.lat, p.lon]));
-
-  const { distanceKm, heatmapData } = processPoints(validPoints.map((p) => [p.lat, p.lon]));
-  const elevation = computeElevationStats(validPoints);
-  const duration = computeDurationStats(validPoints);
-
-  return { name, date, distanceKm, heatmapData, ...elevation, ...duration };
+  return {
+    name,
+    date: tourDate(gpx, ranges.time),
+    distanceKm: sum(segments.map(pathLengthKm)),
+    ...downsampleTrack(segments),
+    ...elevationStats(segments, ranges.elevation),
+    ...durationStats(segments, ranges.time),
+  };
 }
 
-module.exports = { parseGpx };
+module.exports = { parseGpx, InvalidGpxError, NoTrackPointsError };

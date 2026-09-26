@@ -1,69 +1,76 @@
 'use strict';
 
-const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer, readItem } = require('../lib/db');
-const { imagesContainer } = require('../lib/blobStorage');
-const { thumbBlobName } = require('../lib/thumbBlobName');
+const { apiRoute } = require('../lib/functionsApp');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const blobStorage = require('../lib/blobStorage');
 const { loadOwnedTour } = require('../lib/ownedTour');
-const { error } = require('../lib/http');
+const { imageBlobName, thumbnailBlobName } = require('../lib/blobNames');
+const { settleAll } = require('../lib/settle');
+const { ERROR_KEYS, error } = require('../lib/http');
 
 const MAX_REPLACE_ATTEMPTS = 3;
 
-// DELETE /api/tours/{tourId}/images/{imageId} — remove an image blob and its
-// entry from tour.images.
-async function deleteImage(
-  request,
-  auth = authenticate,
-  getToursContainer = toursContainer,
-  getImagesContainer = imagesContainer,
-) {
-  const { tourId, imageId } = request.params;
-  const guard = await loadOwnedTour(request, auth, getToursContainer, { imageId });
-  if (guard.response) return guard.response;
+const withoutImage = (tour, imageId) => tour.images.filter((image) => image.id !== imageId);
 
-  const { userId } = guard.user;
-  let tour = guard.tour;
-
-  const image = (tour.images || []).find((i) => i.id === imageId);
-  if (!image) return error(404, 'Image not found');
-
-  // Entry first, blob second. The leftover from failing here is an orphaned
-  // blob: invisible, cheap, and reaped wholesale by DeleteAccount. The reverse
-  // order leaves tour.images pointing at nothing — a broken thumbnail a retry
-  // can't fix, because it finds the entry still present.
-  //
-  // .replace(tour) rewrites the whole document, so two photo deletions close
-  // together would clobber each other. The ETag read alongside the tour guards
-  // the write, and a conflict retries against a fresh read.
-  for (let attempt = 0; ; attempt++) {
-    const images = tour.images.filter((i) => i.id !== imageId);
+// Conditional on the ETag and retried on a fresh read; false once the tour itself is gone.
+async function removeImageEntry({ container, tour, imageId, userId }) {
+  let current = tour;
+  for (let attempt = 1; ; attempt++) {
     try {
-      await getToursContainer()
-        .item(tourId, userId)
-        .replace(
-          { ...tour, images },
-          { accessCondition: { type: 'IfMatch', condition: tour._etag } },
-        );
-      break;
-    } catch (err) {
-      if (err.code !== 412 || attempt >= MAX_REPLACE_ATTEMPTS - 1) throw err;
-      tour = await readItem(getToursContainer(), tourId, userId);
+      await db.replaceItemIfMatch(container, {
+        document: { ...current, images: withoutImage(current, imageId) },
+        partitionKey: userId,
+        etag: current._etag,
+      });
+      return true;
+    } catch (replaceError) {
+      if (replaceError.code !== 412 || attempt >= MAX_REPLACE_ATTEMPTS) throw replaceError;
+      current = await db.readItem(container, { id: tour.id, partitionKey: userId });
+      if (!current) return false;
     }
   }
+}
 
-  const container = await getImagesContainer();
-  await Promise.all([
-    container.getBlockBlobClient(image.blobName).deleteIfExists(),
-    container.getBlockBlobClient(thumbBlobName(image.blobName)).deleteIfExists(),
-  ]);
+// Entry before blobs: a failure in between leaves an unreferenced blob, not a dead entry.
+async function deleteImage(
+  request,
+  {
+    authenticate = authMiddleware.authenticate,
+    toursContainer = db.toursContainer,
+    imagesContainer = blobStorage.imagesContainer,
+  } = {},
+) {
+  const { imageId } = request.params;
+  const guard = await loadOwnedTour(request, {
+    authenticate,
+    toursContainer,
+    otherIdParams: { imageId },
+  });
+  if (guard.response) return guard.response;
+  const { tour } = guard;
+  const { userId } = guard.user;
 
+  if (!tour.images?.some((image) => image.id === imageId)) {
+    return error(404, ERROR_KEYS.imageNotFound);
+  }
+  const removed = await removeImageEntry({ container: toursContainer(), tour, imageId, userId });
+  if (!removed) return error(404, ERROR_KEYS.tourNotFound);
+
+  const blobName = imageBlobName({ userId, tourId: tour.id, imageId });
+  const container = await imagesContainer();
+  await settleAll(
+    [
+      blobStorage.deleteBlobIfExists(container, blobName),
+      blobStorage.deleteBlobIfExists(container, thumbnailBlobName(blobName)),
+    ],
+    `Image ${imageId} was removed from its tour, but not all of its blobs were deleted`,
+  );
   return { status: 204 };
 }
 
-app.http('DeleteImage', {
+apiRoute('DeleteImage', {
   methods: ['delete'],
-  authLevel: 'anonymous',
   route: 'tours/{tourId}/images/{imageId}',
   /* v8 ignore next */
   handler: (request) => deleteImage(request),

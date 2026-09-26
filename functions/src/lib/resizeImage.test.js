@@ -1,7 +1,15 @@
 'use strict';
 
 const sharp = require('sharp');
-const { resizeImage, resizeThumbnail } = require('./resizeImage');
+const { resizeImage, resizeThumbnail, resizeVariants } = require('./resizeImage');
+
+async function noisyPng(size) {
+  const raw = Buffer.alloc(size * size * 3);
+  for (let index = 0; index < raw.length; index++) raw[index] = (index * 37) % 256;
+  return sharp(raw, { raw: { width: size, height: size, channels: 3 } })
+    .png()
+    .toBuffer();
+}
 
 describe('resizeImage', () => {
   it('downscales an oversized image to the max width and re-encodes as JPEG', async () => {
@@ -12,11 +20,11 @@ describe('resizeImage', () => {
       .toBuffer();
 
     const resized = await resizeImage(buffer);
-    const meta = await sharp(resized).metadata();
+    const metadata = await sharp(resized).metadata();
 
-    expect(meta.format).toBe('jpeg');
-    expect(meta.width).toBe(2000);
-    expect(meta.height).toBe(1000);
+    expect(metadata.format).toBe('jpeg');
+    expect(metadata.width).toBe(2000);
+    expect(metadata.height).toBe(1000);
   });
 
   it('never upscales an image smaller than the max width', async () => {
@@ -27,11 +35,11 @@ describe('resizeImage', () => {
       .toBuffer();
 
     const resized = await resizeImage(buffer);
-    const meta = await sharp(resized).metadata();
+    const metadata = await sharp(resized).metadata();
 
-    expect(meta.format).toBe('jpeg');
-    expect(meta.width).toBe(100);
-    expect(meta.height).toBe(50);
+    expect(metadata.format).toBe('jpeg');
+    expect(metadata.width).toBe(100);
+    expect(metadata.height).toBe(50);
   });
 
   it('rejects an image over the pixel limit instead of decoding it', async () => {
@@ -45,18 +53,12 @@ describe('resizeImage', () => {
   });
 
   it('encodes at quality 82, not the sharp default', async () => {
-    const width = 100;
-    const height = 100;
-    const raw = Buffer.alloc(width * height * 3);
-    for (let i = 0; i < raw.length; i++) raw[i] = (i * 37) % 256;
-    const buffer = await sharp(raw, { raw: { width, height, channels: 3 } })
-      .png()
-      .toBuffer();
+    const buffer = await noisyPng(100);
 
     const resized = await resizeImage(buffer);
-    const defaultQuality = await sharp(buffer).rotate().jpeg({}).toBuffer();
+    const atQuality82 = await sharp(buffer).jpeg({ quality: 82 }).toBuffer();
 
-    expect(resized.length).not.toBe(defaultQuality.length);
+    expect(resized.length).toBe(atQuality82.length);
   });
 });
 
@@ -68,12 +70,12 @@ describe('resizeThumbnail', () => {
       .png()
       .toBuffer();
 
-    const thumb = await resizeThumbnail(buffer);
-    const meta = await sharp(thumb).metadata();
+    const thumbnail = await resizeThumbnail(buffer);
+    const metadata = await sharp(thumbnail).metadata();
 
-    expect(meta.format).toBe('jpeg');
-    expect(meta.width).toBe(320);
-    expect(meta.height).toBe(160);
+    expect(metadata.format).toBe('jpeg');
+    expect(metadata.width).toBe(320);
+    expect(metadata.height).toBe(160);
   });
 
   it('never upscales an image smaller than the thumbnail width', async () => {
@@ -83,11 +85,11 @@ describe('resizeThumbnail', () => {
       .jpeg()
       .toBuffer();
 
-    const thumb = await resizeThumbnail(buffer);
-    const meta = await sharp(thumb).metadata();
+    const thumbnail = await resizeThumbnail(buffer);
+    const metadata = await sharp(thumbnail).metadata();
 
-    expect(meta.width).toBe(100);
-    expect(meta.height).toBe(50);
+    expect(metadata.width).toBe(100);
+    expect(metadata.height).toBe(50);
   });
 
   it('rejects an image over the pixel limit instead of decoding it', async () => {
@@ -107,8 +109,19 @@ describe('resizeThumbnail', () => {
       .png()
       .toBuffer();
 
-    const [full, thumb] = await Promise.all([resizeImage(buffer), resizeThumbnail(buffer)]);
+    const { full, thumbnail } = await resizeVariants(buffer);
 
-    expect(thumb.length).toBeLessThan(full.length);
+    expect(thumbnail.length).toBeLessThan(full.length);
+    expect((await sharp(full).metadata()).width).toBe(2000);
+    expect((await sharp(thumbnail).metadata()).width).toBe(320);
+  });
+
+  it('encodes at quality 70', async () => {
+    const buffer = await noisyPng(100);
+
+    const thumbnail = await resizeThumbnail(buffer);
+    const atQuality70 = await sharp(buffer).jpeg({ quality: 70 }).toBuffer();
+
+    expect(thumbnail.length).toBe(atQuality70.length);
   });
 });

@@ -1,7 +1,6 @@
 name: Load test (k6)
 
-# Manual only: a measurement, never a gate. How to run and read it:
-# docs/how-to/load-testing.md. Nothing here runs on push or pull_request.
+# Manual only: a measurement, never a gate (docs/how-to/load-testing.md).
 on:
   workflow_dispatch:
     inputs:
@@ -56,8 +55,7 @@ jobs:
         with:
           packages: functions
 
-      # The Functions host logs per-invocation timings, Cosmos RU and event-loop delay
-      # for the backend report (docs/how-to/load-testing.md, "Backend report").
+      # docs/how-to/load-testing.md, "Backend report".
       - name: Enable backend profiling
         if: inputs.target == 'local-stack'
         run: |
@@ -84,12 +82,10 @@ jobs:
           PROFILE: ${{ inputs.profile }}
           TARGET: ${{ inputs.target }}
           CONFIRM: ${{ inputs.confirm_production && 'true' || '' }}
-          FUNC_LOG: /tmp/func.log
+          FUNCTIONS_HOST_LOG: /tmp/func.log
           LOAD_API_URL: ${{ inputs.target == 'hosted' && vars.LOAD_API_URL || '' }}
           LOAD_ACCESS_TOKEN: ${{ inputs.target == 'hosted' && secrets.LOAD_ACCESS_TOKEN || '' }}
 
-      # k6's table from handleSummary; for the local stack also the backend report
-      # (load/backend-report.mjs). The HTML charts and raw profiles ride in the artifact.
       - name: Add the k6 and backend reports to the job summary
         if: ${{ !cancelled() && steps.k6.outcome != 'skipped' }}
         env:
@@ -106,8 +102,7 @@ jobs:
             cat "$report" >> "$GITHUB_STEP_SUMMARY"
           done
 
-      # The worker writes its --cpu-prof files only when it exits: stop the host, then add
-      # the top functions by self time to the backend report (summary and artifact).
+      # The worker writes its --cpu-prof files only when it exits; no file after 30 s fails the report.
       - name: Add the CPU profile to the backend report
         if: ${{ !cancelled() && steps.k6.outcome != 'skipped' && inputs.target == 'local-stack' }}
         env:

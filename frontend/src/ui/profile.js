@@ -1,49 +1,48 @@
-'use strict';
-
-import * as i18n from '../lib/i18n.js';
+import * as i18n from './i18n.js';
 import { initials, formatDate } from '../lib/format.js';
 import { parseErrorMessage } from '../lib/upload.js';
 import { state } from './state.js';
-import { apiFetch, refreshUser, renderNavAuth, signOut } from './auth.js';
+import { apiRequest } from './api.js';
+import { refreshUser, renderNavAuth, signOut } from './auth.js';
 import { toast } from './toast.js';
 import { openModal, closeModal } from './modal.js';
 import {
-  show,
-  elProfileModal,
-  elProfileAvatar,
-  elProfileTitle,
-  elProfileNameInput,
-  elProfileNameError,
-  elProfileEmail,
-  elProfileSince,
-  elDeleteAccountModal,
-  elDeleteAccountHint,
-  elDeleteAccountInput,
-  elBtnDeleteAccountConfirm,
+  showElement,
+  hideElement,
+  profileModal,
+  profileAvatar,
+  profileTitle,
+  profileNameInput,
+  profileNameError,
+  profileEmail,
+  profileMemberSince,
+  deleteAccountModal,
+  deleteAccountHint,
+  deleteAccountInput,
+  deleteAccountConfirmButton,
 } from './dom.js';
 
 const t = i18n.t;
 
-// A typed phrase rather than a second click, kept as one literal token
-// (not translated) so it stays exact and easy to type regardless of locale.
+// Not translated: the phrase must be exact and easy to type in any locale.
 const DELETE_ACCOUNT_PHRASE = 'DELETE';
 
 function renderProfile() {
-  elProfileTitle.textContent = state.user.name || t('profile.yourAccount');
-  elProfileAvatar.textContent = initials(state.user.name || state.user.email);
-  elProfileEmail.textContent = state.user.email || '—';
-  elProfileSince.textContent = state.user.createdAt
-    ? formatDate(state.user.createdAt, i18n.dateLocale())
+  profileTitle.textContent = state.user.name || t('profile.yourAccount');
+  profileAvatar.textContent = initials(state.user.name || state.user.email);
+  profileEmail.textContent = state.user.email || '—';
+  profileMemberSince.textContent = state.user.createdAt
+    ? formatDate(state.user.createdAt, i18n.intlLocale())
     : '—';
-  elProfileNameInput.value = state.user.name || '';
+  profileNameInput.value = state.user.name || '';
 }
 
 export async function openProfile() {
   if (!state.user) return;
   renderProfile();
-  openModal(elProfileModal);
+  openModal(profileModal);
 
-  // Join date lives on the user doc, which the login session may not have.
+  // The join date is on the user document, which the sign-in session may lack.
   if (!state.user.createdAt) {
     await refreshUser();
     renderProfile();
@@ -51,98 +50,95 @@ export async function openProfile() {
 }
 
 export function closeProfile() {
-  closeModal(elProfileModal);
+  closeModal(profileModal);
 }
 
-export async function saveProfileName(e) {
-  e.preventDefault();
-  const name = elProfileNameInput.value.trim();
-  show(elProfileNameError, false);
-  try {
-    const res = await apiFetch('/api/me', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) {
-      elProfileNameError.textContent = parseErrorMessage(await res.text(), t('errors.saveName'));
-      show(elProfileNameError, true);
-      return;
-    }
-    state.user = { ...state.user, ...(await res.json()) };
-    renderProfile();
-    renderNavAuth();
-    toast(t('toast.nameUpdated'), 'success');
-  } catch {
-    elProfileNameError.textContent = t('errors.network');
-    show(elProfileNameError, true);
+function showNameError(message) {
+  profileNameError.textContent = message;
+  showElement(profileNameError);
+}
+
+const patchMe = (changes) =>
+  apiRequest('/api/v1/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  });
+
+export async function saveProfileName(event) {
+  event.preventDefault();
+  hideElement(profileNameError);
+  const { response, networkError } = await patchMe({ name: profileNameInput.value.trim() });
+  if (networkError) {
+    showNameError(t('errors.network'));
+    return;
   }
+  if (!response.ok) {
+    showNameError(i18n.tApi(parseErrorMessage(await response.text(), t('errors.saveName'))));
+    return;
+  }
+  state.user = { ...state.user, ...(await response.json()) };
+  renderProfile();
+  renderNavAuth();
+  toast(t('toast.nameUpdated'), { type: 'success' });
 }
 
-// Persisted before it is applied: i18n.setLanguage reloads the page, so
-// anything after it never runs.
+// Persisted first: setLanguage reloads the page, so nothing after it runs.
 export async function selectLanguage(code) {
-  try {
-    const res = await apiFetch('/api/me', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ language: code }),
-    });
-    if (!res.ok) {
-      toast(parseErrorMessage(await res.text(), t('errors.saveLanguage')), 'error');
-      return;
-    }
-    i18n.setLanguage(code);
-  } catch {
-    toast(t('errors.network'), 'error');
+  const { response, networkError } = await patchMe({ language: code });
+  if (networkError) {
+    toast(t('errors.network'), { type: 'error' });
+    return;
   }
+  if (!response.ok) {
+    const message = parseErrorMessage(await response.text(), t('errors.saveLanguage'));
+    toast(i18n.tApi(message), { type: 'error' });
+    return;
+  }
+  i18n.setLanguage(code);
 }
 
-// GDPR data export.
 export async function downloadMyData() {
-  try {
-    const res = await apiFetch('/api/me/export');
-    if (!res.ok) throw new Error('export failed');
-    const url = URL.createObjectURL(await res.blob());
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'bikebuddy-export.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    toast(t('toast.exportDone'), 'success');
-  } catch {
-    toast(t('toast.exportError'), 'error');
+  const { response, networkError } = await apiRequest('/api/v1/me/export');
+  if (networkError || !response.ok) {
+    toast(t('toast.exportError'), { type: 'error' });
+    return;
   }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'bikebuddy-export.json';
+  link.click();
+  URL.revokeObjectURL(url);
+  toast(t('toast.exportDone'), { type: 'success' });
 }
 
 export function openDeleteAccountModal() {
-  elDeleteAccountInput.value = '';
-  elDeleteAccountHint.textContent = t('confirm.deleteAccountPhraseHint', {
+  deleteAccountInput.value = '';
+  deleteAccountHint.textContent = t('confirm.deleteAccountPhraseHint', {
     phrase: DELETE_ACCOUNT_PHRASE,
   });
-  elBtnDeleteAccountConfirm.disabled = true;
-  openModal(elDeleteAccountModal);
+  deleteAccountConfirmButton.disabled = true;
+  openModal(deleteAccountModal);
 }
 
 export function closeDeleteAccountModal() {
-  closeModal(elDeleteAccountModal);
+  closeModal(deleteAccountModal);
 }
 
 export function updateDeleteAccountConfirmState() {
-  elBtnDeleteAccountConfirm.disabled = elDeleteAccountInput.value !== DELETE_ACCOUNT_PHRASE;
+  deleteAccountConfirmButton.disabled = deleteAccountInput.value !== DELETE_ACCOUNT_PHRASE;
 }
 
-// GDPR erasure. Only reachable once the typed-phrase check in the modal has
-// enabled the button, so no further confirmation happens here.
+// Only reachable once the typed phrase has enabled the button.
 export async function deleteMyAccount() {
-  try {
-    const res = await apiFetch('/api/account', { method: 'DELETE' });
-    if (!res.ok) throw new Error('delete failed');
-    closeDeleteAccountModal();
-    closeProfile();
-    toast(t('toast.accountDeleted'), 'success');
-    await signOut();
-  } catch {
-    toast(t('toast.accountDeleteError'), 'error');
+  const { response, networkError } = await apiRequest('/api/v1/account', { method: 'DELETE' });
+  if (networkError || !response.ok) {
+    toast(t('toast.accountDeleteError'), { type: 'error' });
+    return;
   }
+  closeDeleteAccountModal();
+  closeProfile();
+  toast(t('toast.accountDeleted'), { type: 'success' });
+  await signOut();
 }

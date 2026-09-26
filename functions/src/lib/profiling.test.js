@@ -2,7 +2,7 @@
 
 const {
   PREFIX,
-  enabled,
+  isEnabled,
   emit,
   bodyBytes,
   registerInvocationHooks,
@@ -16,29 +16,19 @@ const records = (write) => write.mock.calls.map(([line]) => JSON.parse(line.slic
 
 describe('profiling', () => {
   afterEach(() => {
-    delete process.env.LOAD_PROFILING;
     vi.useRealTimers();
   });
 
   it('is enabled only by LOAD_PROFILING=true', () => {
-    expect(enabled()).toBe(false);
-    process.env.LOAD_PROFILING = 'yes';
-    expect(enabled()).toBe(false);
-    process.env.LOAD_PROFILING = 'true';
-    expect(enabled()).toBe(true);
+    expect(isEnabled({})).toBe(false);
+    expect(isEnabled({ LOAD_PROFILING: 'yes' })).toBe(false);
+    expect(isEnabled({ LOAD_PROFILING: 'true' })).toBe(true);
   });
 
   it('emits one prefixed JSON line per record', () => {
     const write = vi.fn();
-    emit({ type: 'x', n: 1 }, write);
-    expect(write).toHaveBeenCalledWith('LOADPROF {"type":"x","n":1}');
-  });
-
-  it('writes to console.log by default', () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-    emit({ type: 'x' });
-    expect(log).toHaveBeenCalledWith('LOADPROF {"type":"x"}');
-    log.mockRestore();
+    emit({ type: 'x', count: 1 }, write);
+    expect(write).toHaveBeenCalledWith('LOADPROF {"type":"x","count":1}');
   });
 
   it.each([
@@ -60,8 +50,8 @@ describe('profiling', () => {
         hooks,
         app: {
           hook: {
-            preInvocation: (fn) => (hooks.pre = fn),
-            postInvocation: (fn) => (hooks.post = fn),
+            preInvocation: (hook) => (hooks.pre = hook),
+            postInvocation: (hook) => (hooks.post = hook),
           },
         },
       };
@@ -71,7 +61,7 @@ describe('profiling', () => {
       const { app, hooks } = fakeApp();
       const write = vi.fn();
       const times = [10, 35];
-      registerInvocationHooks(app, () => times.shift(), write);
+      registerInvocationHooks(app, { now: () => times.shift(), write });
 
       const pre = {
         invocationContext: { functionName: 'GetTours' },
@@ -94,26 +84,11 @@ describe('profiling', () => {
     it('records a thrown error as a 500 and a bare result as a 200', () => {
       const { app, hooks } = fakeApp();
       const write = vi.fn();
-      registerInvocationHooks(app, () => 0, write);
+      registerInvocationHooks(app, { now: () => 0, write });
       const base = { invocationContext: { functionName: 'H' }, hookData: { startedAt: 0 } };
       hooks.post({ ...base, error: new Error('boom'), result: undefined });
       hooks.post({ ...base, result: undefined });
-      expect(records(write).map((r) => r.status)).toEqual([500, 200]);
-    });
-
-    it('uses performance.now and console.log by default', async () => {
-      const { app, hooks } = fakeApp();
-      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-      registerInvocationHooks(app);
-      const pre = {
-        invocationContext: { functionName: 'H' },
-        functionHandler: async () => 1,
-        hookData: {},
-      };
-      hooks.pre(pre);
-      hooks.post({ invocationContext: { functionName: 'H' }, hookData: pre.hookData, result: {} });
-      expect(log.mock.calls[0][0]).toMatch(/^LOADPROF \{"type":"invocation","handler":"H"/);
-      log.mockRestore();
+      expect(records(write).map((record) => record.status)).toEqual([500, 200]);
     });
   });
 
@@ -121,40 +96,41 @@ describe('profiling', () => {
     expect(currentHandler()).toBe('none');
   });
 
-  it('samples event-loop delay and memory on an interval', () => {
+  it('samples event-loop delay and memory in megabytes on an interval', () => {
     vi.useFakeTimers();
     const write = vi.fn();
-    const timer = startSampling(write, 1000);
+    const readMemory = () => ({ rss: 3 * 2 ** 20, heapUsed: 2 ** 19 });
+    const timer = startSampling({ write, readMemory, intervalMs: 1000 });
     vi.advanceTimersByTime(2000);
     clearInterval(timer);
     const samples = records(write);
     expect(samples).toHaveLength(2);
-    expect(samples[0]).toEqual(
-      expect.objectContaining({
-        type: 'sample',
-        loopP99Ms: expect.any(Number),
-        loopMaxMs: expect.any(Number),
-        rssMb: expect.any(Number),
-        heapUsedMb: expect.any(Number),
-      }),
-    );
+    expect(samples[0]).toEqual({
+      type: 'sample',
+      loopP50Ms: expect.any(Number),
+      loopP99Ms: expect.any(Number),
+      loopMaxMs: expect.any(Number),
+      rssMb: 3,
+      heapUsedMb: 0.5,
+    });
   });
 
-  it('samples with the default writer and interval', () => {
+  it('samples every five seconds by default', () => {
     vi.useFakeTimers();
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const timer = startSampling();
-    vi.advanceTimersByTime(5000);
+    const write = vi.fn();
+    const timer = startSampling({ write, readMemory: () => ({ rss: 0, heapUsed: 0 }) });
+    vi.advanceTimersByTime(4999);
+    expect(write).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     clearInterval(timer);
-    expect(log).toHaveBeenCalledTimes(1);
-    log.mockRestore();
+    expect(write).toHaveBeenCalledTimes(1);
   });
 
   describe('cosmos plugin', () => {
     it('records each request with its request charge and duration', async () => {
       const write = vi.fn();
       const times = [100, 112];
-      const plugin = cosmosPlugin(write, () => times.shift());
+      const plugin = cosmosPlugin({ write, now: () => times.shift() });
       const response = { headers: { 'x-ms-request-charge': '2.83' }, result: 'r' };
       const next = vi.fn(async () => response);
       const context = { operationType: 'query', resourceType: 'docs' };
@@ -168,18 +144,9 @@ describe('profiling', () => {
 
     it('tolerates a response without headers or an unknown operation', async () => {
       const write = vi.fn();
-      const plugin = cosmosPlugin(write, () => 0);
+      const plugin = cosmosPlugin({ write, now: () => 0 });
       await plugin({}, {}, async () => ({}));
       expect(records(write)[0]).toEqual(expect.objectContaining({ op: '? ?', ru: 0 }));
-    });
-
-    it('defaults to console.log and performance.now', async () => {
-      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-      await cosmosPlugin()({ operationType: 'read', resourceType: 'docs' }, {}, async () => ({
-        headers: {},
-      }));
-      expect(log.mock.calls[0][0]).toMatch(/"op":"read docs"/);
-      log.mockRestore();
     });
   });
 
@@ -190,11 +157,13 @@ describe('profiling', () => {
     it.each([
       ['http://127.0.0.1:10000/devstoreaccount1/tour-images/u/t/i.jpg', 'PUT blob'],
       ['http://127.0.0.1:10000/devstoreaccount1/tour-images?restype=container', 'PUT container'],
-    ])('records %s as %s', async (url, op) => {
+    ])('records %s as %s', async (url, operation) => {
       const write = vi.fn();
       const policy = through(blobPolicyFactory(write), { status: 201 });
       await expect(policy.sendRequest({ method: 'PUT', url })).resolves.toEqual({ status: 201 });
-      expect(records(write)).toEqual([{ type: 'blob', handler: 'none', op, status: 201 }]);
+      expect(records(write)).toEqual([
+        { type: 'blob', handler: 'none', op: operation, status: 201 },
+      ]);
     });
 
     it('records a request that failed with its status code, then rethrows', async () => {
@@ -217,14 +186,6 @@ describe('profiling', () => {
       });
       await expect(policy.sendRequest({ method: 'GET', url: 'http://h/a/c/b' })).rejects.toThrow();
       expect(records(write)[0].status).toBe(0);
-    });
-
-    it('writes to console.log by default', async () => {
-      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const policy = through(blobPolicyFactory(), { status: 200 });
-      await policy.sendRequest({ method: 'GET', url: 'http://h/acct/c/b' });
-      expect(log.mock.calls[0][0]).toMatch(/"op":"GET blob"/);
-      log.mockRestore();
     });
   });
 });

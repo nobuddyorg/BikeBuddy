@@ -18,7 +18,7 @@ inputs:
 runs:
   using: composite
   steps:
-    # The emulator key and UseDevelopmentStorage are public by design (.gitleaks.toml allowlists them).
+    # The Cosmos emulator key is public by design (.gitleaks.toml allowlists it); Azurite's setting holds no secret.
     - name: Export the local-stack settings
       shell: bash
       run: |
@@ -31,14 +31,7 @@ runs:
           echo "AzureWebJobsStorage=UseDevelopmentStorage=true"
         } >> "$GITHUB_ENV"
 
-    # Pinned: azure-functions-core-tools@4.14.0 ships a bundled npm-shrinkwrap.json
-    # that resolves chalk@6.0.0 from Microsoft's internal Azure DevOps Artifacts feed
-    # (pkgs.dev.azure.com/azfunc/...) instead of the public npm registry, which returns
-    # 401/403 for anyone outside Microsoft's network. 4.13.0 predates that broken
-    # shrinkwrap and isn't deprecated. Bump once a fixed >=4.14.1 is released.
-    - name: Install Azure Functions Core Tools
-      shell: bash
-      run: npm install -g azure-functions-core-tools@4.13.0 # zizmor: ignore[adhoc-packages] global CLI, no lockfile; pinned above
+    - uses: ./.github/actions/install-core-tools
 
     - name: Install the Static Web Apps CLI
       if: inputs.swa-cli == 'true'

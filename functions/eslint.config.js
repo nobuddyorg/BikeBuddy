@@ -14,8 +14,8 @@ module.exports = [
       sourceType: 'commonjs',
       globals: globals.node,
     },
-    // devDependencies (vitest, eslint) are required in config/test files
-    rules: { 'n/no-unpublished-require': 'off' },
+    // devDependencies (vitest, eslint) are required or imported in config/test files
+    rules: { 'n/no-unpublished-require': 'off', 'n/no-unpublished-import': 'off' },
   },
   {
     files: ['**/*.test.js'],

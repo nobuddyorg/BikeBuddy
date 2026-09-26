@@ -3,91 +3,113 @@
 
 const Busboy = require('busboy');
 const { Readable } = require('stream');
+const { ERROR_KEYS } = require('./http');
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// Boundaries and part headers around the file: a file at the limit must pass the shortcut.
+const MULTIPART_OVERHEAD_BYTES = 16 * 1024;
 
 function badRequest(message) {
-  const err = /** @type {Error & { status?: number }} */ (new Error(message));
-  err.status = 400;
-  return err;
+  const error = /** @type {Error & { status?: number }} */ (new Error(message));
+  error.status = 400;
+  return error;
+}
+
+// busboy's wording is logged, not returned: it says nothing an uploader can act on.
+function malformedRequest(error) {
+  console.warn(`upload: malformed multipart (${error.name}: ${error.message})`);
+  return badRequest(ERROR_KEYS.invalidUpload);
+}
+
+// A 2,000-character description at four bytes a character; a longer value is no tour's.
+const MAX_FIELD_BYTES = 8 * 1024;
+
+function createParser(headers, allowedFields) {
+  try {
+    return Busboy({
+      headers,
+      // busboy cuts a file or value on reaching its size, and one exactly at the limit is allowed.
+      limits: {
+        fileSize: MAX_FILE_BYTES + 1,
+        files: 1,
+        fields: allowedFields.size,
+        fieldSize: MAX_FIELD_BYTES + 1,
+      },
+    });
+  } catch (error) {
+    // Busboy throws here only for a missing or unusable Content-Type header.
+    throw malformedRequest(error);
+  }
+}
+
+// Only the named fields, each once and whole: anything else is a client that means something else.
+function collectFields(parser, { allowedFields, fields, reject }) {
+  parser.on('field', (name, value, { valueTruncated }) => {
+    if (!allowedFields.has(name) || name in fields || valueTruncated) {
+      reject(badRequest(ERROR_KEYS.invalidUpload));
+      return;
+    }
+    fields[name] = value;
+  });
+  parser.on('fieldsLimit', () => reject(badRequest(ERROR_KEYS.invalidUpload)));
+}
+
+function collectFirstFile(parser, { onFile, reject }) {
+  parser.on('file', (_fieldName, fileStream, { filename, mimeType }) => {
+    const chunks = [];
+    // The stream is truncated from here on, so the partial buffer is unusable.
+    fileStream.on('limit', () => reject(badRequest(ERROR_KEYS.fileSize)));
+    fileStream.on('data', (chunk) => chunks.push(chunk));
+    fileStream.on('end', () => onFile({ filename, mimeType, buffer: Buffer.concat(chunks) }));
+    // busboy destroys the file with the parser's own error, which the parser's handler reports.
+    fileStream.on('error', () => {});
+  });
+}
+
+// busboy finishes only once every file stream has ended, so the fields around the file are in.
+function collectUpload(parser, { allowedFields, resolve, reject }) {
+  const fields = {};
+  let file;
+  collectFields(parser, { allowedFields, fields, reject });
+  collectFirstFile(parser, { onFile: (collected) => (file = collected), reject });
+  parser.on('error', (error) => reject(malformedRequest(error)));
+  parser.on('finish', () =>
+    file ? resolve({ ...file, fields }) : reject(badRequest(ERROR_KEYS.noFile)),
+  );
 }
 
 /**
- * Parse the first file field from a multipart v4 HttpRequest.
- *
- * Resolves with { filename, mimeType, buffer }, or rejects with an Error whose
- * `.status` is 400 for anything the client got wrong.
- *
- * Streamed into busboy rather than read whole: arrayBuffer() allocated the
- * entire payload before any limit could apply, and Content-Length can't prevent
- * that — chunked requests carry none, and the header is attacker-controlled
- * either way.
+ * Streams the first file through busboy, so the size limit bounds memory, with the text fields
+ * `fieldNames` allows (#579); client errors get 400.
  *
  * @param {import('@azure/functions').HttpRequest} request
+ * @param {{ fieldNames?: string[] }} [options]
+ * @returns {Promise<{ filename: string, mimeType: string, buffer: Buffer,
+ *   fields: Record<string, string> }>}
  */
-async function parseMultipart(request) {
+async function parseMultipart(request, { fieldNames } = {}) {
+  // new Set(undefined) is empty: no fields named, none accepted.
+  const allowedFields = new Set(fieldNames);
   const headers = Object.fromEntries(request.headers.entries());
 
-  // Only a shortcut for honestly-declared lengths; the streaming limit below is
-  // the real enforcement.
-  const contentLength = parseInt(headers['content-length'] ?? '', 10);
-  if (Number.isFinite(contentLength) && contentLength > MAX_FILE_BYTES) {
-    throw badRequest('File exceeds 10 MB limit');
+  // A shortcut for honestly declared lengths only; the stream limit enforces.
+  const contentLength = Number(headers['content-length']);
+  if (contentLength > MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES) {
+    throw badRequest(ERROR_KEYS.fileSize);
   }
 
+  const parser = createParser(headers, allowedFields);
+  // Readable.fromWeb(null) throws a bare TypeError, which would become a 500.
+  const webBody = request.body;
+  if (!webBody) throw badRequest(ERROR_KEYS.noFile);
+
+  // A promise settles once, so whichever of finish or an error comes first decides.
   return new Promise((resolve, reject) => {
-    let busboy;
-    try {
-      busboy = Busboy({
-        headers,
-        // +1 because busboy signals 'limit' on reaching fileSize, not on
-        // exceeding it, and a file of exactly 10 MB is accepted by the frontend
-        // (lib/files.js). No form fields: tour metadata travels in the query.
-        limits: { fileSize: MAX_FILE_BYTES + 1, files: 1, fields: 0 },
-      });
-    } catch {
-      return reject(badRequest('Invalid multipart request'));
-    }
+    collectUpload(parser, { allowedFields, resolve, reject });
 
-    let settled = false;
-    function settle(fn, val) {
-      if (settled) return;
-      settled = true;
-      fn(val);
-    }
-
-    // A body that stops mid-stream is malformed request syntax, not a server
-    // fault, so it must not become a 500. busboy's own wording is
-    // English-only and says nothing the uploader can act on, so it is logged
-    // rather than returned.
-    const rejectMalformed = (err) => {
-      console.warn(`upload: malformed multipart (${err.name}: ${err.message})`);
-      settle(reject, badRequest('Invalid multipart request'));
-    };
-
-    busboy.on('file', (fieldname, fileStream, info) => {
-      const { filename, mimeType } = info;
-      const chunks = [];
-
-      // The stream is truncated from here on, so the partial buffer is unusable.
-      fileStream.on('limit', () => settle(reject, badRequest('File exceeds 10 MB limit')));
-      fileStream.on('data', (chunk) => chunks.push(chunk));
-      fileStream.on('end', () => {
-        settle(resolve, { filename, mimeType, buffer: Buffer.concat(chunks) });
-      });
-      fileStream.on('error', rejectMalformed);
-    });
-
-    busboy.on('error', rejectMalformed);
-    busboy.on('finish', () => settle(reject, badRequest('No file field found in request')));
-
-    // Readable.fromWeb(null) throws a bare TypeError, which callers would
-    // surface as a 500 rather than a 400.
-    if (!request.body) return settle(reject, badRequest('No file field found in request'));
-
-    const body = Readable.fromWeb(request.body);
-    body.on('error', rejectMalformed);
-    body.pipe(busboy);
+    const body = Readable.fromWeb(webBody);
+    body.on('error', (error) => reject(malformedRequest(error)));
+    body.pipe(parser);
   });
 }
 

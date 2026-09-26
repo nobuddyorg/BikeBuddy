@@ -1,19 +1,10 @@
-import { buddyTest, expect } from '../pages/buddy-test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { clearUsers, clearTours } from './usersDb';
+import { AFTER_UNDO_WINDOW, expect, fullstackTest } from './fullstack-test';
+import { PHOTOS } from './seed';
+import { devUserBlobNames } from './store';
 
-// Deleting a single photo, the lightbox, and retrying a failed upload.
-
-// Needs a clean slate: the tour's date comes from the GPX's <time>, which
-// sorts it behind same-day fixture tours another spec may have left behind.
-buddyTest.beforeEach(async () => {
-  await clearUsers();
-  await clearTours();
-});
-
-const here = dirname(fileURLToPath(import.meta.url));
-const SAMPLE_JPG = resolve(here, '../fixtures/sample.jpg');
+// A photo is stored as its full image and its thumbnail (functions/src/UploadImage).
+const storedPhotoBlobs = async () =>
+  (await devUserBlobNames()).filter((name) => name.startsWith('tour-images/'));
 
 const GPX = `<?xml version="1.0"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -24,7 +15,7 @@ const GPX = `<?xml version="1.0"?>
   </trkseg></trk>
 </gpx>`;
 
-buddyTest(
+fullstackTest(
   'deletes a single photo, leaving the rest of the gallery intact',
   async ({ on, page }) => {
     await page.goto('/');
@@ -32,61 +23,68 @@ buddyTest(
 
     const tourName = `Photo Delete ${Date.now()}`;
     await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-    // addImage() targets state.selectedTourId, and uploadGpx only waits for the
-    // tour to reach the list, not to be selected.
-    await expect(on(page).main.locators.detail.name).toHaveText(tourName);
-    await on(page).main.do.addImage(SAMPLE_JPG);
-    await on(page).main.do.addImage(SAMPLE_JPG);
-    await expect(on(page).main.locators.image.thumbs).toHaveCount(2);
+    await expect(on(page).detail.locators.name).toHaveText(tourName);
+    await on(page).detail.do.addPhotos(PHOTOS.untagged);
+    await on(page).detail.do.addPhotos(PHOTOS.untagged);
+    await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(2);
 
-    await on(page).main.do.deleteImage(0);
-    await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
+    await expect.poll(storedPhotoBlobs).toHaveLength(4);
+
+    await on(page).detail.do.deletePhoto(0);
+    await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
+    // The deleted photo's blobs are gone, the other photo's stay (#567).
+    await expect.poll(storedPhotoBlobs, AFTER_UNDO_WINDOW).toHaveLength(2);
   },
 );
 
-buddyTest('opens and closes the lightbox for a photo', async ({ on, page }) => {
+fullstackTest('opens and closes the lightbox for a photo', async ({ on, page }) => {
   await page.goto('/');
   await expect(on(page).main.locators.userMenu).toBeVisible();
 
   const tourName = `Lightbox ${Date.now()}`;
   await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
-  await on(page).main.do.addImage(SAMPLE_JPG);
-  await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
+  await expect(on(page).detail.locators.name).toHaveText(tourName);
+  await on(page).detail.do.addPhotos(PHOTOS.untagged);
+  await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
 
-  await expect(on(page).main.locators.lightbox.root).toBeHidden();
-  await on(page).main.do.openLightbox(0);
-  await expect(on(page).main.locators.lightbox.root).toBeVisible();
-  await expect(on(page).main.locators.lightbox.img).toHaveAttribute('src', /.+/);
+  await expect(on(page).modal.lightbox()).toBeHidden();
+  await on(page).detail.do.openPhoto(0);
+  await expect(on(page).modal.lightbox()).toBeVisible();
+  await expect(on(page).modal.lightbox.locators.image).toHaveAttribute('src', /.+/);
+  await on(page).a11y.check('lightbox');
 
-  await on(page).main.do.closeLightbox();
-  await expect(on(page).main.locators.lightbox.root).toBeHidden();
+  await on(page).modal.lightbox.do.close();
+  await expect(on(page).modal.lightbox()).toBeHidden();
 });
 
-buddyTest('retries a failed upload and it succeeds the second time', async ({ on, page }) => {
-  await page.goto('/');
-  await expect(on(page).main.locators.userMenu).toBeVisible();
+fullstackTest.describe('a failed photo upload', () => {
+  fullstackTest.use({ allowedConsoleErrors: { matching: [/status of 500/] } });
 
-  const tourName = `Retry Upload ${Date.now()}`;
-  await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
-  await expect(on(page).main.locators.detail.name).toHaveText(tourName);
+  fullstackTest('is retried and succeeds the second time', async ({ on, page }) => {
+    await page.goto('/');
+    await expect(on(page).main.locators.userMenu).toBeVisible();
 
-  // Only the first attempt fails; the retry goes to the real backend.
-  let attempt = 0;
-  await page.route('**/api/tours/*/images', async (route) => {
-    attempt++;
-    if (attempt === 1) {
-      await route.fulfill({ status: 500, body: 'Internal Server Error' });
-    } else {
-      await route.continue();
-    }
+    const tourName = `Retry Upload ${Date.now()}`;
+    await on(page).main.do.uploadGpx({ name: tourName, gpx: GPX });
+    await expect(on(page).detail.locators.name).toHaveText(tourName);
+
+    // Only the first attempt fails; the retry goes to the real backend.
+    let attempt = 0;
+    await page.route('**/api/v1/tours/*/images', async (route) => {
+      attempt++;
+      if (attempt === 1) {
+        await route.fulfill({ status: 500, body: 'Internal Server Error' });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await on(page).detail.do.addPhotos(PHOTOS.untagged);
+    await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(1);
+    await expect(on(page).detail.locators.photos.retryButtons).toHaveCount(1);
+
+    await on(page).detail.do.retryPhoto();
+    await expect(on(page).detail.locators.photos.thumbnails).toHaveCount(1);
+    await expect(on(page).detail.locators.photos.errorTiles).toHaveCount(0);
   });
-
-  await on(page).main.do.addImage(SAMPLE_JPG);
-  await expect(on(page).main.locators.image.errorTiles).toHaveCount(1);
-  await expect(on(page).main.locators.image.retryButtons).toHaveCount(1);
-
-  await on(page).main.do.retryImage();
-  await expect(on(page).main.locators.image.thumbs).toHaveCount(1);
-  await expect(on(page).main.locators.image.errorTiles).toHaveCount(0);
 });

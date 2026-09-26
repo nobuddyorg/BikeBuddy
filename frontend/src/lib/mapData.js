@@ -1,33 +1,57 @@
 // @ts-check
-'use strict';
 
-import { isStale, markFetched } from './sasCache.js';
+import { markFetched, isStale } from './sasCache.js';
 
-// One request for every tour still missing map data, rather than a detail fetch
-// each. Tours already holding fresh data are left alone until their signed
-// photo URLs go stale. A failure settles them on empty data, so the map still
-// renders and no retry storm follows. mapDataPromise lets a caller hand in a
-// fetch already started in parallel with the tour list itself, instead of
-// paying its cold-start latency a second time.
-export async function ensureMapData(apiFetch, tours, mapDataPromise = null) {
-  const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour));
+async function fetchMapEntriesById({ apiFetch, pendingResponse }) {
+  const response = await (pendingResponse ?? apiFetch('/api/v1/map'));
+  if (!response.ok) throw new Error(`GET /api/v1/map answered ${response.status}`);
+  const entries = await response.json();
+  if (!Array.isArray(entries)) return new Map();
+  return new Map(entries.map((entry) => [entry.id, entry]));
+}
+
+// /api/v1/map carries only the pinnable photos: a loaded gallery keeps its other photos.
+function refreshedImages(tour, freshImages) {
+  if (!tour.detailLoaded || !tour.images) return freshImages;
+  const freshById = new Map(freshImages.map((image) => [image.id, image]));
+  return tour.images.map((image) => freshById.get(image.id) ?? image);
+}
+
+function applyEntry({ tour, entry, now }) {
+  tour.heatmapData = entry?.heatmapData || [];
+  tour.segmentStarts = entry?.segmentStarts || [];
+  tour.images = refreshedImages(tour, entry?.images || []);
+  // The gallery's other photos were not re-signed, so the next opening fetches the detail again.
+  tour.detailLoaded = false;
+  markFetched(tour, now);
+}
+
+// A failure leaves the tours unmarked, so the next render retries, and rejects.
+export async function ensureMapData({ apiFetch, tours, now, pendingResponse }) {
+  const missing = tours.filter((tour) => !tour.heatmapData || !tour.images || isStale(tour, now));
   if (missing.length === 0) return;
 
-  let byId = new Map();
   try {
-    const res = await (mapDataPromise || apiFetch('/api/map'));
-    if (res.ok) byId = new Map(((await res.json()) || []).map((entry) => [entry.id, entry]));
-  } catch {
-    // network unavailable — fall through to empty data
+    const entriesById = await fetchMapEntriesById({ apiFetch, pendingResponse });
+    for (const tour of missing) applyEntry({ tour, entry: entriesById.get(tour.id), now });
+  } catch (error) {
+    for (const tour of missing) {
+      tour.heatmapData = tour.heatmapData || [];
+      tour.images = tour.images || [];
+    }
+    throw error;
   }
+}
 
-  for (const tour of missing) {
-    const entry = byId.get(tour.id);
-    tour.heatmapData = entry?.heatmapData || [];
-    // Only the pinnable photos come back here, so a tour that had the full
-    // gallery loaded no longer does — the next detail fetch has to run again.
-    tour.images = entry?.images || [];
-    tour.detailLoaded = false;
-    markFetched(tour);
-  }
+/**
+ * Overlapping renders share one /api/v1/map: each call waits for the one before it, then fetches only
+ * what that one left missing (a tour added meanwhile, or everything after a failure).
+ */
+export function queueMapDataLoads() {
+  let previous = Promise.resolve();
+  return (options) => {
+    const current = previous.then(() => ensureMapData(options));
+    previous = current.catch(() => {});
+    return current;
+  };
 }
