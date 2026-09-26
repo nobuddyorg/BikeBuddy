@@ -1,7 +1,6 @@
 'use strict';
 
 const {
-  stripHtml,
   tourMetaSchema,
   tourMetaError,
   isUuid,
@@ -14,36 +13,29 @@ const {
 const UUID = '11111111-1111-4111-8111-111111111111';
 
 describe('validation helpers', () => {
-  describe('stripHtml', () => {
-    it('removes angle brackets and trims', () => {
-      expect(stripHtml('  <b>hi</b> there <script>x</script>  ')).toBe(
-        'bhi/b there scriptx/script',
-      );
-    });
-
-    it('defeats the nested-tag bypass that CodeQL flags', () => {
-      expect(stripHtml('<<script>script>')).not.toContain('<');
-      expect(stripHtml('<<script>script>')).not.toContain('>');
-    });
-  });
-
   describe('tourMetaSchema', () => {
-    it('strips angle brackets from name and description', () => {
+    it('keeps markup in name and description as typed, trimmed (#574)', () => {
       const result = tourMetaSchema.safeParse({
-        name: '<b>Alps</b>',
-        description: '<i>nice</i>',
+        name: ' <b>Alps</b> ',
+        description: '\t<script>x</script>\n',
       });
       expect(result.success).toBe(true);
-      expect(result.data.name).toBe('bAlps/b');
-      expect(result.data.description).toBe('inice/i');
+      expect(result.data.name).toBe('<b>Alps</b>');
+      expect(result.data.description).toBe('<script>x</script>');
     });
 
-    it('rejects an over-long name (after stripping)', () => {
+    it('limits the trimmed name to 200 characters', () => {
       expect(tourMetaSchema.safeParse({ name: 'a'.repeat(201) }).success).toBe(false);
+      expect(tourMetaSchema.safeParse({ name: ` ${'a'.repeat(200)} ` }).success).toBe(true);
     });
 
-    it('rejects a name that is empty after stripping', () => {
-      expect(tourMetaSchema.safeParse({ name: '<>' }).success).toBe(false);
+    it('limits the trimmed description to 2000 characters', () => {
+      expect(tourMetaSchema.safeParse({ description: 'a'.repeat(2001) }).success).toBe(false);
+      expect(tourMetaSchema.safeParse({ description: ` ${'a'.repeat(2000)} ` }).success).toBe(true);
+    });
+
+    it('rejects a name that is empty after trimming', () => {
+      expect(tourMetaSchema.safeParse({ name: '   ' }).success).toBe(false);
     });
 
     it('allows omitting both fields', () => {
@@ -109,8 +101,8 @@ describe('validation helpers', () => {
       expect(response.jsonBody.error).not.toMatch(/expected|characters|Too small/i);
     });
 
-    it('reports a name stripped down to nothing as a name problem', () => {
-      expect(keyFor({ name: '<<>>' })).toBe('errors.tourName');
+    it('reports a name trimmed down to nothing as a name problem', () => {
+      expect(keyFor({ name: ' \n ' })).toBe('errors.tourName');
     });
   });
 

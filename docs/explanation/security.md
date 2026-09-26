@@ -31,6 +31,12 @@ cross-user data access, file-upload handling, and SAS URL exposure.
   gets 401 with nothing written (`functions/test/integration/`).
 - Uploads are validated by magic bytes and resized server-side; images are served
   via short-lived SAS URLs, not public containers.
+- User text (tour names and descriptions, profile names) is stored as typed,
+  only trimmed (#574). XSS is prevented where it is shown: the page writes it
+  through `textContent` or `value`, and the frontend ESLint config fails on every
+  HTML-parsing sink (`innerHTML` other than clearing, `insertAdjacentHTML`,
+  Leaflet's string tooltips and popups, ...). `e2e/tests/tour-name-markup.spec.ts`
+  shows a name with markup literally.
 
 ## Browser hardening
 

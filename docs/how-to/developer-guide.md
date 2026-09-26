@@ -244,11 +244,11 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
 ESLint runs with `--max-warnings 0` everywhere, as pre-commit hooks and in CI's
 `prek` job:
 
-| Package      | Config                                                                | Command                                                                                                                       |
-| ------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `functions/` | `functions/eslint.config.js`: recommended, `eslint-plugin-n`, SonarJS | `cd functions && npm run lint`                                                                                                |
-| `frontend/`  | `functions/eslint.frontend.config.js`: recommended, SonarJS           | `functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js --max-warnings 0 frontend/src frontend/test` |
-| `e2e/`       | `e2e/eslint.config.js`: typescript-eslint type-checked, Playwright    | `cd e2e && npm run lint`                                                                                                      |
+| Package      | Config                                                                     | Command                                                                                                                       |
+| ------------ | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `functions/` | `functions/eslint.config.js`: recommended, `eslint-plugin-n`, SonarJS      | `cd functions && npm run lint`                                                                                                |
+| `frontend/`  | `functions/eslint.frontend.config.js`: recommended, SonarJS, no HTML sinks | `functions/node_modules/.bin/eslint --config functions/eslint.frontend.config.js --max-warnings 0 frontend/src frontend/test` |
+| `e2e/`       | `e2e/eslint.config.js`: typescript-eslint type-checked, Playwright         | `cd e2e && npm run lint`                                                                                                      |
 
 - **SonarJS** (`eslint-plugin-sonarjs`, recommended) checks non-test source for
   code smells; tests are exempt (a test's job is to be exhaustive, not
@@ -438,7 +438,7 @@ Vitest suites (`*.property.test.js` in `functions/src/lib/`,
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `functions/src/lib/parseGpx.js`          | finite, non-negative stats; in-order subset within the 5,000-point budget; only its own error on arbitrary text; 150k+ point tracks |
 | `functions/src/lib/simplify.js`          | ordered subset keeping first/last; idempotent; point budget respected                                                               |
-| `functions/src/lib/validation.js`        | accepted names are 1–200 chars without `<>`; `stripHtml` idempotent; valid DTOs round-trip; UUIDs                                   |
+| `functions/src/lib/validation.js`        | accepted names are 1–200 chars after trimming, stored trimmed; valid DTOs round-trip; UUIDs                                         |
 | `functions/src/lib/extractGps.js`        | coordinates in range or absent, never NaN; hemisphere sets the sign                                                                 |
 | `frontend/src/lib/stats.js`, `format.js` | totals are sums of parts; formatted values parse back within their rounding                                                         |
 | `frontend/src/lib/url.js`, `tours.js`    | URL state round-trips; sorting is a permutation; pages cover every item once                                                        |

@@ -142,13 +142,13 @@ describe('POST /api/tours/upload', () => {
   it.each([
     ['a numeric name as text (#548)', '<name>20240512</name>', '20240512'],
     ['the text of a name with attributes', '<name lang="de">Isartal</name>', 'Isartal'],
-    ['a name with its angle brackets removed', '<name>&lt;b&gt;Alps&lt;/b&gt;</name>', 'bAlps/b'],
+    ['a name with markup as typed (#574)', '<name>&lt;b&gt;Alps&lt;/b&gt;</name>', '<b>Alps</b>'],
     [
       '"Untitled Tour" for a name over 200 characters',
       `<name>${'a'.repeat(201)}</name>`,
       'Untitled Tour',
     ],
-    ['"Untitled Tour" for a name that is only markup', '<name>&lt;&gt;</name>', 'Untitled Tour'],
+    ['"Untitled Tour" for a name that is only whitespace', '<name>  </name>', 'Untitled Tour'],
   ])('stores %s from the GPX', async (_label, nameTag, expected) => {
     const gpx = `<gpx><metadata>${nameTag}</metadata><trk><trkseg><trkpt lat="48" lon="11"/></trkseg></trk></gpx>`;
     const { run, storedTour } = setUp({ parseFile: fileOf(gpx) });

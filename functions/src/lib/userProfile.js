@@ -1,7 +1,7 @@
 // @ts-check
 'use strict';
 
-const { nameSchema, stripHtml } = require('./validation');
+const { nameSchema } = require('./validation');
 const { USER_SCHEMA_VERSION } = require('./schemaVersion');
 
 const MAX_PROFILE_TEXT_LENGTH = 200;
@@ -14,7 +14,7 @@ const MAX_PROFILE_TEXT_LENGTH = 200;
  */
 function profileTextFromClaim(claim) {
   if (typeof claim !== 'string') return null;
-  const parsed = nameSchema.safeParse(stripHtml(claim).slice(0, MAX_PROFILE_TEXT_LENGTH));
+  const parsed = nameSchema.safeParse(claim.trim().slice(0, MAX_PROFILE_TEXT_LENGTH));
   return parsed.success ? parsed.data : null;
 }
 
