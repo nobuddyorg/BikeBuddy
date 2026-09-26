@@ -59,6 +59,10 @@ run "the_api_answers_over_https_only" {
     condition     = azurerm_function_app_flex_consumption.main.site_config[0].minimum_tls_version == "1.2"
     error_message = "The Function App must refuse TLS below 1.2."
   }
+  assert {
+    condition     = azurerm_function_app_flex_consumption.main.webdeploy_publish_basic_authentication_enabled == false
+    error_message = "The Function App must not offer basic-auth publishing credentials."
+  }
 }
 
 run "production_cors_trusts_https_origins_only" {
