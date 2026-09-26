@@ -254,8 +254,9 @@ zizmor --fix .github   # apply zizmor's auto-fixes locally; the hook only report
 - **Suppressing**: a path goes into [`.semgrepignore`](../../.semgrepignore)
   with its reason (today only the vendored bundles and generated output). A
   single line gets `// nosemgrep: <rule-id> -- <reason>` on the same line; an
-  inline suppression without a reason is not merged. Suppressed findings stay
-  visible in code scanning as suppressed.
+  inline suppression without a reason is not merged. It passes the job, but
+  code scanning still raises an error-severity result as a new alert on the PR
+  (#595), so prefer fixing the code or scoping the repo rule's `paths`.
 - No `--autofix`: a fix made in CI is discarded, and a rewrite is reviewed like
   any other change.
 

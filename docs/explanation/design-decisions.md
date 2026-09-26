@@ -473,8 +473,9 @@ to a handler passed the job with no error-severity finding (#595). ESLint's
 `sonarjs/code-eval` stops that line first, but the SAST gate must hold on its
 own, so the repo's rule `bikebuddy.no-runtime-code` fails on any `eval`,
 `Function` or `node:vm` call at error severity; nothing here needs one. The
-e2e harness reading a local `config.js` in a `vm` sandbox is its one inline
-suppression. `p/security-audit` is the narrower audit pack the pre-commit hook
+rule leaves out `e2e/`, whose harness reads the developer's own `config.js` in
+a `vm` sandbox: an inline `nosemgrep` there passed the job, but code scanning
+still opened an error alert on the PR for the suppressed result. `p/security-audit` is the narrower audit pack the pre-commit hook
 ran before; keeping it means the switch cannot lose a rule that was already
 enforced. Only
 error severity fails the job: the warning-level packs (i18n key formats, Azure
