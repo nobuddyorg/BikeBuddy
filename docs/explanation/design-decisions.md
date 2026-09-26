@@ -206,6 +206,19 @@ which the number of tours per rider bounds.
 - Routes draw on one canvas (`preferCanvas`), not an SVG path per tour that is
   re-projected on every zoom. Pin thumbnails load lazily, and pins are grouped
   on a grid, so a zoom compares each pin only with its neighbours (#580).
+- A render keeps the lines of the tracks it drew before and only adds or
+  removes the rest: each track's segments are kept per points array, which a
+  refetch replaces. The in-view list drops a tour wholly outside the view by
+  its extent, without scanning its points. Pins are placed only for photos in
+  and just around the view, re-placed on a debounced `moveend` (#580).
+- The phone layout opens on the list with the map hidden, so it loads
+  `/api/v1/map` only when the map is opened, or when the page grows into the
+  desktop layout (#580).
+- The language is saved in the browser and applied before anything loads. A
+  saved account language that differs reloads the page once on a new device;
+  checking it before `/api/v1/tours` would delay every sign-in for that one
+  case. Changing the language reloads. Photos upload at full size: shrinking
+  them in the browser would drop the EXIF GPS the pins need (#580).
 - Back closes the open panel or modal while the selection stays (#442, #443).
   Closing one with its button or Escape takes its history entry back too, so
   Back never lands on a closed layer, and a reload starts the depth over

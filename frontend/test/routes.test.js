@@ -29,6 +29,15 @@ describe('routePointSets', () => {
       [[9, 9]],
     ]);
   });
+
+  it('hands back the same sets for an unchanged track, and new ones for a replaced track', () => {
+    const tour = { heatmapData: [[1, 1]] };
+    const [first] = routePointSets([tour]);
+
+    expect(routePointSets([tour])[0]).toBe(first);
+    tour.heatmapData = [[1, 1]];
+    expect(routePointSets([tour])[0]).not.toBe(first);
+  });
 });
 
 describe('segmentsOf', () => {

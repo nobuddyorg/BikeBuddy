@@ -4,6 +4,7 @@ import {
   geotaggedImages,
   imagesOfTour,
   indexOfImage,
+  photosWithin,
   withImageRestored,
   withoutImage,
   wrapIndex,
@@ -72,6 +73,21 @@ describe('withoutImage / withImageRestored', () => {
 
   it('does not duplicate a photo that is already back', () => {
     expect(withImageRestored(images, { id: 'x' })).toBe(images);
+  });
+});
+
+describe('photosWithin', () => {
+  const view = { south: 40, west: 5, north: 50, east: 15 };
+  const at = (lat, lon) => ({ id: `${lat},${lon}`, lat, lon });
+
+  it('keeps the photos inside the view, edges included', () => {
+    const inside = [at(45, 10), at(40, 10), at(50, 10), at(45, 5), at(45, 15)];
+    expect(photosWithin(inside, view)).toEqual(inside);
+  });
+
+  it('drops a photo just past any one edge', () => {
+    const outside = [at(39.9, 10), at(50.1, 10), at(45, 4.9), at(45, 15.1)];
+    expect(photosWithin(outside, view)).toEqual([]);
   });
 });
 

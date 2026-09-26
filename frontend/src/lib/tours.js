@@ -87,14 +87,47 @@ export function visibleTours({ tours, sort, search, locale }) {
     .map(({ tour }) => tour);
 }
 
+// Per points array: a refetch assigns a new array, so an extent can never go stale.
+const extents = new WeakMap();
+
+function extentOf(points) {
+  if (!extents.has(points)) {
+    extents.set(
+      points,
+      points.reduce(
+        (extent, [lat, lon]) => ({
+          south: Math.min(extent.south, lat),
+          north: Math.max(extent.north, lat),
+          west: Math.min(extent.west, lon),
+          east: Math.max(extent.east, lon),
+        }),
+        { south: Infinity, north: -Infinity, west: Infinity, east: -Infinity },
+      ),
+    );
+  }
+  return extents.get(points);
+}
+
+// A tour wholly outside is dropped by its extent, unscanned; any other stops at its first point in view.
+const extentOutside = (bounds, extent) =>
+  extent.north < bounds.south ||
+  extent.south > bounds.north ||
+  extent.east < bounds.west ||
+  extent.west > bounds.east;
+
+const isInside =
+  ({ south, west, north, east }) =>
+  ([lat, lon]) =>
+    lat >= south && lat <= north && lon >= west && lon <= east;
+
 // Partially on screen counts as in view; a tour without loaded heatmapData does not.
 export function toursInView(tours, bounds) {
-  const { south, west, north, east } = bounds;
-  return tours.filter((tour) =>
-    tour.heatmapData?.some(
-      ([lat, lon]) => lat >= south && lat <= north && lon >= west && lon <= east,
-    ),
-  );
+  return tours.filter((tour) => {
+    const points = tour.heatmapData;
+    if (!points?.length) return false;
+    if (extentOutside(bounds, extentOf(points))) return false;
+    return points.some(isInside(bounds));
+  });
 }
 
 // A stale page number from a larger result set lands on the last page, not an empty one.
