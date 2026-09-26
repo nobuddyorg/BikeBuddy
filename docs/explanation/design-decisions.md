@@ -20,6 +20,15 @@ re-copies the files and rewrites the `.msal-source`/`.leaflet-source`
 provenance with their SHA-256. A bump PR therefore cannot merge with stale
 vendored code.
 
+MSAL stays on 3.x: `.github/dependabot.yml` ignores its major updates. Since v5
+every popup and silent flow needs a redirect-bridge page at the redirect URI
+(either `index.html` doubling as the bridge, or a page of its own and a changed
+redirect URI in the Entra registration), and since v4 the localStorage cache is
+encrypted with a session-cookie key, so a browser restart signs the user out. No
+CI job runs a real Entra sign-in, so the move is a decision of its own, taken
+with a manual sign-in check, not a Dependabot merge. Minor and patch updates of
+3.x still arrive.
+
 ## Node.js Functions on Flex Consumption
 
 Node gives fast cold starts and first-class Azure SDKs for Cosmos + Blob. We run
