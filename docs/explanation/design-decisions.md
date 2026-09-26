@@ -248,11 +248,12 @@ which the number of tours per rider bounds.
 - Map tiles come from `tile.openstreetmap.org`: keyless, and within the OSMF
   tile usage policy for interactive viewing (attribution shown, a Referer
   sent, nothing prefetched, the service worker never caches tiles). It has no
-  dark style, so dark mode shows the light tiles in inverted grey with a CSS
-  filter (inverted colours made forests a harsh green). CARTO was dropped when
-  its keyless tiles started carrying an "API key required" watermark
-  (September 2026). OpenFreeMap's keyless vector tiles would need MapLibre GL,
-  far heavier than Leaflet.
+  dark style, so dark mode inverts the light tiles with a CSS filter, turns the
+  hue back and mutes the colours (at full saturation forests turn a harsh
+  green; full grey loses too much). CARTO was dropped when its keyless tiles
+  started carrying an "API key required" watermark (September 2026).
+  OpenFreeMap's keyless vector tiles would need MapLibre GL, far heavier than
+  Leaflet.
 - iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
   viewport meta.
 - The line style is saved on change, not on every input event.
