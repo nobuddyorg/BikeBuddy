@@ -1,7 +1,4 @@
-// Load shape and seed size per LOAD_PROFILE. normal is an everyday session; peak
-// is five times the users; stress steps to twenty times to find where latency
-// bends. Seeds are sized like a real, heavy account: a list and map that are
-// cheap at fixture size are not the thing under test.
+// Seeds are sized like a heavy real account: a list and map that are cheap at fixture size are not under test.
 const PROFILES = {
   normal: {
     vusScale: 1,

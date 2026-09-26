@@ -1,45 +1,70 @@
 'use strict';
 
-const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const { usersContainer, readItem } = require('../lib/db');
+const { apiRoute } = require('../lib/functionsApp');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const { refusePendingDeletion } = require('../lib/pendingDeletion');
+const system = require('../lib/system');
 const { unauthorized } = require('../lib/http');
+const {
+  profileFromClaims,
+  missingProfileFields,
+  newUserDocument,
+  toUserResponse,
+} = require('../lib/userProfile');
 
-// GET /api/me — returns the caller's user doc, creating it on first login.
-async function getMe(request, auth = authenticate, getContainer = usersContainer) {
-  const user = await auth(request);
-  if (!user) return unauthorized();
-
-  const { userId, userEmail, userName } = user;
-  const container = getContainer();
-
-  let doc = await readItem(container, userId, userId);
-  if (!doc) {
-    doc = { id: userId, name: userName, email: userEmail, createdAt: new Date().toISOString() };
-    ({ resource: doc } = await container.items.create(doc));
-  } else if ((userName && userName !== doc.name) || (userEmail && userEmail !== doc.email)) {
-    // Backfill/refresh profile fields once the token carries them (e.g. the
-    // name claim that was absent on the very first login right after sign-up).
-    doc.name = userName || doc.name;
-    doc.email = userEmail || doc.email;
-    ({ resource: doc } = await container.items.upsert(doc));
-  }
-
-  return {
-    status: 200,
-    jsonBody: {
-      id: doc.id,
-      name: doc.name,
-      email: doc.email,
-      createdAt: doc.createdAt,
-      language: doc.language,
-    },
-  };
+// Concurrent first requests race to create the profile; both end with the winner's.
+async function readOrCreateProfile({ container, userId, claims, now }) {
+  const stored = await db.readItem(container, { id: userId, partitionKey: userId });
+  if (stored) return stored;
+  return db.createItemOrReadExisting(container, {
+    document: newUserDocument({ userId, profile: claims, createdAt: now() }),
+    partitionKey: userId,
+  });
 }
 
-app.http('GetMe', {
+// Fills empty fields only if unchanged since read: a name chosen meanwhile wins.
+async function backfillProfile({ container, userId, stored, claims }) {
+  const missing = missingProfileFields({ stored, claims });
+  if (Object.keys(missing).length === 0) return stored;
+  try {
+    return await db.replaceItemIfMatch(container, {
+      document: { ...stored, ...missing },
+      partitionKey: userId,
+      etag: stored._etag,
+    });
+  } catch (replaceError) {
+    if (replaceError.code !== 412) throw replaceError;
+    return (await db.readItem(container, { id: userId, partitionKey: userId })) ?? stored;
+  }
+}
+
+// Token claims only fill empty fields: a name or email the user chose is never overwritten.
+async function getMe(
+  request,
+  {
+    authenticate = authMiddleware.authenticate,
+    deletionsContainer = db.deletionsContainer,
+    usersContainer = db.usersContainer,
+    now = system.currentTime,
+  } = {},
+) {
+  const user = await authenticate(request);
+  if (!user) return unauthorized();
+  const refused = await refusePendingDeletion(user, deletionsContainer);
+  if (refused) return refused;
+
+  const { userId } = user;
+  const container = usersContainer();
+  const claims = profileFromClaims(user);
+  const stored = await readOrCreateProfile({ container, userId, claims, now });
+  const profile = await backfillProfile({ container, userId, stored, claims });
+
+  return { status: 200, jsonBody: toUserResponse(profile) };
+}
+
+apiRoute('GetMe', {
   methods: ['get'],
-  authLevel: 'anonymous',
   route: 'me',
   /* v8 ignore next */
   handler: (request) => getMe(request),

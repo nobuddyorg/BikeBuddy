@@ -1,7 +1,6 @@
 # Tab completion for buddy.sh. Enable with: eval "$(./buddy.sh completion)"
 
-# zsh's `complete` comes from bashcompinit, which in turn needs compinit
-# (it defines compdef) — load both so a bare eval works in a fresh zsh.
+# zsh: bashcompinit provides `complete` but needs compinit loaded first.
 if [ -n "${ZSH_VERSION:-}" ]; then
   whence compdef >/dev/null 2>&1 || { autoload -Uz compinit && compinit -u; }
   autoload -Uz bashcompinit && bashcompinit

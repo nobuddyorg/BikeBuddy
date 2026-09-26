@@ -1,6 +1,4 @@
-// A ZAP report_json.json as a markdown table, applying the pass's rules file:
-//   node scripts/quality/zap-summary.mjs --title '<heading>' --rules .zap/rules-api.tsv <report_json.json>
-// Appends to $GITHUB_STEP_SUMMARY in CI, prints otherwise.
+// Usage: node scripts/quality/zap-summary.mjs --title '<heading>' --rules .zap/rules-api.tsv <report_json.json>
 import { appendFile, readFile } from 'node:fs/promises';
 
 function argument(name) {

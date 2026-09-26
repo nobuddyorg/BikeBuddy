@@ -1,23 +1,22 @@
 // @ts-check
 'use strict';
 
-// Load-test instrumentation (docs/how-to/load-testing.md, "Backend report").
-// Off unless LOAD_PROFILING=true, which only the local load-test stack sets:
-// production never loads the hooks, the Cosmos plugin or the blob client wrapper.
-// Every record is one `LOADPROF {json}` line in the Functions host log, which
-// load/backend-report.mjs aggregates after a run.
+// Load-test instrumentation: one "LOADPROF {json}" host log line per record.
 
 const { AsyncLocalStorage } = require('node:async_hooks');
 const { monitorEventLoopDelay } = require('node:perf_hooks');
 
 const PREFIX = 'LOADPROF ';
 const SAMPLE_INTERVAL_MS = 5000;
+const NANOSECONDS_PER_MILLISECOND = 1e6;
+const BYTES_PER_MEGABYTE = 2 ** 20;
 
-const enabled = () => process.env.LOAD_PROFILING === 'true';
+/** @param {Record<string, string | undefined>} environment */
+const isEnabled = (environment) => environment.LOAD_PROFILING === 'true';
 const invocation = new AsyncLocalStorage();
 
-/** @param {Record<string, unknown>} record */
-function emit(record, write = console.log) {
+/** @param {Record<string, unknown>} record @param {(line: string) => void} write */
+function emit(record, write) {
   write(PREFIX + JSON.stringify(record));
 }
 
@@ -33,11 +32,8 @@ function bodyBytes(result) {
   return 0;
 }
 
-/**
- * Wraps every invocation: runs it inside the handler's async context (so Cosmos
- * and Blob records know their handler) and records status, duration and bytes.
- */
-function registerInvocationHooks(app, now = () => performance.now(), write = console.log) {
+// Cosmos and Blob records find their handler through the async context set here.
+function registerInvocationHooks(app, { now, write }) {
   app.hook.preInvocation((context) => {
     const handler = context.invocationContext.functionName;
     const original = context.functionHandler;
@@ -59,20 +55,19 @@ function registerInvocationHooks(app, now = () => performance.now(), write = con
   });
 }
 
-/** Event-loop delay and memory, sampled every few seconds while the host runs. */
-function startSampling(write = console.log, intervalMs = SAMPLE_INTERVAL_MS) {
+function startSampling({ write, readMemory, intervalMs = SAMPLE_INTERVAL_MS }) {
   const delay = monitorEventLoopDelay({ resolution: 10 });
   delay.enable();
   const timer = setInterval(() => {
-    const memory = process.memoryUsage();
+    const memory = readMemory();
     emit(
       {
         type: 'sample',
-        loopP50Ms: delay.percentile(50) / 1e6,
-        loopP99Ms: delay.percentile(99) / 1e6,
-        loopMaxMs: delay.max / 1e6,
-        rssMb: memory.rss / 2 ** 20,
-        heapUsedMb: memory.heapUsed / 2 ** 20,
+        loopP50Ms: delay.percentile(50) / NANOSECONDS_PER_MILLISECOND,
+        loopP99Ms: delay.percentile(99) / NANOSECONDS_PER_MILLISECOND,
+        loopMaxMs: delay.max / NANOSECONDS_PER_MILLISECOND,
+        rssMb: memory.rss / BYTES_PER_MEGABYTE,
+        heapUsedMb: memory.heapUsed / BYTES_PER_MEGABYTE,
       },
       write,
     );
@@ -82,13 +77,8 @@ function startSampling(write = console.log, intervalMs = SAMPLE_INTERVAL_MS) {
   return timer;
 }
 
-/**
- * Cosmos SDK plugin (CosmosClientOptions.plugins, `on: 'request'`): one record
- * per HTTP request (each query page and retry counts, which `operation` plugins
- * miss for queries) with its request charge. Note: the vnext emulator reports
- * nominal charges, so RU numbers are only meaningful against a real account.
- */
-function cosmosPlugin(write = console.log, now = () => performance.now()) {
+// 'request', not 'operation': only it sees each query page and retry.
+function cosmosPlugin({ write, now }) {
   return async (context, diagnosticNode, next) => {
     const startedAt = now();
     const response = await next(context);
@@ -106,11 +96,8 @@ function cosmosPlugin(write = console.log, now = () => performance.now()) {
   };
 }
 
-/**
- * Storage request policy factory (a storage-blob Pipeline factory, which the SDK
- * wraps as a downlevel policy): one record per Blob Storage request.
- */
-function blobPolicyFactory(write = console.log) {
+// A storage-blob pipeline factory, which the SDK wraps as a downlevel policy.
+function blobPolicyFactory(write) {
   return {
     create: (nextPolicy) => ({
       async sendRequest(webResource) {
@@ -142,7 +129,7 @@ function blobPolicyFactory(write = console.log) {
 
 module.exports = {
   PREFIX,
-  enabled,
+  isEnabled,
   emit,
   bodyBytes,
   registerInvocationHooks,

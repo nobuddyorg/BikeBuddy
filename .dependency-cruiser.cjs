@@ -30,6 +30,8 @@ module.exports = {
           '^e2e/(playwright(\\.fullstack)?\\.config|global-setup|serve)\\.(ts|mjs)$',
           // Lighthouse CI tooling, started by name (lhci, npm scripts).
           '^e2e/lighthouse/',
+          // k6 flows and their Node runner, started as `k6 run load/<flow>.js` / `node load/run.mjs`.
+          '^load/[^/]+\\.(js|mjs)$',
           '(^|/)(vitest|stryker)[^/]*\\.(c|m)?js$',
           // Classic scripts loaded by index.html (see vendor-is-script-tags-only).
           '^frontend/src/vendor/',
@@ -40,37 +42,53 @@ module.exports = {
     {
       name: 'not-to-unresolvable',
       severity: 'error',
-      comment: 'An import that cannot be resolved is a typo or a missing dependency.',
+      comment:
+        'An import that cannot be resolved is a typo or a missing dependency. The k6 runtime ' +
+        'provides k6 and k6/* to the load scripts itself.',
       from: {},
-      to: { couldNotResolve: true },
+      to: { couldNotResolve: true, pathNot: ['^k6(/|$)'] },
     },
     {
       name: 'cosmos-only-in-db',
       severity: 'error',
       comment:
         'Cosmos is reached only through functions/src/lib/db.js: one place for RU, retries and ' +
-        'the 404 normalisation. Exceptions: the operator scripts (init, backfills, the deletion ' +
-        'job) run outside the Functions host with their own client, the full-stack e2e ' +
-        'cleanup talks to the emulator directly, and the query-cost guard needs its own client ' +
-        'with a request plugin to observe what db.js sends.',
+        'the 404 normalisation. Exceptions: init-cosmos, which creates the emulator database ' +
+        'db.js later opens, the full-stack e2e store, which reads back and cleans up the ' +
+        'emulator directly, and the query-cost guard, which needs its own client with a ' +
+        'request plugin to observe what db.js sends.',
       from: {
         pathNot: [
           '^functions/src/lib/db\\.js$',
-          '^functions/scripts/',
-          '^e2e/tests-fullstack/usersDb\\.ts$',
+          '^functions/scripts/init-cosmos\\.js$',
+          '^e2e/tests-fullstack/store\\.ts$',
           '^functions/test/integration/query-cost\\.test\\.js$',
         ],
       },
       to: { dependencyTypes: ['npm', 'npm-dev', 'npm-no-pkg'], path: '@azure/cosmos' },
     },
     {
+      name: 'handlers-register-through-functions-app',
+      severity: 'error',
+      comment:
+        'Handlers take `app` from functions/src/lib/functionsApp.js, which turns on HTTP ' +
+        'streaming before any route exists; without it the host buffers every upload whole.',
+      from: { path: '^functions/src/[^/]+/index\\.js$' },
+      to: { dependencyTypes: ['npm', 'npm-dev', 'npm-no-pkg'], path: '@azure/functions' },
+    },
+    {
       name: 'blob-only-in-blob-storage',
       severity: 'error',
       comment:
         'Blob Storage is reached only through functions/src/lib/blobStorage.js (SAS, container ' +
-        'creation). Exception: the backfill scripts, as for Cosmos.',
+        "creation). Exceptions: the adapter's own test, which signs URLs with a real " +
+        'shared-key credential to check their scope, and the full-stack e2e store, which ' +
+        'reads back and cleans up Azurite directly.',
       from: {
-        pathNot: ['^functions/src/lib/blobStorage\\.js$', '^functions/scripts/'],
+        pathNot: [
+          '^functions/src/lib/blobStorage\\.(test\\.)?js$',
+          '^e2e/tests-fullstack/store\\.ts$',
+        ],
       },
       to: { path: '@azure/storage-blob' },
     },

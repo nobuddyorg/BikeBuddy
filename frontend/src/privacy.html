@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>BikeBuddy</title>
+    <meta name="description" content="How BikeBuddy handles your rides, photos and account." />
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="stylesheet" href="css/base.css" />
+    <script type="module" src="privacy.js"></script>
+  </head>
+  <!-- A page of its own (#542): it opens without signing in, and the sign-up flow can link it. -->
+  <body class="privacy-page i18n-loading">
+    <main class="privacy">
+      <a id="privacy-back" class="privacy-back" href="./" data-i18n="privacy.back"></a>
+      <h1 id="privacy-title" data-i18n="privacy.title"></h1>
+      <p data-i18n="privacy.intro"></p>
+
+      <h2 data-i18n="privacy.controllerHeading"></h2>
+      <p data-i18n="privacy.controllerText"></p>
+      <!-- Not translated: a name and an address. Fill in before this page is published (#542). -->
+      <address id="privacy-controller">
+        [Name of the controller]<br />
+        [Postal address]<br />
+        <a id="privacy-contact" href="mailto:privacy@example.invalid">[Contact email address]</a>
+      </address>
+
+      <h2 data-i18n="privacy.dataHeading"></h2>
+      <ul>
+        <li data-i18n-html="privacy.dataAccount"></li>
+        <li data-i18n-html="privacy.dataRides"></li>
+        <li data-i18n-html="privacy.dataPhotos"></li>
+        <li data-i18n-html="privacy.dataTechnical"></li>
+      </ul>
+
+      <h2 data-i18n="privacy.purposeHeading"></h2>
+      <ul>
+        <li data-i18n="privacy.purposeService"></li>
+        <li data-i18n="privacy.purposeSecurity"></li>
+      </ul>
+      <p data-i18n="privacy.purposeNone"></p>
+
+      <h2 data-i18n="privacy.recipientsHeading"></h2>
+      <ul>
+        <li data-i18n-html="privacy.recipientsMicrosoft"></li>
+        <li data-i18n-html="privacy.recipientsCarto"></li>
+        <li data-i18n-html="privacy.recipientsGithub"></li>
+      </ul>
+      <p data-i18n="privacy.recipientsTransfer"></p>
+
+      <h2 data-i18n="privacy.retentionHeading"></h2>
+      <ul>
+        <li data-i18n="privacy.retentionUntilDeleted"></li>
+        <li data-i18n="privacy.retentionAccount"></li>
+        <li data-i18n="privacy.retentionBackups"></li>
+        <li data-i18n="privacy.retentionLogs"></li>
+      </ul>
+
+      <h2 data-i18n="privacy.browserHeading"></h2>
+      <p data-i18n="privacy.browserText"></p>
+
+      <h2 data-i18n="privacy.rightsHeading"></h2>
+      <p data-i18n="privacy.rightsText"></p>
+    </main>
+  </body>
+</html>

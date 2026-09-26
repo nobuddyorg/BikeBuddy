@@ -1,10 +1,4 @@
-// The modules under both mutation testing (each package's stryker.config.mjs
-// `mutate`) and a 100 % per-file coverage floor (each package's
-// vitest.config.js), so the two lists cannot drift. Paths are relative to the
-// package. Off the list on purpose: the Cosmos/Blob adapters and the multipart
-// stream parser (exercised by the integration suite, not unit tests) and the
-// DOM layer frontend/src/ui/ (exercised by Playwright). Why the list is
-// explicit: docs/explanation/design-decisions.md, "Mutation scope".
+// Feeds both Stryker's `mutate` and Vitest's per-file floor; paths relative to each package (design-decisions.md, "Mutation scope").
 
 export const FUNCTIONS_TARGETS = [
   'src/DeleteAccount/index.js',
@@ -20,37 +14,84 @@ export const FUNCTIONS_TARGETS = [
   'src/UpdateProfile/index.js',
   'src/UploadImage/index.js',
   'src/UploadTour/index.js',
+  'src/lib/accountPurge.js',
+  'src/lib/blobNames.js',
+  'src/lib/compression.js',
+  'src/lib/exportDocument.js',
   'src/lib/extractGps.js',
+  'src/lib/failureResponse.js',
+  'src/lib/fileSignatures.js',
+  'src/lib/functionsApp.js',
+  'src/lib/gpxWorker.js',
   'src/lib/heatmapCache.js',
   'src/lib/http.js',
+  'src/lib/mapBudget.js',
+  'src/lib/oidcMetadataUrl.js',
   'src/lib/ownedTour.js',
+  'src/lib/paging.js',
   'src/lib/parseGpx.js',
+  'src/lib/parseGpxOffThread.js',
+  'src/lib/parseMultipart.js',
+  'src/lib/pendingDeletion.js',
+  'src/lib/rateLimit.js',
   'src/lib/resizeImage.js',
+  'src/lib/schemaVersion.js',
+  'src/lib/segments.js',
+  'src/lib/settle.js',
+  'src/lib/signingKeyCache.js',
   'src/lib/simplify.js',
-  'src/lib/thumbBlobName.js',
+  'src/lib/tourImages.js',
   'src/lib/tourResponse.js',
+  'src/lib/tourStats.js',
+  'src/lib/tourTrack.js',
+  'src/lib/userProfile.js',
+  'src/lib/userQuota.js',
   'src/lib/validation.js',
   'src/middleware/authMiddleware.js',
+  'scripts/lib/cli.js',
+  'scripts/lib/deletionJob.js',
+  'scripts/lib/graphClient.js',
+  'scripts/lib/localCosmos.js',
+  'scripts/lib/mutationSummary.mjs',
+  'scripts/lib/productionCsp.js',
+  'scripts/lib/queryItems.js',
+  'scripts/lib/schemaVersionBackfill.js',
+  'scripts/lib/storedBytesBackfill.js',
+  'scripts/lib/thumbnailBackfill.js',
+  'scripts/lib/tourStatsBackfill.js',
+  'scripts/lib/trackBackfill.js',
+  'test/integration/emulatorGuard.js',
+  'test/integration/tokens.js',
 ];
 
 export const FRONTEND_TARGETS = [
+  'src/lib/apiErrors.js',
+  'src/lib/authConfig.js',
   'src/lib/concurrency.js',
   'src/lib/debounce.js',
   'src/lib/files.js',
   'src/lib/format.js',
+  'src/lib/gestures.js',
   'src/lib/i18n.js',
+  'src/lib/images.js',
+  'src/lib/layout.js',
   'src/lib/lineStyle.js',
   'src/lib/mapData.js',
+  'src/lib/pendingActions.js',
+  'src/lib/markup.js',
   'src/lib/pinLayout.js',
+  'src/lib/routes.js',
   'src/lib/sasCache.js',
+  'src/lib/session.js',
+  'src/lib/sidebarView.js',
   'src/lib/stats.js',
+  'src/lib/tourDetail.js',
   'src/lib/tours.js',
   'src/lib/upload.js',
   'src/lib/url.js',
 ];
 
-// Every file on a list is fully covered; a gap is closed with a test or by
-// extracting the logic, never by lowering this (CLAUDE.md, hard rules).
+// Never lowered (CLAUDE.md, hard rules): close a gap with a test or by extracting the logic.
 export const PER_FILE_FLOOR = { statements: 100, branches: 100, functions: 100, lines: 100 };
 
 /** Vitest `coverage.thresholds` entries: one per target file. */

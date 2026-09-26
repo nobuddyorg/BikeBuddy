@@ -1,76 +1,213 @@
 # Infrastructure (OpenTofu)
 
-All Azure resources for BikeBuddy: resource group, Cosmos DB (serverless),
-Storage, and the Functions app. The **same config** runs locally and in CI.
+All Azure resources for BikeBuddy live in `infrastructure/`: the resource
+group, Cosmos DB (serverless), Storage, the Flex Consumption Functions app and
+a monthly budget alert. Production changes reach Azure one way only: merge to
+`main`, and `.github/workflows/deploy.yml` applies them.
 
-## TL;DR — bring everything up
+## Change the infrastructure
+
+1. Edit `infrastructure/*.tf` on a branch.
+2. Check it locally; none of these touch Azure resources:
+
+   ```bash
+   cd infrastructure
+   tofu fmt -recursive
+   tofu init -backend=false && tofu validate
+   tofu test                            # plans against mock providers
+   cd .. && ./buddy.sh quality iac      # TFLint + Trivy config scan
+   ```
+
+   With read access to the subscription and the state key (see
+   [State backend](#state-backend)), `tofu plan` shows what the merge will do.
+   Never `tofu apply` against production by hand.
+
+3. In the PR, paste the plan's destroy/replace lines (or say there are none). A
+   plan that destroys or replaces the Cosmos account or the storage account is
+   a stop-and-ask: those hold every user's data.
+4. Once CI Gate passes on `main`, `deploy.yml` runs `./buddy.sh infrastructure provision`:
+   `tofu plan` with the Entra variables, a check that fails the deploy when
+   the plan deletes or replaces any resource, then `tofu apply` of exactly
+   that saved plan. It then publishes the
+   Functions code (`infrastructure publish-functions`, remote build so `sharp`
+   compiles for Linux) and the frontend.
+
+A new scanner exception goes in `.trivyignore.yaml` with its reason and in
+[design decisions](../explanation/design-decisions.md), "IaC scan exceptions".
+
+## Destroy guards
+
+The resource group, the Cosmos account, its database and its `users`, `tours`
+and `deletions` containers, the storage account and its `gpx-files` and
+`tour-images` containers carry `lifecycle { prevent_destroy = true }` (#543).
+The app created `tour-images` before OpenTofu managed it, so
+`./buddy.sh infrastructure provision` imports it into state once, before its
+apply (#568). A change that would
+replace or delete one fails at plan time instead of deleting user data. The
+guards are never removed; a change that needs one gone is redesigned, or raised
+with the maintainer first. A second guard covers every resource, guarded or
+not: `provision` refuses a plan with any `delete` action (a replace is
+delete+create) and lists what it would have removed, so a destructive change
+never reaches production unattended.
+
+## State backend
+
+OpenTofu stores state in the Azure Storage account named in the `backend
+"azurerm"` block of `infrastructure/main.tf`
+(`bikebuddy-tfstate-rg`/`bikebuddytfstate8769`, container `tfstate`). CI and
+local plans share it. It must exist before `tofu init`, so it is created once,
+outside OpenTofu:
 
 ```bash
-az login
-az account set --subscription <SUB_ID>
-
-# one-time: create the state-backend storage (see "State backend" below)
-./buddy.sh infrastructure setup-state <globally-unique-name>   # then set storage_account_name in main.tf
-
-export ARM_ACCESS_KEY="$(az storage account keys list -g bikebuddy-tfstate-rg \
-  -n <globally-unique-name> --query '[0].value' -o tsv)"
-
-# 1. provision infrastructure (resource group, Cosmos, Storage, Flex Consumption app)
-tofu init
-tofu apply
-
-# 2. deploy the function code (remote build so sharp compiles for Linux)
-cd ../functions && func azure functionapp publish "$(cd ../infrastructure && tofu output -raw functions_app_name)" --build remote
+az login && az account set --subscription <SUB_ID>
+./buddy.sh infrastructure setup-state <globally-unique-name>   # only for a new environment
 ```
 
-Flex Consumption deploys code from a blob container via the publish API, so it's
-a two-step flow: `tofu apply` for infrastructure, then `func ... publish` for the code.
-(The Functions runtime — Y1 Consumption — used to run straight from a package
-blob in a single `tofu apply`, but Y1 is blocked by the new-subscription VM
-quota; Flex avoids that and is the better serverless tier.)
+then set `storage_account_name` in `main.tf`. The state resource group lives in
+`westeurope`, independent of the app's `location` variable (default
+`northeurope`). The script also turns on versioning and 30-day soft delete for
+the state and puts a `CanNotDelete` lock on its resource group. It is
+idempotent: rerun it with the existing account's name to apply those to an
+environment set up before them.
 
-## State backend (the one prerequisite)
+## CI credentials
 
-OpenTofu stores state in an Azure Storage account. That account must exist
-**before** `tofu init`, so it can't be created by the apply itself.
-`./buddy.sh infrastructure setup-state` creates it once. Storage account names
-are globally unique, so pick your own and
-put it in the `backend "azurerm"` block in `main.tf`.
+CI authenticates with a service principal. Its secret and the state key reach
+only the jobs that use them (#561):
 
-Local runs and CI share this same remote state, so they never diverge.
+- the `ARM_*` variables and `TF_BACKEND_ACCESS_KEY` reach only the OpenTofu job;
+- the Functions publish installs its pinned Core Tools before `azure/login`;
+- the deletion job installs its packages without install scripts, and before
+  `azure/login`.
 
-## CI credentials (GitHub Actions only — not needed locally)
-
-Locally you authenticate with `az login`. CI uses a service principal instead:
+Still to do: federated OIDC credentials in place of the secret, and a
+principal scoped to the resource groups instead of the subscription. Both need
+changes in Entra and Azure first.
 
 ```bash
 az ad sp create-for-rbac --name bikebuddy-ci --role Contributor \
   --scopes /subscriptions/<SUB_ID>
 ```
 
-Store these as repo **secrets** (Settings → Secrets and variables → Actions):
+Repository **secrets** (Settings → Secrets and variables → Actions):
 
-| Secret                  | Value                        |
-| ----------------------- | ---------------------------- |
-| `ARM_CLIENT_ID`         | service principal `appId`    |
-| `ARM_CLIENT_SECRET`     | service principal `password` |
-| `ARM_TENANT_ID`         | service principal `tenant`   |
-| `ARM_SUBSCRIPTION_ID`   | target subscription ID       |
-| `TF_BACKEND_ACCESS_KEY` | state storage account key    |
+| Secret                                                      | Value                                                        |
+| ----------------------------------------------------------- | ------------------------------------------------------------ |
+| `ARM_CLIENT_ID`                                             | service principal `appId`                                    |
+| `ARM_CLIENT_SECRET`                                         | service principal `password`                                 |
+| `ARM_TENANT_ID`                                             | service principal `tenant`                                   |
+| `ARM_SUBSCRIPTION_ID`                                       | target subscription ID                                       |
+| `TF_BACKEND_ACCESS_KEY`                                     | state storage account key                                    |
+| `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` | app allowed to delete directory users (account-deletion job) |
 
-CI then runs the exact same `tofu apply` (see `.github/workflows/deploy.yml`).
+The full list, including the `ci` environment secrets, is in
+[Configuration](../reference/configuration.md#github-actions).
 
 ## Auth (Microsoft Entra External ID)
 
-Optional repo **variables** wire real auth; leave unset to run in no-auth mode:
-`ENTRA_SUBDOMAIN`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`. `SKIP_AUTH` flips off
-automatically once `entra_client_id` is set.
+The repository **variables** `ENTRA_SUBDOMAIN`, `ENTRA_TENANT_ID` and
+`ENTRA_CLIENT_ID` are required. A precondition on the Function App fails the
+plan while any of them is empty, so a missing or renamed variable stops the
+deploy rather than shipping an API without auth, and `SKIP_AUTH` is never part
+of the deployed app settings (#545). No-auth mode exists only locally
+(`SKIP_AUTH=true` in `functions/local.settings.json`).
+
+## Restore user data
+
+What stays recoverable, and for how long (#541; pinned by
+`infrastructure/tests/backup.tftest.hcl`):
+
+| Data                                    | Mechanism                                   | Window  |
+| --------------------------------------- | ------------------------------------------- | ------- |
+| Cosmos: `users`, `tours`, `deletions`   | Continuous backup, point-in-time restore    | 7 days  |
+| Blobs: GPX files, photos, thumbnails    | Soft delete, versioning (previous versions) | 14 days |
+| Blob containers                         | Container soft delete                       | 14 days |
+| OpenTofu state (`bikebuddy-tfstate-rg`) | Versioning, soft delete (`setup-state`)     | 30 days |
+
+Past the window the data is gone for good, which is also what bounds how long
+a deleted account's data lingers (design decisions, "Account deletion").
+
+**Cosmos.** A point-in-time restore creates a **new** account; it never
+overwrites the live one. Pick a timestamp just before the damage:
+
+```bash
+az cosmosdb restore --resource-group bikebuddy-rg \
+  --account-name <live-account> --target-database-account-name <live-account>-restore \
+  --restore-timestamp 2026-09-25T10:00:00Z --location northeurope
+```
+
+Read what you need from the restored account (the same database and
+container names) and write it back into the live one with a reviewed one-off
+script. The restored account is not in OpenTofu state: delete it once done.
+
+**Blobs.** Versioning is on, so a deleted or overwritten blob lives on as a
+previous version: in the portal, open the blob (list with **Show deleted
+blobs** and versions), pick the version and **Make current version**. From the
+CLI, `az storage blob list --include vd --prefix <userId>/` lists versions and
+deleted blobs. A deleted container comes back with
+`az storage container list --include-deleted` and
+`az storage container restore --name <container> --deleted-version <version>`.
+
+**State.** Restore the previous version of `tfstate/bikebuddy.tfstate` the same
+way, then `tofu plan` to check it matches Azure before anything is applied.
+
+## Budget
+
+`budget.tf` creates a monthly consumption budget on the resource group
+(`budget_amount`, default 5; `budget_contact_email`; `budget_start_date`) that
+mails at 80 % forecast and 100 % actual spend. See the [cost report](../cost-report.md).
+
+### Monitoring
+
+`monitoring.tf` (#547) sends the API's requests, failures and log lines to
+Application Insights (`bikebuddy-insights`), capped at 0.1 GB a day. Each of
+these mails `budget_contact_email` through the `bikebuddy-ops` action group:
+
+- `/api/v1/health` fails its availability test;
+- more than 5 requests fail in 15 minutes;
+- a token cannot be verified at all (the OIDC metadata or keys are
+  unreachable), or more than 50 are rejected in 15 minutes.
+
+A failed scheduled run of `process-deletions.yml` opens an issue, or comments
+on the open one.
+
+### Budget stop
+
+At 100 % actual spend the budget also calls the action group
+`bikebuddy-budget-stop`, whose Logic App stops the Function App (#549): the
+site answers nothing until someone starts it again. Scale-out is capped
+separately by `maximum_instance_count` (10) in `functions.tf`.
+
+The Logic App calls Azure Resource Manager as its own system-assigned identity,
+which needs **Website Contributor** on the Function App. The deploy principal
+is only Contributor and cannot assign roles, so an Owner grants it once, after
+the first deploy that creates the Logic App:
+
+```bash
+cd infrastructure
+az role assignment create \
+  --assignee-object-id "$(tofu output -raw budget_stop_principal_id)" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Website Contributor" \
+  --scope "$(tofu output -raw functions_app_id)"
+```
+
+Until then the Logic App's run history shows the stop failing with 403, and only
+the emails go out. Replacing the Logic App gives it a new identity, which needs
+the grant again.
+
+After a stop, look at what spent the budget (Cost analysis, the Functions and
+Cosmos metrics) before starting the app again; the budget does not restart it:
+
+```bash
+az functionapp start -g bikebuddy-rg -n "$(cd infrastructure && tofu output -raw functions_app_name)"
+```
 
 ## Teardown
 
-```bash
-tofu destroy
-```
-
-This removes `bikebuddy-rg` but not the state-backend resource group
-(`bikebuddy-tfstate-rg`) — delete that separately if you want a full wipe.
+`.github/workflows/destroy.yml` (manual) runs `tofu destroy`. It fails unless
+the `confirm` input is exactly `destroy bikebuddy-rg`, runs in the `destroy`
+environment (add required reviewers to it under Settings → Environments), and
+shares deploy's concurrency group. With the destroy
+guards in place it cannot delete the data resources; that is the point. The
+state-backend resource group (`bikebuddy-tfstate-rg`) is never touched by it.

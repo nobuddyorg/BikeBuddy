@@ -1,6 +1,11 @@
 'use strict';
 
-const { toTourResponse } = require('./tourResponse');
+const {
+  toTourResponse,
+  toTourDetailResponse,
+  toCreatedTourResponse,
+  gpxDownloadDisposition,
+} = require('./tourResponse');
 
 const STORED = {
   id: 't1',
@@ -9,9 +14,9 @@ const STORED = {
   description: 'Nice ride',
   distance: 120,
   createdAt: '2026-01-01T00:00:00.000Z',
-  heatmapData: [[48.1, 11.5]],
-  images: [{ id: 'img1', url: 'https://blob/img1?sig=x' }],
-  gpxFileUrl: 'https://blob/t1.gpx?sig=x',
+  pointCount: 1,
+  images: [{ id: 'img1', blobName: 'entra-subject-id/t1/img1.jpg' }],
+  gpxFileUrl: 'https://account.blob.core.windows.net/gpx-files/entra-subject-id/t1.gpx',
   elevationGain: 340,
   elevationLoss: 310,
   minElevation: 420,
@@ -26,60 +31,158 @@ const STORED = {
   _ts: 1767225600,
 };
 
+// Read from the tour's track item (#615), never from the tour document.
+const TRACK = { heatmapData: [[48.1, 11.5]], segmentStarts: [] };
+
+const STATS = {
+  elevationGain: 340,
+  elevationLoss: 310,
+  minElevation: 420,
+  maxElevation: 890,
+  durationSeconds: 7200,
+  movingSeconds: 6300,
+  avgSpeed: 21.5,
+};
+
 describe('toTourResponse', () => {
-  it('returns every field the client needs', () => {
-    expect(toTourResponse(STORED)).toEqual({
+  it('returns the tour fields the client needs and nothing that names storage', () => {
+    expect(toTourResponse(STORED, TRACK)).toStrictEqual({
       id: 't1',
       name: 'Alps',
       description: 'Nice ride',
       distance: 120,
       createdAt: '2026-01-01T00:00:00.000Z',
       heatmapData: [[48.1, 11.5]],
-      images: [{ id: 'img1', url: 'https://blob/img1?sig=x' }],
-      gpxFileUrl: 'https://blob/t1.gpx?sig=x',
-      elevationGain: 340,
-      elevationLoss: 310,
-      minElevation: 420,
-      maxElevation: 890,
-      durationSeconds: 7200,
-      movingSeconds: 6300,
-      avgSpeed: 21.5,
+      segmentStarts: [],
+      ...STATS,
     });
   });
 
-  it('reports the new stat fields as null, not undefined, for a tour uploaded before they existed', () => {
-    const preMigration = { ...STORED };
-    delete preMigration.elevationGain;
-    delete preMigration.elevationLoss;
-    delete preMigration.minElevation;
-    delete preMigration.maxElevation;
-    delete preMigration.durationSeconds;
-    delete preMigration.movingSeconds;
-    delete preMigration.avgSpeed;
+  it('reports the stat fields as null for a tour uploaded before they existed', () => {
+    const beforeStats = Object.fromEntries(
+      Object.entries(STORED).filter(([key]) => !(key in STATS)),
+    );
 
-    const body = toTourResponse(preMigration);
-    expect(body.elevationGain).toBeNull();
-    expect(body.elevationLoss).toBeNull();
-    expect(body.minElevation).toBeNull();
-    expect(body.maxElevation).toBeNull();
-    expect(body.durationSeconds).toBeNull();
-    expect(body.movingSeconds).toBeNull();
-    expect(body.avgSpeed).toBeNull();
+    const body = toTourResponse(beforeStats, TRACK);
+    for (const field of Object.keys(STATS)) expect(body[field]).toBeNull();
   });
 
-  it('drops the Cosmos system properties and the caller subject id', () => {
-    const body = toTourResponse(STORED);
-
-    for (const key of ['userId', '_rid', '_self', '_etag', '_attachments', '_ts']) {
-      expect(body).not.toHaveProperty(key);
-    }
+  it('keeps a stat of zero rather than turning it into null', () => {
+    expect(toTourResponse({ ...STORED, elevationGain: 0 }, TRACK).elevationGain).toBe(0);
   });
 
-  // A field added to the stored document later must not reach the client until
-  // it is listed here — that is the point of projecting rather than deleting.
+  it('answers the track it is given, never points left inline on the document', () => {
+    const legacy = { ...STORED, heatmapData: [[1, 1]] };
+
+    expect(toTourResponse(legacy, TRACK).heatmapData).toBe(TRACK.heatmapData);
+  });
+
+  it.each([
+    [20240512, '20240512'],
+    [{ '#text': 'x' }, 'Untitled Tour'],
+    [null, 'Untitled Tour'],
+    ['', 'Untitled Tour'],
+  ])('answers a text name for the stored name %j, as uploads before #548 wrote', (name, text) => {
+    expect(toTourResponse({ ...STORED, name }, TRACK).name).toBe(text);
+  });
+
+  it('keeps the stored point count server-side', () => {
+    expect(toTourResponse(STORED, TRACK)).not.toHaveProperty('pointCount');
+  });
+
   it('ignores fields it does not know about', () => {
-    expect(toTourResponse({ ...STORED, internalNote: 'secret' })).not.toHaveProperty(
+    expect(toTourResponse({ ...STORED, internalNote: 'secret' }, TRACK)).not.toHaveProperty(
       'internalNote',
+    );
+  });
+});
+
+describe('toTourDetailResponse', () => {
+  const images = [{ id: 'img1', url: 'https://signed/full', thumbUrl: 'https://signed/thumb' }];
+
+  it('adds the signed images and download URL, never the stored ones', () => {
+    const body = toTourDetailResponse({
+      tour: STORED,
+      track: TRACK,
+      images,
+      gpxFileUrl: 'https://signed/gpx',
+    });
+
+    expect(body).toStrictEqual({
+      ...toTourResponse(STORED, TRACK),
+      images,
+      gpxFileUrl: 'https://signed/gpx',
+    });
+    expect(JSON.stringify(body)).not.toContain('entra-subject-id');
+  });
+
+  it('leaves gpxFileUrl out when there is nothing to download', () => {
+    expect(toTourDetailResponse({ tour: STORED, track: TRACK, images: [] })).not.toHaveProperty(
+      'gpxFileUrl',
+    );
+  });
+});
+
+describe('toCreatedTourResponse', () => {
+  it('returns the new tour id as id and, for older pages, tourId, and no storage URL', () => {
+    expect(toCreatedTourResponse(STORED)).toStrictEqual({
+      id: 't1',
+      tourId: 't1',
+      name: 'Alps',
+      distance: 120,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+  });
+});
+
+describe('gpxDownloadDisposition', () => {
+  it('names the download after the tour', () => {
+    expect(gpxDownloadDisposition('Alps')).toBe('attachment; filename="Alps.gpx"');
+  });
+
+  it('collapses each run of disallowed filename characters to one underscore', () => {
+    expect(gpxDownloadDisposition('My  Alps!!')).toBe('attachment; filename="My_Alps_.gpx"');
+  });
+
+  it('keeps letters, digits, dashes and underscores', () => {
+    expect(gpxDownloadDisposition('Tour-2026_b')).toBe('attachment; filename="Tour-2026_b.gpx"');
+  });
+
+  it('falls back to "tour" for a tour without a name', () => {
+    expect(gpxDownloadDisposition(undefined)).toBe('attachment; filename="tour.gpx"');
+    expect(gpxDownloadDisposition('')).toBe('attachment; filename="tour.gpx"');
+    expect(gpxDownloadDisposition({ '#text': 'x' })).toBe('attachment; filename="tour.gpx"');
+  });
+
+  it('names the download after a numeric name stored before #548', () => {
+    expect(gpxDownloadDisposition(20240512)).toBe('attachment; filename="20240512.gpx"');
+  });
+
+  it('keeps non-ASCII letters in filename*, with an accent-free ASCII fallback', () => {
+    expect(gpxDownloadDisposition('Größe Runde')).toBe(
+      `attachment; filename="Gro_e_Runde.gpx"; filename*=UTF-8''Gr%C3%B6%C3%9Fe_Runde.gpx`,
+    );
+    expect(gpxDownloadDisposition('Château Étape')).toBe(
+      `attachment; filename="Chateau_Etape.gpx"; filename*=UTF-8''Ch%C3%A2teau_%C3%89tape.gpx`,
+    );
+  });
+
+  it('collapses a run of letters without an ASCII form into one underscore', () => {
+    expect(gpxDownloadDisposition('Tokyo 東京')).toBe(
+      `attachment; filename="Tokyo__.gpx"; filename*=UTF-8''Tokyo_%E6%9D%B1%E4%BA%AC.gpx`,
+    );
+  });
+
+  it('falls back to "tour" when no ASCII letter is left, keeping the name in filename*', () => {
+    expect(gpxDownloadDisposition('Москва')).toBe(
+      `attachment; filename="tour.gpx"; filename*=UTF-8''%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0.gpx`,
+    );
+  });
+
+  it('never lets a quote, semicolon or apostrophe into either filename', () => {
+    const disposition = gpxDownloadDisposition(`Tür"; filename="x'.exe`);
+    expect(disposition).toBe(
+      `attachment; filename="Tur_filename_x_exe.gpx"; filename*=UTF-8''T%C3%BCr_filename_x_exe.gpx`,
     );
   });
 });

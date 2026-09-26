@@ -29,9 +29,9 @@ describe('computeTourStats', () => {
 
   it('splits distance into this year vs last year', () => {
     const tours = [
-      { id: 'a', distance: 20, createdAt: '2026-01-01T00:00:00Z' }, // this year
-      { id: 'b', distance: 30, createdAt: '2025-06-01T00:00:00Z' }, // last year
-      { id: 'c', distance: 10, createdAt: '2024-06-01T00:00:00Z' }, // neither
+      { id: 'a', distance: 20, createdAt: '2026-03-01T12:00:00Z' }, // this year
+      { id: 'b', distance: 30, createdAt: '2025-06-01T12:00:00Z' }, // last year
+      { id: 'c', distance: 15, createdAt: '2024-06-01T12:00:00Z' }, // neither
     ];
     const stats = computeTourStats(tours, NOW);
     expect(stats.distanceThisYear).toBe(20);
@@ -45,6 +45,14 @@ describe('computeTourStats', () => {
       { id: 'c', name: 'Medium', distance: 50, createdAt: '2026-03-01T00:00:00Z' },
     ];
     expect(computeTourStats(tours, NOW).longestTour.id).toBe('b');
+  });
+
+  it('keeps the first of equally long rides as the longest', () => {
+    const tours = [
+      { id: 'first', distance: 50, createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'second', distance: 50, createdAt: '2026-02-01T00:00:00Z' },
+    ];
+    expect(computeTourStats(tours, NOW).longestTour.id).toBe('first');
   });
 
   it('groups distance and count per year, newest first', () => {

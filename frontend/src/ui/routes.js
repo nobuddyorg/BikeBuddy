@@ -1,85 +1,127 @@
-'use strict';
-
-import { ensureMapData } from '../lib/mapData.js';
+import { queueMapDataLoads } from '../lib/mapData.js';
+import { hasNoPoints, routePointSets, selectionKey } from '../lib/routes.js';
 import { state } from './state.js';
 import { map } from './map.js';
-import { show, elMapEmpty, elMapLoadError, elMapLoading } from './dom.js';
-import { apiFetch } from './auth.js';
+import {
+  showElement,
+  hideElement,
+  setVisible,
+  mapEmptyOverlay,
+  mapLoadErrorOverlay,
+  mapLoadingOverlay,
+} from './dom.js';
+import { apiFetch } from './api.js';
 import { renderPins } from './pins.js';
 
 const L = window.L;
+
+const ALL_TOURS_PADDING_PX = 40;
+export const SINGLE_TOUR_PADDING_PX = 60;
+
+const ensureMapData = queueMapDataLoads();
+
+// One line per point set while it is drawn, so a render adds and removes only what changed (#580).
+const drawnLines = new Map();
 
 export function clearRouteLayer() {
   if (state.routeLayer) {
     map.removeLayer(state.routeLayer);
     state.routeLayer = null;
   }
+  drawnLines.clear();
 }
 
-// One polyline per tour, so tours never get joined by a spurious segment
-// across the gap between them the way a single flattened point list would.
 function drawRoutes(pointSets) {
-  clearRouteLayer();
-  const lines = pointSets
-    .filter((pts) => pts.length > 1)
-    .map((pts) => L.polyline(pts, { ...state.lineStyle, interactive: false }));
-  if (lines.length === 0) return;
-  state.routeLayer = L.layerGroup(lines).addTo(map);
+  const wanted = new Set(pointSets.filter((points) => points.length > 1));
+  if (!state.routeLayer) state.routeLayer = L.layerGroup().addTo(map);
+  for (const [points, line] of drawnLines) {
+    if (wanted.has(points)) continue;
+    state.routeLayer.removeLayer(line);
+    drawnLines.delete(points);
+  }
+  for (const points of wanted) {
+    if (drawnLines.has(points)) continue;
+    const line = L.polyline(points, { ...state.lineStyle, interactive: false });
+    drawnLines.set(points, line);
+    state.routeLayer.addLayer(line);
+  }
+  // Lines on the canvas renderer leave no element behind, so a test counts them here.
+  map.getContainer().dataset.routeLines = String(wanted.size);
 }
 
-// Applies the current line style to the already-drawn polylines in place —
-// no layer teardown/rebuild and no pan/zoom change, so a slider drag stays
-// smooth instead of re-creating every polyline on each tick.
+// Restyles in place, so dragging a slider neither rebuilds the layers nor moves the camera.
 export function redrawRoutes() {
   state.routeLayer?.eachLayer((layer) => layer.setStyle(state.lineStyle));
 }
 
-// fit=false redraws without touching pan/zoom — used when closing a tour's
-// detail on desktop, where the camera should stay put and only the explicit
-// "Show all tours" button re-fits (otherwise every close yanks the view).
-export function renderRoutes(pointSets, padding, fit = true) {
-  state.routePointSets = pointSets;
-  drawRoutes(pointSets);
-  if (!fit) return;
+function fitToPoints(pointSets, paddingPx) {
   const allPoints = pointSets.flat();
   if (allPoints.length === 0) return;
-  // Tours finish loading asynchronously, by which point the container may
-  // have resized (mobile sidebar settling, address-bar collapsing) since
-  // Leaflet last measured it — fitBounds would otherwise center against that
-  // stale size and leave the map visibly panned off.
+  // The container may have resized since Leaflet last measured it (mobile sidebar, toolbar).
   map.invalidateSize();
-  map.fitBounds(L.latLngBounds(allPoints), { padding: [padding, padding] });
+  map.fitBounds(L.latLngBounds(allPoints), { padding: [paddingPx, paddingPx] });
 }
 
-export async function renderAllRoutes(mapDataPromise, fit = true) {
-  show(elMapLoading, true);
-  await ensureMapData(apiFetch, state.tours, mapDataPromise);
-  show(elMapLoading, false);
-  const pointSets = state.tours.map((t) => t.heatmapData || []);
-  renderRoutes(pointSets, 40, fit);
-  const empty = pointSets.every((pts) => pts.length === 0);
-  show(elMapLoadError, empty && state.toursLoadFailed);
-  show(elMapEmpty, empty && !state.toursLoadFailed);
+export function renderRoutes(pointSets, paddingPx) {
+  drawRoutes(pointSets);
+  fitToPoints(pointSets, paddingPx);
+}
+
+async function loadMapData(pendingMapResponse) {
+  try {
+    await ensureMapData({
+      apiFetch,
+      tours: state.tours,
+      now: Date.now(),
+      pendingResponse: pendingMapResponse,
+    });
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+}
+
+async function loadAllPointSets(pendingMapResponse) {
+  showElement(mapLoadingOverlay);
+  const loaded = await loadMapData(pendingMapResponse);
+  hideElement(mapLoadingOverlay);
+  return { pointSets: routePointSets(state.tours), loaded };
+}
+
+function showOverlays({ pointSets, loaded }) {
+  const empty = hasNoPoints(pointSets);
+  const failed = state.toursLoadFailed || !loaded;
+  setVisible(mapLoadErrorOverlay, empty && failed);
+  setVisible(mapEmptyOverlay, empty && !failed);
   renderPins();
 }
 
-// Mirrors the checked set while in select mode, falling back to all tours when
-// nothing is checked so the map never goes blank.
+export async function renderAllRoutes({ pendingMapResponse } = {}) {
+  const { pointSets, loaded } = await loadAllPointSets(pendingMapResponse);
+  renderRoutes(pointSets, ALL_TOURS_PADDING_PX);
+  showOverlays({ pointSets, loaded });
+}
+
+// Closing a tour on desktop leaves the camera alone; only "Show all tours" re-fits.
+export async function redrawAllRoutesInPlace() {
+  const { pointSets, loaded } = await loadAllPointSets();
+  drawRoutes(pointSets);
+  showOverlays({ pointSets, loaded });
+}
+
+// Falls back to every tour when nothing is checked, so the map never goes blank.
 export async function renderSelectedToursRoutes() {
   if (state.selectedIds.size === 0) {
     await renderAllRoutes();
-    if (state.selectedIds.size !== 0) return renderSelectedToursRoutes();
+    // A tour was checked while every route was loading.
+    if (state.selectedIds.size !== 0) await renderSelectedToursRoutes();
     return;
   }
-  const requested = [...state.selectedIds].sort().join(',');
-  const tours = state.tours.filter((tour) => state.selectedIds.has(tour.id));
-  await ensureMapData(apiFetch, state.tours);
-  if ([...state.selectedIds].sort().join(',') !== requested) return; // selection changed while loading
-  const pointSets = tours.map((t) => t.heatmapData || []);
-  renderRoutes(pointSets, 40);
-  show(
-    elMapEmpty,
-    pointSets.every((pts) => pts.length === 0),
-  );
-  renderPins();
+  const requested = selectionKey(state.selectedIds);
+  const loaded = await loadMapData();
+  if (selectionKey(state.selectedIds) !== requested) return;
+  const pointSets = routePointSets(state.tours.filter((tour) => state.selectedIds.has(tour.id)));
+  renderRoutes(pointSets, ALL_TOURS_PADDING_PX);
+  showOverlays({ pointSets, loaded });
 }

@@ -1,7 +1,4 @@
-# Accepted Trivy misconfiguration findings for infrastructure/, one entry per
-# finding with the reason (the IaC scan fails on HIGH/CRITICAL otherwise).
-# Run: ./buddy.sh quality iac. Background: docs/explanation/design-decisions.md,
-# "IaC scan exceptions".
+# One entry per accepted finding, with its reason (design-decisions.md, "IaC scan exceptions").
 misconfigurations:
   - id: AZU-0012
     paths: ["storage.tf"]
@@ -14,12 +11,12 @@ misconfigurations:
     paths: ["storage.tf"]
     statement: >-
       Storage analytics logging is billed per GB and not read by anyone today;
-      revisit with #541 (backup and recovery).
+      recovery relies on blob soft delete and versioning (#541), not logs.
   - id: AZU-0058
     paths: ["storage.tf"]
     statement: >-
-      LRS, not GRS, to stay inside the cost target; losing the region loses the
-      photos, which #541 (backup and soft delete) covers.
+      LRS, not GRS, to stay inside the cost target. Soft delete and versioning
+      (#541) recover deleted or overwritten blobs; losing the region is accepted.
   - id: AZU-0060
     paths: ["storage.tf"]
     statement: >-

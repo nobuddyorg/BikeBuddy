@@ -2,62 +2,234 @@
 
 const { exportData } = require('./index');
 const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
+const {
+  fakeToursContainer,
+  fakeTracksContainer,
+  fakeUsersContainer,
+} = require('../../test/fakes/cosmosContainer');
+const { fakeImagesContainer, fakeGpxContainer } = require('../../test/fakes/blobContainer');
+const { signedInAs, signedOut, fixedClock, NOW } = require('../../test/fakes/collaborators');
 
-const USER = {
+const PROFILE = {
   id: 'u1',
   name: 'Ada',
   email: 'ada@example.com',
   createdAt: '2026-01-01T00:00:00.000Z',
+  language: 'de',
 };
-const TOURS = [{ id: 't1', userId: 'u1', name: 'Alps' }];
+const TOUR = {
+  id: 't1',
+  userId: 'u1',
+  name: 'Alps',
+  pointCount: 1,
+  gpxFileUrl: 'https://fake.blob/gpx-files/u1/t1.gpx',
+  images: [{ id: 'i1', blobName: 'u1/t1/i1.jpg', lat: 48.1, lon: 11.5 }],
+};
+// The SAS window's end: the close of the hour after the one NOW falls in.
+const LINKS_EXPIRE_AT = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString();
+const signedUrlParts = (url) => {
+  const parsed = new URL(url);
+  return { path: parsed.pathname, ...Object.fromEntries(parsed.searchParams) };
+};
+const TRACK = {
+  id: 't1',
+  userId: 'u1',
+  schemaVersion: 1,
+  heatmapData: [[48.1, 11.5]],
+  segmentStarts: [],
+};
+const OTHER_USERS_TOUR = { id: 't9', userId: 'u2', name: 'Not yours' };
 
-const mockAuth = async () => ({ userId: 'u1' });
-
-function makeUsers(resource = USER) {
-  return { item: vi.fn().mockReturnValue({ read: async () => ({ resource }) }) };
-}
-function makeTours(resources = TOURS) {
-  const fetchAll = vi.fn().mockResolvedValue({ resources });
-  const query = vi.fn().mockReturnValue({ fetchAll });
-  return { container: { items: { query } }, query, fetchAll };
+function setUp({
+  profiles = [PROFILE, { id: 'u2', name: 'Grace' }],
+  authenticate = signedInAs('u1'),
+} = {}) {
+  const users = fakeUsersContainer(profiles);
+  const tours = fakeToursContainer([TOUR, OTHER_USERS_TOUR]);
+  const tracks = fakeTracksContainer([TRACK, { id: 't9', userId: 'u2', heatmapData: [[1, 1]] }]);
+  const gpx = fakeGpxContainer();
+  const images = fakeImagesContainer();
+  const run = () =>
+    exportData(
+      {},
+      {
+        authenticate,
+        usersContainer: () => users,
+        toursContainer: () => tours,
+        tracksContainer: () => tracks,
+        gpxContainer: async () => gpx,
+        imagesContainer: async () => images,
+        now: fixedClock,
+      },
+    );
+  return { users, tours, tracks, gpx, images, run };
 }
 
 describe('GET /api/me/export', () => {
-  it('returns 401 when auth fails', async () => {
-    const res = await exportData(
-      {},
-      async () => null,
-      makeUsers,
-      () => makeTours().container,
+  it("exports the caller's profile and every tour with links to its files, as a JSON download", async () => {
+    const { run } = setUp();
+
+    const response = await run();
+
+    expect(response.status).toBe(200);
+    expect(response.headers['Content-Disposition']).toBe(
+      'attachment; filename="bikebuddy-export.json"',
     );
-    expect(res.status).toBe(401);
+    expect(response.jsonBody).toStrictEqual({
+      exportedAt: NOW.toISOString(),
+      linksExpireAt: LINKS_EXPIRE_AT,
+      user: PROFILE,
+      tours: [
+        {
+          id: 't1',
+          userId: 'u1',
+          name: 'Alps',
+          pointCount: 1,
+          heatmapData: [[48.1, 11.5]],
+          segmentStarts: [],
+          gpxFileUrl: expect.any(String),
+          images: [{ id: 'i1', lat: 48.1, lon: 11.5, url: expect.any(String) }],
+        },
+      ],
+    });
   });
 
-  it('returns the user doc and their tours, scoped to the partition', async () => {
-    const tours = makeTours();
-    const res = await exportData({}, mockAuth, makeUsers, () => tours.container);
+  it('links the GPX file and each photo read-only for an hour, the GPX named after the tour (#540)', async () => {
+    const { run } = setUp();
 
-    expect(res.status).toBe(200);
-    expect(res.headers['Content-Disposition']).toContain('bikebuddy-export.json');
-    expect(res.jsonBody.user).toEqual(USER);
-    expect(res.jsonBody.tours).toEqual(TOURS);
-    expect(res.jsonBody.exportedAt).toBeTruthy();
+    const [tour] = (await run()).jsonBody.tours;
 
-    const [spec, options] = tours.query.mock.calls[0];
-    expect(spec.query).toMatch(/SELECT \* FROM c WHERE c\.userId = @userId/);
-    expect(spec.parameters).toEqual([{ name: '@userId', value: 'u1' }]);
-    expect(options).toEqual({ partitionKey: 'u1', maxItemCount: MAX_ITEMS_PER_REQUEST });
+    expect(signedUrlParts(tour.gpxFileUrl)).toStrictEqual({
+      path: '/gpx-files/u1/t1.gpx',
+      sp: 'r',
+      sr: 'b',
+      se: LINKS_EXPIRE_AT,
+      rscd: 'attachment; filename="Alps.gpx"',
+    });
+    expect(signedUrlParts(tour.images[0].url)).toStrictEqual({
+      path: '/tour-images/u1/t1/i1.jpg',
+      sp: 'r',
+      sr: 'b',
+      se: LINKS_EXPIRE_AT,
+    });
   });
 
-  it('exports user: null when the user doc does not exist yet', async () => {
-    const res = await exportData(
+  it('names the blobs from the token user, never from the stored references', async () => {
+    const tampered = {
+      ...TOUR,
+      gpxFileUrl: 'https://fake.blob/gpx-files/u2/t9.gpx',
+      images: [{ id: 'i1', blobName: 'u2/t9/i9.jpg' }],
+    };
+    const tours = fakeToursContainer([tampered]);
+    const gpx = fakeGpxContainer();
+    const images = fakeImagesContainer();
+
+    const response = await exportData(
       {},
-      mockAuth,
-      () => makeUsers(null),
-      () => makeTours().container,
+      {
+        authenticate: signedInAs('u1'),
+        usersContainer: () => fakeUsersContainer([]),
+        toursContainer: () => tours,
+        tracksContainer: () => fakeTracksContainer([TRACK]),
+        gpxContainer: async () => gpx,
+        imagesContainer: async () => images,
+        now: fixedClock,
+      },
     );
 
-    expect(res.status).toBe(200);
-    expect(res.jsonBody.user).toBeNull();
+    expect([...gpx.calls, ...images.calls]).toEqual([
+      { operation: 'sign', blobName: 'u1/t1.gpx' },
+      { operation: 'sign', blobName: 'u1/t1/i1.jpg' },
+    ]);
+    expect(JSON.stringify(response.jsonBody)).not.toContain('u2/');
+  });
+
+  it('signs nothing for a tour stored without a GPX file or photos', async () => {
+    const tours = fakeToursContainer([{ id: 't3', userId: 'u1', name: 'Seeded' }]);
+    const gpx = fakeGpxContainer();
+    const images = fakeImagesContainer();
+
+    const response = await exportData(
+      {},
+      {
+        authenticate: signedInAs('u1'),
+        usersContainer: () => fakeUsersContainer([]),
+        toursContainer: () => tours,
+        tracksContainer: () => fakeTracksContainer(),
+        gpxContainer: async () => gpx,
+        imagesContainer: async () => images,
+        now: fixedClock,
+      },
+    );
+
+    expect(response.jsonBody.tours).toStrictEqual([
+      { id: 't3', userId: 'u1', name: 'Seeded', heatmapData: [], segmentStarts: [], images: [] },
+    ]);
+    expect([...gpx.calls, ...images.calls]).toEqual([]);
+  });
+
+  it('exports the points a tour from before #615 still holds itself', async () => {
+    const { tours, run } = setUp();
+    tours.seed({ id: 't2', userId: 'u1', name: 'Old', heatmapData: [[47, 10]], images: [] });
+
+    const { tours: exported } = (await run()).jsonBody;
+
+    expect(exported.find((tour) => tour.id === 't2').heatmapData).toEqual([[47, 10]]);
+  });
+
+  it('leaves out the system properties Cosmos adds to every document', async () => {
+    const { run } = setUp();
+
+    const { user, tours } = (await run()).jsonBody;
+
+    for (const document of [user, ...tours]) {
+      for (const key of ['_rid', '_self', '_etag', '_attachments', '_ts']) {
+        expect(document).not.toHaveProperty(key);
+      }
+    }
+  });
+
+  it("reads only the token user's profile and partition", async () => {
+    const { users, tours, tracks, run } = setUp();
+
+    await run();
+
+    expect(users.calls).toEqual([{ operation: 'read', id: 'u1', partitionKey: 'u1' }]);
+    for (const { options } of [...tours.calls, ...tracks.calls]) {
+      expect(options).toEqual({ partitionKey: 'u1', maxItemCount: MAX_ITEMS_PER_REQUEST });
+    }
+  });
+
+  it("never includes another user's data", async () => {
+    const { run } = setUp({ authenticate: signedInAs('u2') });
+
+    const { user, tours } = (await run()).jsonBody;
+
+    expect(user).toEqual({ id: 'u2', name: 'Grace' });
+    expect(tours.map((tour) => tour.id)).toEqual(['t9']);
+  });
+
+  it('exports user: null when the profile does not exist yet', async () => {
+    const { run } = setUp({ profiles: [] });
+
+    const response = await run();
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.user).toBeNull();
+  });
+
+  it('returns 401 without reading anything when the caller is not signed in', async () => {
+    const { users, tours, tracks, gpx, images, run } = setUp({ authenticate: signedOut });
+
+    const response = await run();
+
+    expect(response.status).toBe(401);
+    expect([
+      ...users.calls,
+      ...tours.calls,
+      ...tracks.calls,
+      ...gpx.calls,
+      ...images.calls,
+    ]).toEqual([]);
   });
 });

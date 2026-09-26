@@ -1,0 +1,10 @@
+name: Install the Playwright browser
+description: Chromium and its system libraries for e2e/, at the version e2e/package-lock.json pins. Needs `e2e` installed first (setup-node-packages).
+
+runs:
+  using: composite
+  steps:
+    - name: Install Playwright browser
+      shell: bash
+      working-directory: ${{ github.workspace }}/e2e
+      run: npx playwright install --with-deps chromium

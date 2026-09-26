@@ -1,0 +1,422 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Vendored (vendor/.archivo-source); used only for the wordmark. */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../vendor/fonts/archivo-700.woff2') format('woff2');
+}
+
+:root {
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-primary: #d97a36;
+  --color-primary-hover: #cd6c27;
+  /* White on --color-primary is ~3:1, below AA; filled buttons with text use this. */
+  --color-primary-strong: #ad5b21;
+  --color-primary-strong-hover: #904c1b;
+  --color-text: #1e293b;
+  /* 5:1 on --color-surface-2 (the selected row, code chips). */
+  --color-text-muted: #5e6a7d;
+  --color-danger: #ef4444;
+  /* The same AA gap as --color-primary, for filled danger buttons. */
+  --color-danger-strong: #b91c1c;
+  /* Red text: --color-danger is 3.8:1 on white, below AA for 12px text. */
+  --color-danger-text: #b91c1c;
+  --color-danger-strong-hover: #991b1b;
+  /* Orange text on a surface (wordmark, search highlight): --color-primary is ~3:1 there. */
+  --color-primary-text: #964f1c;
+  --navbar-height: 56px;
+  --detail-width: 320px;
+  /* Wider than --detail-width: at 320px the German selection bar wraps onto two rows. */
+  --sidebar-width: 380px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0f1117;
+    --color-surface: #1a1d27;
+    --color-surface-2: #22263a;
+    --color-border: #2e3250;
+    --color-text: #e2e8f0;
+    --color-text-muted: #8892a4;
+    /* The light shade is too dark on the dark surface; this clears 6:1. */
+    --color-primary-text: #e0954f;
+    /* The light value is too dark on the dark surface; this clears 6:1. */
+    --color-danger-text: #f87171;
+  }
+
+  /* Leaflet's stylesheet hardcodes white zoom buttons, whatever the theme. */
+  .leaflet-bar a {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    border-bottom-color: var(--color-border);
+  }
+
+  .leaflet-bar a:hover,
+  .leaflet-bar a:focus {
+    background-color: var(--color-surface-2);
+  }
+
+  .leaflet-bar a.leaflet-disabled {
+    background-color: var(--color-surface);
+    color: var(--color-text-muted);
+  }
+}
+
+html,
+body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Panes scroll, the page doesn't; also stops .app-layout's margin collapsing through body. */
+body {
+  overflow: hidden;
+}
+
+/* Mobile's body scrolls; this keeps the page behind an open modal still. */
+body.modal-open {
+  overflow: hidden;
+}
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--navbar-height);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 1100; /* above Leaflet's controls (z-index 1000) */
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.navbar-logo {
+  width: 34px;
+  height: 34px;
+  display: block;
+  object-fit: contain;
+}
+
+.navbar-title {
+  font-family:
+    'Archivo',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  padding-bottom: 2px;
+}
+
+.navbar-title-ruled {
+  color: var(--color-text);
+  border-bottom: 2px solid currentColor;
+  padding-bottom: 1px;
+}
+
+.navbar-title-accent {
+  color: var(--color-primary-text);
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-layout {
+  display: flex;
+  height: calc(100vh - var(--navbar-height));
+  margin-top: var(--navbar-height);
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.badge {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  border-radius: 99px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-prompt {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.tour-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tour-search,
+.tour-sort {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--color-text);
+  font: inherit;
+}
+
+.tour-search:focus,
+.tour-sort:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.tour-search-wrap {
+  position: relative;
+  display: flex;
+}
+
+.tour-search-wrap .tour-search {
+  width: 100%;
+  padding-right: 30px;
+}
+
+/* Hide the native WebKit clear ✕ so it doesn't sit next to ours. */
+.tour-search-wrap .tour-search::-webkit-search-cancel-button {
+  display: none;
+}
+
+.tour-search-clear {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.tour-search-clear:hover {
+  color: var(--color-text);
+}
+
+.tour-search-clear svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tour-sort {
+  cursor: pointer;
+}
+
+/* Mobile only: a native <select> has no compact icon-only state. */
+.sort-menu {
+  position: relative;
+  display: none;
+}
+
+.sort-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+/* An SVG, not the ⇅ glyph: it renders at this size whatever the platform's font metrics. */
+.sort-menu-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+#filter-in-view-toggle:has(input:checked) {
+  border-color: var(--color-primary);
+}
+
+/* Mobile's stats trigger: the sidebar header holding .stats-header-btn is hidden there. */
+.tour-stats-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+.tour-stats-btn svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.sort-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 200px;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  z-index: 1200;
+  list-style: none;
+  margin: 0;
+}
+
+.sort-menu-option {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sort-menu-option:hover {
+  background: var(--color-surface-2);
+}
+
+.sort-menu-option[aria-selected='true'] {
+  background: var(--color-surface-2);
+  font-weight: 600;
+}
+
+.tour-empty {
+  padding: 16px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* The privacy notice (privacy.html, #542): a plain, scrolling document on the app's tokens. */
+body.privacy-page {
+  overflow: auto;
+}
+
+body.privacy-page.i18n-loading .privacy {
+  visibility: hidden;
+}
+
+.privacy {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+  line-height: 1.6;
+}
+
+.privacy h1 {
+  margin: 16px 0 12px;
+  font-size: 28px;
+}
+
+.privacy h2 {
+  margin: 28px 0 8px;
+  font-size: 19px;
+}
+
+.privacy ul {
+  padding-left: 20px;
+}
+
+.privacy li + li {
+  margin-top: 8px;
+}
+
+.privacy address {
+  font-style: normal;
+}
+
+.privacy a {
+  color: var(--color-primary-text);
+}
+
+/* Its links in the app: the header, the sign-in prompt, the help and the profile. */
+.auth-privacy a,
+.help-privacy a,
+.profile-privacy-link {
+  color: var(--color-primary-text);
+}
+
+.profile-privacy-link {
+  display: block;
+  margin-top: 16px;
+  font-size: 13px;
+  text-align: center;
+}

@@ -1,7 +1,7 @@
 'use strict';
 
 const fc = require('fast-check');
-const { parseGpx } = require('./parseGpx');
+const { parseGpx, InvalidGpxError } = require('./parseGpx');
 
 // A trackpoint as a GPX exporter writes it; elevation and time optional.
 const trackpoint = fc.record({
@@ -10,14 +10,13 @@ const trackpoint = fc.record({
   ele: fc.option(fc.double({ min: -500, max: 9000, noNaN: true }), { nil: undefined }),
 });
 
-// Timestamps only move forward, as a recording does (out-of-order times are
-// #575's open question, not a property yet).
-function withTimes(points, startMs, stepsSec) {
-  let t = startMs;
-  return points.map((p, i) => {
-    if (stepsSec[i] === undefined) return p;
-    t += stepsSec[i] * 1000;
-    return { ...p, time: new Date(t).toISOString() };
+// Timestamps move forward, as a recording does; `shuffledRecording` drops that.
+function withTimes(points, { startMs, stepSeconds }) {
+  let timestampMs = startMs;
+  return points.map((point, index) => {
+    if (stepSeconds[index] === undefined) return point;
+    timestampMs += stepSeconds[index] * 1000;
+    return { ...point, time: new Date(timestampMs).toISOString() };
   });
 }
 
@@ -35,29 +34,57 @@ function toGpx(points, name) {
 
 const recording = fc
   .tuple(
-    fc.array(trackpoint, { maxLength: 200 }),
+    fc.array(trackpoint, { minLength: 1, maxLength: 200 }),
     fc.integer({ min: 0, max: 4_000_000_000_000 }),
     fc.array(fc.option(fc.integer({ min: 0, max: 3600 }), { nil: undefined }), {
       maxLength: 200,
     }),
   )
-  .map(([points, start, steps]) => withTimes(points, start, steps));
+  .map(([points, startMs, stepSeconds]) => withTimes(points, { startMs, stepSeconds }));
+
+// Any timestamps in any order, as a merged or hand-edited file can hold.
+const shuffledRecording = fc
+  .array(
+    fc.tuple(
+      trackpoint,
+      fc.option(fc.integer({ min: 0, max: 4_000_000_000_000 }), { nil: undefined }),
+    ),
+    { minLength: 1, maxLength: 200 },
+  )
+  .map((pairs) =>
+    pairs.map(([point, timestampMs]) =>
+      timestampMs === undefined ? point : { ...point, time: new Date(timestampMs).toISOString() },
+    ),
+  );
 
 describe('parseGpx (properties)', () => {
   it('returns finite, non-negative stats for any well-formed recording', () => {
     fc.assert(
       fc.property(recording, (points) => {
-        const r = parseGpx(toGpx(points));
-        expect(r.distanceKm).toBeGreaterThanOrEqual(0);
-        expect(Number.isFinite(r.distanceKm)).toBe(true);
+        const stats = parseGpx(toGpx(points));
+        expect(stats.distanceKm).toBeGreaterThanOrEqual(0);
+        expect(Number.isFinite(stats.distanceKm)).toBe(true);
         for (const key of ['durationSeconds', 'movingSeconds', 'elevationGain', 'elevationLoss']) {
-          if (r[key] !== null) expect(r[key]).toBeGreaterThanOrEqual(0);
+          if (stats[key] !== null) expect(stats[key]).toBeGreaterThanOrEqual(0);
         }
-        if (r.durationSeconds !== null) {
-          expect(r.movingSeconds).toBeLessThanOrEqual(r.durationSeconds + 1);
+        if (stats.durationSeconds !== null) {
+          expect(stats.movingSeconds).toBeLessThanOrEqual(stats.durationSeconds + 1);
         }
-        if (r.avgSpeed !== null) expect(Number.isFinite(r.avgSpeed)).toBe(true);
-        if (r.minElevation !== null) expect(r.minElevation).toBeLessThanOrEqual(r.maxElevation);
+        if (stats.avgSpeed !== null) expect(Number.isFinite(stats.avgSpeed)).toBe(true);
+        if (stats.minElevation !== null) {
+          expect(stats.minElevation).toBeLessThanOrEqual(stats.maxElevation);
+        }
+      }),
+    );
+  });
+
+  it('never reports a negative duration, whatever order the timestamps are in', () => {
+    fc.assert(
+      fc.property(shuffledRecording, (points) => {
+        const stats = parseGpx(toGpx(points));
+        if (stats.durationSeconds !== null) expect(stats.durationSeconds).toBeGreaterThanOrEqual(0);
+        if (stats.movingSeconds !== null) expect(stats.movingSeconds).toBeGreaterThanOrEqual(0);
+        if (stats.date !== null) expect(Number.isFinite(Date.parse(stats.date))).toBe(true);
       }),
     );
   });
@@ -66,13 +93,12 @@ describe('parseGpx (properties)', () => {
     fc.assert(
       fc.property(recording, (points) => {
         const { heatmapData } = parseGpx(toGpx(points));
-        // As written to the file: `${-0}` is "0", so the sign of zero does not survive.
-        const asWritten = (p) => [Number(String(p.lat)), Number(String(p.lon))];
+        // As written to the file, then rounded to five decimals: `${-0}` is "0", so no sign of zero.
+        const rounded = (degrees) => Number(Number(String(degrees)).toFixed(5));
+        const asWritten = (point) => [rounded(point.lat), rounded(point.lon)];
         expect(heatmapData.length).toBeLessThanOrEqual(Math.min(points.length, 5001));
-        if (points.length > 0) {
-          expect(heatmapData[0]).toEqual(asWritten(points[0]));
-          expect(heatmapData.at(-1)).toEqual(asWritten(points.at(-1)));
-        }
+        expect(heatmapData[0]).toEqual(asWritten(points[0]));
+        expect(heatmapData.at(-1)).toEqual(asWritten(points.at(-1)));
       }),
     );
   });
@@ -82,26 +108,26 @@ describe('parseGpx (properties)', () => {
       fc.property(fc.oneof(fc.string(), fc.string({ unit: 'binary' })), (text) => {
         try {
           parseGpx(text);
-        } catch (err) {
-          expect(err).toBeInstanceOf(Error);
-          expect(err.message).toBe('Not a valid GPX file');
+        } catch (error) {
+          expect(error).toBeInstanceOf(InvalidGpxError);
+          expect(['Not a valid GPX file', 'GPX file has no track points']).toContain(error.message);
         }
       }),
     );
   });
 
-  it('parses a very large track without exhausting the stack (#575)', () => {
+  it('parses a very large track without exhausting the stack', () => {
     fc.assert(
       fc.property(fc.integer({ min: 150_000, max: 200_000 }), (count) => {
-        const points = Array.from({ length: count }, (_, i) => ({
-          lat: 48 + i * 1e-6,
+        const points = Array.from({ length: count }, (_, index) => ({
+          lat: 48 + index * 1e-6,
           lon: 11,
-          ele: 500 + (i % 100),
+          ele: 500 + (index % 100),
         }));
-        const r = parseGpx(toGpx(points));
-        expect(r.heatmapData.length).toBeLessThanOrEqual(5001);
-        expect(r.minElevation).toBe(500);
-        expect(r.maxElevation).toBe(599);
+        const stats = parseGpx(toGpx(points));
+        expect(stats.heatmapData.length).toBeLessThanOrEqual(5001);
+        expect(stats.minElevation).toBe(500);
+        expect(stats.maxElevation).toBe(599);
       }),
       { numRuns: 2 },
     );

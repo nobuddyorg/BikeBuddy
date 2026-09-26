@@ -3,12 +3,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
-  normalizeLocale,
+  filterLocales,
+  localeMeta,
   pickLocale,
+  supportedLocaleCodes,
   translate,
-  translateApiMessage,
-  applyI18n,
-  I18N_ATTRS,
   isSupported,
   SUPPORTED_LOCALES,
 } from '../src/lib/i18n.js';
@@ -17,17 +16,36 @@ const here = dirname(fileURLToPath(import.meta.url));
 const load = (code) =>
   JSON.parse(readFileSync(resolve(here, `../src/locales/${code}.json`), 'utf8'));
 
-describe('normalizeLocale', () => {
+describe('supportedLocaleCodes', () => {
   it('maps region tags to the supported base language', () => {
-    expect(normalizeLocale('de-DE')).toBe('de');
-    expect(normalizeLocale('ES')).toBe('es');
-    expect(normalizeLocale('en-GB')).toBe('en');
+    expect(supportedLocaleCodes(['de-DE', 'ES', 'en-GB'])).toEqual(['de', 'es', 'en']);
   });
 
-  it('returns null for unsupported or empty input', () => {
-    expect(normalizeLocale('ja')).toBeNull();
-    expect(normalizeLocale('')).toBeNull();
-    expect(normalizeLocale(undefined)).toBeNull();
+  it('drops unsupported and empty candidates', () => {
+    expect(supportedLocaleCodes(['ja', '', undefined, null, 'fr'])).toEqual(['fr']);
+  });
+});
+
+describe('SUPPORTED_LOCALES', () => {
+  it('describes every locale completely for the language menu and Intl', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      expect(locale.label).not.toBe('');
+      expect(locale.flag).not.toBe('');
+      expect(locale.short).toBe(locale.code.toUpperCase());
+      expect(locale.intlLocale.startsWith(`${locale.code}-`)).toBe(true);
+    }
+    const labels = SUPPORTED_LOCALES.map((locale) => locale.label);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+});
+
+describe('localeMeta', () => {
+  it('describes a supported locale', () => {
+    expect(localeMeta('de')).toMatchObject({ code: 'de', intlLocale: 'de-DE' });
+  });
+
+  it('falls back to English for an unknown code', () => {
+    expect(localeMeta('xx')).toMatchObject({ code: 'en', intlLocale: 'en-GB' });
   });
 });
 
@@ -42,106 +60,88 @@ describe('pickLocale', () => {
 
   it('falls back to en when nothing matches', () => {
     expect(pickLocale({ stored: 'xx', languages: ['ja', 'ko'] })).toBe('en');
+    expect(pickLocale({ stored: null, languages: [] })).toBe('en');
   });
 });
 
 describe('translate', () => {
-  const messages = { greet: 'Hallo {name}', plain: 'Tour' };
+  const messages = { greet: 'Hallo {name}', plain: 'Tour', total: '{count} gesamt' };
+  const de = (key, params) => translate({ messages, key, params, locale: 'de-DE' });
 
   it('looks up a key and interpolates params', () => {
-    expect(translate(messages, 'greet', { name: 'Ada' })).toBe('Hallo Ada');
+    expect(de('greet', { name: 'Ada' })).toBe('Hallo Ada');
+    expect(de('plain')).toBe('Tour');
   });
 
   it('falls back to the fallback messages, then the key itself', () => {
-    expect(translate(messages, 'missing', {}, { missing: 'Fallback' })).toBe('Fallback');
-    expect(translate(messages, 'unknown.key')).toBe('unknown.key');
+    const fallbackMessages = { missing: 'Fallback' };
+    expect(translate({ messages, fallbackMessages, key: 'missing', locale: 'de-DE' })).toBe(
+      'Fallback',
+    );
+    expect(de('unknown.key')).toBe('unknown.key');
   });
 
   it('leaves unknown placeholders intact', () => {
-    expect(translate(messages, 'greet', {})).toBe('Hallo {name}');
-  });
-});
-
-describe('translateApiMessage', () => {
-  const messages = { 'errors.tourName': 'Bitte gib einen Namen an.' };
-
-  it('localises an error key returned by the API', () => {
-    expect(translateApiMessage(messages, 'errors.tourName')).toBe('Bitte gib einen Namen an.');
+    expect(de('greet', {})).toBe('Hallo {name}');
   });
 
-  it('passes prose from the API through untouched', () => {
-    expect(translateApiMessage(messages, 'Tour not found')).toBe('Tour not found');
-  });
-
-  it('falls back to English for a key the active locale is missing', () => {
-    expect(translateApiMessage({}, 'errors.tourDate', { 'errors.tourDate': 'Bad date.' })).toBe(
-      'Bad date.',
+  it('formats numeric params for the locale', () => {
+    expect(de('total', { count: 12345 })).toBe('12.345 gesamt');
+    expect(translate({ messages, key: 'total', params: { count: 12345 }, locale: 'en-GB' })).toBe(
+      '12,345 gesamt',
     );
   });
 
-  it('shows an unknown key rather than nothing', () => {
-    expect(translateApiMessage({}, 'errors.somethingNew')).toBe('errors.somethingNew');
-  });
-});
-
-// applyI18n only ever calls root.querySelectorAll and reads/writes attributes,
-// so a stand-in is enough to pin which attributes it applies without a DOM.
-// With no messages loaded, t() resolves a key to itself — that is the assertion
-// handle: the key reaching the right attribute is what this guards.
-describe('applyI18n', () => {
-  const makeEl = (attrs) => ({
-    attrs,
-    dataset: {
-      i18n: attrs['data-i18n'],
-      i18nHtml: attrs['data-i18n-html'],
-    },
-    applied: {},
-    getAttribute(name) {
-      return this.attrs[name];
-    },
-    setAttribute(name, value) {
-      this.applied[name] = value;
-    },
+  it('passes an API sentence (not a key) through untouched', () => {
+    expect(de('Tour not found')).toBe('Tour not found');
   });
 
-  const makeRoot = (elements) => ({
-    querySelectorAll(selector) {
-      const name = selector.slice(1, -1);
-      return elements.filter((el) => name in el.attrs);
-    },
-  });
+  describe('plural forms', () => {
+    const plural = {
+      'tours.one': '{count} tour',
+      'tours.other': '{count} tours',
+    };
+    const tours = ({ count, locale = 'en-GB', table = plural }) =>
+      translate({ messages: table, key: 'tours', params: { count }, locale });
 
-  it('translates every supported attribute', () => {
-    const elements = I18N_ATTRS.map((attr) => makeEl({ [`data-i18n-${attr}`]: `key.${attr}` }));
-
-    applyI18n(makeRoot(elements));
-
-    elements.forEach((el, i) => {
-      expect(el.applied[I18N_ATTRS[i]]).toBe(`key.${I18N_ATTRS[i]}`);
+    it('picks the form the locale’s plural rules name for the count', () => {
+      expect(tours({ count: 1 })).toBe('1 tour');
+      expect(tours({ count: 0 })).toBe('0 tours');
+      expect(tours({ count: 2 })).toBe('2 tours');
+      // French puts 0 in the singular.
+      expect(tours({ count: 0, locale: 'fr-FR' })).toBe('0 tour');
     });
-  });
 
-  it('covers the multi-word attribute name', () => {
-    expect(I18N_ATTRS).toContain('aria-label');
-  });
+    it('uses `other` for a category the locale file leaves out', () => {
+      // 1,000,000 is Spanish `many`; only one/other are written.
+      expect(tours({ count: 1000000, locale: 'es-ES' })).toBe('1.000.000 tours');
+    });
 
-  it('writes text and markup content to their own sinks', () => {
-    const text = makeEl({ 'data-i18n': 'nav.upload' });
-    const html = makeEl({ 'data-i18n-html': 'help.a2' });
+    it('falls back to the English plural forms, then a plain key', () => {
+      expect(
+        translate({
+          messages: {},
+          fallbackMessages: plural,
+          key: 'tours',
+          params: { count: 1 },
+          locale: 'en-GB',
+        }),
+      ).toBe('1 tour');
+      expect(tours({ count: 3, table: { tours: '{count} rides' } })).toBe('3 rides');
+    });
 
-    applyI18n(makeRoot([text, html]));
-
-    expect(text.textContent).toBe('nav.upload');
-    expect(html.innerHTML).toBe('help.a2');
-    // Content sinks are assignments, never setAttribute.
-    expect(text.applied).toEqual({});
-    expect(html.applied).toEqual({});
+    it('does not pluralise when count is not a number', () => {
+      expect(
+        translate({ messages: plural, key: 'tours', params: { count: '2' }, locale: 'en-GB' }),
+      ).toBe('tours');
+    });
   });
 });
 
 describe('locale files', () => {
   const en = load('en');
-  const others = SUPPORTED_LOCALES.map((l) => l.code).filter((c) => c !== 'en');
+  const codes = SUPPORTED_LOCALES.map((locale) => locale.code);
+  const others = codes.filter((code) => code !== 'en');
 
   it.each(others)('%s has exactly the same keys as en', (code) => {
     expect(Object.keys(load(code)).sort()).toEqual(Object.keys(en).sort());
@@ -150,12 +150,11 @@ describe('locale files', () => {
   it('every locale has non-empty string values', () => {
     for (const { code } of SUPPORTED_LOCALES) {
       const values = Object.values(load(code));
-      expect(values.every((v) => typeof v === 'string' && v.length > 0)).toBe(true);
+      expect(values.every((value) => typeof value === 'string' && value.length > 0)).toBe(true);
     }
   });
 
-  // The keys TOUR_META_ERROR_KEYS in functions/src/lib/validation.js sends as
-  // error bodies. Separate deployables, so nothing but this test ties them.
+  // TOUR_META_ERROR_KEYS in functions/src/lib/validation.js; only this test ties the two deployables.
   const API_ERROR_KEYS = [
     'errors.tourName',
     'errors.tourDescription',
@@ -163,13 +162,45 @@ describe('locale files', () => {
     'errors.tourInvalid',
   ];
 
-  it.each(SUPPORTED_LOCALES.map((l) => l.code))('%s translates every API error key', (code) => {
+  it.each(codes)('%s translates every API error key', (code) => {
     const messages = load(code);
     for (const key of API_ERROR_KEYS) expect(messages[key]).toBeTruthy();
+  });
+
+  // translate falls back to `other` for any category a locale file leaves out.
+  it.each(codes)('%s gives every plural key an `other` form', (code) => {
+    const keys = Object.keys(load(code));
+    const pluralBases = keys.filter((key) => key.endsWith('.one')).map((key) => key.slice(0, -4));
+    expect(pluralBases.length).toBeGreaterThan(0);
+    for (const base of pluralBases) expect(keys).toContain(`${base}.other`);
+  });
+
+  // applyI18n leaves a missing key on the page as the key itself.
+  it.each(['index.html', 'privacy.html'])('%s names only keys that exist', (page) => {
+    const html = readFileSync(resolve(here, `../src/${page}`), 'utf8');
+    const keys = [...html.matchAll(/data-i18n(?:-[a-z-]+)?="([^"]+)"/g)].map((match) => match[1]);
+    expect(keys.length).toBeGreaterThan(5);
+    expect(keys.filter((key) => !(key in en))).toEqual([]);
   });
 
   it('isSupported reflects SUPPORTED_LOCALES', () => {
     expect(isSupported('en')).toBe(true);
     expect(isSupported('ja')).toBe(false);
+  });
+});
+
+describe('filterLocales', () => {
+  const codes = (query) => filterLocales(query).map((locale) => locale.code);
+
+  it('matches the name, code or short label, ignoring case and padding', () => {
+    expect(codes('deut')).toEqual(['de']);
+    expect(codes('  deut  ')).toEqual(['de']);
+    expect(codes('NL')).toEqual(['nl']);
+    expect(codes('pt')).toEqual(['pt']);
+  });
+
+  it('lists every locale for an empty query and none for a miss', () => {
+    expect(codes('')).toEqual(SUPPORTED_LOCALES.map((locale) => locale.code));
+    expect(codes('klingon')).toEqual([]);
   });
 });

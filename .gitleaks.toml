@@ -1,7 +1,4 @@
-# gitleaks' default rules (incl. azure-ad-client-secret and generic-api-key) plus
-# rules for Azure Cosmos / Storage credentials. The Cosmos emulator key, public by
-# design, is the one allowlisted value. How to handle a false positive:
-# docs/how-to/developer-guide.md, "Secret scanning".
+# False positives: docs/how-to/developer-guide.md, "Secret scanning".
 [extend]
 useDefault = true
 
@@ -26,10 +23,13 @@ regex = '''(?i)(?:[a-z0-9]{3,24}\.(?:blob|queue|table|file|dfs)\.core\.windows\.
 secretGroup = 1
 keywords = ["sig="]
 
-# The well-known Cosmos emulator key (docs: "Emulator well-known key"), matched by
-# content so it stays exempt wherever it appears and nothing else does.
-# UseDevelopmentStorage=true (Azurite) carries no secret and matches no rule.
+# Matched by content, so the public emulator key is exempt wherever it appears and nothing else is.
 [[allowlists]]
 description = "Cosmos DB emulator key: public by design"
 targetRules = ["generic-api-key", "azure-cosmos-connection-string", "azure-storage-connection-string"]
 regexes = ['''^C2y6yDjf5/R\+ob0N8A7Cgv30VRDJIWEHLM\+4QDU5DE2nQ9nDuVTqobD4b5n5NVmBSuvpToAw==$''']
+
+[[allowlists]]
+description = "Paging test fixture: base64url of the made-up Cosmos-style token '-RID:~ab#RT:1', not a key"
+targetRules = ["generic-api-key"]
+regexes = ['''^LVJJRDp-YWIjUlQ6MQ$''']

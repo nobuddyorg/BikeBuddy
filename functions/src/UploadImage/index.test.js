@@ -1,427 +1,404 @@
 'use strict';
 
 const sharp = require('sharp');
-const { uploadImage, isJpegOrPng } = require('./index');
+const { uploadImage } = require('./index');
+const { fakeToursContainer, cosmosError } = require('../../test/fakes/cosmosContainer');
+const { fakeImagesContainer } = require('../../test/fakes/blobContainer');
+const {
+  signedInAs,
+  signedOut,
+  fixedClock,
+  NOW,
+  idsInOrder,
+  signedUrlParts,
+} = require('../../test/fakes/collaborators');
 
-const TID = '11111111-1111-4111-8111-111111111111';
+const TOUR_ID = '11111111-1111-4111-8111-111111111111';
+const OTHER_TOUR_ID = '99999999-9999-4999-8999-999999999999';
+const IMAGE_ID = '22222222-2222-4222-8222-222222222222';
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const NOT_IMAGE = Buffer.from('hello world');
+const NOT_AN_IMAGE = Buffer.from('hello world');
+const FULL = Buffer.from('full-bytes');
+const THUMBNAIL = Buffer.from('thumbnail-bytes');
+// What the entry records: the two stored variants, never the original.
+const STORED_BYTES = FULL.length + THUMBNAIL.length;
+const FULL_BLOB = `u1/${TOUR_ID}/${IMAGE_ID}.jpg`;
+const THUMBNAIL_BLOB = `u1/${TOUR_ID}/${IMAGE_ID}_thumb.jpg`;
+// The SAS window's end: the close of the hour after the one NOW falls in.
+const SAS_EXPIRES_AT = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString();
 
-const TOUR = { id: TID, userId: 'u1', name: 'Alps', images: [] };
+const TOUR = { id: TOUR_ID, userId: 'u1', name: 'Alps', images: [] };
+const OTHER_USERS_TOUR = { id: OTHER_TOUR_ID, userId: 'u2', name: 'Not yours', images: [] };
 
-const mockAuth = async () => ({ userId: 'u1' });
-
-function makeToursContainer(readImpl) {
-  const read = vi.fn(readImpl);
-  const replace = vi.fn(async (doc) => ({ resource: doc }));
-  const patch = vi.fn(async () => ({}));
-  const item = vi.fn().mockReturnValue({ read, replace, patch });
-  return { container: { item }, item, read, replace, patch };
-}
-
-function makeImagesContainer() {
-  const blockBlob = {
-    uploadData: vi.fn().mockResolvedValue({}),
-    generateSasUrl: vi.fn().mockResolvedValue('https://blob/sas-url'),
-  };
-  const getBlockBlobClient = vi.fn().mockReturnValue(blockBlob);
-  return { container: { getBlockBlobClient }, getBlockBlobClient, blockBlob };
-}
-
-const makeParseFile = (buffer, mimeType = 'image/jpeg') =>
-  vi.fn().mockResolvedValue({ filename: 'p.jpg', mimeType, buffer });
-// Stands in for resizeVariants: real sharp processing on these fake,
-// magic-bytes-only buffers would reject them as unreadable images.
-const noResize = (buf) => Promise.resolve({ full: buf, thumbnail: buf });
-const reqWith = (tourId) => ({ params: { tourId } });
-
-describe('isJpegOrPng (magic-byte validation)', () => {
-  it('accepts valid 4-byte JPEG and PNG signatures', () => {
-    expect(isJpegOrPng(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe(true);
-    expect(isJpegOrPng(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toBe(true);
+const fileOf =
+  (buffer, mimeType = 'image/jpeg') =>
+  async () => ({
+    filename: 'photo.jpg',
+    mimeType,
+    buffer,
   });
+const clientError = (message) => Object.assign(new Error(message), { status: 400 });
 
-  it('rejects a buffer shorter than 4 bytes', () => {
-    expect(isJpegOrPng(Buffer.from([0xff, 0xd8, 0xff]))).toBe(false);
-  });
-
-  it.each([
-    ['JPEG byte 0', [0x00, 0xd8, 0xff, 0xe0]],
-    ['JPEG byte 1', [0xff, 0x00, 0xff, 0xe0]],
-    ['JPEG byte 2', [0xff, 0xd8, 0x00, 0xe0]],
-    ['PNG byte 0', [0x00, 0x50, 0x4e, 0x47]],
-    ['PNG byte 1', [0x89, 0x00, 0x4e, 0x47]],
-    ['PNG byte 2', [0x89, 0x50, 0x00, 0x47]],
-    ['PNG byte 3', [0x89, 0x50, 0x4e, 0x00]],
-  ])('rejects when %s is wrong', (_label, bytes) => {
-    expect(isJpegOrPng(Buffer.from(bytes))).toBe(false);
-  });
-});
-
-describe('POST /api/tours/{tourId}/images', () => {
-  it('resizes, stores, appends to tour.images and returns 201 + SAS url', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      noResize,
-    );
-
-    expect(res.status).toBe(201);
-    expect(res.jsonBody.url).toBe('https://blob/sas-url');
-    expect(res.jsonBody.thumbUrl).toBe('https://blob/sas-url');
-    expect(images.blockBlob.uploadData).toHaveBeenCalledWith(JPEG, {
-      blobHTTPHeaders: { blobContentType: 'image/jpeg' },
-    });
-    expect(images.getBlockBlobClient).toHaveBeenCalledWith(`u1/${TID}/${res.jsonBody.id}.jpg`);
-    expect(images.getBlockBlobClient).toHaveBeenCalledWith(
-      `u1/${TID}/${res.jsonBody.id}_thumb.jpg`,
-    );
-    const [ops] = tours.patch.mock.calls[0];
-    expect(ops).toEqual([
+function setUp({
+  documents = [TOUR, OTHER_USERS_TOUR],
+  authenticate = signedInAs('u1'),
+  ...overrides
+} = {}) {
+  const tours = fakeToursContainer(documents);
+  const images = fakeImagesContainer();
+  const run = (tourId = TOUR_ID, options = {}) =>
+    uploadImage(
+      { params: { tourId } },
       {
-        op: 'add',
-        path: '/images/-',
-        value: { id: res.jsonBody.id, blobName: `u1/${TID}/${res.jsonBody.id}.jpg` },
+        authenticate,
+        toursContainer: () => tours,
+        imagesContainer: async () => images,
+        parseFile: fileOf(JPEG),
+        resize: async () => ({ full: FULL, thumbnail: THUMBNAIL }),
+        readGps: async () => null,
+        rateLimiter: { take: () => ({ allowed: true }) },
+        newId: idsInOrder(IMAGE_ID),
+        now: fixedClock,
+        ...overrides,
+        ...options,
       },
-    ]);
-  });
-
-  it('uploads both the full image and the thumbnail as separate blobs', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
-    const full = Buffer.from('full-bytes');
-    const thumbnail = Buffer.from('thumb-bytes');
-    const resize = async () => ({ full, thumbnail });
-
-    await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      resize,
     );
+  const storedImages = (tourId = TOUR_ID, userId = 'u1') => tours.stored(tourId, userId).images;
+  return { tours, images, run, storedImages };
+}
 
-    expect(images.blockBlob.uploadData).toHaveBeenCalledWith(full, {
-      blobHTTPHeaders: { blobContentType: 'image/jpeg' },
+describe('POST /api/v1/tours/{tourId}/images', () => {
+  it('stores both sizes, appends the entry and returns 201 with signed URLs', async () => {
+    const { images, run, storedImages } = setUp();
+
+    const response = await run();
+
+    expect(response.status).toBe(201);
+    expect(response.jsonBody).toStrictEqual({
+      id: IMAGE_ID,
+      url: expect.any(String),
+      thumbUrl: expect.any(String),
     });
-    expect(images.blockBlob.uploadData).toHaveBeenCalledWith(thumbnail, {
-      blobHTTPHeaders: { blobContentType: 'image/jpeg' },
-    });
+    // Never rewritten under their names, so a browser may cache both while the URL works.
+    const cached = { contentType: 'image/jpeg', cacheControl: 'private, max-age=3600, immutable' };
+    expect(images.blob(FULL_BLOB)).toEqual({ data: FULL, ...cached });
+    expect(images.blob(THUMBNAIL_BLOB)).toEqual({ data: THUMBNAIL, ...cached });
+    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES }]);
   });
 
-  // Every other test injects a resize stub (real sharp processing rejects
-  // their fake magic-bytes-only buffers) — this is the one that exercises
-  // the actual default (resizeVariants -> resizeImage + resizeThumbnail)
-  // end-to-end, with a real decodable JPEG.
-  it('resizes for real when no resize override is given', async () => {
-    const validJpeg = await sharp({
+  it("signs read-only, short-lived URLs for the new photo under the caller's prefix", async () => {
+    const { run } = setUp();
+
+    const { url, thumbUrl } = (await run()).jsonBody;
+
+    expect(signedUrlParts(url)).toMatchObject({
+      path: `/tour-images/${FULL_BLOB}`,
+      permissions: 'r',
+      resource: 'b',
+      expiresOn: SAS_EXPIRES_AT,
+    });
+    expect(signedUrlParts(thumbUrl).path).toBe(`/tour-images/${THUMBNAIL_BLOB}`);
+  });
+
+  it('resizes and reads GPS for real when no overrides are given', async () => {
+    const photo = await sharp({
       create: { width: 50, height: 50, channels: 3, background: { r: 1, g: 2, b: 3 } },
     })
       .jpeg()
       .toBuffer();
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
+    const { images, run } = setUp();
 
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(validJpeg),
-    );
-
-    expect(res.status).toBe(201);
-    expect(images.blockBlob.uploadData).toHaveBeenCalledTimes(2);
-  });
-
-  // Appending via the atomic /images/- patch (rather than reading tour.images
-  // and writing the whole document back) is what prevents this upload from
-  // losing a concurrent request's image — see UploadImage/index.js.
-  it('appends via /images/- rather than reading and replacing the whole array', async () => {
-    const existing = { id: 'img0', blobName: 'u1/old.jpg' };
-    const tours = makeToursContainer(async () => ({
-      resource: { ...TOUR, images: [existing] },
-    }));
-    const images = makeImagesContainer();
-    await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      noResize,
-      async () => null,
-    );
-
-    expect(tours.replace).not.toHaveBeenCalled();
-    const [ops] = tours.patch.mock.calls[0];
-    expect(ops).toEqual([{ op: 'add', path: '/images/-', value: expect.any(Object) }]);
-  });
-
-  // Deadlocks if the handler awaits the GPS read before calling resize: readGps
-  // only settles once resize has been entered, so a sequential handler times out.
-  it('starts the resize without waiting for the GPS read to finish', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
-    let resizeEntered;
-    const resizeStarted = new Promise((resolve) => {
-      resizeEntered = resolve;
-    });
-    const resize = vi.fn(async (buffer) => {
-      resizeEntered();
-      return { full: buffer, thumbnail: buffer };
-    });
-    const readGps = vi.fn(async () => {
-      await resizeStarted;
-      return null;
+    const response = await run(TOUR_ID, {
+      parseFile: fileOf(photo),
+      resize: undefined,
+      readGps: undefined,
     });
 
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      resize,
-      readGps,
-    );
-
-    expect(res.status).toBe(201);
+    expect(response.status).toBe(201);
+    expect((await sharp(images.blob(FULL_BLOB).data).metadata()).format).toBe('jpeg');
+    expect(images.blob(THUMBNAIL_BLOB).contentType).toBe('image/jpeg');
+    expect(response.jsonBody).not.toHaveProperty('lat');
   });
 
-  it('stores and returns GPS coords when the image is geotagged', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
-    const readGps = vi.fn().mockResolvedValue({ lat: 48.137, lon: 11.575 });
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      noResize,
-      readGps,
-    );
+  it('keeps a photo another upload appended between the read and the write', async () => {
+    const { tours, run, storedImages } = setUp();
+    const concurrent = { id: 'concurrent', blobName: `u1/${TOUR_ID}/concurrent.jpg` };
+    tours.beforeNext('patch', () => tours.seed({ ...TOUR, images: [concurrent] }));
 
-    expect(res.status).toBe(201);
-    expect(res.jsonBody).toMatchObject({ lat: 48.137, lon: 11.575 });
-    const [ops] = tours.patch.mock.calls[0];
-    expect(ops[0].value).toMatchObject({ lat: 48.137, lon: 11.575 });
+    await run();
+
+    expect(storedImages().map((entry) => entry.id)).toEqual(['concurrent', IMAGE_ID]);
   });
 
-  it('omits coords for an image without GPS', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      noResize,
-      async () => null,
-    );
+  it('stores and returns the coordinates of a geotagged photo', async () => {
+    const { run, storedImages } = setUp({ readGps: async () => ({ lat: 48.137, lon: 11.575 }) });
 
-    expect(res.jsonBody.lat).toBeUndefined();
-    const [ops] = tours.patch.mock.calls[0];
-    expect(ops[0].value.lat).toBeUndefined();
-  });
+    const response = await run();
 
-  it('accepts PNG by magic bytes', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(PNG),
-      noResize,
-    );
-    expect(res.status).toBe(201);
-  });
-
-  it('rejects non-image files with 400', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(NOT_IMAGE),
-      noResize,
-    );
-    expect(res.status).toBe(400);
-    expect(res.jsonBody.error).toBe('Only JPEG or PNG images are accepted');
-    expect(images.getBlockBlobClient).not.toHaveBeenCalled();
-    expect(tours.patch).not.toHaveBeenCalled();
-  });
-
-  it('rejects a non-image content-type even with image magic bytes', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG, 'text/plain'),
-      noResize,
-    );
-    expect(res.status).toBe(400);
-    expect(images.getBlockBlobClient).not.toHaveBeenCalled();
-  });
-
-  it('returns 400 when tourId is not a UUID', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith('not-a-uuid'),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      noResize,
-    );
-    expect(res.status).toBe(400);
-    expect(tours.item).not.toHaveBeenCalled();
-  });
-
-  it('returns 404 when the tour is not in the caller partition', async () => {
-    const tours = makeToursContainer(async () => ({ resource: undefined }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      noResize,
-    );
-    expect(res.status).toBe(404);
-    expect(res.jsonBody.error).toBe('Tour not found');
-  });
-
-  it('falls back to creating the images array for a tour that predates the field', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: undefined } }));
-    // Cosmos rejects an "add /images/-" patch when /images isn't an existing
-    // array — only tours from before the images field existed hit this.
-    tours.patch.mockRejectedValueOnce(Object.assign(new Error('Invalid patch'), { code: 400 }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      noResize,
-    );
-    expect(res.status).toBe(201);
-    expect(tours.patch).toHaveBeenCalledTimes(2);
-    const [fallbackOps] = tours.patch.mock.calls[1];
-    expect(fallbackOps).toEqual([
-      {
-        op: 'add',
-        path: '/images',
-        value: [{ id: res.jsonBody.id, blobName: expect.any(String) }],
-      },
+    expect(response.jsonBody).toMatchObject({ lat: 48.137, lon: 11.575 });
+    expect(storedImages()).toEqual([
+      { id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES, lat: 48.137, lon: 11.575 },
     ]);
   });
 
-  it('rethrows a non-400 error from the images/- patch without falling back', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: [] } }));
-    tours.patch.mockRejectedValueOnce(
-      Object.assign(new Error('service unavailable'), { code: 503 }),
-    );
-    const images = makeImagesContainer();
-    await expect(
-      uploadImage(
-        reqWith(TID),
-        mockAuth,
-        () => tours.container,
-        () => images.container,
-        makeParseFile(JPEG),
-        noResize,
-      ),
-    ).rejects.toThrow('service unavailable');
-    expect(tours.patch).toHaveBeenCalledTimes(1);
+  it('accepts a PNG by its magic bytes', async () => {
+    const { run } = setUp({ parseFile: fileOf(PNG, 'image/png') });
+
+    expect((await run()).status).toBe(201);
   });
 
-  it('returns 400 when the tour already has 20 images', async () => {
-    const full = Array.from({ length: 20 }, (_, i) => ({ id: `img${i}`, blobName: `u1/${i}.jpg` }));
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR, images: full } }));
-    const images = makeImagesContainer();
-    const parseFile = makeParseFile(JPEG);
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      parseFile,
-      noResize,
+  it.each([
+    ['bytes that are not an image', fileOf(NOT_AN_IMAGE)],
+    ['a declared type that is not an image', fileOf(JPEG, 'text/plain')],
+  ])('rejects %s with 400, storing nothing', async (_label, parseFile) => {
+    const { tours, images, run } = setUp({ parseFile });
+
+    const response = await run();
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.error).toBe('errors.imageType');
+    expect(images.calls).toEqual([]);
+    expect(tours.calls.map((call) => call.operation)).toEqual(['read']);
+  });
+
+  it('returns the parser message for an upload the client got wrong', async () => {
+    const parseFile = async () => {
+      throw clientError('errors.fileSize');
+    };
+    const { run } = setUp({ parseFile });
+
+    const response = await run();
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.error).toBe('errors.fileSize');
+  });
+
+  it('rethrows a parser failure that is not the client’s fault', async () => {
+    const parseFile = async () => {
+      throw new Error('boom');
+    };
+    const { run } = setUp({ parseFile });
+
+    await expect(run()).rejects.toThrow('boom');
+  });
+
+  it('creates the images array for a tour written before the field existed', async () => {
+    const { run, storedImages } = setUp({ documents: [{ ...TOUR, images: undefined }] });
+
+    const response = await run();
+
+    expect(response.status).toBe(201);
+    expect(storedImages()).toEqual([{ id: IMAGE_ID, blobName: FULL_BLOB, bytes: STORED_BYTES }]);
+  });
+
+  it('rolls both blobs back and rethrows when the entry cannot be written', async () => {
+    const { tours, images, run, storedImages } = setUp();
+    tours.failOn('patch', { error: cosmosError(503, 'service unavailable') });
+
+    await expect(run()).rejects.toThrow('service unavailable');
+
+    expect(images.names()).toEqual([]);
+    expect(storedImages()).toEqual([]);
+  });
+
+  it('surfaces both errors when the entry write and the rollback fail', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('patch', { error: cosmosError(503, 'cosmos down') });
+    images.failOn('delete', { error: new Error('storage down'), blobName: THUMBNAIL_BLOB });
+
+    const error = await run().catch((failure) => failure);
+
+    expect(error).toBeInstanceOf(AggregateError);
+    expect(error.message).toBe(
+      `cosmos down; the rollback failed as well: Deleting the blobs of ${FULL_BLOB} failed`,
     );
-    expect(res.status).toBe(400);
-    expect(res.jsonBody.error).toBe('This tour already has the maximum of 20 photos.');
+    expect(images.names()).toEqual([THUMBNAIL_BLOB]);
+  });
+
+  it('deletes the stored size and writes no entry when the other upload fails', async () => {
+    const { images, run, storedImages } = setUp();
+    images.failOn('upload', { error: new Error('storage down'), blobName: THUMBNAIL_BLOB });
+
+    const error = await run().catch((failure) => failure);
+
+    expect(error).toBeInstanceOf(AggregateError);
+    expect(error.message).toBe(`Uploading the blobs of ${FULL_BLOB} failed`);
+    expect(error.errors.map((failure) => failure.message)).toEqual(['storage down']);
+    expect(images.names()).toEqual([]);
+    expect(storedImages()).toEqual([]);
+  });
+
+  it('accepts a 20th photo and refuses a 21st before parsing the upload', async () => {
+    const entries = (count) =>
+      Array.from({ length: count }, (_, index) => ({ id: `image-${index}` }));
+    const parseFile = vi.fn(fileOf(JPEG));
+    const nineteen = setUp({ documents: [{ ...TOUR, images: entries(19) }], parseFile });
+    const twenty = setUp({ documents: [{ ...TOUR, images: entries(20) }], parseFile });
+
+    expect((await nineteen.run()).status).toBe(201);
+    parseFile.mockClear();
+    const refused = await twenty.run();
+
+    expect(refused.status).toBe(400);
+    expect(refused.jsonBody.error).toBe('errors.tourImageLimit');
     expect(parseFile).not.toHaveBeenCalled();
-    expect(images.getBlockBlobClient).not.toHaveBeenCalled();
+    expect(twenty.images.calls).toEqual([]);
   });
 
-  it('returns the parseFile error status/message when parsing fails', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
-    const images = makeImagesContainer();
-    const parseFile = vi.fn().mockRejectedValue(
-      Object.assign(new Error('Bad multipart body'), {
+  // Two uploads can both read 19 photos; the conditional append lets only one become the 20th.
+  it('refuses the photo and rolls its blobs back when a concurrent upload filled the tour', async () => {
+    const entries = (count) =>
+      Array.from({ length: count }, (_, index) => ({ id: `image-${index}` }));
+    const { tours, images, run, storedImages } = setUp({
+      documents: [{ ...TOUR, images: entries(19) }],
+    });
+    tours.beforeNext('patch', () => tours.seed({ ...TOUR, images: entries(20) }));
+
+    const response = await run();
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.error).toBe('errors.tourImageLimit');
+    expect(images.names()).toEqual([]);
+    expect(storedImages()).toHaveLength(20);
+  });
+
+  it('appends only if the tour still carries the ETag it counted', async () => {
+    const { tours, run } = setUp();
+    const { _etag } = tours.stored(TOUR_ID, 'u1');
+
+    await run();
+
+    const patch = tours.calls.find((call) => call.operation === 'patch');
+    expect(patch.options).toEqual({ accessCondition: { type: 'IfMatch', condition: _etag } });
+  });
+
+  it('creates the array when a concurrent upload has not, and appends when it has', async () => {
+    const { tours, run, storedImages } = setUp({ documents: [{ ...TOUR, images: undefined }] });
+    const concurrent = { id: 'concurrent', blobName: `u1/${TOUR_ID}/concurrent.jpg` };
+    tours.beforeNext('patch', () => tours.seed({ ...TOUR, images: [concurrent] }));
+
+    expect((await run()).status).toBe(201);
+
+    expect(storedImages().map((entry) => entry.id)).toEqual(['concurrent', IMAGE_ID]);
+  });
+
+  it('answers 404 and rolls its blobs back when the tour is deleted during the upload', async () => {
+    const { tours, images, run } = setUp();
+    tours.beforeNext('patch', () => tours.item(TOUR_ID, 'u1').delete());
+
+    const response = await run();
+
+    expect(response.status).toBe(404);
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
+    expect(images.names()).toEqual([]);
+  });
+
+  it('answers 404 when the tour is deleted between a conflict and the second count', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('patch', { error: cosmosError(412, 'Precondition failed') });
+    tours.beforeNext('read', () => {});
+    tours.beforeNext('read', () => tours.item(TOUR_ID, 'u1').delete());
+
+    const response = await run();
+
+    expect(response.status).toBe(404);
+    expect(images.names()).toEqual([]);
+  });
+
+  it('gives up after ten conflicting writes, rolling its blobs back', async () => {
+    const { tours, images, run } = setUp();
+    tours.failOn('patch', { error: cosmosError(412, 'Precondition failed'), times: 10 });
+
+    await expect(run()).rejects.toThrow('Precondition failed');
+
+    expect(tours.calls.filter((call) => call.operation === 'patch')).toHaveLength(10);
+    expect(images.names()).toEqual([]);
+  });
+
+  it("returns 404 for another user's tour that exists, storing nothing", async () => {
+    const { tours, images, run, storedImages } = setUp();
+
+    const response = await run(OTHER_TOUR_ID);
+
+    expect(response.status).toBe(404);
+    expect(response.jsonBody.error).toBe('errors.tourNotFound');
+    expect(storedImages(OTHER_TOUR_ID, 'u2')).toEqual([]);
+    expect(tours.calls).toEqual([{ operation: 'read', id: OTHER_TOUR_ID, partitionKey: 'u1' }]);
+    expect(images.calls).toEqual([]);
+  });
+
+  it('returns 400 before any read when tourId is not a UUID', async () => {
+    const { tours, run } = setUp();
+
+    const response = await run('not-a-uuid');
+
+    expect(response.status).toBe(400);
+    expect(tours.calls).toEqual([]);
+  });
+
+  it('returns 401 without reading or storing anything when the caller is not signed in', async () => {
+    const parseFile = vi.fn(fileOf(JPEG));
+    const { tours, images, run } = setUp({ authenticate: signedOut, parseFile });
+
+    const response = await run();
+
+    expect(response.status).toBe(401);
+    expect([...tours.calls, ...images.calls]).toEqual([]);
+    expect(parseFile).not.toHaveBeenCalled();
+  });
+
+  describe('limits (#549)', () => {
+    const GIGABYTE = 1024 ** 3;
+
+    it('answers 429 before reading the photo once the rider is over the rate', async () => {
+      const parseFile = vi.fn(fileOf(JPEG));
+      const rateLimiter = { take: vi.fn(() => ({ allowed: false, retryAfterSeconds: 5 })) };
+      const { images, run, storedImages } = setUp({ parseFile, rateLimiter });
+
+      const response = await run();
+
+      expect(response).toEqual({
+        status: 429,
+        headers: { 'Retry-After': '5' },
+        jsonBody: { error: 'errors.rateLimited' },
+      });
+      expect(rateLimiter.take).toHaveBeenCalledWith('u1', NOW.getTime());
+      expect(parseFile).not.toHaveBeenCalled();
+      expect(images.calls).toEqual([]);
+      expect(storedImages()).toEqual([]);
+    });
+
+    it('checks the rate only for a tour the caller owns', async () => {
+      const rateLimiter = { take: vi.fn(() => ({ allowed: true })) };
+      const { run } = setUp({ rateLimiter });
+
+      expect((await run(OTHER_TOUR_ID)).status).toBe(404);
+      expect(rateLimiter.take).not.toHaveBeenCalled();
+    });
+
+    it('counts the stored variants against the storage limit, storing nothing past it', async () => {
+      const room = 5 * GIGABYTE - STORED_BYTES;
+      const { run: fits } = setUp({ documents: [{ ...TOUR, gpxBytes: room }] });
+      const overflowing = setUp({ documents: [{ ...TOUR, gpxBytes: room + 1 }] });
+
+      expect((await fits()).status).toBe(201);
+      expect(await overflowing.run()).toEqual({
         status: 400,
-      }),
-    );
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      parseFile,
-      noResize,
-    );
-    expect(res.status).toBe(400);
-    expect(res.jsonBody.error).toBe('Bad multipart body');
-  });
+        jsonBody: { error: 'errors.storageLimit' },
+      });
+      expect(overflowing.images.calls).toEqual([]);
+      expect(overflowing.storedImages()).toEqual([]);
+    });
 
-  it('defaults to 500 when the parseFile error has no status', async () => {
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
-    const images = makeImagesContainer();
-    const parseFile = vi.fn().mockRejectedValue(new Error('boom'));
-    const res = await uploadImage(
-      reqWith(TID),
-      mockAuth,
-      () => tours.container,
-      () => images.container,
-      parseFile,
-      noResize,
-    );
-    expect(res.status).toBe(500);
-  });
+    it('lets a photo onto a rider at the tour limit', async () => {
+      const documents = [
+        TOUR,
+        ...Array.from({ length: 999 }, (_, index) => ({ id: `t${index}`, userId: 'u1' })),
+      ];
+      const { run } = setUp({ documents });
 
-  it('returns 401 when auth fails', async () => {
-    const failAuth = async () => null;
-    const tours = makeToursContainer(async () => ({ resource: { ...TOUR } }));
-    const images = makeImagesContainer();
-    const res = await uploadImage(
-      reqWith(TID),
-      failAuth,
-      () => tours.container,
-      () => images.container,
-      makeParseFile(JPEG),
-      noResize,
-    );
-    expect(res.status).toBe(401);
-    expect(tours.item).not.toHaveBeenCalled();
+      expect((await run()).status).toBe(201);
+    });
   });
 });

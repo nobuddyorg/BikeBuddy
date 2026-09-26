@@ -1,11 +1,17 @@
 'use strict';
 
-const BASE = 'http://localhost:7071/api';
+const { connectHarness } = require('./harness');
+
+let anonymous;
+
+beforeAll(async () => {
+  ({ anonymous } = await connectHarness());
+});
 
 describe('GET /api/health', () => {
-  it('returns 200 with an ok payload', async () => {
-    const res = await fetch(`${BASE}/health`);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: 'ok' });
+  it('returns 200 with an ok payload, without a token', async () => {
+    const response = await anonymous.request('/health');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'ok' });
   });
 });

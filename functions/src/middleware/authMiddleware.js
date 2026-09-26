@@ -4,63 +4,80 @@ const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
 const jwksRsa = require('jwks-rsa');
 
+const { openIdConfigUrl } = require('../lib/oidcMetadataUrl');
+const { createSigningKeyCache } = require('../lib/signingKeyCache');
+
 const verifyJwt = promisify(jwt.verify);
 const BEARER_PREFIX = 'Bearer ';
+const DEV_USER = { userId: 'local-dev-user', userEmail: 'dev@localhost', userName: 'Local Dev' };
+// The frontend requests api://<client id>/access_as_user; an ID token for the same client has no scp.
+const REQUIRED_SCOPE = 'access_as_user';
 
-// ENTRA_TENANT_SUBDOMAIN is the leading name ("bikebuddy"), ENTRA_TENANT_ID the
-// directory GUID.
-function openIdConfigUrl() {
-  const subdomain = process.env.ENTRA_TENANT_SUBDOMAIN;
-  const tenantId = process.env.ENTRA_TENANT_ID;
-  return `https://${subdomain}.ciamlogin.com/${tenantId}/v2.0/.well-known/openid-configuration`;
+// Read from the metadata (the issuer host varies by Entra surface), refreshed on warm instances.
+const CONFIG_TTL_MS = 60 * 60 * 1000;
+// A failed refresh keeps serving the last document this long, so an Entra blip is no outage.
+const CONFIG_MAX_STALENESS_MS = 24 * 60 * 60 * 1000;
+// Both outbound calls: a hung Entra endpoint must not hold every request open.
+const FETCH_TIMEOUT_MS = 5000;
+
+async function fetchOpenIdConfig(fetchMetadata, environment) {
+  const response = await fetchMetadata(openIdConfigUrl(environment), {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`OIDC metadata fetch failed: ${response.status}`);
+  const metadata = await response.json();
+  return { issuer: metadata.issuer, jwksUri: metadata.jwks_uri };
 }
-
-// issuer and jwks_uri are read from the metadata, not constructed: the issuer
-// host differs across Entra surfaces. The TTL is there because a warm instance
-// can live long enough to miss a change to either.
-const CONFIG_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 let cachedConfig;
 let cachedConfigAt = 0;
-async function getOpenIdConfig(fetchImpl = fetch) {
-  if (!cachedConfig || Date.now() - cachedConfigAt >= CONFIG_TTL_MS) {
-    const res = await fetchImpl(openIdConfigUrl());
-    if (!res.ok) throw new Error(`OIDC metadata fetch failed: ${res.status}`);
-    const doc = await res.json();
-    cachedConfig = { issuer: doc.issuer, jwksUri: doc.jwks_uri };
-    cachedConfigAt = Date.now();
+let pendingConfig;
+async function getOpenIdConfig({
+  fetchMetadata = fetch,
+  now = Date.now,
+  environment = process.env,
+} = {}) {
+  const age = now() - cachedConfigAt;
+  if (cachedConfig && age < CONFIG_TTL_MS) return cachedConfig;
+  // Concurrent callers share one fetch.
+  pendingConfig ??= fetchOpenIdConfig(fetchMetadata, environment).finally(() => {
+    pendingConfig = undefined;
+  });
+  try {
+    cachedConfig = await pendingConfig;
+    cachedConfigAt = now();
+  } catch (error) {
+    if (!cachedConfig || age >= CONFIG_MAX_STALENESS_MS) throw error;
+    console.error(`auth: OIDC metadata refresh failed, serving the cached copy (${error.message})`);
   }
   return cachedConfig;
 }
 
-let cachedJwksClient;
+const defaultSigningKeys = createSigningKeyCache({
+  fetchSigningKeys: (jwksUri) => jwksRsa({ jwksUri, timeout: FETCH_TIMEOUT_MS }).getSigningKeys(),
+  now: () => Date.now(),
+});
 function defaultJwksClient(jwksUri) {
-  if (!cachedJwksClient) {
-    cachedJwksClient = jwksRsa({ jwksUri, cache: true, rateLimit: true });
-  }
-  return cachedJwksClient;
+  return { getSigningKey: (kid) => defaultSigningKeys.getSigningKey({ jwksUri, kid }) };
 }
 
 // External ID sends `email` or `preferred_username`; `emails` is B2C's shape.
 const resolveEmail = (payload) =>
   payload.email || payload.preferred_username || payload.emails?.[0] || null;
 const resolveName = (payload) => payload.name || payload.given_name || null;
+const hasRequiredScope = (payload) =>
+  typeof payload.scp === 'string' && payload.scp.split(' ').includes(REQUIRED_SCOPE);
 
-// A configured Entra tenant means this is not a dev environment, so the bypass
-// is refused there — by throwing rather than falling through to real auth,
-// which would leave the misconfiguration in place and unnoticed.
-function skipAuthIfDev() {
-  if (process.env.SKIP_AUTH !== 'true') return null;
-  if (process.env.ENTRA_CLIENT_ID || process.env.ENTRA_TENANT_ID) {
+// A configured tenant means deployed: the bypass throws there instead of silently falling back.
+function isDevBypassActive(environment) {
+  if (environment.SKIP_AUTH !== 'true') return false;
+  if (environment.ENTRA_CLIENT_ID || environment.ENTRA_TENANT_ID) {
     throw new Error('SKIP_AUTH must not be set when Entra auth is configured');
   }
-  return { userId: 'local-dev-user', userEmail: 'dev@localhost', userName: 'Local Dev' };
+  return true;
 }
 
-// Only these may become a 401. Answering 401 for an Entra or network outage
-// would tell every correctly-authenticated user they are signed out.
-// SigningKeyNotFoundError belongs here: the token's `kid` is genuinely absent
-// from the tenant's JWKS, which is not the same as the fetch failing.
+// Only these become a 401, never an outage; an unknown kid is the token's fault, not the fetch's.
 const CLIENT_TOKEN_ERRORS = new Set([
   'JsonWebTokenError', // malformed, bad signature, wrong audience/issuer, bad alg
   'TokenExpiredError',
@@ -68,21 +85,45 @@ const CLIENT_TOKEN_ERRORS = new Set([
   'SigningKeyNotFoundError',
 ]);
 
-// Returns the caller for a valid token, null when it is missing or rejected,
-// and throws when verification could not be performed at all so callers surface
-// a retryable 5xx rather than a misleading 401.
+async function verifyToken(token, { kid, jwksClientFactory, configLoader, environment, now }) {
+  const { issuer, jwksUri } = await configLoader({ environment, now });
+  const key = await jwksClientFactory(jwksUri).getSigningKey(kid);
+  const payload = await verifyJwt(token, key.getPublicKey(), {
+    audience: environment.ENTRA_CLIENT_ID,
+    issuer,
+    algorithms: ['RS256'],
+    clockTimestamp: Math.floor(now() / 1000),
+  });
+  if (!hasRequiredScope(payload)) {
+    throw new jwt.JsonWebTokenError(`token lacks the ${REQUIRED_SCOPE} scope`);
+  }
+  return {
+    userId: payload.sub,
+    // The directory object id: the out-of-band deletion job deletes by it.
+    userOid: payload.oid ?? null,
+    userEmail: resolveEmail(payload),
+    userName: resolveName(payload),
+  };
+}
+
+/**
+ * The caller, or null for a missing or rejected token; throws when verification cannot run (a 5xx).
+ */
 async function authenticate(
   request,
-  jwksClientFactory = defaultJwksClient,
-  configLoader = getOpenIdConfig,
+  {
+    jwksClientFactory = defaultJwksClient,
+    configLoader = getOpenIdConfig,
+    environment = process.env,
+    now = Date.now,
+  } = {},
 ) {
-  const dev = skipAuthIfDev();
-  if (dev) return dev;
+  if (isDevBypassActive(environment)) return { ...DEV_USER };
 
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith(BEARER_PREFIX)) return null;
+  const authorization = request.headers.get('authorization');
+  if (!authorization?.startsWith(BEARER_PREFIX)) return null;
 
-  const token = authHeader.slice(BEARER_PREFIX.length);
+  const token = authorization.slice(BEARER_PREFIX.length);
   const decoded = jwt.decode(token, { complete: true });
   if (!decoded) {
     console.warn('auth: rejected malformed bearer token');
@@ -90,31 +131,22 @@ async function authenticate(
   }
 
   try {
-    const { issuer, jwksUri } = await configLoader();
-    const client = jwksClientFactory(jwksUri);
-    const key = await client.getSigningKey(decoded.header.kid);
-    const payload = await verifyJwt(token, key.getPublicKey(), {
-      audience: process.env.ENTRA_CLIENT_ID,
-      issuer,
-      algorithms: ['RS256'],
+    return await verifyToken(token, {
+      kid: decoded.header.kid,
+      jwksClientFactory,
+      configLoader,
+      environment,
+      now,
     });
-
-    return {
-      userId: payload.sub,
-      // Directory object id — needed to delete the user via Graph (GDPR).
-      userOid: payload.oid ?? null,
-      userEmail: resolveEmail(payload),
-      userName: resolveName(payload),
-    };
-  } catch (err) {
-    // Name and message only — never the token or the payload.
-    if (CLIENT_TOKEN_ERRORS.has(err.name)) {
-      console.warn(`auth: rejected token (${err.name}: ${err.message})`);
-      return null;
+  } catch (error) {
+    // Name and message only, never the token or its payload.
+    if (!CLIENT_TOKEN_ERRORS.has(error.name)) {
+      console.error(`auth: unable to verify token (${error.name}: ${error.message})`);
+      throw error;
     }
-    console.error(`auth: unable to verify token (${err.name}: ${err.message})`);
-    throw err;
+    console.warn(`auth: rejected token (${error.name}: ${error.message})`);
+    return null;
   }
 }
 
-module.exports = { authenticate, openIdConfigUrl, getOpenIdConfig, defaultJwksClient };
+module.exports = { authenticate, getOpenIdConfig };

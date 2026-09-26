@@ -1,11 +1,6 @@
 // @ts-check
-'use strict';
-
-// Dependency-free line-style preference. The pure helpers are unit-tested; the
-// localStorage reads/writes below are covered by e2e.
 
 export const DEFAULT_LINE_STYLE = { color: '#d97a36', weight: 3, opacity: 0.75 };
-const STORAGE_KEY = 'bikebuddy-line-style';
 
 export const WEIGHT_MIN = 1;
 export const WEIGHT_MAX = 16;
@@ -18,37 +13,31 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-// Merges a stored value onto the default, discarding anything malformed
-// (corrupted JSON, wrong types, out-of-range numbers) rather than letting a
-// tampered or stale localStorage entry break rendering.
-export function parseLineStyle(raw) {
-  if (!raw) return { ...DEFAULT_LINE_STYLE };
-  let parsed;
+function readStored(raw) {
   try {
-    parsed = JSON.parse(raw);
+    return JSON.parse(raw) ?? {};
   } catch {
-    return { ...DEFAULT_LINE_STYLE };
+    return {}; // corrupted JSON counts as nothing stored
   }
-  if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_LINE_STYLE };
+}
 
-  const color =
-    typeof parsed.color === 'string' && HEX_COLOR.test(parsed.color)
-      ? parsed.color
-      : DEFAULT_LINE_STYLE.color;
-  const weight = Number.isFinite(parsed.weight)
-    ? clamp(parsed.weight, WEIGHT_MIN, WEIGHT_MAX)
+// A tampered or stale stored entry falls back to the defaults field by field.
+export function parseLineStyle(raw) {
+  const stored = readStored(raw);
+  const color = HEX_COLOR.test(stored.color) ? stored.color : DEFAULT_LINE_STYLE.color;
+  const weight = Number.isFinite(stored.weight)
+    ? clamp(stored.weight, WEIGHT_MIN, WEIGHT_MAX)
     : DEFAULT_LINE_STYLE.weight;
-  const opacity = Number.isFinite(parsed.opacity)
-    ? clamp(parsed.opacity, OPACITY_MIN, OPACITY_MAX)
+  const opacity = Number.isFinite(stored.opacity)
+    ? clamp(stored.opacity, OPACITY_MIN, OPACITY_MAX)
     : DEFAULT_LINE_STYLE.opacity;
-
   return { color, weight, opacity };
 }
 
-export function loadLineStyle() {
-  return parseLineStyle(localStorage.getItem(STORAGE_KEY));
+export function opacityToPercent(opacity) {
+  return Math.round(opacity * 100);
 }
 
-export function saveLineStyle(style) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(style));
+export function percentToOpacity(percent) {
+  return percent / 100;
 }

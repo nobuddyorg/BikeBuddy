@@ -2,117 +2,192 @@
 
 const { deleteAccount } = require('./index');
 const { MAX_ITEMS_PER_REQUEST } = require('../lib/db');
+const {
+  fakeToursContainer,
+  fakeTracksContainer,
+  fakeUsersContainer,
+  cosmosError,
+} = require('../../test/fakes/cosmosContainer');
+const { fakeImagesContainer, fakeGpxContainer } = require('../../test/fakes/blobContainer');
+const { signedInAs, signedOut, fixedClock, NOW } = require('../../test/fakes/collaborators');
 
-const UID = 'u1';
-const mockAuth = async () => ({ userId: UID });
+const tourOf = (userId, id) => ({ id, userId, name: `${userId} ${id}` });
+// u1x shares u1's leading characters, so a prefix without the slash would reach it.
+const USERS = [
+  { id: 'u1', name: 'Ada' },
+  { id: 'u2', name: 'Grace' },
+  { id: 'u1x', name: 'Lin' },
+];
+const TOURS = [tourOf('u1', 't1'), tourOf('u1', 't2'), tourOf('u2', 't3'), tourOf('u1x', 't4')];
+// t9's tour is gone already: a track a failed delete left behind is purged too.
+const TRACKS = [...TOURS, tourOf('u1', 't9')].map(({ id, userId }) => ({ id, userId }));
+const GPX_BLOBS = ['u1/t1.gpx', 'u1/t2.gpx', 'u2/t3.gpx', 'u1x/t4.gpx'];
+const IMAGE_BLOBS = ['u1/t1/p.jpg', 'u1/t1/p_thumb.jpg', 'u2/t3/q.jpg', 'u1x/t4/r.jpg'];
 
-function asyncList(names) {
-  return {
-    async *[Symbol.asyncIterator]() {
-      for (const name of names) yield { name };
-    },
-  };
+function setUp({ authenticate = signedInAs('u1') } = {}) {
+  const users = fakeUsersContainer(USERS);
+  const tours = fakeToursContainer(TOURS);
+  const tracks = fakeTracksContainer(TRACKS);
+  const deletions = fakeUsersContainer();
+  const gpx = fakeGpxContainer(GPX_BLOBS);
+  const images = fakeImagesContainer(IMAGE_BLOBS);
+  const run = () =>
+    deleteAccount(
+      {},
+      {
+        authenticate,
+        usersContainer: () => users,
+        toursContainer: () => tours,
+        tracksContainer: () => tracks,
+        deletionsContainer: () => deletions,
+        gpxContainer: async () => gpx,
+        imagesContainer: async () => images,
+        now: fixedClock,
+      },
+    );
+  return { users, tours, tracks, deletions, gpx, images, run };
 }
 
-function makeTours(ids = ['t1', 't2']) {
-  const del = vi.fn().mockResolvedValue({});
-  const item = vi.fn().mockReturnValue({ delete: del });
-  const fetchAll = vi.fn().mockResolvedValue({ resources: ids.map((id) => ({ id })) });
-  const query = vi.fn().mockReturnValue({ fetchAll });
-  return { container: { items: { query }, item }, item, del, query };
-}
+describe('DELETE /api/account', () => {
+  it('deletes every document and blob of the caller and returns 204', async () => {
+    const { users, tours, tracks, gpx, images, run } = setUp();
 
-function makeUsers(exists = true) {
-  const del = vi.fn().mockResolvedValue({});
-  const item = vi.fn().mockReturnValue({
-    read: async () => ({ resource: exists ? { id: UID } : undefined }),
-    delete: del,
-  });
-  return { container: { item }, item, del };
-}
+    const response = await run();
 
-function makeBlobs(names) {
-  const deleteBlob = vi.fn().mockResolvedValue({});
-  const listBlobsFlat = vi.fn(() => asyncList(names));
-  return { container: { listBlobsFlat, deleteBlob }, deleteBlob, listBlobsFlat };
-}
-
-describe('DELETE /api/me', () => {
-  it('returns 401 when auth fails', async () => {
-    const res = await deleteAccount({}, async () => null);
-    expect(res.status).toBe(401);
+    expect(response.status).toBe(204);
+    expect(users.stored('u1', 'u1')).toBeUndefined();
+    expect(tours.all().filter((tour) => tour.userId === 'u1')).toEqual([]);
+    expect(tracks.all().filter((track) => track.userId === 'u1')).toEqual([]);
+    expect(gpx.names().filter((name) => name.startsWith('u1/'))).toEqual([]);
+    expect(images.names().filter((name) => name.startsWith('u1/'))).toEqual([]);
   });
 
-  it('queues the Entra oid for out-of-band deletion when present', async () => {
-    const authWithOid = async () => ({ userId: UID, userOid: 'oid-1' });
-    const deletions = { items: { upsert: vi.fn().mockResolvedValue({}) } };
-    const res = await deleteAccount(
-      {},
-      authWithOid,
-      () => makeUsers(true).container,
-      () => makeTours([]).container,
-      async () => makeBlobs([]).container,
-      async () => makeBlobs([]).container,
-      () => deletions,
-    );
-    expect(res.status).toBe(204);
-    expect(deletions.items.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: 'oid-1' }));
+  it("leaves every other user's documents and blobs alone, even under a similar prefix", async () => {
+    const { users, tours, tracks, gpx, images, run } = setUp();
+
+    await run();
+
+    expect(users.all().map((user) => user.id)).toEqual(['u2', 'u1x']);
+    expect(tours.all().map((tour) => tour.id)).toEqual(['t3', 't4']);
+    expect(tracks.all().map((track) => track.id)).toEqual(['t3', 't4']);
+    expect(gpx.names()).toEqual(['u1x/t4.gpx', 'u2/t3.gpx']);
+    expect(images.names()).toEqual(['u1x/t4/r.jpg', 'u2/t3/q.jpg']);
   });
 
-  it('does not queue a deletion in dev/no-auth mode (no oid)', async () => {
-    const deletions = { items: { upsert: vi.fn() } };
-    await deleteAccount(
-      {},
-      mockAuth, // returns { userId } with no userOid
-      () => makeUsers(true).container,
-      () => makeTours([]).container,
-      async () => makeBlobs([]).container,
-      async () => makeBlobs([]).container,
-      () => deletions,
-    );
-    expect(deletions.items.upsert).not.toHaveBeenCalled();
+  it("lists the tours from the token user's partition only", async () => {
+    const { tours, run } = setUp();
+
+    await run();
+
+    const [query] = tours.calls.filter((call) => call.operation === 'query');
+    expect(query.options).toEqual({ partitionKey: 'u1', maxItemCount: MAX_ITEMS_PER_REQUEST });
+    const deletes = tours.calls.filter((call) => call.operation === 'delete');
+    expect(deletes.map((call) => call.partitionKey)).toEqual(['u1', 'u1']);
   });
 
-  it('cascades: deletes tours, prefixed blobs, and the user doc', async () => {
-    const tours = makeTours(['t1', 't2']);
-    const users = makeUsers(true);
-    const gpx = makeBlobs([`${UID}/a.gpx`]);
-    const images = makeBlobs([`${UID}/t1/p.jpg`, `${UID}/t1/q.jpg`]);
+  it('deletes a large account at most ten documents at once', async () => {
+    const { tours, run } = setUp();
+    const load = { inFlight: 0, peak: 0 };
+    for (let index = 0; index < 30; index += 1) {
+      tours.seed(tourOf('u1', `bulk-${index}`));
+      tours.beforeNext('delete', async () => {
+        load.inFlight += 1;
+        load.peak = Math.max(load.peak, load.inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        load.inFlight -= 1;
+      });
+    }
 
-    const res = await deleteAccount(
-      {},
-      mockAuth,
-      () => users.container,
-      () => tours.container,
-      async () => gpx.container,
-      async () => images.container,
-    );
+    await run();
 
-    expect(res.status).toBe(204);
-    const [spec, options] = tours.query.mock.calls[0];
-    expect(spec.query).toMatch(/SELECT c\.id FROM c WHERE c\.userId = @userId/);
-    expect(spec.parameters).toEqual([{ name: '@userId', value: UID }]);
-    expect(options).toEqual({ partitionKey: UID, maxItemCount: MAX_ITEMS_PER_REQUEST });
-    expect(tours.del).toHaveBeenCalledTimes(2);
-    expect(tours.item).toHaveBeenCalledWith('t1', UID);
-    expect(gpx.listBlobsFlat).toHaveBeenCalledWith({ prefix: `${UID}/` });
-    expect(gpx.deleteBlob).toHaveBeenCalledWith(`${UID}/a.gpx`);
-    expect(images.deleteBlob).toHaveBeenCalledTimes(2);
-    expect(users.del).toHaveBeenCalledTimes(1);
+    expect(tours.all().filter((tour) => tour.userId === 'u1')).toEqual([]);
+    expect(load.peak).toBe(10);
   });
 
-  it('skips the user delete when the doc is already gone', async () => {
-    const users = makeUsers(false);
-    const res = await deleteAccount(
-      {},
-      mockAuth,
-      () => users.container,
-      () => makeTours([]).container,
-      async () => makeBlobs([]).container,
-      async () => makeBlobs([]).container,
+  it('deletes every document before any blob', async () => {
+    const { users, gpx, images, run } = setUp();
+    let blobsWhenUserDeleted = [];
+    users.beforeNext('delete', () => {
+      blobsWhenUserDeleted = [...gpx.names(), ...images.names()];
+    });
+
+    await run();
+
+    expect(blobsWhenUserDeleted).toEqual(expect.arrayContaining([...GPX_BLOBS, ...IMAGE_BLOBS]));
+  });
+
+  it('deletes no blob when a document delete fails', async () => {
+    const { tours, gpx, images, run } = setUp();
+    tours.failOn('delete', { error: cosmosError(503, 'cosmos down') });
+
+    await expect(run()).rejects.toThrow('Some documents of the account were not deleted');
+
+    expect(gpx.names()).toEqual([...GPX_BLOBS].sort());
+    expect(images.names()).toEqual([...IMAGE_BLOBS].sort());
+  });
+
+  it('surfaces a blob delete failure after trying every blob', async () => {
+    const { gpx, images, run } = setUp();
+    gpx.failOn('delete', { error: new Error('storage down'), blobName: 'u1/t1.gpx' });
+
+    await expect(run()).rejects.toThrow(
+      'The documents of the account are gone, but some of its blobs were not deleted',
     );
 
-    expect(res.status).toBe(204);
-    expect(users.del).not.toHaveBeenCalled();
+    expect(gpx.names()).toEqual(['u1/t1.gpx', 'u1x/t4.gpx', 'u2/t3.gpx']);
+    expect(images.names()).toEqual(['u1x/t4/r.jpg', 'u2/t3/q.jpg']);
+  });
+
+  it('succeeds when called again, with nothing left to delete', async () => {
+    const { run } = setUp();
+
+    await run();
+    const second = await run();
+
+    expect(second.status).toBe(204);
+  });
+
+  it('queues the Entra object id for the out-of-band deletion job', async () => {
+    const { deletions, run } = setUp({ authenticate: signedInAs('u1', { userOid: 'oid-1' }) });
+
+    await run();
+
+    expect(deletions.all()).toEqual([
+      expect.objectContaining({ id: 'oid-1', userId: 'u1', requestedAt: NOW.toISOString() }),
+    ]);
+  });
+
+  it('queues the deletion before deleting any data', async () => {
+    const { deletions, tours, run } = setUp({
+      authenticate: signedInAs('u1', { userOid: 'oid-1' }),
+    });
+    tours.failOn('query', { error: cosmosError(503, 'cosmos down') });
+
+    await expect(run()).rejects.toThrow('cosmos down');
+
+    expect(deletions.all().map((queued) => queued.id)).toEqual(['oid-1']);
+  });
+
+  it('queues nothing for a caller without an Entra object id (dev bypass)', async () => {
+    const { deletions, run } = setUp();
+
+    await run();
+
+    expect(deletions.all()).toEqual([]);
+  });
+
+  it('returns 401 without reading or deleting anything when the caller is not signed in', async () => {
+    const { users, tours, deletions, gpx, images, run } = setUp({ authenticate: signedOut });
+
+    const response = await run();
+
+    expect(response.status).toBe(401);
+    expect([
+      ...users.calls,
+      ...tours.calls,
+      ...deletions.calls,
+      ...gpx.calls,
+      ...images.calls,
+    ]).toEqual([]);
   });
 });

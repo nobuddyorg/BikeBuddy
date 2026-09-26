@@ -1,39 +1,50 @@
 'use strict';
 
-const { app } = require('@azure/functions');
-const { authenticate } = require('../middleware/authMiddleware');
-const { toursContainer } = require('../lib/db');
-const { gpxContainer } = require('../lib/blobStorage');
+const { apiRoute } = require('../lib/functionsApp');
+const authMiddleware = require('../middleware/authMiddleware');
+const db = require('../lib/db');
+const blobStorage = require('../lib/blobStorage');
 const { loadOwnedTour } = require('../lib/ownedTour');
+const { gpxBlobName } = require('../lib/blobNames');
+const { imageBlobNames } = require('../lib/tourImages');
+const { settleAll } = require('../lib/settle');
 
-// DELETE /api/tours/{tourId} — removes the tour document and its GPX blob.
+// Document first: a failure after it leaves an unreferenced track or blobs, never a tour missing
+// files.
 async function deleteTour(
   request,
-  auth = authenticate,
-  getToursContainer = toursContainer,
-  getGpxContainer = gpxContainer,
+  {
+    authenticate = authMiddleware.authenticate,
+    toursContainer = db.toursContainer,
+    tracksContainer = db.tracksContainer,
+    gpxContainer = blobStorage.gpxContainer,
+    imagesContainer = blobStorage.imagesContainer,
+  } = {},
 ) {
-  const guard = await loadOwnedTour(request, auth, getToursContainer);
+  const guard = await loadOwnedTour(request, { authenticate, toursContainer });
   if (guard.response) return guard.response;
-
+  const { tour } = guard;
   const { userId } = guard.user;
-  const { tourId } = request.params;
 
-  // Document first: if the blob delete fails afterwards the leftover is an
-  // orphaned GPX (invisible, and already reaped by DeleteAccount's
-  // deleteBlobsByPrefix), whereas the reverse order would leave a live tour
-  // whose download 404s. deleteIfExists() is idempotent, so a retry is safe.
-  await getToursContainer().item(tourId, userId).delete();
+  await db.deleteItem(toursContainer(), { id: tour.id, partitionKey: userId });
 
-  const container = await getGpxContainer();
-  await container.getBlockBlobClient(`${userId}/${tourId}.gpx`).deleteIfExists();
+  const [gpx, images] = await Promise.all([gpxContainer(), imagesContainer()]);
+  await settleAll(
+    [
+      db.deleteItemIfExists(tracksContainer(), { id: tour.id, partitionKey: userId }),
+      blobStorage.deleteBlobIfExists(gpx, gpxBlobName({ userId, tourId: tour.id })),
+      ...imageBlobNames({ userId, tour }).map((name) =>
+        blobStorage.deleteBlobIfExists(images, name),
+      ),
+    ],
+    `Tour ${tour.id} was deleted, but its track or some of its blobs were not`,
+  );
 
   return { status: 204 };
 }
 
-app.http('DeleteTour', {
+apiRoute('DeleteTour', {
   methods: ['delete'],
-  authLevel: 'anonymous',
   route: 'tours/{tourId}',
   /* v8 ignore next */
   handler: (request) => deleteTour(request),

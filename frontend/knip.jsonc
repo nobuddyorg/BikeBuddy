@@ -6,6 +6,8 @@
     "vitest.mutation.config.js",
     // Loaded by index.html's <script type="module">; no bundler resolves it.
     "src/app.js",
+    // Loaded the same way by privacy.html, the privacy notice (#542).
+    "src/privacy.js",
     // Registered by string in navigator.serviceWorker.register().
     "src/sw.js",
   ],
@@ -13,5 +15,10 @@
   "ignore": [
     // Vendored upstream bundles loaded by <script> tags, kept byte-identical.
     "src/vendor/**",
+  ],
+  "ignoreDependencies": [
+    // Pinned so Dependabot bumps them; scripts/quality/verify-vendor.mjs compares src/vendor/ with them.
+    "@azure/msal-browser",
+    "leaflet",
   ],
 }
