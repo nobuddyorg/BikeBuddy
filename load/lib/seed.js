@@ -1,4 +1,4 @@
-// teardown() deletes every tour of the run's user: the SKIP_AUTH dev user locally, the load-test account hosted.
+// teardown() deletes every tour of the run's user: the local stack's SKIP_AUTH dev user.
 import { deleteTour, getMe, listTours, uploadTour } from './api.js';
 import { SIZES, gpxTrack } from './gpx.js';
 import { PROFILE } from './profile.js';

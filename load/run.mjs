@@ -1,4 +1,4 @@
-// Usage: node load/run.mjs <flow> [--profile normal|peak|stress] [--target local-stack|hosted] [--confirm-production] [--save-as <label>]
+// Usage: node load/run.mjs <flow> [--profile normal|peak|stress] [--save-as <label>]
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -19,8 +19,6 @@ const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     profile: { type: 'string', default: 'normal' },
-    target: { type: 'string', default: 'local-stack' },
-    'confirm-production': { type: 'boolean', default: false },
     'save-as': { type: 'string' },
   },
 });
@@ -28,22 +26,10 @@ const [flow] = positionals;
 if (!FLOWS.includes(flow)) fail(`Pick a flow: ${FLOWS.join(', ')}`);
 if (!PROFILES.includes(values.profile)) fail(`--profile must be one of ${PROFILES.join(', ')}`);
 
-const confirmed = values['confirm-production'];
-let apiUrl;
-if (values.target === 'local-stack') {
-  // k6-load-test.yml passes an empty LOAD_API_URL for this target: empty means the default.
-  apiUrl = process.env.LOAD_API_URL || 'http://127.0.0.1:7071';
-  if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(apiUrl)) {
-    fail(`--target local-stack refuses a non-local LOAD_API_URL (${apiUrl})`);
-  }
-} else if (values.target === 'hosted') {
-  if (!confirmed) fail('--target hosted loads production; add --confirm-production to mean it.');
-  apiUrl = process.env.LOAD_API_URL;
-  if (!apiUrl || !process.env.LOAD_ACCESS_TOKEN) {
-    fail('--target hosted needs LOAD_API_URL and LOAD_ACCESS_TOKEN (the load-test account).');
-  }
-} else {
-  fail(`--target must be local-stack or hosted, not ${values.target}`);
+// Load tests never run against the live app; only the local stack.
+const apiUrl = process.env.LOAD_API_URL || 'http://127.0.0.1:7071';
+if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(apiUrl)) {
+  fail(`Load tests run only against the local stack; refusing LOAD_API_URL ${apiUrl}`);
 }
 
 // k6 writes the files handleSummary names but does not create their directory.
@@ -51,18 +37,15 @@ mkdirSync(`${root}load-results`, { recursive: true });
 
 // This run's slice of the Functions host log (start-backend writes it) becomes the backend report.
 const functionsHostLog = process.env.FUNCTIONS_HOST_LOG ?? '/tmp/func.log';
-const local = values.target === 'local-stack';
-const logOffset = local && existsSync(functionsHostLog) ? statSync(functionsHostLog).size : 0;
+const logOffset = existsSync(functionsHostLog) ? statSync(functionsHostLog).size : 0;
 
-console.log(`k6 ${flow}, ${values.profile} profile, against ${values.target} (${apiUrl})`);
+console.log(`k6 ${flow}, ${values.profile} profile, against the local stack (${apiUrl})`);
 const { status } = spawnSync('k6', ['run', '--out', 'web-dashboard', `load/${flow}.js`], {
   cwd: root,
   stdio: 'inherit',
   env: {
     ...process.env,
     LOAD_API_URL: apiUrl,
-    LOAD_TARGET: values.target,
-    LOAD_CONFIRM_PRODUCTION: String(confirmed),
     LOAD_PROFILE: values.profile,
     K6_NO_USAGE_REPORT: 'true',
     // Port -1: no live dashboard for k6 to wait on; the HTML export is enough.
@@ -71,7 +54,7 @@ const { status } = spawnSync('k6', ['run', '--out', 'web-dashboard', `load/${flo
   },
 });
 
-if (local && existsSync(functionsHostLog)) {
+if (existsSync(functionsHostLog)) {
   const text = readFileSync(functionsHostLog).subarray(logOffset).toString('utf8');
   const cpuDirectory = `${root}load-results/cpu`;
   console.log(

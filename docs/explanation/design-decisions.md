@@ -653,12 +653,11 @@ out-of-order timestamps are a property too: the duration is never negative.
   track's share of every map and detail payload. Tours stored before keep full
   precision; they read the same, so there is no backfill.
 
-## Why load testing is manual and local by default
+## Why load testing is manual and local only
 
 The k6 flows ([load testing](../how-to/load-testing.md)) run on demand
 (`./buddy.sh test load`, or the `Load test (k6)` workflow's Run button), never
-on push or pull request, and against the local stack unless a run explicitly
-targets production.
+on push or pull request, and only against the local stack.
 
 - **A measurement, not a gate.** A shared runner's latency varies by more than
   most regressions a gate would catch, so a p95 threshold on every PR would
@@ -666,15 +665,14 @@ targets production.
   asserted deterministically instead: RU per request, operations per request,
   single-partition queries and response size in the integration suite
   ("Deterministic guards" in the guide).
-- **Local by default.** The local stack has the same code, queries and
+- **Local only.** The local stack has the same code, queries and
   document shapes as production, costs nothing, and can be profiled
   (`LOAD_PROFILING=true`); the emulator's request charges are nominal, so RU
   are compared as operation counts, not absolute cost.
-- **Production only on purpose.** Cosmos DB Serverless bills every request and
-  real users share the capacity, and there is no staging environment. A hosted
-  run needs `confirm_production`, is refused before any secret is read
-  otherwise, runs one at a time, and uses a dedicated account's token
-  (`LOAD_ACCESS_TOKEN`), since the auth bypass never exists there (#545).
+- **Never production.** Cosmos DB Serverless bills every request, real users
+  share the capacity, and there is no staging environment. `load/run.mjs` and
+  the k6 scripts refuse any non-local API URL, and the workflow has no
+  production target or credentials (#607).
 
 ## Cost
 
