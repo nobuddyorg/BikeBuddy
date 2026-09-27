@@ -15,11 +15,13 @@
   },
   "devDependencies": {
     "@azure/msal-browser": "3.28.1",
+    "@maplibre/maplibre-gl-leaflet": "0.1.4",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@vitest/coverage-v8": "^4.1.11",
     "fast-check": "^4.10.2",
     "leaflet": "1.9.4",
+    "maplibre-gl": "6.11.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },

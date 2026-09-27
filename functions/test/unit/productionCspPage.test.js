@@ -19,7 +19,8 @@ describe('the published frontend/src/index.html', () => {
 
   it("allows exactly this deployment's API, storage and Entra hosts", () => {
     expect(production).toContain(
-      "connect-src 'self' https://bikebuddy.ciamlogin.com https://login.microsoftonline.com " +
+      "connect-src 'self' https://tiles.openfreemap.org https://bikebuddy.ciamlogin.com " +
+        'https://login.microsoftonline.com ' +
         'https://bikebuddy-api-abc123.azurewebsites.net https://bikebuddyfilesabc123.blob.core.windows.net;',
     );
     expect(production).toContain('frame-src https://bikebuddy.ciamlogin.com ');

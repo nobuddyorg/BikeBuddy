@@ -7,17 +7,18 @@ The _why_ behind the architecture. For _what_, see [Architecture](../reference/a
 Plain HTML/CSS/JS keeps the site truly static (no build pipeline) and trivially
 hostable on GitHub Pages. Every third-party script is **vendored** in
 `frontend/src/vendor/`: MSAL because loading it cross-origin from a CDN was
-blocked by the browser (ORB) on GitHub Pages, Leaflet because a CDN that serves
-altered bytes would execute in the app's origin, where the Entra access tokens
-live. Vendoring lets `script-src` stay at `'self'`.
+blocked by the browser (ORB) on GitHub Pages, Leaflet and MapLibre because a CDN
+that serves altered bytes would execute in the app's origin, where the Entra
+access tokens live. Vendoring lets `script-src` stay at `'self'`.
 
 The vendored files stay byte-identical to the npm packages pinned as exact
 `devDependencies` in `frontend/package.json` (`@azure/msal-browser`,
-`leaflet`), so Dependabot proposes their updates (#564). The `verify-vendor`
-hook (`scripts/quality/verify-vendor.mjs`) fails while `vendor/` differs from
+`leaflet`, `maplibre-gl`, `@maplibre/maplibre-gl-leaflet`), so Dependabot
+proposes their updates (#564). The `verify-vendor` hook
+(`scripts/quality/verify-vendor.mjs`) fails while `vendor/` differs from
 `node_modules`; after a bump, `node scripts/quality/verify-vendor.mjs --write`
-re-copies the files and rewrites the `.msal-source`/`.leaflet-source`
-provenance with their SHA-256. A bump PR therefore cannot merge with stale
+re-copies the files and rewrites each library's `.<name>-source` provenance
+with their SHA-256. A bump PR therefore cannot merge with stale
 vendored code.
 
 MSAL stays on 3.x: `.github/dependabot.yml` ignores its major updates. Since v5
@@ -245,15 +246,17 @@ which the number of tours per rider bounds.
   and a tour list reloaded within the window leaves the pending tours out
   (#559). Still best-effort: a browser killed outright sends nothing, and the
   server has no soft delete.
-- Map tiles come from `tile.openstreetmap.org`: keyless, and within the OSMF
-  tile usage policy for interactive viewing (attribution shown, a Referer
-  sent, nothing prefetched, the service worker never caches tiles). It has no
-  dark style, so dark mode inverts the light tiles with a CSS filter, turns the
-  hue back and mutes the colours (at full saturation forests turn a harsh
-  green; full grey loses too much). CARTO was dropped when its keyless tiles
-  started carrying an "API key required" watermark (September 2026).
-  OpenFreeMap's keyless vector tiles would need MapLibre GL, far heavier than
-  Leaflet.
+- The basemap is OpenFreeMap's vector tiles (`tiles.openfreemap.org`): no key,
+  no request limit, and its Positron and Dark styles keep the detail low and
+  give dark mode a real style. MapLibre GL draws them inside Leaflet through
+  `@maplibre/maplibre-gl-leaflet`; Leaflet still owns the view, the routes and
+  the pins. MapLibre is about 300 KB gzipped, so it loads only after the app
+  has started and painted: the Lighthouse LCP stays where it was. MapLibre 6 is
+  ES modules only and its Leaflet binding expects a global `maplibregl`, so
+  `ui/map.js` imports the module, sets the global, then loads the binding's
+  script. CARTO was dropped when its keyless raster tiles started carrying an
+  "API key required" watermark (September 2026); OpenStreetMap's own raster
+  tiles, tried next, fix their detail level and have no dark style.
 - iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
   viewport meta.
 - The line style is saved on change, not on every input event.
@@ -275,8 +278,8 @@ which the number of tours per rider bounds.
 - the controller
 - the data processed, including the GPS position read from a photo's EXIF data
 - the purposes and their legal bases
-- the recipients: Microsoft for Azure and Entra, the OpenStreetMap Foundation's
-  map tiles, which show it the areas a rider looks at, and GitHub Pages
+- the recipients: Microsoft for Azure and Entra, OpenFreeMap's map tiles, which
+  show it the areas a rider looks at, and GitHub Pages
 - retention, including Entra's 30-day recycle bin and the 7- and 14-day backups
 - what the browser stores
 - the rider's rights

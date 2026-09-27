@@ -19,22 +19,51 @@ const recordZoom = () => {
 recordZoom();
 map.on('zoomend', recordZoom);
 
-// Keyless under the OSMF tile usage policy: interactive viewing only, no prefetch, attribution shown.
-const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  maxZoom: 19,
-}).addTo(map);
+// Keyless, unmetered vector tiles; the styles carry OpenFreeMap's attribution themselves.
+const BASEMAP_STYLES = {
+  light: 'https://tiles.openfreemap.org/styles/positron',
+  dark: 'https://tiles.openfreemap.org/styles/dark',
+};
 
-// OpenStreetMap has no dark tiles; a CSS filter darkens the light ones.
-function applyMapTheme(theme) {
-  leafletContainer.dataset.tiles = theme;
-  tileLayer.getContainer()?.classList.toggle('map-tiles-dark', theme === 'dark');
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.addEventListener('load', resolve);
+    script.addEventListener('error', () => reject(new Error(`Could not load ${src}`)));
+    document.head.append(script);
+  });
 }
 
+const nextPaint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+
+// MapLibre is large, so it loads after the page has painted: the list and the routes never wait for it.
+async function loadMapLibre() {
+  await nextPaint();
+  window.maplibregl = await import('../vendor/maplibre-gl/maplibre-gl.mjs');
+  // The Leaflet binding reads the global maplibregl once, when it runs.
+  await loadScript('vendor/maplibre-gl-leaflet/leaflet-maplibre-gl.js');
+}
+
+// Styles are JS state, out of reach of the stylesheets' prefers-color-scheme switch.
 const themeOf = (darkQuery) => (darkQuery.matches ? 'dark' : 'light');
 const darkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-applyMapTheme(themeOf(darkMediaQuery));
-darkMediaQuery.addEventListener('change', (event) => applyMapTheme(themeOf(event)));
+leafletContainer.dataset.tiles = themeOf(darkMediaQuery);
+
+let basemap;
+
+export function showBasemap() {
+  basemap = loadMapLibre().then(() =>
+    L.maplibreGL({ style: BASEMAP_STYLES[leafletContainer.dataset.tiles] }).addTo(map),
+  );
+  return basemap;
+}
+
+darkMediaQuery.addEventListener('change', (event) => {
+  const theme = themeOf(event);
+  leafletContainer.dataset.tiles = theme;
+  basemap?.then((layer) => layer.getMaplibreMap().setStyle(BASEMAP_STYLES[theme]));
+});
 
 // margin: a fraction of the view added on every side (Leaflet's LatLngBounds.pad).
 export function mapBoundsPlain(margin = 0) {

@@ -14,11 +14,12 @@ import { initConfirmModal } from './confirm-modal';
 import { initLightbox } from './lightbox';
 import { initPrivacyPage } from './privacy-page';
 
-// A transparent 1x1 PNG: map tiles never leave the machine.
-const BLANK_TILE = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
-  'base64',
-);
+// A MapLibre style with no sources: the basemap renders, and nothing leaves the machine.
+const BLANK_STYLE = {
+  version: 8,
+  sources: {},
+  layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#dddddd' } }],
+};
 
 // Lazy getters: only the page objects a test actually touches get constructed.
 function createPageTree(page: Page) {
@@ -98,8 +99,8 @@ export const buddyTest = test.extend<BuddyFixtures>({
   ],
   offlineBasemap: [
     async ({ page }, use) => {
-      await page.route('https://tile.openstreetmap.org/**', (route) =>
-        route.fulfill({ status: 200, contentType: 'image/png', body: BLANK_TILE }),
+      await page.route('https://tiles.openfreemap.org/styles/*', (route) =>
+        route.fulfill({ json: BLANK_STYLE }),
       );
       await use();
     },

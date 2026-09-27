@@ -123,10 +123,20 @@ module.exports = {
       name: 'vendor-is-script-tags-only',
       severity: 'error',
       comment:
-        'The vendored bundles (MSAL, Leaflet) are classic scripts loaded from index.html and kept ' +
-        'byte-identical to upstream; no module imports them.',
+        'The vendored bundles (MSAL, Leaflet, the MapLibre binding) are classic scripts loaded by ' +
+        '<script> tags and kept byte-identical to upstream; no module imports them. MapLibre 6 ' +
+        'ships ES modules only (see maplibre-only-in-map).',
       from: {},
-      to: { path: '^frontend/src/vendor/' },
+      to: { path: '^frontend/src/vendor/', pathNot: '^frontend/src/vendor/maplibre-gl/' },
+    },
+    {
+      name: 'maplibre-only-in-map',
+      severity: 'error',
+      comment:
+        'MapLibre is large and loads last: ui/map.js alone imports it, dynamically, once the page ' +
+        'has painted. Its own chunks import each other.',
+      from: { pathNot: ['^frontend/src/ui/map\\.js$', '^frontend/src/vendor/maplibre-gl/'] },
+      to: { path: '^frontend/src/vendor/maplibre-gl/' },
     },
     {
       name: 'no-test-code-in-production',

@@ -47,8 +47,8 @@ locators only for Leaflet's own controls. The app exposes state for waiting on:
 `aria-current` on the open row. No spec sleeps; the one timed input is the
 long-press hold (the app's 500 ms plus a stated margin). Every test fails on a
 `pageerror` or `console.error` unless it allows that error by pattern
-(`allowedConsoleErrors`), and both suites answer basemap tiles with a blank
-image, so no test reaches the network. Both block service workers, so every
+(`allowedConsoleErrors`), and both suites answer the basemap style with one
+that has no sources, so no test reaches the network. Both block service workers, so every
 request goes through the routes. Neither suite retries.
 
 ## Tools and thresholds
