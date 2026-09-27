@@ -4,7 +4,7 @@ Load tests measure how the Functions API behaves under many requests and with
 a heavy account's data: where latency bends, which handler owns the p95, and
 what each request costs in Cosmos. They are a **measurement, never a gate**:
 nothing runs them on push or pull request (see the design decision "Why load
-testing is manual and local by default").
+testing is manual and local only").
 
 ## Flows and profiles
 
@@ -49,8 +49,8 @@ SKIP_AUTH=true LOAD_PROFILING=true ./buddy.sh development start-backend
 cd load && npm run load -- browse               # the same, as an npm script
 ```
 
-`load/run.mjs` (what `./buddy.sh test load` runs) refuses a non-local API for
-`--target local-stack`, writes `load-results/<flow>.md` (the table below),
+`load/run.mjs` (what `./buddy.sh test load` runs) refuses any non-local
+`LOAD_API_URL`, writes `load-results/<flow>.md` (the table below),
 `<flow>.json` (k6's full summary), `<flow>.html` (charts over time) and, when
 the host runs with `LOAD_PROFILING=true`, the backend report
 `<flow>.backend.md`/`.json`.
@@ -58,20 +58,13 @@ the host runs with `LOAD_PROFILING=true`, the backend report
 ## Run it in GitHub Actions
 
 **Actions → Load test (k6) → Run workflow** (`.github/workflows/k6-load-test.yml`),
-choosing flow, profile and target. The run starts the same local stack as the
+choosing flow and profile. The run starts the same local stack as the
 CI gate (Cosmos emulator, Azurite, Functions host with `LOAD_PROFILING=true`),
 puts the k6 table and the backend report in the job summary, and uploads
 `load-results/` (HTML dashboard, JSON, CPU profiles) as the
-`k6-<flow>-<profile>-<target>` artifact for 30 days. One run per target at a
-time.
+`k6-<flow>-<profile>` artifact for 30 days.
 
-**Hosted target**: off unless `confirm_production` is ticked; the refusal runs
-before checkout and before any secret is read. Production has no auth bypass
-and Entra External ID has no password grant, so a hosted run needs a fresh
-access token of a dedicated load-test account in the `LOAD_ACCESS_TOKEN`
-secret and the API URL in the `LOAD_API_URL` variable. Every request is billed
-(Cosmos Serverless) and shares capacity with real users; there is no backend
-report for it. Use it rarely, with `smoke` or `normal` only.
+There is no production target: load tests never run against the live app.
 
 ## Read the results
 
@@ -142,8 +135,8 @@ locally; operation counts per request are exact.
 The report has no query-metrics section on purpose. Asked for them
 (`populateQueryMetrics`, `populateIndexMetrics`), the vnext emulator answers
 zero retrieved and output documents and empty index metrics even for a
-seeded partition (measured September 2026), so locally the section would
-always read zero, and hosted runs get no backend report.
+seeded partition (measured September 2026), so the section would always read
+zero.
 
 ## Run the optimization loop
 

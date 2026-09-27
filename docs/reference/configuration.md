@@ -47,10 +47,10 @@ from `config.js.example`.
 - **Repository secrets:** `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`,
   `ARM_SUBSCRIPTION_ID`, `ARM_TENANT_ID`, `TF_BACKEND_ACCESS_KEY` (deploy);
   `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` (account-deletion
-  job); `LOAD_ACCESS_TOKEN` (k6 against the hosted API, optional).
+  job).
 - **`ci` environment secrets:** `CODECOV_TOKEN`, `STRYKER_DASHBOARD_API_KEY`.
 - **Variables** (public, optional — unset = no-auth): `ENTRA_SUBDOMAIN`,
-  `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`; `LOAD_API_URL` (k6 hosted target).
+  `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`.
 
 ## Infrastructure variables (`infrastructure/variables.tf`)
 

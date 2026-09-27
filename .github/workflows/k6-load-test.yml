@@ -14,50 +14,30 @@ on:
         type: choice
         options: [normal, peak, stress]
         default: normal
-      target:
-        description: "local-stack: Cosmos emulator + Azurite + Functions host started in this run. hosted: production, as the load-test account."
-        type: choice
-        options: [local-stack, hosted]
-        default: local-stack
-      confirm_production:
-        description: Required for target=hosted -- the run writes to and loads production (Cosmos Serverless bills every request)
-        type: boolean
-        default: false
 
-run-name: k6 ${{ inputs.flow }} (${{ inputs.profile }}) against ${{ inputs.target }}
+run-name: k6 ${{ inputs.flow }} (${{ inputs.profile }})
 
 permissions:
   contents: read
 
 jobs:
   load_test:
-    name: k6 ${{ inputs.flow }} (${{ inputs.profile }}) against ${{ inputs.target }}
+    name: k6 ${{ inputs.flow }} (${{ inputs.profile }})
     runs-on: ubuntu-latest
     # stress seeds 1,000 tours and runs nine minutes on a runner that also hosts the stack.
     timeout-minutes: 45
-    # One run per target at a time: two against production would add up on its bill.
-    concurrency:
-      group: k6-${{ inputs.target }}
+    # Always against a local stack started in this run: never the live app.
     steps:
-      # Before checkout, before any secret is read.
-      - name: Refuse the hosted target without confirmation
-        if: inputs.target == 'hosted' && !inputs.confirm_production
-        run: |
-          echo "::error::target=hosted loads production; run again with confirm_production ticked."
-          exit 1
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-node-packages
-        if: inputs.target == 'local-stack'
         with:
           packages: functions
 
       # docs/how-to/load-testing.md, "Backend report".
       - name: Enable backend profiling
-        if: inputs.target == 'local-stack'
         run: |
           {
             echo "LOAD_PROFILING=true"
@@ -65,7 +45,6 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - uses: ./.github/actions/start-local-stack
-        if: inputs.target == 'local-stack'
         with:
           start-backend: "true"
 
@@ -73,28 +52,21 @@ jobs:
         with:
           k6-version: "2.3.0"
 
-      # Same command a developer runs; the production URL and token are read only for a hosted run.
+      # Same command a developer runs.
       - name: Run k6
         id: k6
-        run: ./buddy.sh test load "$FLOW" --profile "$PROFILE" --target "$TARGET" ${CONFIRM:+--confirm-production}
+        run: ./buddy.sh test load "$FLOW" --profile "$PROFILE"
         env:
           FLOW: ${{ inputs.flow }}
           PROFILE: ${{ inputs.profile }}
-          TARGET: ${{ inputs.target }}
-          CONFIRM: ${{ inputs.confirm_production && 'true' || '' }}
           FUNCTIONS_HOST_LOG: /tmp/func.log
-          LOAD_API_URL: ${{ inputs.target == 'hosted' && vars.LOAD_API_URL || '' }}
-          LOAD_ACCESS_TOKEN: ${{ inputs.target == 'hosted' && secrets.LOAD_ACCESS_TOKEN || '' }}
 
       - name: Add the k6 and backend reports to the job summary
         if: ${{ !cancelled() && steps.k6.outcome != 'skipped' }}
         env:
           FLOW: ${{ inputs.flow }}
-          TARGET: ${{ inputs.target }}
         run: |
-          reports=("load-results/$FLOW.md")
-          if [ "$TARGET" = local-stack ]; then reports+=("load-results/$FLOW.backend.md"); fi
-          for report in "${reports[@]}"; do
+          for report in "load-results/$FLOW.md" "load-results/$FLOW.backend.md"; do
             if [ ! -f "$report" ]; then
               echo "::error::$report is missing, so the run never reached it."
               exit 1
@@ -104,7 +76,7 @@ jobs:
 
       # The worker writes its --cpu-prof files only when it exits; no file after 30 s fails the report.
       - name: Add the CPU profile to the backend report
-        if: ${{ !cancelled() && steps.k6.outcome != 'skipped' && inputs.target == 'local-stack' }}
+        if: ${{ !cancelled() && steps.k6.outcome != 'skipped' }}
         env:
           FLOW: ${{ inputs.flow }}
         run: |
@@ -120,9 +92,9 @@ jobs:
         if: ${{ !cancelled() && steps.k6.outcome != 'skipped' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: k6-${{ inputs.flow }}-${{ inputs.profile }}-${{ inputs.target }}
+          name: k6-${{ inputs.flow }}-${{ inputs.profile }}
           path: load-results
           retention-days: 30
 
-      - if: ${{ failure() && inputs.target == 'local-stack' }}
+      - if: ${{ failure() }}
         run: tail -n 200 /tmp/func.log || true

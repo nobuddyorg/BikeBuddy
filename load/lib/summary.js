@@ -1,7 +1,7 @@
 // Markdown for stdout and the job summary; the JSON is what load/compare.mjs reads.
 import { PROFILE, PROFILE_NAME } from './profile.js';
 import { SEED } from './seed.js';
-import { API_URL, TARGET } from './target.js';
+import { API_URL } from './target.js';
 
 const milliseconds = (value) => `${value.toFixed(1)} ms`;
 const percent = (value) => `${(value * 100).toFixed(2)}%`;
@@ -31,7 +31,7 @@ function markdown(flow, data) {
     .sort();
   const all = metrics.http_req_duration.values;
   return [
-    `## k6 load test: \`${flow}\`, \`${PROFILE_NAME}\` profile, against ${TARGET}`,
+    `## k6 load test: \`${flow}\`, \`${PROFILE_NAME}\` profile, against the local stack`,
     '',
     `Target \`${API_URL}\`; virtual users ×${PROFILE.vusScale} of normal; seed ${SEED.tours} tours. Charts over time: \`${flow}.html\` in the run's artifact.`,
     '',

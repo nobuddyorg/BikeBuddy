@@ -3,10 +3,10 @@ import { check } from 'k6';
 import http from 'k6/http';
 import { Counter } from 'k6/metrics';
 
-import { API_URL, AUTH_HEADERS } from './target.js';
+import { API_URL } from './target.js';
 
 const params = (name, extra = {}) => ({
-  headers: { ...AUTH_HEADERS, ...(extra.headers ?? {}) },
+  headers: extra.headers ?? {},
   tags: { endpoint: name },
   ...(extra.timeout && { timeout: extra.timeout }),
 });
