@@ -56,7 +56,6 @@
   "tours.showAllFiltered": "Alle Touren anzeigen (von {name})",
   "tours.noMatch": "Keine Touren entsprechen deinen Filtern.",
 
-  "detail.date": "Datum",
   "detail.distance": "Distanz",
   "detail.elevationGain": "Höhenmeter",
   "detail.duration": "Dauer",

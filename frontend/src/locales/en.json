@@ -56,7 +56,6 @@
   "tours.showAllFiltered": "Show All Tours (from {name})",
   "tours.noMatch": "No tours match your filters.",
 
-  "detail.date": "Date",
   "detail.distance": "Distance",
   "detail.elevationGain": "Elevation gain",
   "detail.duration": "Duration",

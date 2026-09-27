@@ -56,7 +56,6 @@
   "tours.showAllFiltered": "Mostra tutti i giri (da {name})",
   "tours.noMatch": "Nessun giro corrisponde ai tuoi filtri.",
 
-  "detail.date": "Data",
   "detail.distance": "Distanza",
   "detail.elevationGain": "Dislivello positivo",
   "detail.duration": "Durata",

@@ -56,7 +56,6 @@
   "tours.showAllFiltered": "Mostrar todos os percursos (de {name})",
   "tours.noMatch": "Nenhum percurso corresponde aos teus filtros.",
 
-  "detail.date": "Data",
   "detail.distance": "Distância",
   "detail.elevationGain": "Desnível positivo",
   "detail.duration": "Duração",

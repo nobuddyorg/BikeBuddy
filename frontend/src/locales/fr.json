@@ -56,7 +56,6 @@
   "tours.showAllFiltered": "Afficher toutes les sorties (depuis {name})",
   "tours.noMatch": "Aucune sortie ne correspond à tes filtres.",
 
-  "detail.date": "Date",
   "detail.distance": "Distance",
   "detail.elevationGain": "Dénivelé positif",
   "detail.duration": "Durée",
