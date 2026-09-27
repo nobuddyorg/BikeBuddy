@@ -1,5 +1,0 @@
-Copied from the npm package maplibre-gl@6.11.2 (integrity pinned in frontend/package-lock.json)
-by scripts/quality/verify-vendor.mjs --write:
-  dist/maplibre-gl.mjs -> maplibre-gl/maplibre-gl.mjs  sha256-P1VWYpVYNkRhf+F9AIo2xYBBS4xx3S4fz/Ewneb97l0=
-  dist/maplibre-gl-shared.mjs -> maplibre-gl/maplibre-gl-shared.mjs  sha256-drX1W97pKMZdWSaEqv8rkT1QtrF7DsYzToiwm2qkeWA=
-  dist/maplibre-gl-worker.mjs -> maplibre-gl/maplibre-gl-worker.mjs  sha256-Aa0Zeqf0zsJYqJD+vXG3UV6WMJiBsDanCVvvwBpFKW4=

@@ -19,8 +19,6 @@
   "ignoreDependencies": [
     // Pinned so Dependabot bumps them; scripts/quality/verify-vendor.mjs compares src/vendor/ with them.
     "@azure/msal-browser",
-    "@maplibre/maplibre-gl-leaflet",
     "leaflet",
-    "maplibre-gl",
   ],
 }
