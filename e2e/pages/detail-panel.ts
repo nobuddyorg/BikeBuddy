@@ -18,6 +18,8 @@ interface DetailPanel {
     openPhoto(index: number): Promise<void>;
     retryPhoto(): Promise<void>;
     dismissPhotoError(): Promise<void>;
+    /** Turns the mouse wheel over the panel and waits for the page to apply the scroll. */
+    scrollWithWheel(deltaY: number): Promise<void>;
   };
   /** Raw locators. */
   locators: {
@@ -82,6 +84,14 @@ export function initDetailPanel(page: Page): DetailPanel {
     openPhoto: async (index: number) => locators.photos.thumbnails.nth(index).click(),
     retryPhoto: async () => locators.photos.retryButtons.first().click(),
     dismissPhotoError: async () => locators.photos.dismissButtons.first().click(),
+    scrollWithWheel: async (deltaY: number) => {
+      await root.hover();
+      await page.mouse.wheel(0, deltaY);
+      // mouse.wheel returns before the scroll lands; two frames let it apply.
+      await page.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+      );
+    },
   };
   return Object.assign(() => root, { locators, do: interactions });
 }

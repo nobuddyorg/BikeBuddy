@@ -4,6 +4,11 @@
     overflow-y: auto;
   }
 
+  /* The open tour covers the page; a swipe on it would otherwise scroll the hidden list. */
+  body:has(.detail-panel:not(.hidden)) {
+    overflow-y: hidden;
+  }
+
   .app-layout {
     flex-direction: column;
     height: auto;
