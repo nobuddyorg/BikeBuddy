@@ -25,6 +25,20 @@ const LIBRARIES = [
       ]),
     ],
   },
+  {
+    packageName: 'maplibre-gl',
+    provenanceFile: '.maplibre-gl-source',
+    // The entry imports the shared chunk and starts the worker from its own directory.
+    files: ['maplibre-gl.mjs', 'maplibre-gl-shared.mjs', 'maplibre-gl-worker.mjs'].map((file) => [
+      `dist/${file}`,
+      `maplibre-gl/${file}`,
+    ]),
+  },
+  {
+    packageName: '@maplibre/maplibre-gl-leaflet',
+    provenanceFile: '.maplibre-gl-leaflet-source',
+    files: [['leaflet-maplibre-gl.js', 'maplibre-gl-leaflet/leaflet-maplibre-gl.js']],
+  },
 ];
 
 const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest('base64');

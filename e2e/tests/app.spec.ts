@@ -125,20 +125,23 @@ staticTest.describe('BikeBuddy static UI', () => {
     },
   );
 
-  staticTest(
-    'mobile viewport: layout stays usable with no horizontal overflow',
-    async ({ on, page }) => {
-      await page.setViewportSize({ width: 375, height: 720 });
-      await page.goto('/');
-      // On a phone the list is the home screen; the map waits behind the FAB.
-      await expect(on(page).main.locators.sidebar).toBeVisible();
-      await expect(on(page).list.locators.empty).toBeVisible();
-      await expect(on(page).main.locators.userMenu).toBeVisible();
-      const overflows = await page.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-      );
-      expect(overflows).toBe(false);
-      await on(page).a11y.check('mobile list');
-    },
-  );
+  staticTest.describe('on a phone', () => {
+    // Sized before the beforeEach load: a second load would cut off the first one's requests.
+    staticTest.use({ viewport: { width: 375, height: 720 } });
+
+    staticTest(
+      'mobile viewport: layout stays usable with no horizontal overflow',
+      async ({ on, page }) => {
+        // On a phone the list is the home screen; the map waits behind the FAB.
+        await expect(on(page).main.locators.sidebar).toBeVisible();
+        await expect(on(page).list.locators.empty).toBeVisible();
+        await expect(on(page).main.locators.userMenu).toBeVisible();
+        const overflows = await page.evaluate(
+          () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        );
+        expect(overflows).toBe(false);
+        await on(page).a11y.check('mobile list');
+      },
+    );
+  });
 });

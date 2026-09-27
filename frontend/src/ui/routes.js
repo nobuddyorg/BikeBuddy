@@ -1,7 +1,7 @@
 import { queueMapDataLoads } from '../lib/mapData.js';
 import { hasNoPoints, routePointSets, selectionKey } from '../lib/routes.js';
 import { state } from './state.js';
-import { map } from './map.js';
+import { map, whenCameraFree } from './map.js';
 import {
   showElement,
   hideElement,
@@ -57,9 +57,11 @@ export function redrawRoutes() {
 function fitToPoints(pointSets, paddingPx) {
   const allPoints = pointSets.flat();
   if (allPoints.length === 0) return;
-  // The container may have resized since Leaflet last measured it (mobile sidebar, toolbar).
-  map.invalidateSize();
-  map.fitBounds(L.latLngBounds(allPoints), { padding: [paddingPx, paddingPx] });
+  whenCameraFree((moveOptions) => {
+    // The container may have resized since Leaflet last measured it (mobile sidebar, toolbar).
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(allPoints), { padding: [paddingPx, paddingPx], ...moveOptions });
+  });
 }
 
 export function renderRoutes(pointSets, paddingPx) {

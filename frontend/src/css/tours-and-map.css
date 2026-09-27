@@ -175,11 +175,6 @@
   touch-action: pan-x pan-y;
 }
 
-/* Desaturated, or inverted greens turn harsh; the route pane above is unaffected. */
-.map-tiles-dark {
-  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.35);
-}
-
 .map-top-controls {
   position: absolute;
   top: 12px;
