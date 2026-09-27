@@ -5,7 +5,8 @@ const L = window.L;
 const INITIAL_VIEW = { center: [48.5, 10.5], zoom: 6 };
 
 // One canvas for every route: SVG keeps a DOM path per tour and re-projects each on every zoom.
-export const map = L.map('map', { ...INITIAL_VIEW, preferCanvas: true });
+// Leaflet takes maxZoom from tile layers, which the MapLibre basemap is not: without it, fits go to Infinity.
+export const map = L.map('map', { ...INITIAL_VIEW, preferCanvas: true, maxZoom: 19 });
 
 // iOS Safari pinch-zooms through gesture events that ignore touch-action; keep it off the page.
 const leafletContainer = map.getContainer();
@@ -18,6 +19,26 @@ const recordZoom = () => {
 };
 recordZoom();
 map.on('zoomend', recordZoom);
+// Leaflet ignores a new view while a zoom animation runs: the latest one waits and then jumps
+// there unanimated. data-zooming marks the animation, so a test can wait for it.
+let zoomAnimating = false;
+let movesAfterZoom = [];
+map.on('zoomanim', () => {
+  zoomAnimating = true;
+  leafletContainer.dataset.zooming = '';
+});
+map.on('zoomend', () => {
+  zoomAnimating = false;
+  const moves = movesAfterZoom;
+  movesAfterZoom = [];
+  moves.forEach((moveCamera) => moveCamera({ animate: false }));
+  delete leafletContainer.dataset.zooming;
+});
+
+export function whenCameraFree(moveCamera) {
+  if (zoomAnimating) movesAfterZoom = [moveCamera];
+  else moveCamera({});
+}
 
 // Keyless, unmetered vector tiles; the styles carry OpenFreeMap's attribution themselves.
 const BASEMAP_STYLES = {
@@ -37,8 +58,21 @@ function loadScript(src) {
 
 const nextPaint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
 
-// MapLibre is large, so it loads after the page has painted: the list and the routes never wait for it.
+// The phone layout starts with the map hidden (#580); a hidden container measures zero.
+const mapShown = () =>
+  new Promise((resolve) => {
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width === 0) return;
+      observer.disconnect();
+      resolve();
+    });
+    observer.observe(leafletContainer);
+  });
+
+// MapLibre is large, so it loads once the map is shown and the page has painted:
+// the list and the routes never wait for it.
 async function loadMapLibre() {
+  await mapShown();
   await nextPaint();
   window.maplibregl = await import('../vendor/maplibre-gl/maplibre-gl.mjs');
   // The Leaflet binding reads the global maplibregl once, when it runs.

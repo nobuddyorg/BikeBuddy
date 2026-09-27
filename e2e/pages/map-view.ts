@@ -48,9 +48,11 @@ export function initMapView(page: Page): MapView {
     out: root.getByRole('button', { name: 'Zoom out' }),
   };
 
-  // Leaflet drops a click mid-animation, so each step waits for data-zoom (set on zoomend).
+  // Leaflet drops a click mid-animation, so each step starts once no zoom animates (data-zooming
+  // gone, e.g. after a tour's fit) and waits for data-zoom (set on zoomend).
   const zoom = async ({ button, steps }: { button: Locator; steps: number }) => {
     for (let step = 0; step < steps; step++) {
+      await expect(root).not.toHaveAttribute('data-zooming');
       // At its limit Leaflet disables the button, and click() would wait forever.
       if ((await button.getAttribute('aria-disabled')) === 'true') return;
       const zoomBefore = await root.getAttribute('data-zoom');

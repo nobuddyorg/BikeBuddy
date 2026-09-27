@@ -250,13 +250,20 @@ which the number of tours per rider bounds.
   no request limit, and its Positron and Dark styles keep the detail low and
   give dark mode a real style. MapLibre GL draws them inside Leaflet through
   `@maplibre/maplibre-gl-leaflet`; Leaflet still owns the view, the routes and
-  the pins. MapLibre is about 300 KB gzipped, so it loads only after the app
-  has started and painted: the Lighthouse LCP stays where it was. MapLibre 6 is
-  ES modules only and its Leaflet binding expects a global `maplibregl`, so
-  `ui/map.js` imports the module, sets the global, then loads the binding's
-  script. CARTO was dropped when its keyless raster tiles started carrying an
+  the pins. MapLibre is about 300 KB gzipped and renders on the main thread,
+  so it loads only once the map is shown and the app has started and painted.
+  The phone layout, whose map starts hidden (#580), loads it when the map
+  opens; Lighthouse measures that layout, so its scores leave the basemap out.
+  MapLibre 6 is ES modules only and its Leaflet binding expects a global
+  `maplibregl`, so `ui/map.js` imports the module, sets the global, then loads
+  the binding's script. CARTO was dropped when its keyless raster tiles started carrying an
   "API key required" watermark (September 2026); OpenStreetMap's own raster
   tiles, tried next, fix their detail level and have no dark style.
+- Leaflet ignores a new view while a zoom animation runs, so a tour picked
+  then would leave the camera on the previous one: the latest fit waits for the
+  animation's end and then jumps there unanimated (`whenCameraFree` in
+  `ui/map.js`). The map sets its own `maxZoom`, since Leaflet otherwise takes
+  it from tile layers and the MapLibre basemap is none.
 - iOS page zoom is handled by a gesture handler instead of a `maximum-scale`
   viewport meta.
 - The line style is saved on change, not on every input event.
