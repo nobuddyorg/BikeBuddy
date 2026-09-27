@@ -56,7 +56,6 @@
   "tours.showAllFiltered": "Mostrar todas las rutas (de {name})",
   "tours.noMatch": "Ninguna ruta coincide con tus filtros.",
 
-  "detail.date": "Fecha",
   "detail.distance": "Distancia",
   "detail.elevationGain": "Desnivel positivo",
   "detail.duration": "Duración",

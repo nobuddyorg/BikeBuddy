@@ -56,7 +56,6 @@
   "tours.showAllFiltered": "Alle ritten tonen (van {name})",
   "tours.noMatch": "Geen ritten komen overeen met je filters.",
 
-  "detail.date": "Datum",
   "detail.distance": "Afstand",
   "detail.elevationGain": "Hoogtewinst",
   "detail.duration": "Duur",
