@@ -175,6 +175,11 @@
   touch-action: pan-x pan-y;
 }
 
+/* Grey, not hue-rotated: inverted greens turn harsh; the route pane above is unaffected. */
+.map-tiles-dark {
+  filter: grayscale(1) invert(1) brightness(0.9) contrast(0.9);
+}
+
 .map-top-controls {
   position: absolute;
   top: 12px;

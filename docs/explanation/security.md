@@ -54,9 +54,7 @@ hosts, and drops Azurite. It fails the deploy if a host is not a bare `https`
 origin, or if the development policy no longer contains what it replaces. The
 post-deploy smoke test checks the served page names the API and no development
 host. `style-src 'unsafe-inline'` stays: Leaflet positions its map elements
-with inline styles. `connect-src` allows `https://tiles.openfreemap.org`, where
-MapLibre fetches the basemap's style, tiles, fonts and sprites; its worker is a
-same-origin module, so no `worker-src` or `blob:` script source is needed.
+with inline styles.
 
 Three protections cannot be delivered that way and are currently **not** in effect:
 

@@ -6,7 +6,6 @@ import {
   moveMapIntoDetailPanel,
   restoreMapToAppLayout,
   whenLeavingMobileLayout,
-  showBasemap,
 } from './ui/map.js';
 import * as dom from './ui/dom.js';
 import { signIn, signOut, initAuth } from './ui/auth.js';
@@ -310,7 +309,6 @@ async function start() {
   setupSortMenu();
   setupLineStyleMenu();
   await initAuth();
-  await showBasemap();
 }
 
 start().catch(reportUnexpectedError);
