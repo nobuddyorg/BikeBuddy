@@ -1,1 +1,3 @@
-https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js
+Copied from the npm package @azure/msal-browser@3.30.0 (integrity pinned in frontend/package-lock.json)
+by scripts/quality/verify-vendor.mjs --write:
+  lib/msal-browser.min.js -> msal-browser.min.js  sha256-Jz1EazgYFOVjRCJnoHKQT7O3/QFk9KaI7egPDXRWWz4=
