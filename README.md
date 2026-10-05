@@ -2,7 +2,6 @@
 
 BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any ride (cycling or motorcycling), visualize them as routes on the map, and attach photos.
 
-**Stack**
 [![JavaScript](https://img.shields.io/badge/frontend-vanilla%20JavaScript-F7DF1E?logo=javascript&logoColor=black)](https://github.com/nobuddyorg/BikeBuddy/blob/main/docs/explanation/design-decisions.md#no-frontend-framework)
 [![Leaflet](https://img.shields.io/badge/map-Leaflet-199900?logo=leaflet&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/frontend/src/vendor/.leaflet-source)
 [![OpenStreetMap](https://img.shields.io/badge/map%20data-OpenStreetMap-7EBC6F?logo=openstreetmap&logoColor=white)](https://www.openstreetmap.org/copyright)
@@ -18,8 +17,6 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 [![OpenTofu](https://img.shields.io/badge/infrastructure-OpenTofu-844FBA?logo=opentofu&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/tree/main/infrastructure)
 [![Docker](https://img.shields.io/badge/local%20stack-Docker-2496ED?logo=docker&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/docs/how-to/developer-guide.md#local-development)
 [![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/tree/main/.github/workflows)
-
-**Lint & format**
 [![ESLint](https://img.shields.io/badge/lint-ESLint-4B32C3?logo=eslint&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/functions/eslint.config.js)
 [![Prettier](https://img.shields.io/badge/format-Prettier-F7B93E?logo=prettier&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/functions/.prettierrc.json)
 [![SonarJS](https://img.shields.io/badge/code%20smells-SonarJS-4E9BCD?logo=sonar&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/functions/eslint.config.js)
@@ -30,12 +27,8 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 [![actionlint](https://img.shields.io/badge/workflows-actionlint-2088FF?logo=githubactions&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/.pre-commit-config.yaml)
 [![TFLint](https://img.shields.io/badge/IaC%20lint-TFLint-844FBA?logo=opentofu&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/.tflint.hcl)
 [![prek](https://img.shields.io/badge/hooks-prek-brightgreen)](https://github.com/nobuddyorg/BikeBuddy/blob/main/.pre-commit-config.yaml)
-
-**Architecture**
 [![dependency-cruiser](https://img.shields.io/badge/architecture-dependency--cruiser-orange)](https://github.com/nobuddyorg/BikeBuddy/blob/main/.dependency-cruiser.cjs)
 [![Knip](https://img.shields.io/badge/dead%20code-Knip-000000?logo=knip&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/functions/knip.jsonc)
-
-**Security**
 [![gitleaks](https://img.shields.io/badge/secrets-gitleaks-C0392B)](https://github.com/nobuddyorg/BikeBuddy/blob/main/.gitleaks.toml)
 [![zizmor](https://img.shields.io/badge/GH%20Actions-zizmor-blueviolet)](https://github.com/nobuddyorg/BikeBuddy/blob/main/.github/zizmor.yml)
 [![Opengrep](https://img.shields.io/badge/SAST-Opengrep-blue?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB2aWV3Qm94PSI4MCA2MTAgNjIgNTciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSI%2BPHBhdGggZD0iTTExNyA2MTguOUMxMTEuNCA2MjQuOSAxMTAuNiA2MzQuNSAxMTAuOSA2MzguNkg5OC4zQzk4LjggNjI2LjEgMTAzLjIgNjE5LjkgMTA1LjMgNjE4LjNDMTA2LjIgNjE3LjUgMTA4LjYgNjE2IDExMS4zIDYxNkMxMTQgNjE2IDExNi4yIDYxOCAxMTcgNjE4LjlaTTExNyA2MTguOUMxMjIuNSA2MjQuOSAxMjMuMyA2MzQuNSAxMjMuMSA2MzguNkgxMzUuNkMxMzUuMSA2MjYuMSAxMzAuOCA2MTkuOSAxMjguNyA2MTguM0MxMjcuOCA2MTcuNSAxMjUuNCA2MTYgMTIyLjYgNjE2QzExOS45IDYxNiAxMTcuNyA2MTggMTE3IDYxOC45Wk0xMDQuNyA2NTguM0M5OS4xIDY1Mi4zIDk4LjMgNjQyLjcgOTguNiA2MzguN0g4NkM4Ni41IDY1MS4xIDkwLjkgNjU3LjQgOTMgNjU4LjlDOTMuOSA2NTkuNyA5Ni4zIDY2MS4yIDk5IDY2MS4yQzEwMS43IDY2MS4yIDEwMy45IDY1OS4zIDEwNC43IDY1OC4zWk0xMDQuNyA2NTguM0MxMTAuMiA2NTIuMyAxMTEgNjQyLjcgMTEwLjggNjM4LjdIMTIzLjNDMTIyLjggNjUxLjEgMTE4LjUgNjU3LjQgMTE2LjQgNjU4LjlDMTE1LjUgNjU5LjcgMTEzIDY2MS4yIDExMC4zIDY2MS4yQzEwNy42IDY2MS4yIDEwNS40IDY1OS4zIDEwNC43IDY1OC4zWiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzLjUiLz48L3N2Zz4%3D)](https://github.com/nobuddyorg/BikeBuddy/security/code-scanning?query=tool%3A%22Opengrep+OSS%22)
@@ -43,20 +36,14 @@ BikeBuddy – Your ride, your routes, your memories. Upload GPX tours from any r
 [![Trivy](https://img.shields.io/badge/IaC%20misconfig-Trivy-1904DA?logo=trivy&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/security/code-scanning?query=tool%3ATrivy)
 [![OWASP ZAP](https://img.shields.io/badge/DAST-OWASP%20ZAP-FFC933?logo=owasp&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/tree/main/.zap)
 [![lockfile-lint](https://img.shields.io/badge/supply%20chain-lockfile--lint-CB3837?logo=npm&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/.pre-commit-config.yaml)
-
-**Tests**
 [![Vitest](https://img.shields.io/badge/unit-Vitest-6E9F18?logo=vitest&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/functions/vitest.config.js)
 [![Playwright](https://custom-icon-badges.demolab.com/badge/e2e-Playwright-2EAD33?logo=playwright&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/blob/main/e2e/playwright.config.ts)
 [![Accessibility](https://img.shields.io/badge/a11y-axe--core-663399?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48IS0tISBGb250IEF3ZXNvbWUgRnJlZSA2LjcuMiBieSBAZm9udGF3ZXNvbWUgLSBodHRwczovL2ZvbnRhd2Vzb21lLmNvbSBMaWNlbnNlIC0gaHR0cHM6Ly9mb250YXdlc29tZS5jb20vbGljZW5zZS9mcmVlIChJY29uczogQ0MgQlkgNC4wLCBGb250czogU0lMIE9GTCAxLjEsIENvZGU6IE1JVCBMaWNlbnNlKSBDb3B5cmlnaHQgMjAyNCBGb250aWNvbnMsIEluYy4gLS0%2BPHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTAgMjU2YTI1NiAyNTYgMCAxIDEgNTEyIDBBMjU2IDI1NiAwIDEgMSAwIDI1NnptMTYxLjUtODYuMWMtMTIuMi01LjItMjYuMyAuNC0zMS41IDEyLjZzLjQgMjYuMyAxMi42IDMxLjVsMTEuOSA1LjFjMTcuMyA3LjQgMzUuMiAxMi45IDUzLjYgMTYuM2wwIDUwLjFjMCA0LjMtLjcgOC42LTIuMSAxMi42bC0yOC43IDg2LjFjLTQuMiAxMi42IDIuNiAyNi4yIDE1LjIgMzAuNHMyNi4yLTIuNiAzMC40LTE1LjJsMjQuNC03My4yYzEuMy0zLjggNC44LTYuNCA4LjgtNi40czcuNiAyLjYgOC44IDYuNGwyNC40IDczLjJjNC4yIDEyLjYgMTcuOCAxOS40IDMwLjQgMTUuMnMxOS40LTE3LjggMTUuMi0zMC40bC0yOC43LTg2LjFjLTEuNC00LjEtMi4xLTguMy0yLjEtMTIuNmwwLTUwLjFjMTguNC0zLjUgMzYuMy04LjkgNTMuNi0xNi4zbDExLjktNS4xYzEyLjItNS4yIDE3LjgtMTkuMyAxMi42LTMxLjVzLTE5LjMtMTcuOC0zMS41LTEyLjZMMzM4LjcgMTc1Yy0yNi4xIDExLjItNTQuMiAxNy04Mi43IDE3cy01Ni41LTUuOC04Mi43LTE3bC0xMS45LTUuMXpNMjU2IDE2MGE0MCA0MCAwIDEgMCAwLTgwIDQwIDQwIDAgMSAwIDAgODB6Ii8%2BPC9zdmc%2B)](https://github.com/nobuddyorg/BikeBuddy/blob/main/e2e/axe.ts)
 [![fast-check](https://img.shields.io/badge/property%20tests-fast--check-B5372E)](https://github.com/nobuddyorg/BikeBuddy/blob/main/functions/test/fast-check.setup.js)
 [![codecov](https://codecov.io/gh/nobuddyorg/BikeBuddy/graph/badge.svg?token=Kk7defQRUB)](https://codecov.io/gh/nobuddyorg/BikeBuddy)
 [![Mutation testing badge](https://img.shields.io/endpoint?style=plastic&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fnobuddyorg%2FBikeBuddy%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/nobuddyorg/BikeBuddy/main)
-
-**Performance**
 [![Lighthouse CI](https://img.shields.io/badge/performance-Lighthouse%20CI-F44B21?logo=lighthouse&logoColor=white)](https://github.com/nobuddyorg/BikeBuddy/tree/main/e2e/lighthouse)
 [![Load test (k6)](https://github.com/nobuddyorg/BikeBuddy/actions/workflows/k6-load-test.yml/badge.svg)](https://github.com/nobuddyorg/BikeBuddy/actions/workflows/k6-load-test.yml)
-
-**Status**
 [![Gate](https://github.com/nobuddyorg/BikeBuddy/actions/workflows/gate.yml/badge.svg)](https://github.com/nobuddyorg/BikeBuddy/actions/workflows/gate.yml)
 [![Deploy](https://github.com/nobuddyorg/BikeBuddy/actions/workflows/deploy.yml/badge.svg)](https://github.com/nobuddyorg/BikeBuddy/actions/workflows/deploy.yml)
 [![Last commit](https://img.shields.io/github/last-commit/nobuddyorg/BikeBuddy)](https://github.com/nobuddyorg/BikeBuddy/commits/main)
