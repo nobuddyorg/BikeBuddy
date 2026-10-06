@@ -121,17 +121,27 @@ required when you changed a file in `mutation-targets.mjs`); run
 
 Auth is **Microsoft Entra External ID** (OIDC). How tokens flow:
 
-1. The SPA signs the user in with **MSAL** (popup) and requests the API scope
-   `api://<clientId>/access_as_user`.
+1. The SPA signs the user in with **MSAL** by a full-page redirect (no popup)
+   and requests the API scope `api://<clientId>/access_as_user`. Entra answers
+   to the page itself, the registered redirect URI: a load whose URL carries
+   that answer (`state`, `lib/authFlow.js`) only runs MSAL's redirect bridge,
+   which hands it to the window that asked (`app.js`).
 2. MSAL returns an **access token** (JWT) whose audience (`aud`) is the app's
-   client id. MSAL caches the session in `localStorage` (survives refresh and
-   tab close; moving it off the shared origin is #562).
+   client id. MSAL caches the session in `localStorage`, encrypted with a
+   session-cookie key: it survives refresh and tab close, not a browser
+   restart (moving it off the shared origin is #562).
 3. The frontend sends it as `Authorization: Bearer <token>` on every API call
    (`frontend/src/lib/session.js`). Tokens are only ever renewed silently, one
-   request at a time: a popup outside a click is blocked. A 401 gets one retry
-   with a freshly acquired token; a second 401, or a renewal that needs the
-   user, ends the session, and a toast offers **Sign In**, which opens the popup
-   from that click (#557). Each photo-upload attempt asks for its own token.
+   request at a time. Entra caps a SPA's refresh token at 24 hours; MSAL then
+   renews in a hidden iframe, which needs Entra's cookie as a third-party
+   cookie (Firefox withholds it). So a load whose session has lapsed, or whose
+   cached account a browser restart dropped, makes one silent `prompt=none`
+   redirect per tab when this browser was signed in (`startupStep`); Entra's
+   own session signs the user straight back in. A 401 gets one retry with a
+   freshly acquired token; a second 401, or a renewal that needs the user,
+   ends the session, and a toast offers **Sign In** (#557). Any MSAL error but
+   a network failure counts as needing the user (`needsSignIn`). Each
+   photo-upload attempt asks for its own token.
 4. `functions/src/middleware/authMiddleware.js` validates it: it reads the
    issuer + JWKS URI from the tenant's OIDC discovery document, verifies the
    RS256 signature, and checks `aud == ENTRA_CLIENT_ID`, the issuer and that

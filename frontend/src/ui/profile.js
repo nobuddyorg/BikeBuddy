@@ -3,7 +3,7 @@ import { initials, formatDate } from '../lib/format.js';
 import { parseErrorMessage } from '../lib/upload.js';
 import { state } from './state.js';
 import { apiRequest } from './api.js';
-import { refreshUser, renderNavAuth, signOut } from './auth.js';
+import { refreshUser, renderNavAuth, endLocalSession } from './auth.js';
 import { toast } from './toast.js';
 import { openModal, closeModal } from './modal.js';
 import {
@@ -140,5 +140,5 @@ export async function deleteMyAccount() {
   closeDeleteAccountModal();
   closeProfile();
   toast(t('toast.accountDeleted'), { type: 'success' });
-  await signOut();
+  await endLocalSession();
 }

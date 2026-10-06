@@ -11,7 +11,10 @@ const LIBRARIES = [
   {
     packageName: '@azure/msal-browser',
     provenanceFile: '.msal-source',
-    files: [['lib/msal-browser.min.js', 'msal-browser.min.js']],
+    files: [
+      ['lib/msal-browser.min.js', 'msal-browser.min.js'],
+      ['lib/redirect-bridge/msal-redirect-bridge.min.js', 'msal-redirect-bridge.min.js'],
+    ],
   },
   {
     packageName: 'leaflet',

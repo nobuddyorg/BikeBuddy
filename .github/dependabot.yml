@@ -78,8 +78,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
-      # Held on 3.x (#564): v5 needs a redirect-bridge page for popups and drops the session on a
-      # browser restart; the move is a decision of its own, not a version bump.
+      # Majors held (#564): each changed how the page receives Entra's answer, and no CI job signs
+      # in to the real tenant; a major move is a decision of its own with a manual sign-in check.
       - dependency-name: "@azure/msal-browser"
         update-types: ["version-update:semver-major"]
     groups:

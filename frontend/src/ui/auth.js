@@ -21,7 +21,15 @@ import { clearRouteLayer } from './routes.js';
 import { clearPins } from './pins.js';
 import { renderSidebar, loadTours } from './sidebar.js';
 import { userFromAccount, userFromAuthResult } from '../lib/authConfig.js';
-import { API_BASE, AUTH_CONFIG, LOGIN_REQUEST, apiRequest, createAuthClient } from './api.js';
+import { startupStep } from '../lib/authFlow.js';
+import {
+  API_BASE,
+  AUTH_CONFIG,
+  LOGIN_REQUEST,
+  apiRequest,
+  createAuthClient,
+  isSessionUsable,
+} from './api.js';
 import { toast } from './toast.js';
 import { whenAnnounced, SESSION_EXPIRED } from './events.js';
 
@@ -29,13 +37,15 @@ const ACCOUNT_DELETED = 410;
 
 const t = i18n.t;
 
-// MSAL's code for a sign-in popup the user closed.
-const USER_CANCELLED = 'user_cancelled';
-
 let msalClient;
 
 // Dev mode has no session to clear, so an explicit sign-out is remembered here.
 const DEV_SIGNED_OUT_KEY = 'bb-dev-signed-out';
+// Set while a session exists, so a load after it lapsed (24-hour refresh token, browser restart)
+// renews it silently instead of showing a stranger's signed-out page.
+const SIGNED_IN_KEY = 'bb-signed-in';
+// The tab's one silent (prompt=none) sign-in redirect, so a failed one never loops.
+const SILENT_SIGN_IN_KEY = 'bb-silent-sign-in';
 
 const SYNTHETIC_USER = {
   id: 'local-dev-user',
@@ -76,6 +86,51 @@ function isDevSignedOut() {
   }
 }
 
+// Storage can be blocked: the flags then stay unset, which only costs the silent renewal.
+function setFlag(storage, key) {
+  try {
+    storage.setItem(key, '1');
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
+function clearFlag(storage, key) {
+  try {
+    storage.removeItem(key);
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
+function readFlag(storage, key) {
+  try {
+    return Boolean(storage.getItem(key));
+  } catch {
+    return false;
+  }
+}
+
+const rememberSignedIn = () => setFlag(localStorage, SIGNED_IN_KEY);
+const forgetSignedIn = () => clearFlag(localStorage, SIGNED_IN_KEY);
+
+// Read once per load: the flag only guards the redirect that this load may start.
+function takeSilentSignInFlag() {
+  const tried = readFlag(sessionStorage, SILENT_SIGN_IN_KEY);
+  clearFlag(sessionStorage, SILENT_SIGN_IN_KEY);
+  return tried;
+}
+
+async function signInSilently() {
+  setFlag(sessionStorage, SILENT_SIGN_IN_KEY);
+  await msalClient.loginRedirect({ ...LOGIN_REQUEST, prompt: 'none' });
+}
+
+// The page as the bridge (app.js): hands the identity provider's answer to the window that asked.
+export async function relayAuthResponse() {
+  await window.msalRedirectBridge.broadcastResponseToMainFrame();
+}
+
 export async function initAuth() {
   if (AUTH_CONFIG.useDevAuth) {
     if (isDevSignedOut()) {
@@ -86,13 +141,52 @@ export async function initAuth() {
     return;
   }
   msalClient = await createAuthClient();
-  const [account] = msalClient.getAllAccounts();
-  if (!account) {
+  const silentSignInTried = takeSilentSignInFlag();
+  let result;
+  try {
+    result = await msalClient.handleRedirectPromise();
+  } catch (error) {
+    // A silent sign-in that found no Entra session, or an interactive one that failed.
+    console.warn(error);
+    if (silentSignInTried) return endLapsedSession();
     renderNavAuth();
+    toast(t('toast.signInError'), { type: 'error' });
     return;
   }
-  state.user = userFromAccount(account);
-  await renderSignedIn();
+  if (result) {
+    state.user = userFromAuthResult(result);
+    return startSignedIn();
+  }
+  await restoreSession(silentSignInTried);
+}
+
+async function restoreSession(silentSignInTried) {
+  const [account] = msalClient.getAllAccounts();
+  const step = startupStep({
+    hasAccount: Boolean(account),
+    sessionUsable: Boolean(account) && (await isSessionUsable()),
+    wasSignedIn: readFlag(localStorage, SIGNED_IN_KEY),
+    silentSignInTried,
+  });
+  if (step === 'restore') {
+    state.user = userFromAccount(account);
+    return startSignedIn();
+  }
+  if (step === 'silent-sign-in') return signInSilently();
+  if (step === 'session-ended') return endLapsedSession();
+  renderNavAuth();
+}
+
+function startSignedIn() {
+  rememberSignedIn();
+  return renderSignedIn();
+}
+
+// Signing in again would need the user's hand; the next load must not try silently again.
+function endLapsedSession() {
+  forgetSignedIn();
+  renderNavAuth();
+  offerSignIn();
 }
 
 export async function signIn() {
@@ -101,41 +195,46 @@ export async function signIn() {
     await devSignIn();
     return;
   }
-  let result;
+  // A redirect, not a popup: no popup blocker, and the answer comes back through the bridge.
   try {
-    result = await msalClient.loginPopup(LOGIN_REQUEST);
+    await msalClient.loginRedirect(LOGIN_REQUEST);
   } catch (error) {
-    if (error.errorCode === USER_CANCELLED) return;
     console.error(error);
     toast(t('toast.signInError'), { type: 'error' });
-    return;
-  }
-  state.user = userFromAuthResult(result);
-  await renderSignedIn();
-}
-
-async function endProviderSession() {
-  if (AUTH_CONFIG.useDevAuth) {
-    localStorage.setItem(DEV_SIGNED_OUT_KEY, '1');
-    return;
-  }
-  try {
-    await msalClient.logoutPopup({ account: msalClient.getAllAccounts()[0] });
-  } catch (error) {
-    // The local session ends regardless; only the provider's cookie may outlive it.
-    console.warn(error);
   }
 }
 
 // The account is being deleted: its identity is gone within a day, so the session ends now.
 async function signOutDeletedAccount() {
   toast(t('errors.accountDeleted'), { type: 'error' });
-  await signOut();
+  await endLocalSession();
+}
+
+/**
+ * Ends the session in this browser only, so the page and its message stay; the provider's cookie
+ * may outlive it (account deletion, whose directory user is gone within a day).
+ */
+export async function endLocalSession() {
+  if (AUTH_CONFIG.useDevAuth) {
+    localStorage.setItem(DEV_SIGNED_OUT_KEY, '1');
+  } else {
+    forgetSignedIn();
+    await msalClient.clearCache();
+  }
+  clearSignedInState();
 }
 
 export async function signOut() {
-  await endProviderSession();
-  clearSignedInState();
+  if (AUTH_CONFIG.useDevAuth) return endLocalSession();
+  forgetSignedIn();
+  try {
+    // Leaves the page for Entra's sign-out, which returns to it signed out.
+    await msalClient.logoutRedirect({ account: msalClient.getAllAccounts()[0] });
+  } catch (error) {
+    // The local session ends regardless; only the provider's cookie may outlive it.
+    console.warn(error);
+    await endLocalSession();
+  }
 }
 
 function clearSignedInState() {
@@ -153,14 +252,18 @@ function clearSignedInState() {
   renderNavAuth();
 }
 
-// The popup opens from the toast's button: outside a click the browser would block it.
-function askToSignInAgain() {
-  if (!state.user) return;
-  clearSignedInState();
+function offerSignIn() {
   toast(t('errors.unauthorized'), {
     type: 'error',
     action: { label: t('nav.signIn'), onClick: signIn },
   });
+}
+
+// Mid-session the sign-in waits for the toast's button: a redirect would drop unsaved work.
+function askToSignInAgain() {
+  if (!state.user) return;
+  clearSignedInState();
+  offerSignIn();
 }
 
 whenAnnounced(SESSION_EXPIRED, askToSignInAgain);
