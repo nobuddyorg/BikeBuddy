@@ -67,6 +67,7 @@ export const FUNCTIONS_TARGETS = [
 export const FRONTEND_TARGETS = [
   'src/lib/apiErrors.js',
   'src/lib/authConfig.js',
+  'src/lib/authFlow.js',
   'src/lib/concurrency.js',
   'src/lib/debounce.js',
   'src/lib/files.js',

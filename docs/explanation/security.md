@@ -54,7 +54,10 @@ hosts, and drops Azurite. It fails the deploy if a host is not a bare `https`
 origin, or if the development policy no longer contains what it replaces. The
 post-deploy smoke test checks the served page names the API and no development
 host. `style-src 'unsafe-inline'` stays: Leaflet positions its map elements
-with inline styles.
+with inline styles. `frame-src` allows `'self'` besides Entra: MSAL's hidden
+renewal iframe ends on this page, its redirect bridge, so without it every
+silent renewal past the 24-hour refresh token was blocked and timed out
+(`e2e/tests/entra-sign-in.spec.ts`).
 
 Three protections cannot be delivered that way and are currently **not** in effect:
 

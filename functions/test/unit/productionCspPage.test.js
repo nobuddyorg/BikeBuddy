@@ -22,7 +22,8 @@ describe('the published frontend/src/index.html', () => {
       "connect-src 'self' https://bikebuddy.ciamlogin.com https://login.microsoftonline.com " +
         'https://bikebuddy-api-abc123.azurewebsites.net https://bikebuddyfilesabc123.blob.core.windows.net;',
     );
-    expect(production).toContain('frame-src https://bikebuddy.ciamlogin.com ');
+    // 'self': Entra sends MSAL's hidden renewal iframe back to this page, the redirect bridge.
+    expect(production).toContain("frame-src 'self' https://bikebuddy.ciamlogin.com ");
   });
 
   it('keeps no wildcard Azure host and no local emulator', () => {

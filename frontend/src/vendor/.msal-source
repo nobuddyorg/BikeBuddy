@@ -1,3 +1,4 @@
-Copied from the npm package @azure/msal-browser@3.30.0 (integrity pinned in frontend/package-lock.json)
+Copied from the npm package @azure/msal-browser@5.24.0 (integrity pinned in frontend/package-lock.json)
 by scripts/quality/verify-vendor.mjs --write:
-  lib/msal-browser.min.js -> msal-browser.min.js  sha256-Jz1EazgYFOVjRCJnoHKQT7O3/QFk9KaI7egPDXRWWz4=
+  lib/msal-browser.min.js -> msal-browser.min.js  sha256-zt34mdXkYmFeZh2oIOxP0k3onm6tAvCkksANRWadl28=
+  lib/redirect-bridge/msal-redirect-bridge.min.js -> msal-redirect-bridge.min.js  sha256-n0YjNupGtggoH7HEeTIwgZfg9uEfxN6jq6ZNkHaBmEI=

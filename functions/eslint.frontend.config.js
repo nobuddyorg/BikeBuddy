@@ -2,7 +2,7 @@
 
 // ESLint config for the browser frontend (frontend/src + frontend/test).
 // The app and its helpers are ES modules; the few classic scripts (config.js)
-// rely on browser/CDN globals (Leaflet `L`, `msal`, `BIKEBUDDY_CONFIG`).
+// rely on browser/CDN globals (Leaflet `L`, `msal`, `msalRedirectBridge`, `BIKEBUDDY_CONFIG`).
 const js = require('@eslint/js');
 const sonarjs = require('eslint-plugin-sonarjs');
 const globals = require('globals');
@@ -32,6 +32,7 @@ module.exports = [
         ...globals.browser,
         L: 'readonly',
         msal: 'readonly',
+        msalRedirectBridge: 'readonly',
         BIKEBUDDY_CONFIG: 'readonly',
       },
     },

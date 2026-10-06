@@ -8,7 +8,9 @@ import {
   whenLeavingMobileLayout,
 } from './ui/map.js';
 import * as dom from './ui/dom.js';
-import { signIn, signOut, initAuth } from './ui/auth.js';
+import { signIn, signOut, initAuth, relayAuthResponse } from './ui/auth.js';
+import { wakeApi } from './ui/api.js';
+import { hasAuthResponse } from './lib/authFlow.js';
 import {
   openProfile,
   saveProfileName,
@@ -299,6 +301,7 @@ function reportUnexpectedError(error) {
 window.addEventListener('unhandledrejection', (event) => reportUnexpectedError(event.reason));
 
 async function start() {
+  wakeApi();
   try {
     await i18n.init();
   } finally {
@@ -311,10 +314,17 @@ async function start() {
   await initAuth();
 }
 
-start().catch(reportUnexpectedError);
-
-if ('serviceWorker' in navigator) {
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch((error) => console.warn(error));
   });
+}
+
+// MSAL's redirect URI is this page: a load carrying the sign-in answer only relays it.
+if (hasAuthResponse(location)) {
+  relayAuthResponse().catch(reportUnexpectedError);
+} else {
+  start().catch(reportUnexpectedError);
+  registerServiceWorker();
 }

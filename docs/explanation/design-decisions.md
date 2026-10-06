@@ -20,14 +20,21 @@ re-copies the files and rewrites the `.msal-source`/`.leaflet-source`
 provenance with their SHA-256. A bump PR therefore cannot merge with stale
 vendored code.
 
-MSAL stays on 3.x: `.github/dependabot.yml` ignores its major updates. Since v5
-every popup and silent flow needs a redirect-bridge page at the redirect URI
-(either `index.html` doubling as the bridge, or a page of its own and a changed
-redirect URI in the Entra registration), and since v4 the localStorage cache is
-encrypted with a session-cookie key, so a browser restart signs the user out. No
-CI job runs a real Entra sign-in, so the move is a decision of its own, taken
-with a manual sign-in check, not a Dependabot merge. Minor and patch updates of
-3.x still arrive.
+MSAL is on 5.x, and `.github/dependabot.yml` still ignores its major updates:
+each changed how the browser receives Entra's answer, and no CI job can sign in
+to the real tenant, so a major move is a decision of its own with a manual
+sign-in check. Since v5 every flow needs a redirect-bridge page at the redirect
+URI; `index.html` doubles as the bridge (`app.js` relays a load carrying the
+answer and starts nothing), so the redirect URI registered in Entra stays the
+page itself. Sign-in and sign-out are full-page redirects: a v5 popup cannot
+tell when the user closes it and only times out, after 60 seconds by default.
+Since v4 the localStorage cache is encrypted with a session-cookie key, so a
+browser restart drops it; with Entra's 24-hour cap on a SPA's refresh token
+and Firefox withholding the third-party cookie MSAL's hidden iframe needs,
+that is why a lapsed session gets one silent `prompt=none` redirect per tab
+(developer-guide.md, "Authentication & tokens"). `e2e/tests/entra-sign-in.spec.ts`
+runs the vendored MSAL against a fake tenant (`e2e/fixtures/fake-entra.ts`)
+through each of those flows.
 
 ## Node.js Functions on Flex Consumption
 
@@ -164,6 +171,11 @@ fetching it again (#580).
   "Posture"). Since the track moved out (#615) that read is a small document.
 - **sharp loads on first use.** Every function shares one worker, and `sharp` was 42 of its
   434 ms of `require` at cold start, paid by every function but only used by uploads.
+- **The page wakes the API.** On load, before its scripts set up the session, the deployed
+  page sends a `GET /api/v1/health` it does not wait for (`wakeApi` in `ui/api.js`), so a cold
+  instance starts while MSAL and the translations load. It costs one execution per page load,
+  inside the free grant. Always-ready instances would remove the cold start but bill while
+  idle.
 
 ## Upload limits (#549)
 
