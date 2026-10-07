@@ -10,6 +10,8 @@ window.BIKEBUDDY_CONFIG = {
   entraSubdomain: '',
   // Application (client) ID of the SPA app registration in the external tenant.
   entraClientId: '',
+  // Directory (tenant) ID of the external tenant: External ID names its host as the token issuer.
+  entraTenantId: '',
   // Scope the SPA requests for the API, e.g. api://<clientId>/access_as_user.
   entraApiScope: '',
   // Bypass MSAL and use the local dev user (pairs with SKIP_AUTH=true). Default

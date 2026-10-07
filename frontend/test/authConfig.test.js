@@ -5,6 +5,7 @@ const tenant = {
   apiBaseUrl: 'https://api.example.net',
   entraSubdomain: 'bikebuddy',
   entraClientId: 'client-id',
+  entraTenantId: '22222222-2222-4222-8222-222222222222',
   entraApiScope: 'api://client-id/access_as_user',
   devMode: false,
 };
@@ -16,9 +17,18 @@ describe('resolveAuthConfig', () => {
       useDevAuth: false,
       clientId: 'client-id',
       authority: 'https://bikebuddy.ciamlogin.com/',
-      knownAuthorities: ['bikebuddy.ciamlogin.com'],
+      knownAuthorities: [
+        'bikebuddy.ciamlogin.com',
+        '22222222-2222-4222-8222-222222222222.ciamlogin.com',
+      ],
       loginScopes: ['openid', 'profile', 'api://client-id/access_as_user'],
     });
+  });
+
+  it('trusts only the subdomain host without a tenant id', () => {
+    expect(resolveAuthConfig({ ...tenant, entraTenantId: '' }).knownAuthorities).toEqual([
+      'bikebuddy.ciamlogin.com',
+    ]);
   });
 
   it('falls back to dev auth when the tenant is incomplete or devMode is set', () => {

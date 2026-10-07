@@ -36,6 +36,7 @@ rather than silently serving all callers as the shared local dev user.
 | `apiBaseUrl`     | API base URL (empty locally; SWA proxies `/api`) |
 | `entraSubdomain` | External ID subdomain                            |
 | `entraClientId`  | App registration client id                       |
+| `entraTenantId`  | Directory id; its host is the token issuer       |
 | `entraApiScope`  | `api://<clientId>/access_as_user`                |
 | `devMode`        | `true` bypasses MSAL (local)                     |
 
