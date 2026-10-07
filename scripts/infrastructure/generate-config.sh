@@ -17,12 +17,19 @@ if [ -n "${ENTRA_CLIENT_ID:-}" ]; then
   API_SCOPE="api://${ENTRA_CLIENT_ID}/access_as_user"
 fi
 
+# MSAL refuses External ID's issuer (the tenant-ID host) unless config.js names it: sign-in would fail.
+if [ -n "${ENTRA_SUBDOMAIN:-}" ] && [ -z "${ENTRA_TENANT_ID:-}" ]; then
+  echo "ERROR: ENTRA_TENANT_ID must be set together with ENTRA_SUBDOMAIN." >&2
+  exit 1
+fi
+
 cat >"$OUTPUT_FILE" <<JSEOF
 'use strict';
 window.BIKEBUDDY_CONFIG = {
   apiBaseUrl: '${FUNCTIONS_URL:-}',
   entraSubdomain: '${ENTRA_SUBDOMAIN:-}',
   entraClientId: '${ENTRA_CLIENT_ID:-}',
+  entraTenantId: '${ENTRA_TENANT_ID:-}',
   entraApiScope: '${API_SCOPE}',
   devMode: ${DEV_MODE},
 };

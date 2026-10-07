@@ -159,6 +159,7 @@ jobs:
           FUNCTIONS_URL: ${{ needs.infrastructure.outputs.functions_url }}
           ENTRA_SUBDOMAIN: ${{ vars.ENTRA_SUBDOMAIN }}
           ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
+          ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
         run: ./buddy.sh infrastructure generate-config
 
       - name: Narrow the CSP to this deployment's hosts

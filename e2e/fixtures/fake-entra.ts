@@ -5,6 +5,8 @@ import type { Page, Request, Route } from '@playwright/test';
 const SUBDOMAIN = 'bikebuddy-e2e';
 const ORIGIN = `https://${SUBDOMAIN}.ciamlogin.com`;
 const TENANT_ID = '22222222-2222-4222-8222-222222222222';
+// As External ID names it: the tenant-ID host, not the subdomain the app signs in at.
+const ISSUER = `https://${TENANT_ID}.ciamlogin.com/${TENANT_ID}/v2.0`;
 const USER_OID = '33333333-3333-4333-8333-333333333333';
 const CLIENT_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -19,6 +21,7 @@ const ENTRA_CONFIG_JS = `'use strict';\nwindow.BIKEBUDDY_CONFIG = ${JSON.stringi
   apiBaseUrl: '',
   entraSubdomain: SUBDOMAIN,
   entraClientId: CLIENT_ID,
+  entraTenantId: TENANT_ID,
   entraApiScope: `api://${CLIENT_ID}/access_as_user`,
   devMode: false,
 })};\n`;
@@ -49,7 +52,7 @@ function idToken(nonce: string) {
   const now = Math.floor(Date.now() / 1000);
   const claims = {
     aud: CLIENT_ID,
-    iss: `${ORIGIN}/${TENANT_ID}/v2.0`,
+    iss: ISSUER,
     iat: now,
     nbf: now,
     exp: now + 3600,
@@ -92,7 +95,7 @@ export async function fakeEntra(page: Page): Promise<FakeEntra> {
 
   const metadata = (route: Route) =>
     json(route, 200, {
-      issuer: `${ORIGIN}/${TENANT_ID}/v2.0`,
+      issuer: ISSUER,
       authorization_endpoint: ENDPOINTS.authorize,
       token_endpoint: ENDPOINTS.token,
       end_session_endpoint: ENDPOINTS.logout,

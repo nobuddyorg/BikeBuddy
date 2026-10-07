@@ -26,8 +26,12 @@ to the real tenant, so a major move is a decision of its own with a manual
 sign-in check. Since v5 every flow needs a redirect-bridge page at the redirect
 URI; `index.html` doubles as the bridge (`app.js` relays a load carrying the
 answer and starts nothing), so the redirect URI registered in Entra stays the
-page itself. Sign-in and sign-out are full-page redirects: a v5 popup cannot
-tell when the user closes it and only times out, after 60 seconds by default.
+page itself. MSAL 5 also checks the `issuer` of Entra's discovery document, which
+External ID names by the tenant-ID host, so `config.js` carries `entraTenantId`
+and that host joins `knownAuthorities`; without it every sign-in and renewal
+fails before leaving the page. Sign-in and sign-out are full-page redirects: a
+v5 popup cannot tell when the user closes it and only times out, after 60
+seconds by default.
 Since v4 the localStorage cache is encrypted with a session-cookie key, so a
 browser restart drops it; with Entra's 24-hour cap on a SPA's refresh token
 and Firefox withholding the third-party cookie MSAL's hidden iframe needs,

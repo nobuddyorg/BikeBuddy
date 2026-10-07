@@ -21,6 +21,7 @@ const CONFIGS = {
     apiBaseUrl: '',
     entraSubdomain: 'example',
     entraClientId: '00000000-0000-0000-0000-000000000000',
+    entraTenantId: '00000000-0000-0000-0000-000000000000',
     entraApiScope: 'api://00000000-0000-0000-0000-000000000000/access_as_user',
     devMode: false,
   },
