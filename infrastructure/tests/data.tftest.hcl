@@ -48,6 +48,7 @@ variables {
   entra_tenant_subdomain = "bikebuddy"
   entra_tenant_id        = "00000000-0000-0000-0000-000000000000"
   entra_client_id        = "11111111-1111-1111-1111-111111111111"
+  budget_contact_email   = "ops@example.com"
 }
 
 run "tracks_are_partitioned_like_tours" {

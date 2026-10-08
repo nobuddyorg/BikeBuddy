@@ -46,7 +46,7 @@ from `config.js.example`.
 ## GitHub Actions
 
 - **Repository secrets:** `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`,
-  `ARM_SUBSCRIPTION_ID`, `ARM_TENANT_ID`, `TF_BACKEND_ACCESS_KEY` (deploy);
+  `ARM_SUBSCRIPTION_ID`, `ARM_TENANT_ID`, `TF_BACKEND_ACCESS_KEY`, `BUDGET_CONTACT_EMAIL` (deploy);
   `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` (account-deletion
   job).
 - **`ci` environment secrets:** `CODECOV_TOKEN`, `STRYKER_DASHBOARD_API_KEY`.
@@ -56,5 +56,7 @@ from `config.js.example`.
 ## Infrastructure variables (`infrastructure/variables.tf`)
 
 `location` (default `northeurope`), `entra_*`, `budget_amount` (default 5),
-`budget_contact_email` (default in `variables.tf`; moving it to a repository
-variable is #636), `budget_start_date`.
+`budget_contact_email` (required, no default; `deploy.yml` and `destroy.yml`
+pass the `BUDGET_CONTACT_EMAIL` repository secret as `TF_VAR_budget_contact_email`,
+and a locally run `tofu plan` needs the same environment variable),
+`budget_start_date`.

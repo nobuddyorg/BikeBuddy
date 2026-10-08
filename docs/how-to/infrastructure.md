@@ -155,7 +155,10 @@ way, then `tofu plan` to check it matches Azure before anything is applied.
 
 `budget.tf` creates a monthly consumption budget on the resource group
 (`budget_amount`, default 5; `budget_contact_email`; `budget_start_date`) that
-mails at 80 % forecast and 100 % actual spend. See the [cost report](../cost-report.md).
+mails at 80 % forecast and 100 % actual spend. The address has no default: set
+the `BUDGET_CONTACT_EMAIL` repository secret before deploying, or export
+`TF_VAR_budget_contact_email` for a local `tofu plan`; an unset or malformed
+value fails the plan. See the [cost report](../cost-report.md).
 
 ### Monitoring
 

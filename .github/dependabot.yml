@@ -104,3 +104,11 @@ updates:
           - "minor"
     cooldown:
       default-days: 7
+
+  # Provider versions are locked in .terraform.lock.hcl (#566); this raises the bumps (#564).
+  - package-ecosystem: "terraform"
+    directory: "/infrastructure"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
