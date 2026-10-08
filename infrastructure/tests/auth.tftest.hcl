@@ -46,6 +46,7 @@ mock_provider "random" {
 run "refuses_to_deploy_without_entra" {
   command = plan
   variables {
+    budget_contact_email   = "ops@example.com"
     entra_tenant_subdomain = ""
     entra_tenant_id        = ""
     entra_client_id        = ""
@@ -56,6 +57,7 @@ run "refuses_to_deploy_without_entra" {
 run "refuses_a_blank_entra_client_id" {
   command = plan
   variables {
+    budget_contact_email   = "ops@example.com"
     entra_tenant_subdomain = "bikebuddy"
     entra_tenant_id        = "00000000-0000-0000-0000-000000000000"
     entra_client_id        = "   "
@@ -66,6 +68,7 @@ run "refuses_a_blank_entra_client_id" {
 run "deploys_with_entra_and_never_sets_skip_auth" {
   command = plan
   variables {
+    budget_contact_email   = "ops@example.com"
     entra_tenant_subdomain = "bikebuddy"
     entra_tenant_id        = "00000000-0000-0000-0000-000000000000"
     entra_client_id        = "11111111-1111-1111-1111-111111111111"
