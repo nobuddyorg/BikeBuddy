@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 400 400">
+  <defs>
+    <path id="bk-map" d="M30 262 L130 240 L230 262 L344 238 L372 334 L258 358 L158 336 L58 358 Z"/>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round" transform="translate(0 -24)">
+    <!-- black sticker backing -->
+    <g fill="#1b1002" stroke="#1b1002" stroke-width="30">
+      <use href="#bk-map"/>
+      <circle cx="104" cy="222" r="42"/><circle cx="286" cy="222" r="42"/>
+      <path d="M70 140 L112 148 L172 136 Q186 112 228 112 L262 108 L292 136 L292 196 L104 196 Z"/>
+    </g>
+    <!-- folded map with dashed route -->
+    <g stroke="#1b1002" stroke-width="8">
+      <path d="M30 262 L130 240 L158 336 L58 358 Z" fill="#f2b632"/>
+      <path d="M130 240 L230 262 L258 358 L158 336 Z" fill="#d6981f"/>
+      <path d="M230 262 L344 238 L372 334 L258 358 Z" fill="#f2b632"/>
+    </g>
+    <path d="M66 334 C100 306 146 326 176 306 S236 288 266 306 S326 306 340 278" fill="none" stroke="#1b1002" stroke-width="8" stroke-dasharray="14 12"/>
+    <!-- wheels -->
+    <g fill="#1b1002"><circle cx="104" cy="222" r="38"/><circle cx="286" cy="222" r="38"/></g>
+    <g fill="none" stroke="#f2b632" stroke-width="7">
+      <circle cx="104" cy="222" r="25"/><circle cx="286" cy="222" r="25"/>
+      <path d="M104 197 V247 M82 210 L126 234 M82 234 L126 210 M286 197 V247 M264 210 L308 234 M264 234 L308 210" stroke-width="4"/>
+    </g>
+    <circle cx="104" cy="222" r="8" fill="#f2b632" stroke="#1b1002" stroke-width="4"/>
+    <circle cx="286" cy="222" r="8" fill="#f2b632" stroke="#1b1002" stroke-width="4"/>
+    <!-- swingarm, fork, frame -->
+    <path d="M104 222 L186 196" stroke="#f2b632" stroke-width="9"/>
+    <path d="M258 122 L286 222" stroke="#f2b632" stroke-width="10"/>
+    <path d="M258 122 L286 222" stroke="#1b1002" stroke-width="3"/>
+    <!-- exhaust -->
+    <path d="M206 204 L150 200 L86 186" fill="none" stroke="#f2b632" stroke-width="11"/>
+    <path d="M206 204 L150 200 L86 186" fill="none" stroke="#1b1002" stroke-width="3"/>
+    <!-- engine -->
+    <path d="M178 160 L240 160 L232 204 L188 204 Z" fill="#d6981f" stroke="#1b1002" stroke-width="7"/>
+    <path d="M192 172 H228 M190 184 H226 M188 196 H222" stroke="#1b1002" stroke-width="4"/>
+    <!-- seat, tail, tank -->
+    <path d="M74 140 L112 150 L172 148 L176 164 L108 166 Z" fill="#f2b632" stroke="#1b1002" stroke-width="7"/>
+    <path d="M112 150 L172 148" stroke="#1b1002" stroke-width="10"/>
+    <path d="M166 154 Q176 120 222 118 Q252 118 258 140 L244 162 L174 164 Z" fill="#f2b632" stroke="#1b1002" stroke-width="8"/>
+    <path d="M186 138 Q204 128 230 130" fill="none" stroke="#fbe2a0" stroke-width="6"/>
+    <!-- handlebar + headlight -->
+    <path d="M244 112 L272 106" stroke="#f2b632" stroke-width="9"/>
+    <circle cx="282" cy="140" r="14" fill="#fbe2a0" stroke="#1b1002" stroke-width="7"/>
+  </g>
+</svg>
