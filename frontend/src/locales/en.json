@@ -29,7 +29,6 @@
   "sidebar.selectedCount.other": "{count} selected",
   "sidebar.deleteSelected": "Delete",
   "sidebar.cancelSelect": "Cancel",
-  "sidebar.tourItemAria": "{name}, {date}, {distance}",
   "sidebar.tourItemMeta": "{date} · {distance}",
 
   "sort.dateDesc": "Newest first",
@@ -61,7 +60,6 @@
   "detail.duration": "Duration",
   "detail.avgSpeed": "Avg speed",
   "detail.photos": "Photos",
-  "detail.addPhotosAria": "Add photos",
   "detail.dropPhotos": "Drop or click to add photos (JPEG/PNG)",
   "detail.edit": "Edit",
   "detail.downloadGpx": "Download GPX",
@@ -121,7 +119,6 @@
   "upload.namePlaceholder": "e.g. Alpine Loop",
   "upload.description": "Description",
   "upload.descPlaceholder": "Optional",
-  "upload.chooseAria": "Choose or drop a GPX file",
   "upload.dropText": "Drag &amp; drop a <strong>.gpx</strong> file here, or click to choose",
   "upload.submit": "Upload",
 

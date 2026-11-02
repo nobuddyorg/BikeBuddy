@@ -29,7 +29,6 @@
   "sidebar.selectedCount.other": "{count} selezionati",
   "sidebar.deleteSelected": "Elimina",
   "sidebar.cancelSelect": "Annulla",
-  "sidebar.tourItemAria": "{name}, {date}, {distance}",
   "sidebar.tourItemMeta": "{date} · {distance}",
 
   "sort.dateDesc": "Più recenti prima",
@@ -61,7 +60,6 @@
   "detail.duration": "Durata",
   "detail.avgSpeed": "Velocità media",
   "detail.photos": "Foto",
-  "detail.addPhotosAria": "Aggiungi foto",
   "detail.dropPhotos": "Trascina o clicca per aggiungere foto (JPEG/PNG)",
   "detail.edit": "Modifica",
   "detail.downloadGpx": "Scarica GPX",
@@ -121,7 +119,6 @@
   "upload.namePlaceholder": "es. Anello alpino",
   "upload.description": "Descrizione",
   "upload.descPlaceholder": "Facoltativo",
-  "upload.chooseAria": "Scegli o trascina un file GPX",
   "upload.dropText": "Trascina qui un file <strong>.gpx</strong>, oppure clicca per sceglierne uno",
   "upload.submit": "Carica",
 

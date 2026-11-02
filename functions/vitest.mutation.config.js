@@ -17,6 +17,7 @@ export default defineConfig({
       'test/unit/frontendContract.test.js',
       'test/unit/zapApiSurface.test.js',
       'test/unit/productionCspPage.test.js',
+      'test/unit/e2eMockContract.test.js',
       '**/node_modules/**',
     ],
     setupFiles: ['test/fast-check.setup.js'],
