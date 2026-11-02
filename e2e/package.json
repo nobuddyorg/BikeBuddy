@@ -23,13 +23,13 @@
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
-    "eslint": "^10.12.0",
+    "eslint": "^10.13.0",
     "eslint-plugin-playwright": "^2.12.1",
     "globals": "^17.13.0",
     "monocart-coverage-reports": "^2.13.2",
     "prettier": "^3.9.10",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.72.0"
   },
   "overrides": {
     "tmp": "0.2.7",
