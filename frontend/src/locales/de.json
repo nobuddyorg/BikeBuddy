@@ -29,7 +29,6 @@
   "sidebar.selectedCount.other": "{count} ausgewählt",
   "sidebar.deleteSelected": "Löschen",
   "sidebar.cancelSelect": "Abbrechen",
-  "sidebar.tourItemAria": "{name}, {date}, {distance}",
   "sidebar.tourItemMeta": "{date} · {distance}",
 
   "sort.dateDesc": "Neueste zuerst",
@@ -61,7 +60,6 @@
   "detail.duration": "Dauer",
   "detail.avgSpeed": "Ø Geschwindigkeit",
   "detail.photos": "Fotos",
-  "detail.addPhotosAria": "Fotos hinzufügen",
   "detail.dropPhotos": "Ablegen oder klicken, um Fotos hinzuzufügen (JPEG/PNG)",
   "detail.edit": "Bearbeiten",
   "detail.downloadGpx": "GPX herunterladen",
@@ -121,7 +119,6 @@
   "upload.namePlaceholder": "z. B. Alpenrunde",
   "upload.description": "Beschreibung",
   "upload.descPlaceholder": "Optional",
-  "upload.chooseAria": "GPX-Datei wählen oder ablegen",
   "upload.dropText": "Ziehe eine <strong>.gpx</strong>-Datei hierher oder klicke zum Auswählen",
   "upload.submit": "Hochladen",
 

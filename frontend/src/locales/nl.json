@@ -29,7 +29,6 @@
   "sidebar.selectedCount.other": "{count} geselecteerd",
   "sidebar.deleteSelected": "Verwijderen",
   "sidebar.cancelSelect": "Annuleren",
-  "sidebar.tourItemAria": "{name}, {date}, {distance}",
   "sidebar.tourItemMeta": "{date} · {distance}",
 
   "sort.dateDesc": "Nieuwste eerst",
@@ -61,7 +60,6 @@
   "detail.duration": "Duur",
   "detail.avgSpeed": "Gem. snelheid",
   "detail.photos": "Foto's",
-  "detail.addPhotosAria": "Foto's toevoegen",
   "detail.dropPhotos": "Sleep of klik om foto's toe te voegen (JPEG/PNG)",
   "detail.edit": "Bewerken",
   "detail.downloadGpx": "GPX downloaden",
@@ -121,7 +119,6 @@
   "upload.namePlaceholder": "bijv. Alpenroute",
   "upload.description": "Beschrijving",
   "upload.descPlaceholder": "Optioneel",
-  "upload.chooseAria": "Kies of sleep een GPX-bestand",
   "upload.dropText": "Sleep hier een <strong>.gpx</strong>-bestand naartoe, of klik om er een te kiezen",
   "upload.submit": "Uploaden",
 

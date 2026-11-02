@@ -29,7 +29,6 @@
   "sidebar.selectedCount.other": "{count} sélectionnées",
   "sidebar.deleteSelected": "Supprimer",
   "sidebar.cancelSelect": "Annuler",
-  "sidebar.tourItemAria": "{name}, {date}, {distance}",
   "sidebar.tourItemMeta": "{date} · {distance}",
 
   "sort.dateDesc": "Plus récentes d'abord",
@@ -61,7 +60,6 @@
   "detail.duration": "Durée",
   "detail.avgSpeed": "Vitesse moyenne",
   "detail.photos": "Photos",
-  "detail.addPhotosAria": "Ajouter des photos",
   "detail.dropPhotos": "Dépose ou clique pour ajouter des photos (JPEG/PNG)",
   "detail.edit": "Modifier",
   "detail.downloadGpx": "Télécharger le GPX",
@@ -121,7 +119,6 @@
   "upload.namePlaceholder": "ex. Boucle alpine",
   "upload.description": "Description",
   "upload.descPlaceholder": "Facultatif",
-  "upload.chooseAria": "Choisir ou déposer un fichier GPX",
   "upload.dropText": "Glisse-dépose un fichier <strong>.gpx</strong> ici, ou clique pour en choisir un",
   "upload.submit": "Importer",
 

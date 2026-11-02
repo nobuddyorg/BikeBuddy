@@ -29,7 +29,6 @@
   "sidebar.selectedCount.other": "{count} seleccionadas",
   "sidebar.deleteSelected": "Eliminar",
   "sidebar.cancelSelect": "Cancelar",
-  "sidebar.tourItemAria": "{name}, {date}, {distance}",
   "sidebar.tourItemMeta": "{date} · {distance}",
 
   "sort.dateDesc": "Más recientes primero",
@@ -61,7 +60,6 @@
   "detail.duration": "Duración",
   "detail.avgSpeed": "Velocidad media",
   "detail.photos": "Fotos",
-  "detail.addPhotosAria": "Añadir fotos",
   "detail.dropPhotos": "Arrastra o haz clic para añadir fotos (JPEG/PNG)",
   "detail.edit": "Editar",
   "detail.downloadGpx": "Descargar GPX",
@@ -121,7 +119,6 @@
   "upload.namePlaceholder": "p. ej. Vuelta alpina",
   "upload.description": "Descripción",
   "upload.descPlaceholder": "Opcional",
-  "upload.chooseAria": "Elegir o soltar un archivo GPX",
   "upload.dropText": "Arrastra y suelta un archivo <strong>.gpx</strong> aquí, o haz clic para elegir",
   "upload.submit": "Subir",
 

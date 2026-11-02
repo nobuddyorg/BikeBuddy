@@ -102,6 +102,7 @@ export function setupLanguageSwitcher() {
       ['lang-name', meta.label],
     ]),
   );
+  languageButton.setAttribute('aria-label', `${meta.flag} ${meta.label}, ${t('profile.langAria')}`);
   languageList.append(...SUPPORTED_LOCALES.map(createLanguageOption));
 
   wirePopover({

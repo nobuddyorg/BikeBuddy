@@ -300,7 +300,9 @@ export function renderNavAuth() {
     return;
   }
   uploadButton.removeAttribute('title');
-  profileButton.textContent = initials(state.user.name || state.user.email);
+  const avatarInitials = initials(state.user.name || state.user.email);
+  profileButton.textContent = avatarInitials;
+  profileButton.setAttribute('aria-label', `${avatarInitials}, ${t('nav.profileAria')}`);
   profileButton.classList.add('btn-avatar');
   profileButton.title = state.user.name || state.user.email || t('common.account');
 }

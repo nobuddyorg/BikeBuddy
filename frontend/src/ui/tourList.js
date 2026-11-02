@@ -96,15 +96,6 @@ function createDetails(tour) {
 }
 
 function describeRow(content, tour) {
-  const locale = i18n.intlLocale();
-  content.setAttribute(
-    'aria-label',
-    t('sidebar.tourItemAria', {
-      name: tour.name || '',
-      date: formatDate(tour.createdAt, locale),
-      distance: formatDistance(tour.distance, locale),
-    }),
-  );
   if (state.selectMode) {
     content.setAttribute('role', 'checkbox');
     content.setAttribute('aria-checked', String(state.selectedIds.has(tour.id)));
