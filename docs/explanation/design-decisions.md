@@ -516,23 +516,34 @@ build until someone bumps it on purpose (#566):
 - **Function package**: `functions/.funcignore` keeps tests, scripts and tool
   configs out of what `func azure functionapp publish` uploads.
 
-Current overrides: `functions/` and `frontend/` pin `qs` to `^6.16.0`,
+Current overrides: `functions/` and `frontend/` pin `qs` to `^6.17.1`,
 because Stryker's `typed-rest-client` pins a vulnerable `qs` exactly
-(GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g). `e2e/` pins `tmp` to `0.2.7` and
-`uuid` to `^14.0.2` for `@lhci/cli` (GHSA-52f5-9888-hmc6, GHSA-w5hq-g745-h8pq).
+(GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g, GHSA-6pq8-jhm2-2vcw). `e2e/` needs
+none: `@lhci/cli` 0.16 no longer pulls `tmp` and requires a fixed `uuid` itself,
+and its Lighthouse 13 runs `puppeteer-core` 25, whose `@puppeteer/browsers` 3
+dropped `extract-zip` (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3).
 
-Accepted risk: `extract-zip` (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3; no
-fixed release) under `@lhci/cli` → `lighthouse` → `puppeteer-core` →
-`@puppeteer/browsers`. It unpacks downloaded browser archives, and Lighthouse CI
-never downloads one here: it runs the Chromium Playwright installs
-(`CHROME_PATH`), on a CI runner or a developer machine, never in production.
-The fix exists one major up: `@puppeteer/browsers` 3 unpacks without
-`extract-zip`, but only `puppeteer-core` 25 depends on it, and `lighthouse`
-12.6.1 (pinned by `@lhci/cli` 0.15.1) takes `puppeteer-core` `^24`, whose last
-release still pins 2.13.2 (checked September 2026). An override would force a
-major under Lighthouse; look again when `@lhci/cli` moves to a Lighthouse on
-`puppeteer-core` 25 (#564).
-Look again when `@lhci/cli` or `lighthouse` bumps `puppeteer-core`.
+Accepted risk, all dev tooling that never reaches production, checked November
+2026:
+
+- `minimatch` 10 (GHSA-g3hv-75wg-m249) under ESLint, typescript-eslint and
+  Stryker in all three packages. The fix is 11.0.1, a major that removes
+  `makeRe()`, `Minimatch#regexp` and the `AST` class, and the latest release of
+  every parent still requires `^10`/`~10.2.4`, so an override would force a
+  major under the linters and the mutation runner. The amplification needs an
+  attacker-supplied pattern at `optimizationLevel` 2; the patterns here come
+  from the repo's own configs. Look again when ESLint or Stryker moves to
+  `minimatch` 11.
+- `basic-ftp` 5 (GHSA-c475-qrg2-pj4r) under `@lhci/cli` → `proxy-agent` →
+  `pac-proxy-agent` → `get-uri`. The fix is in 6.2.1, and even the newest
+  `get-uri` requires `^5`. It parses FTP directory listings; Lighthouse CI
+  never fetches an `ftp:` PAC file. Look again when `get-uri` moves to
+  `basic-ftp` 6.
+- `glob` 13 (GHSA-3g3m-2fjr-6pw4) under `lighthouse` → `@sentry/node` →
+  `@sentry/bundler-plugins`, which requires `^13.0.6`; the fix is 14.0.2. Those
+  are build-time bundler plugins, and Lighthouse loads Sentry only with
+  `enableErrorReporting`, off unless someone opts in. Look again when
+  `lighthouse` bumps `@sentry/node`.
 
 Pinned tools outside a lockfile: Azure Functions Core Tools is installed as
 `azure-functions-core-tools@4.13.0` in CI and deploy, because 4.14.0 ships an
