@@ -162,7 +162,8 @@ jobs:
           flags: functions
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: nobuddyorg/BikeBuddy
-          fail_ci_if_error: true
+          # Reporting only; Vitest's thresholds are the gate, so a Codecov outage must not block merges.
+          fail_ci_if_error: false
 
   # Whole-graph checks over functions/, frontend/ and e2e/; each output is a job-summary section.
   architecture:
@@ -252,7 +253,8 @@ jobs:
           flags: frontend
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: nobuddyorg/BikeBuddy
-          fail_ci_if_error: true
+          # Reporting only; Vitest's thresholds are the gate, so a Codecov outage must not block merges.
+          fail_ci_if_error: false
 
   e2e:
     needs: [prek, changes]
