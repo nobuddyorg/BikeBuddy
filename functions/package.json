@@ -47,7 +47,7 @@
     "eslint-plugin-n": "^18.5.0",
     "eslint-plugin-sonarjs": "^4.2.2",
     "fast-check": "^4.10.2",
-    "globals": "^17.13.0",
+    "globals": "^17.14.0",
     "knip": "^6.44.1",
     "mutation-testing-metrics": "^3.9.0",
     "prettier": "^3.9.10",
