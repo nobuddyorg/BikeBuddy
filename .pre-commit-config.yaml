@@ -24,7 +24,7 @@ repos:
 
   # Spell checking
   - repo: https://github.com/crate-ci/typos
-    rev: v1.51.1
+    rev: v1.52.0
     hooks:
       - id: typos
         # Minified vendor code and non-English locale strings (also quoted in docs/superpowers/) trip it.
@@ -44,7 +44,7 @@ repos:
 
   # zizmor: GitHub Actions security. No --fix: a fix made in CI is discarded (run `zizmor --fix .github`).
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.31.1
+    rev: v1.32.0
     hooks:
       - id: zizmor
 
