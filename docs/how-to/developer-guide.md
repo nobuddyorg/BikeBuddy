@@ -425,6 +425,7 @@ E2E_COVERAGE=1 ./buddy.sh test e2e-fullstack   # full-stack journeys
 - **Reporting**: each job's summary shows the coverage table; Codecov gets the
   lcov files with the flags `functions` and `frontend` (carried forward when a
   path filter skips a suite) and keeps its commit status, without PR comments.
+  A failed upload does not fail the job: Codecov reports, Vitest gates.
 
 ## Mutation testing
 
