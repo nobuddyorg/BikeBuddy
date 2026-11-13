@@ -162,7 +162,8 @@ jobs:
           flags: functions
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: nobuddyorg/BikeBuddy
-          fail_ci_if_error: true
+          # Reporting only; Vitest's thresholds are the gate, so a Codecov outage must not block merges.
+          fail_ci_if_error: false
 
   # Whole-graph checks over functions/, frontend/ and e2e/; each output is a job-summary section.
   architecture:
@@ -252,7 +253,8 @@ jobs:
           flags: frontend
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: nobuddyorg/BikeBuddy
-          fail_ci_if_error: true
+          # Reporting only; Vitest's thresholds are the gate, so a Codecov outage must not block merges.
+          fail_ci_if_error: false
 
   e2e:
     needs: [prek, changes]
@@ -524,7 +526,7 @@ jobs:
         run: ./buddy.sh quality opengrep --sarif-output=opengrep-results.sarif --json-output=opengrep-results.json
 
       - name: Upload SARIF to code scanning
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: opengrep-results.sarif
           category: opengrep
@@ -616,14 +618,14 @@ jobs:
 
       - name: Upload TFLint SARIF to code scanning
         if: ${{ !cancelled() && hashFiles('iac-reports/tflint.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: iac-reports/tflint.sarif
           category: iac-tflint
 
       - name: Upload Trivy SARIF to code scanning
         if: ${{ !cancelled() && hashFiles('iac-reports/trivy.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: iac-reports/trivy.sarif
           category: iac
