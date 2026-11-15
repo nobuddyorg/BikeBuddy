@@ -24,7 +24,7 @@
     "mutation:summary": "node scripts/mutation-summary.mjs --title 'Mutation testing (functions)' --artifact mutation-report-functions"
   },
   "dependencies": {
-    "@azure/cosmos": "^4.10.1",
+    "@azure/cosmos": "^4.10.2",
     "@azure/functions": "^4.17.0",
     "@azure/storage-blob": "^12.34.0",
     "busboy": "^1.6.0",
