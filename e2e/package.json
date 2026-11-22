@@ -20,8 +20,8 @@
     "@azure/cosmos": "^4.10.2",
     "@azure/storage-blob": "^12.34.0",
     "@eslint/js": "^10.0.1",
-    "@lhci/cli": "^0.16.0",
-    "@playwright/test": "^1.65.0",
+    "@lhci/cli": "^0.16.1",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
     "eslint": "^10.13.0",
     "eslint-plugin-playwright": "^2.12.2",
@@ -29,7 +29,7 @@
     "monocart-coverage-reports": "^3.2.1",
     "prettier": "^3.9.10",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.72.0"
+    "typescript-eslint": "^8.72.2"
   },
   "overrides": {
     "basic-ftp": "^6.2.6"
